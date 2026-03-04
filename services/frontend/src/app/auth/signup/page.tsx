@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Button from "@/shared/ui/Button";
+import Input from "@/shared/ui/Input";
 
 export default function SignupPage() {
   const [agreedRequired, setAgreedRequired] = useState(false);
@@ -16,15 +18,15 @@ export default function SignupPage() {
       <section className="card stack">
         <label className="field">
           <span>이메일</span>
-          <input className="input" type="email" placeholder="user@example.com" />
+          <Input type="email" placeholder="user@example.com" />
         </label>
         <label className="field">
           <span>닉네임</span>
-          <input className="input" type="text" placeholder="닉네임" maxLength={20} />
+          <Input type="text" placeholder="닉네임" maxLength={20} />
         </label>
         <label className="field">
           <span>비밀번호</span>
-          <input className="input" type="password" placeholder="8자 이상" />
+          <Input type="password" placeholder="8자 이상" />
         </label>
 
         <label className="row">
@@ -45,9 +47,9 @@ export default function SignupPage() {
           <span>[선택] 이메일 수신 동의</span>
         </label>
 
-        <button type="button" className="button button--primary" disabled={!agreedRequired}>
+        <Button variant="primary" disabled={!agreedRequired}>
           가입하기 (API 연결 예정)
-        </button>
+        </Button>
       </section>
     </main>
   );

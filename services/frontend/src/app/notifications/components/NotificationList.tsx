@@ -1,4 +1,5 @@
-import type { NotificationItem } from "../_api/getNotifications";
+import type { NotificationItem } from "../api/getNotifications";
+import Badge from "@/shared/ui/Badge";
 
 type Props = {
   items: NotificationItem[];
@@ -14,7 +15,7 @@ export default function NotificationList({ items }: Props) {
       {items.map((item) => (
         <article key={item.id} className="list-item stack">
           <div className="row-between">
-            <span className="badge">{item.notifyType}</span>
+            <Badge>{item.notifyType}</Badge>
             <span className="muted">{item.createdAt}</span>
           </div>
           <strong>{item.title}</strong>

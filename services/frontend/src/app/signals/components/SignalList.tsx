@@ -1,4 +1,5 @@
-import type { SignalItem } from "../_api/getSignals";
+import type { SignalItem } from "../api/getSignals";
+import Badge from "@/shared/ui/Badge";
 
 type Props = {
   items: SignalItem[];
@@ -17,7 +18,7 @@ export default function SignalList({ items }: Props) {
             <strong>{item.ticker}</strong>
             <p className="muted">신뢰도 {(item.confidence * 100).toFixed(1)}%</p>
           </div>
-          <span className="badge">{item.signal}</span>
+          <Badge>{item.signal}</Badge>
         </article>
       ))}
     </div>

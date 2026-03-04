@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getNotifications, type NotificationItem } from "../_api/getNotifications";
+import { getNotifications, type NotificationItem } from "../api/getNotifications";
 
 export function useNotifications() {
   const [items, setItems] = useState<NotificationItem[]>([]);

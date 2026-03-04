@@ -1,4 +1,5 @@
-import type { ScrapItem } from "../_api/getScraps";
+import type { ScrapItem } from "../api/getScraps";
+import Button from "@/shared/ui/Button";
 
 type Props = {
   items: ScrapItem[];
@@ -15,9 +16,9 @@ export default function ScrapList({ items }: Props) {
             </strong>
             <p className="muted">관심종목 알림: {item.isNotiEnabled ? "ON" : "OFF"}</p>
           </div>
-          <button className="button" type="button" disabled>
+          <Button disabled>
             제거
-          </button>
+          </Button>
         </article>
       ))}
     </div>

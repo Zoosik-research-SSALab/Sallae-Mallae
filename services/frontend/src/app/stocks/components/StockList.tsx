@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { StockSummary } from "../_api/getStocks";
+import type { StockSummary } from "../api/getStocks";
+import Badge from "@/shared/ui/Badge";
 
 type Props = {
   items: StockSummary[];
@@ -18,7 +19,7 @@ export default function StockList({ items }: Props) {
             <strong>
               {item.name} <span className="muted">({item.ticker})</span>
             </strong>
-            <span className="badge">{item.marketType}</span>
+            <Badge>{item.marketType}</Badge>
           </div>
 
           <div className="row" style={{ flexWrap: "wrap" }}>

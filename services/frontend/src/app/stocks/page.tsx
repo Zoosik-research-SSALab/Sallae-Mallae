@@ -2,6 +2,7 @@
 
 import StockList from "./components/StockList";
 import { useStocks } from "./hooks/useStocks";
+import Badge from "@/shared/ui/Badge";
 
 export default function StocksPage() {
   const { items, isLoading, error } = useStocks();
@@ -15,7 +16,7 @@ export default function StocksPage() {
 
       <section className="card stack">
         {isLoading ? <p>종목 목록 로딩 중...</p> : null}
-        {error ? <p className="badge badge--danger">{error}</p> : null}
+        {error ? <Badge tone="danger">{error}</Badge> : null}
         {!isLoading && !error ? <StockList items={items} /> : null}
       </section>
     </main>

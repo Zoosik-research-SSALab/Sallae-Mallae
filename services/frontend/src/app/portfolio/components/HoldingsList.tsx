@@ -1,4 +1,5 @@
-import type { PortfolioHolding } from "../_api/getChairmanPortfolio";
+import type { PortfolioHolding } from "../api/getChairmanPortfolio";
+import Badge from "@/shared/ui/Badge";
 
 type Props = {
   items: PortfolioHolding[];
@@ -17,10 +18,10 @@ export default function HoldingsList({ items }: Props) {
               </strong>
               <span className="muted">비중 {holding.portfolioWeight.toFixed(2)}%</span>
             </div>
-            <span className={`badge ${holding.returnRate >= 0 ? "badge--ok" : "badge--danger"}`}>
+            <Badge tone={holding.returnRate >= 0 ? "ok" : "danger"}>
               {holding.returnRate >= 0 ? "+" : ""}
               {holding.returnRate.toFixed(2)}%
-            </span>
+            </Badge>
           </article>
         ))}
       </div>

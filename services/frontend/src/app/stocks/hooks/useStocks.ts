@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getStocks, type StockSummary } from "../_api/getStocks";
+import { getStocks, type StockSummary } from "../api/getStocks";
 
 export function useStocks() {
   const [items, setItems] = useState<StockSummary[]>([]);

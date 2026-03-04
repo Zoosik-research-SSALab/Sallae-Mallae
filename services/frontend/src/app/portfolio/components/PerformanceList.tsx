@@ -1,4 +1,5 @@
-import type { DailyPerformance } from "../_api/getChairmanPortfolio";
+import type { DailyPerformance } from "../api/getChairmanPortfolio";
+import Badge from "@/shared/ui/Badge";
 
 type Props = {
   items: DailyPerformance[];
@@ -13,9 +14,9 @@ export default function PerformanceList({ items }: Props) {
           <article key={entry.recordDate} className="list-item row-between">
             <strong>{entry.recordDate}</strong>
             <div className="row" style={{ flexWrap: "wrap" }}>
-              <span className="badge">일일 {entry.dailyReturn.toFixed(2)}%</span>
-              <span className="badge">누적 {entry.cumulativeReturn.toFixed(2)}%</span>
-              <span className="badge">MDD {entry.mdd.toFixed(2)}%</span>
+              <Badge>일일 {entry.dailyReturn.toFixed(2)}%</Badge>
+              <Badge>누적 {entry.cumulativeReturn.toFixed(2)}%</Badge>
+              <Badge>MDD {entry.mdd.toFixed(2)}%</Badge>
             </div>
           </article>
         ))}

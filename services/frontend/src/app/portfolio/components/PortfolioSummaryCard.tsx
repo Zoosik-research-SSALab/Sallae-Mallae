@@ -1,4 +1,5 @@
-import type { ChairmanPortfolio } from "../_api/getChairmanPortfolio";
+import type { ChairmanPortfolio } from "../api/getChairmanPortfolio";
+import Badge from "@/shared/ui/Badge";
 
 type Props = {
   item: ChairmanPortfolio;
@@ -11,7 +12,7 @@ export default function PortfolioSummaryCard({ item }: Props) {
     <section className="card stack">
       <div className="row-between">
         <h2>{item.name}</h2>
-        <span className="badge">출처: {item.source}</span>
+        <Badge>출처: {item.source}</Badge>
       </div>
 
       <div className="kpi-grid">

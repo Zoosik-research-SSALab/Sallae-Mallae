@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getBadgeClassName } from "@/shared/ui/Badge";
 
 type HealthPayload = {
   status?: string;
@@ -58,37 +59,37 @@ export default function HomePage() {
       <section className="card stack">
         <h2>핵심 페이지</h2>
         <div className="row" style={{ flexWrap: "wrap" }}>
-          <Link className="badge" href="/search">
+          <Link className={getBadgeClassName()} href="/search">
             검색창
           </Link>
-          <Link className="badge" href="/signals">
+          <Link className={getBadgeClassName()} href="/signals">
             AI 매매신호
           </Link>
-          <Link className="badge" href="/stocks">
+          <Link className={getBadgeClassName()} href="/stocks">
             종목 목록
           </Link>
-          <Link className="badge" href="/stocks/005930">
+          <Link className={getBadgeClassName()} href="/stocks/005930">
             종목 상세
           </Link>
-          <Link className="badge" href="/reports">
+          <Link className={getBadgeClassName()} href="/reports">
             AI 리포트
           </Link>
-          <Link className="badge" href="/portfolio">
+          <Link className={getBadgeClassName()} href="/portfolio">
             의장 포트폴리오
           </Link>
-          <Link className="badge" href="/scraps">
+          <Link className={getBadgeClassName()} href="/scraps">
             스크랩 목록
           </Link>
-          <Link className="badge" href="/notifications">
+          <Link className={getBadgeClassName()} href="/notifications">
             알림함
           </Link>
-          <Link className="badge" href="/news">
+          <Link className={getBadgeClassName()} href="/news">
             뉴스
           </Link>
-          <Link className="badge" href="/auth/login">
+          <Link className={getBadgeClassName()} href="/auth/login">
             로그인
           </Link>
-          <Link className="badge" href="/auth/signup">
+          <Link className={getBadgeClassName()} href="/auth/signup">
             회원가입
           </Link>
         </div>

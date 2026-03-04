@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Button from "@/shared/ui/Button";
+import Input from "@/shared/ui/Input";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,8 +18,7 @@ export default function LoginPage() {
       <section className="card stack">
         <label className="field">
           <span>이메일</span>
-          <input
-            className="input"
+          <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -27,8 +28,7 @@ export default function LoginPage() {
 
         <label className="field">
           <span>비밀번호</span>
-          <input
-            className="input"
+          <Input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -36,9 +36,9 @@ export default function LoginPage() {
           />
         </label>
 
-        <button type="button" className="button button--primary" disabled>
+        <Button variant="primary" disabled>
           로그인 (API 연결 예정)
-        </button>
+        </Button>
       </section>
     </main>
   );

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   getChairmanPortfolio,
   type ChairmanPortfolio,
-} from "../_api/getChairmanPortfolio";
+} from "../api/getChairmanPortfolio";
 
 export function useChairmanPortfolio() {
   const [item, setItem] = useState<ChairmanPortfolio | null>(null);
