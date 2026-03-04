@@ -7,6 +7,7 @@ SLEEP_SEC="${SLEEP_SEC:-2}"
 
 out_file="/tmp/smoke_body.txt"
 status_code="000"
+: > "${out_file}"
 
 echo "[smoke] checking ${URL} (retries=${RETRIES}, sleep=${SLEEP_SEC}s)"
 
@@ -24,5 +25,9 @@ done
 
 echo "[smoke] FAILED: HTTP ${status_code}"
 echo "[smoke] body:"
-cat "${out_file}"
+if [[ -s "${out_file}" ]]; then
+  cat "${out_file}"
+else
+  echo "(no response body captured)"
+fi
 exit 1
