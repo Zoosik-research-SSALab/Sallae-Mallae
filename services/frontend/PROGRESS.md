@@ -1,0 +1,281 @@
+# Progress Log
+
+## Current Focus
+- [x] (2026-03-04) Header UX update: centered layout + logo/icon/avatar components + conditional notification badge
+- [x] (2026-03-04) React Query Devtools integration: add global QueryClientProvider and show devtools in development
+- [x] (2026-03-04) Header rendering fix: restore Tailwind v4 scale utilities in globals.css
+- [x] (2026-03-04) Header tokenization: align AppNav with provided structure and semantic theme colors
+- [x] (2026-03-04) Header redesign + primary token update: match provided header layout and theme primary values
+- [x] (2026-03-04) Shared UI + theme prep: extract common UI components and add dark/light mode foundation
+- [x] (2026-03-04) Global style recovery: restore missing utility classes in globals.css
+- [x] (2026-03-04) Main page visibility fix: align theme text color tokens
+- [x] (2026-03-04) Project structure cleanup: unify _api to api and move shared AppNav
+- [x] (2026-03-04) Guideline adoption: lock stack/architecture rules for future tasks
+- [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
+
+## Changes
+### (2026-03-04) Project structure cleanup
+- Scope:
+  - Unified route API folder naming (_api -> api)
+  - Moved global navigation component to shared scope
+- Files:
+  - + PROGRESS.md
+  - + src/shared/components/AppNav.tsx
+  - + src/app/notifications/api/getNotifications.ts
+  - + src/app/portfolio/api/getChairmanPortfolio.ts
+  - + src/app/reports/api/getLatestReport.ts
+  - + src/app/reports/[symbol]/api/getSymbolLatestReport.ts
+  - + src/app/scraps/api/getScraps.ts
+  - + src/app/search/api/getSuggestions.ts
+  - + src/app/signals/api/getSignals.ts
+  - + src/app/stocks/api/getStocks.ts
+  - + src/app/stocks/[ticker]/api/getStockDetail.ts
+  - ~ src/app/layout.tsx
+  - ~ src/app/notifications/components/NotificationList.tsx
+  - ~ src/app/notifications/hooks/useNotifications.ts
+  - ~ src/app/portfolio/components/HoldingsList.tsx
+  - ~ src/app/portfolio/components/PerformanceList.tsx
+  - ~ src/app/portfolio/components/PortfolioSummaryCard.tsx
+  - ~ src/app/portfolio/hooks/useChairmanPortfolio.ts
+  - ~ src/app/reports/hooks/useLatestReport.ts
+  - ~ src/app/reports/[symbol]/components/ReportSummaryCard.tsx
+  - ~ src/app/scraps/components/ScrapList.tsx
+  - ~ src/app/scraps/hooks/useScraps.ts
+  - ~ src/app/search/hooks/useSearch.ts
+  - ~ src/app/signals/components/SignalList.tsx
+  - ~ src/app/signals/hooks/useSignals.ts
+  - ~ src/app/stocks/components/StockList.tsx
+  - ~ src/app/stocks/hooks/useStocks.ts
+  - ~ src/app/stocks/[ticker]/components/StockDetailCard.tsx
+  - ~ src/app/stocks/[ticker]/hooks/useStockDetail.ts
+  - - src/app/components/AppNav.tsx
+  - - src/app/notifications/_api/getNotifications.ts
+  - - src/app/portfolio/_api/getChairmanPortfolio.ts
+  - - src/app/reports/_api/getLatestReport.ts
+  - - src/app/reports/[symbol]/_api/getSymbolLatestReport.ts
+  - - src/app/scraps/_api/getScraps.ts
+  - - src/app/search/_api/getSuggestions.ts
+  - - src/app/signals/_api/getSignals.ts
+  - - src/app/stocks/_api/getStocks.ts
+  - - src/app/stocks/[ticker]/_api/getStockDetail.ts
+- Decisions:
+  - Kept behavior unchanged and updated import paths only.
+  - Moved global common component under src/shared/components.
+- Notes / Issues:
+  - Early PowerShell replacement caused text encoding damage; restored and reapplied changes with UTF-8-safe method.
+  - pnpm lint and pnpm build passed.
+- Next:
+  - [ ] Continue migrating remaining reusable resources to src/shared/* when touched.
+
+### (2026-03-04) Guideline adoption
+- Scope:
+  - Applied provided Frontend Project Guidelines as baseline rules for this repo
+- Files:
+  - ~ PROGRESS.md
+- Decisions:
+  - Keep fixed stack and App Router colocation as default
+  - For new features, prefer React Query naming: useSomethingQuery/useSomethingMutation
+- Notes / Issues:
+  - Some legacy hooks still use useEffect data fetching and will be migrated incrementally in feature scope.
+- Next:
+  - [ ] Enforce guideline checks on every new feature request.
+
+### (2026-03-04) Full folder alignment
+- Scope:
+  - Added missing route subfolders (api/hooks/components/types/utils) for every route directory with page.tsx
+  - Added missing shared directories (lib/utils/types) and gitkeep markers for empty folders
+  - Added global theme entry file at src/styles/theme.css and imported it in layout.tsx
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/app/layout.tsx
+  - + src/styles/theme.css
+  - + src/shared/lib/.gitkeep
+  - + src/shared/utils/.gitkeep
+  - + src/shared/types/.gitkeep
+  - + src/shared/hooks/.gitkeep
+  - + src/shared/ui/.gitkeep
+  - + src/app/auth/login/{api,hooks,components,types,utils}/.gitkeep
+  - + src/app/auth/signup/{api,hooks,components,types,utils}/.gitkeep
+  - + src/app/news/{api,hooks,components,types,utils}/.gitkeep
+  - + src/app/{notifications,portfolio,reports,scraps,search,signals,stocks}/{types,utils}/.gitkeep
+  - + src/app/{reports/[symbol],stocks/[ticker]}/{types,utils}/.gitkeep
+- Decisions:
+  - Limited this change to structure-only updates to avoid runtime behavior changes.
+  - Used .gitkeep for empty directories so the target structure is trackable.
+- Notes / Issues:
+  - Route/shared folder completeness checks returned OK.
+  - pnpm lint passed.
+- Next:
+  - [ ] Convert existing legacy data hooks to React Query hooks in upcoming feature tasks.
+
+### (2026-03-04) Main page visibility fix
+- Scope:
+  - Restore readable text color on main screen by aligning global token names
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/styles/theme.css
+- Decisions:
+  - Kept global body rule in globals.css unchanged and added compatibility token in theme.css.
+  - Added muted/border tokens to prevent further undefined token regressions.
+- Notes / Issues:
+  - Root cause: globals.css used --color-text while theme.css only defined --color-foreground.
+  - No routing/data logic changes.
+- Next:
+  - [ ] If needed, add visual utility classes for current custom classNames (card/stack/badge) in a follow-up styling task.
+
+### (2026-03-04) Global style recovery
+- Scope:
+  - Restored missing custom utility/component classes used across pages
+  - Recovered nav/card/list/badge/button/input layout styling in globals.css
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/app/globals.css
+- Decisions:
+  - Kept existing className contract and re-added style tokens/classes instead of rewriting components.
+  - Added only the classes currently referenced in app/shared components to avoid unnecessary scope expansion.
+- Notes / Issues:
+  - Root cause: only reset/base CSS remained; custom class styles had been dropped.
+  - This fix is style-only and does not change routing/data behavior.
+- Next:
+  - [ ] Optional cleanup: remove duplicate font source (CDN import vs next/font/local) and keep one strategy.
+
+### (2026-03-04) Shared UI + theme prep
+- Scope:
+  - Extracted reusable Button/Input/Badge components into shared/ui
+  - Migrated route screens/components to use shared UI components instead of global button/input/badge classes
+  - Added dark/light mode foundation with theme tokens, persisted mode handling, and header toggle
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/app/globals.css
+  - ~ src/styles/theme.css
+  - ~ src/shared/components/AppNav.tsx
+  - + src/shared/components/ThemeToggle.tsx
+  - + src/shared/hooks/useTheme.ts
+  - + src/shared/lib/theme.ts
+  - + src/shared/ui/Button.tsx
+  - + src/shared/ui/Input.tsx
+  - + src/shared/ui/Badge.tsx
+  - + src/shared/utils/cn.ts
+  - ~ src/app/page.tsx
+  - ~ src/app/auth/login/page.tsx
+  - ~ src/app/auth/signup/page.tsx
+  - ~ src/app/notifications/page.tsx
+  - ~ src/app/notifications/components/NotificationFilter.tsx
+  - ~ src/app/notifications/components/NotificationList.tsx
+  - ~ src/app/portfolio/components/HoldingsList.tsx
+  - ~ src/app/portfolio/components/PerformanceList.tsx
+  - ~ src/app/portfolio/components/PortfolioSummaryCard.tsx
+  - ~ src/app/reports/components/SignalBadge.tsx
+  - ~ src/app/reports/[symbol]/page.tsx
+  - ~ src/app/scraps/components/ScrapList.tsx
+  - ~ src/app/search/components/SearchPanel.tsx
+  - ~ src/app/signals/components/SignalList.tsx
+  - ~ src/app/signals/page.tsx
+  - ~ src/app/stocks/components/StockList.tsx
+  - ~ src/app/stocks/page.tsx
+  - ~ src/app/stocks/[ticker]/components/AlertSettingCard.tsx
+  - ~ src/app/stocks/[ticker]/components/StockDetailCard.tsx
+  - ~ src/app/stocks/[ticker]/page.tsx
+- Decisions:
+  - Kept layout primitives (card/stack/list/nav) in globals.css and moved interactive UI concerns to shared/ui components.
+  - Implemented theme mode with data-theme + CSS variables so future expansion does not require component rewrites.
+  - Used localStorage persistence with `light/dark/system` model and a header toggle for immediate manual testing.
+- Notes / Issues:
+  - Hook lint rule (`react-hooks/set-state-in-effect`) required state initialization redesign in useTheme.
+  - pnpm lint and pnpm build passed after migration.
+- Next:
+  - [ ] Add explicit design token mapping for semantic states (success/warn/danger) if UI scope expands.
+
+### (2026-03-04) Header redesign + primary token update
+- Scope:
+  - Updated primary token values for light/dark themes as requested
+  - Replaced global header markup with the provided structure direction (logo/nav/search/notification/avatar)
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/styles/theme.css
+  - ~ src/shared/components/AppNav.tsx
+- Decisions:
+  - Applied `--color-primary: #171717` on light and `--color-primary: #ffffff` on dark/system-dark.
+  - Kept header dark-mode compatibility by mapping visual colors to existing CSS variables.
+  - Added responsive padding/menu visibility to keep header usable on small screens.
+- Notes / Issues:
+  - Existing ThemeToggle component remains in shared but is no longer rendered in header.
+  - No routing/data behavior changes.
+- Next:
+  - [ ] If needed, re-introduce explicit theme toggle control in the new header design.
+
+### (2026-03-04) Header tokenization
+- Scope:
+  - Rebuilt AppNav with the latest provided structure and spacing rhythm
+  - Switched header visual colors to semantic theme variables for future dark-mode toggling in settings
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/styles/theme.css
+  - ~ src/shared/components/AppNav.tsx
+- Decisions:
+  - Added semantic header token set (`--color-bg-primary`, `--color-text-secondary`, `--color-border-secondary`, etc.) in theme.css.
+  - Kept dark-mode differences token-driven instead of hardcoded color classes in component markup.
+  - Preserved responsive behavior (`lg` nav visibility and smaller base paddings) for mobile compatibility.
+- Notes / Issues:
+  - Placeholder logo glyphs were kept as token-colored blocks to mirror the provided mock without external assets.
+  - `ThemeToggle` component remains available but intentionally not rendered in header per latest layout request.
+  - Fixed UTF-8 string corruption in AppNav labels and search placeholder text.
+- Next:
+  - [ ] When settings page is implemented, connect theme mode selector to existing `useTheme` state flow.
+
+### (2026-03-04) Header rendering fix
+- Scope:
+  - Fixed collapsed/blank-looking header by restoring missing Tailwind scale utilities.
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/app/globals.css
+- Decisions:
+  - Switched from legacy `@tailwind base/components/utilities` to Tailwind v4 import style `@import "tailwindcss";`.
+  - Kept all existing custom global CSS blocks unchanged.
+- Notes / Issues:
+  - Root cause: theme-dependent utility classes (`px-*`, `h-*`, `w-*`, `text-*`, `font-*`) were not generated.
+  - Symptom matched screenshot: only partial utilities rendered, leaving header content visually collapsed.
+- Next:
+  - [ ] Keep global Tailwind entry aligned with v4 syntax to prevent future utility omission.
+
+### (2026-03-04) React Query Devtools integration
+- Scope:
+  - Added global React Query provider for App Router tree and mounted React Query Devtools in development mode.
+- Files:
+  - ~ PROGRESS.md
+  - + src/shared/components/AppProviders.tsx
+  - ~ src/app/layout.tsx
+- Decisions:
+  - Kept provider in `src/shared/components` to reuse globally without route coupling.
+  - Enabled Devtools only when `NODE_ENV === "development"` to avoid production exposure.
+  - Initialized one stable `QueryClient` instance via `useState`.
+- Notes / Issues:
+  - Existing route hooks still include legacy `useEffect` fetching and are unaffected by this wiring change.
+- Next:
+  - [ ] Migrate route hooks to `useSomethingQuery` naming and React Query usage incrementally.
+
+### (2026-03-04) Header UX update
+- Scope:
+  - Center-aligned header container and split logo/notification/profile into dedicated components.
+  - Added notification count query and rendered notification badge only when unread count exists.
+  - Switched logo/profile placeholders to actual image components for future asset replacement.
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/shared/components/AppNav.tsx
+  - + src/shared/components/nav/HeaderLogo.tsx
+  - + src/shared/components/nav/NotificationBell.tsx
+  - + src/shared/components/nav/ProfileAvatar.tsx
+  - + src/shared/hooks/useNotificationCountQuery.ts
+  - + src/app/notifications/api/getNotificationCount.ts
+  - + public/images/header-logo.svg
+  - + public/images/profile-placeholder.svg
+- Decisions:
+  - Used `max-w-[1152px] + mx-auto` for stable center alignment.
+  - Used unread notification count (`isRead === false`) for badge value; hide badge for `0`.
+  - Added React Query polling (`30s`) so badge count stays updated without manual refresh.
+- Notes / Issues:
+  - Current count uses first-page fetch (`size=100`) because dedicated unread-count endpoint is not yet defined.
+  - Existing notifications list hook remains unchanged and can later be migrated to React Query in route scope.
+- Next:
+  - [ ] Replace placeholder logo/profile assets with real design assets.
+  - [ ] If backend provides unread-count endpoint, switch `getNotificationCount` to that endpoint.
