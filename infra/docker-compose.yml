@@ -6,8 +6,6 @@ services:
     container_name: nginx
     restart: unless-stopped
     depends_on:
-      frontend:
-        condition: service_healthy
       spring:
         condition: service_healthy
     ports:
@@ -23,6 +21,11 @@ services:
       dockerfile: Dockerfile
     container_name: spring
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-dev}
       DB_HOST: postgres
@@ -45,6 +48,8 @@ services:
       - app-net
 
   frontend:
+    profiles:
+      - fullstack
     build:
       context: ../services/frontend
       dockerfile: Dockerfile
@@ -62,6 +67,8 @@ services:
       - app-net
 
   ml-server:
+    profiles:
+      - fullstack
     build:
       context: ../services/ml-server
       dockerfile: Dockerfile
@@ -73,14 +80,18 @@ services:
       - app-net
 
   ml-worker:
+    profiles:
+      - fullstack
     build:
       context: ../services/ml-worker
       dockerfile: Dockerfile
     container_name: ml-worker
     restart: unless-stopped
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       APP_ENV: ${SPRING_PROFILE:-dev}
       REDIS_HOST: redis
