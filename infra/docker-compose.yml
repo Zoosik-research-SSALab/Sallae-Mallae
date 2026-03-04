@@ -1,0 +1,157 @@
+name: app
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    restart: unless-stopped
+    depends_on:
+      spring:
+        condition: service_healthy
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - app-net
+
+  spring:
+    build:
+      context: ../services/backend
+      dockerfile: Dockerfile
+    container_name: spring
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-dev}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${APP_DB_NAME:-app_dev}
+      DB_USER: ${APP_DB_USER:-app_dev_user}
+      DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_dev}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms256m -Xmx1024m}
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - app-net
+
+  frontend:
+    profiles:
+      - fullstack
+    build:
+      context: ../services/frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: unless-stopped
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - app-net
+
+  ml-server:
+    profiles:
+      - fullstack
+    build:
+      context: ../services/ml-server
+      dockerfile: Dockerfile
+    container_name: ml-server
+    restart: unless-stopped
+    expose:
+      - "8000"
+    networks:
+      - app-net
+
+  ml-worker:
+    profiles:
+      - fullstack
+    build:
+      context: ../services/ml-worker
+      dockerfile: Dockerfile
+    container_name: ml-worker
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${SPRING_PROFILE:-dev}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${WORKER_DB_NAME:-app_dev}
+      DB_USER: ${WORKER_DB_USER:-app_dev_user}
+      DB_PASSWORD: ${WORKER_DB_PASSWORD:-change_me_dev}
+    networks:
+      - app-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERPASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      DEV_DB_NAME: ${DEV_DB_NAME:-app_dev}
+      DEV_DB_USER: ${DEV_DB_USER:-app_dev_user}
+      DEV_DB_PASSWORD: ${DEV_DB_PASSWORD:-change_me_dev}
+      PROD_DB_NAME: ${PROD_DB_NAME:-app_prod}
+      PROD_DB_USER: ${PROD_DB_USER:-app_prod_user}
+      PROD_DB_PASSWORD: ${PROD_DB_PASSWORD:-change_me_prod}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - app-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    name: app-net
+
+volumes:
+  postgres-data:
+    name: postgres-data
+  redis-data:
+    name: redis-data
