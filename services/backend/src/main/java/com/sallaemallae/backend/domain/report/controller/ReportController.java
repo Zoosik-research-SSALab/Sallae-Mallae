@@ -2,7 +2,7 @@ package com.sallaemallae.backend.domain.report.controller;
 
 import com.sallaemallae.backend.domain.report.dto.StockReportResponse;
 import com.sallaemallae.backend.domain.report.service.ReportService;
-import com.sallaemallae.backend.global.dto.ApiResponse;
+import com.sallaemallae.backend.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +18,6 @@ public class ReportController {
 
   @GetMapping("/{ticker}/latest")
   public ApiResponse<StockReportResponse> getLatest(@PathVariable String ticker) {
-    return ApiResponse.ok(reportService.getLatestReport(ticker));
+    return ApiResponse.success(reportService.getLatestReport(ticker));
   }
 }

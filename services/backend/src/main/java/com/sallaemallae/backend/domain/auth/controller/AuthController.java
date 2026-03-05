@@ -4,7 +4,7 @@ import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.SignupRequest;
 import com.sallaemallae.backend.domain.auth.service.AuthService;
-import com.sallaemallae.backend.global.dto.ApiResponse;
+import com.sallaemallae.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -24,26 +24,26 @@ public class AuthController {
 
   @GetMapping("/status")
   public ApiResponse<AuthStatusResponse> status() {
-    return ApiResponse.ok(authService.getAuthStatus());
+    return ApiResponse.success(authService.getAuthStatus());
   }
 
   @PostMapping("/login")
   public ApiResponse<Map<String, Object>> login(@Valid @RequestBody LoginRequest request) {
-    return ApiResponse.ok(authService.login(request));
+    return ApiResponse.success(authService.login(request));
   }
 
   @PostMapping("/signup")
   public ApiResponse<Map<String, Object>> signup(@Valid @RequestBody SignupRequest request) {
-    return ApiResponse.ok(authService.signup(request));
+    return ApiResponse.success(authService.signup(request));
   }
 
   @PostMapping("/logout")
   public ApiResponse<Map<String, Object>> logout() {
-    return ApiResponse.ok(authService.logout());
+    return ApiResponse.success(authService.logout());
   }
 
   @GetMapping("/oauth/{provider}/start")
   public ApiResponse<Map<String, String>> oauthStart(@PathVariable String provider) {
-    return ApiResponse.ok(Map.of("provider", provider, "redirect", authService.getOAuthStartUrl(provider)));
+    return ApiResponse.success(Map.of("provider", provider, "redirect", authService.getOAuthStartUrl(provider)));
   }
 }

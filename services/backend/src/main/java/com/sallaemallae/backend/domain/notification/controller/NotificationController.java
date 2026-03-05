@@ -2,8 +2,8 @@ package com.sallaemallae.backend.domain.notification.controller;
 
 import com.sallaemallae.backend.domain.notification.dto.NotificationItemResponse;
 import com.sallaemallae.backend.domain.notification.service.NotificationService;
-import com.sallaemallae.backend.global.dto.ApiResponse;
-import com.sallaemallae.backend.global.dto.CursorPageResponse;
+import com.sallaemallae.backend.global.response.ApiResponse;
+import com.sallaemallae.backend.global.response.CursorPageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -24,6 +24,6 @@ public class NotificationController {
       @RequestParam(required = false) Long cursor,
       @RequestParam(defaultValue = "6") int size
   ) {
-    return ApiResponse.ok(notificationService.getNotifications(userId, cursor, size));
+    return ApiResponse.success(notificationService.getNotifications(userId, cursor, size));
   }
 }

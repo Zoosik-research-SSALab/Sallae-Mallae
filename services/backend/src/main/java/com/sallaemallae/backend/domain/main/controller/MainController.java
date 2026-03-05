@@ -2,7 +2,7 @@ package com.sallaemallae.backend.domain.main.controller;
 
 import com.sallaemallae.backend.domain.main.dto.MainSummaryResponse;
 import com.sallaemallae.backend.domain.main.service.MainService;
-import com.sallaemallae.backend.global.dto.ApiResponse;
+import com.sallaemallae.backend.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +17,6 @@ public class MainController {
 
   @GetMapping("/summary")
   public ApiResponse<MainSummaryResponse> summary() {
-    return ApiResponse.ok(mainService.getMainSummary());
+    return ApiResponse.success(mainService.getMainSummary());
   }
 }

@@ -3,8 +3,10 @@ package com.sallaemallae.backend.domain.signal.service;
 import com.sallaemallae.backend.domain.signal.dto.SignalItemResponse;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class SignalServiceImpl implements SignalService {
 
   @Override

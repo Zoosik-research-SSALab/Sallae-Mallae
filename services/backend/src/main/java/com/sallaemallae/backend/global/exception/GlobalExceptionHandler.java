@@ -1,6 +1,6 @@
 package com.sallaemallae.backend.global.exception;
 
-import com.sallaemallae.backend.global.dto.ApiResponse;
+import com.sallaemallae.backend.global.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -10,23 +10,24 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
   @ExceptionHandler(BusinessException.class)
-  public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
+  public ResponseEntity<ApiResponse<?>> handleBusinessException(BusinessException e) {
+    ErrorCode errorCode = e.getErrorCode();
     return ResponseEntity
-        .status(ex.getErrorCode().getStatus())
-        .body(ApiResponse.fail(ex.getMessage()));
+        .status(errorCode.getStatus())
+        .body(ApiResponse.fail(errorCode));
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException ex) {
+  public ResponseEntity<ApiResponse<?>> handleValidException(MethodArgumentNotValidException e) {
     return ResponseEntity
-        .badRequest()
-        .body(ApiResponse.fail(ex.getBindingResult().getAllErrors().get(0).getDefaultMessage()));
+        .status(400)
+        .body(ApiResponse.fail(GlobalErrorCode.INVALID_INPUT_VALUE));
   }
 
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<ApiResponse<Void>> handleException(Exception ex) {
+  public ResponseEntity<ApiResponse<?>> handleException(Exception e) {
     return ResponseEntity
-        .internalServerError()
-        .body(ApiResponse.fail(ErrorCode.INTERNAL_ERROR.getMessage()));
+        .status(500)
+        .body(ApiResponse.fail(GlobalErrorCode.INTERNAL_SERVER_ERROR));
   }
 }
