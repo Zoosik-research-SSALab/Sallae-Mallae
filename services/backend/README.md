@@ -8,16 +8,18 @@
 - 3-layered + domain package
 - 기본 흐름: `controller -> service -> repository`
 
-## Domain packages (9)
-- `auth`: 로그인/회원가입/소셜/약관/로그인상태
+## Domain packages (11, including `health`)
+- `auth`: 로그인/회원가입/소셜/로그인 상태
+- `user`: 프로필/관심종목/개별 알림 설정
+- `policy`: 약관/개인정보/면책 문서 조회
 - `main`: 메인 요약 (추천/시장/포인트)
-- `stock`: 전체 종목/종목 상세/관심종목
+- `stock`: 전체 종목/종목 상세
 - `report`: 종목 리포트 (ML + 토론)
 - `signal`: AI 매매신호 리스트
-- `portfolio`: 의장 포트폴리오
 - `news`: 뉴스/키워드
 - `notification`: 알림함(원본/유저수신 분리)
 - `search`: 자동완성/인기검색/검색기록
+- `health`: 헬스체크
 
 ## Common packages
 - `global`: config, exception, api response, base entity
