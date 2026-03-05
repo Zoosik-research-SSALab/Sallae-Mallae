@@ -1,4 +1,4 @@
-package com.sallaemallae.backend.global.dto;
+package com.sallaemallae.backend.global.response;
 
 import java.util.List;
 

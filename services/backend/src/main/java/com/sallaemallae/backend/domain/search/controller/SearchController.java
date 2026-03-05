@@ -3,7 +3,7 @@ package com.sallaemallae.backend.domain.search.controller;
 import com.sallaemallae.backend.domain.search.dto.SearchHistoryRequest;
 import com.sallaemallae.backend.domain.search.dto.SearchSuggestionResponse;
 import com.sallaemallae.backend.domain.search.service.SearchService;
-import com.sallaemallae.backend.global.dto.ApiResponse;
+import com.sallaemallae.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
@@ -25,12 +25,12 @@ public class SearchController {
 
   @GetMapping("/suggestions")
   public ApiResponse<List<SearchSuggestionResponse>> suggestions(@RequestParam String keyword) {
-    return ApiResponse.ok(searchService.suggest(keyword));
+    return ApiResponse.success(searchService.suggest(keyword));
   }
 
   @GetMapping("/trending")
   public ApiResponse<List<String>> trending() {
-    return ApiResponse.ok(searchService.trending());
+    return ApiResponse.success(searchService.trending());
   }
 
   @PostMapping("/history")
@@ -39,6 +39,6 @@ public class SearchController {
       @Valid @RequestBody SearchHistoryRequest request
   ) {
     searchService.saveHistory(userId, request);
-    return ApiResponse.ok(Map.of("message", "search history boilerplate"));
+    return ApiResponse.success(Map.of("message", "search history boilerplate"));
   }
 }

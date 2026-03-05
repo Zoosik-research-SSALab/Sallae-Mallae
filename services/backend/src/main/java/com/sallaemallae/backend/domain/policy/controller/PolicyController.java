@@ -1,7 +1,7 @@
 package com.sallaemallae.backend.domain.policy.controller;
 
 import com.sallaemallae.backend.domain.policy.service.PolicyService;
-import com.sallaemallae.backend.global.dto.ApiResponse;
+import com.sallaemallae.backend.global.response.ApiResponse;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,16 +17,16 @@ public class PolicyController {
 
   @GetMapping("/terms")
   public ApiResponse<Map<String, Object>> terms() {
-    return ApiResponse.ok(policyService.getTerms());
+    return ApiResponse.success(policyService.getTerms());
   }
 
   @GetMapping("/privacy")
   public ApiResponse<Map<String, Object>> privacy() {
-    return ApiResponse.ok(policyService.getPrivacy());
+    return ApiResponse.success(policyService.getPrivacy());
   }
 
   @GetMapping("/disclaimer")
   public ApiResponse<Map<String, Object>> disclaimer() {
-    return ApiResponse.ok(policyService.getDisclaimer());
+    return ApiResponse.success(policyService.getDisclaimer());
   }
 }

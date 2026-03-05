@@ -3,8 +3,10 @@ package com.sallaemallae.backend.domain.main.service;
 import com.sallaemallae.backend.domain.main.dto.MainSummaryResponse;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class MainServiceImpl implements MainService {
 
   @Override

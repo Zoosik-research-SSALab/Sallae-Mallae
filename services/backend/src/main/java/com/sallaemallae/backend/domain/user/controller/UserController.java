@@ -6,7 +6,7 @@ import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
 import com.sallaemallae.backend.domain.user.service.UserService;
-import com.sallaemallae.backend.global.dto.ApiResponse;
+import com.sallaemallae.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +33,7 @@ public class UserController {
   public ApiResponse<List<Map<String, Object>>> getWatchlist(
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId
   ) {
-    return ApiResponse.ok(userService.getWatchlist(userId));
+    return ApiResponse.success(userService.getWatchlist(userId));
   }
 
   @GetMapping("/watchlist/{stockId}")
@@ -41,7 +41,7 @@ public class UserController {
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
       @PathVariable Long stockId
   ) {
-    return ApiResponse.ok(userService.getWatchlistStatus(userId, stockId));
+    return ApiResponse.success(userService.getWatchlistStatus(userId, stockId));
   }
 
   @PostMapping("/watchlist")
@@ -49,7 +49,7 @@ public class UserController {
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
       @Valid @RequestBody WatchlistCreateRequest request
   ) {
-    return ApiResponse.ok(userService.addWatchlist(userId, request));
+    return ApiResponse.success(userService.addWatchlist(userId, request));
   }
 
   @DeleteMapping("/watchlist/{stockId}")
@@ -57,7 +57,7 @@ public class UserController {
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
       @PathVariable Long stockId
   ) {
-    return ApiResponse.ok(userService.removeWatchlist(userId, stockId));
+    return ApiResponse.success(userService.removeWatchlist(userId, stockId));
   }
 
   @PatchMapping("/watchlist/{stockId}")
@@ -66,14 +66,14 @@ public class UserController {
       @PathVariable Long stockId,
       @Valid @RequestBody WatchlistAlertToggleRequest request
   ) {
-    return ApiResponse.ok(userService.toggleWatchlistAlert(userId, stockId, request));
+    return ApiResponse.success(userService.toggleWatchlistAlert(userId, stockId, request));
   }
 
   @GetMapping("/watchlist/news")
   public ApiResponse<List<Map<String, Object>>> watchlistNews(
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId
   ) {
-    return ApiResponse.ok(userService.getWatchlistNews(userId));
+    return ApiResponse.success(userService.getWatchlistNews(userId));
   }
 
   @PatchMapping("/profile")
@@ -81,7 +81,7 @@ public class UserController {
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
       @Valid @RequestBody UserProfileUpdateRequest request
   ) {
-    return ApiResponse.ok(userService.updateProfile(userId, request));
+    return ApiResponse.success(userService.updateProfile(userId, request));
   }
 
   @PutMapping("/profile/password")
@@ -89,7 +89,7 @@ public class UserController {
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
       @Valid @RequestBody UserPasswordUpdateRequest request
   ) {
-    return ApiResponse.ok(userService.updatePassword(userId, request));
+    return ApiResponse.success(userService.updatePassword(userId, request));
   }
 
   @PatchMapping("/profile/email-opt-in")
@@ -97,13 +97,13 @@ public class UserController {
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
       @Valid @RequestBody UserEmailOptInRequest request
   ) {
-    return ApiResponse.ok(userService.updateEmailOptIn(userId, request));
+    return ApiResponse.success(userService.updateEmailOptIn(userId, request));
   }
 
   @DeleteMapping("/profile")
   public ApiResponse<Map<String, Object>> deleteProfile(
       @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId
   ) {
-    return ApiResponse.ok(userService.deleteProfile(userId));
+    return ApiResponse.success(userService.deleteProfile(userId));
   }
 }

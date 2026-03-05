@@ -7,6 +7,9 @@
 ## Architecture
 - 3-layered + domain package
 - 기본 흐름: `controller -> service -> repository`
+- Controller에서 Repository 직접 호출 금지
+- 공통 응답: `global/response/ApiResponse`
+- 공통 예외: `global/exception/*`
 
 ## Domain packages (11, including `health`)
 - `auth`: 로그인/회원가입/소셜/로그인 상태
@@ -22,9 +25,10 @@
 - `health`: 헬스체크
 
 ## Common packages
-- `global`: config, exception, api response, base entity
+- `global`: config, exception, response, base entity
 - `infra`: 외부 연동 클라이언트
 
 ## Notes
 - 현재 서비스 로직은 placeholder 응답이 포함된 scaffold 상태입니다.
 - API 계약/세부 비즈니스 로직/보안은 각 도메인 개발 단계에서 구현합니다.
+- 각 도메인에 `exception/*ErrorCode`를 분리해 두었고, `BusinessException`으로 전파합니다.

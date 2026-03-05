@@ -2,8 +2,10 @@ package com.sallaemallae.backend.domain.policy.service;
 
 import java.util.Map;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class PolicyServiceImpl implements PolicyService {
 
   @Override
