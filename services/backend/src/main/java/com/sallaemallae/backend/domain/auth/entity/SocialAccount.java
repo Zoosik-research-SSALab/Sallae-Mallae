@@ -8,9 +8,11 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -36,4 +38,52 @@ public class SocialAccount {
 
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;
+
+  @PrePersist
+  protected void onCreate() {
+    this.createdAt = OffsetDateTime.now();
+  }
+
+  @Builder
+  public SocialAccount(Long userId, AuthProvider provider, String providerAccountId) {
+    this.userId = userId;
+    this.provider = provider;
+    this.providerAccountId = providerAccountId;
+  }
+
+  // 소셜 계정 연동 생성
+  public static SocialAccount create(Long userId, AuthProvider provider, String providerAccountId) {
+    return SocialAccount.builder()
+        .userId(userId)
+        .provider(provider)
+        .providerAccountId(providerAccountId)
+        .build();
+  }
+
+  // Google 계정 연동
+  public static SocialAccount google(Long userId, String providerAccountId) {
+    return SocialAccount.builder()
+        .userId(userId)
+        .provider(AuthProvider.GOOGLE)
+        .providerAccountId(providerAccountId)
+        .build();
+  }
+
+  // Naver 계정 연동
+  public static SocialAccount naver(Long userId, String providerAccountId) {
+    return SocialAccount.builder()
+        .userId(userId)
+        .provider(AuthProvider.NAVER)
+        .providerAccountId(providerAccountId)
+        .build();
+  }
+
+  // Kakao 계정 연동
+  public static SocialAccount kakao(Long userId, String providerAccountId) {
+    return SocialAccount.builder()
+        .userId(userId)
+        .provider(AuthProvider.KAKAO)
+        .providerAccountId(providerAccountId)
+        .build();
+  }
 }
