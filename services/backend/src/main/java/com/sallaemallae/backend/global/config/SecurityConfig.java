@@ -1,0 +1,125 @@
+package com.sallaemallae.backend.global.config;
+
+import com.sallaemallae.backend.global.security.jwt.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+  private final JwtAuthenticationFilter jwtAuthenticationFilter;
+  private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+  private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
+
+  @Bean
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http
+        // CSRF 비활성화 (JWT 사용)
+        .csrf(AbstractHttpConfigurer::disable)
+
+        // CORS 설정
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+        // 세션 사용 안함 (Stateless)
+        .sessionManagement(session ->
+            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+        // 예외 처리
+        .exceptionHandling(exception -> exception
+            .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+            .accessDeniedHandler(jwtAccessDeniedHandler))
+
+        // URL별 권한 설정
+        .authorizeHttpRequests(auth -> auth
+            // Health check
+            .requestMatchers("/api/health/**").permitAll()
+
+            // Auth - 인증 불필요
+            .requestMatchers("/api/auth/login").permitAll()
+            .requestMatchers("/api/auth/signup").permitAll()
+            .requestMatchers("/api/auth/refresh").permitAll()
+            .requestMatchers("/api/auth/check-email/**").permitAll()
+            .requestMatchers("/api/auth/email/**").permitAll()
+            .requestMatchers("/api/auth/password/reset-request").permitAll()
+            .requestMatchers("/api/auth/password/reset").permitAll()
+            .requestMatchers("/api/auth/policy").permitAll()
+            .requestMatchers("/api/auth/google/callback").permitAll()
+            .requestMatchers("/api/auth/naver/callback").permitAll()
+            .requestMatchers("/api/auth/kakao/callback").permitAll()
+
+            // Swagger / API docs (개발용)
+            .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
+            // 나머지는 인증 필요
+            .anyRequest().authenticated()
+        )
+
+        // JWT 필터 추가
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+    return http.build();
+  }
+
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+
+  @Bean
+  public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+
+    // 허용할 Origin (프론트엔드 주소)
+    configuration.setAllowedOrigins(List.of(
+        "http://localhost:3000",
+        "http://localhost:5173"
+    ));
+
+    // 허용할 HTTP 메서드
+    configuration.setAllowedMethods(List.of(
+        HttpMethod.GET.name(),
+        HttpMethod.POST.name(),
+        HttpMethod.PUT.name(),
+        HttpMethod.PATCH.name(),
+        HttpMethod.DELETE.name(),
+        HttpMethod.OPTIONS.name()
+    ));
+
+    // 허용할 헤더
+    configuration.setAllowedHeaders(List.of("*"));
+
+    // 자격 증명 허용 (쿠키)
+    configuration.setAllowCredentials(true);
+
+    // 노출할 헤더 (Rate Limit 등)
+    configuration.setExposedHeaders(List.of(
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+        "Retry-After"
+    ));
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+  }
+}
