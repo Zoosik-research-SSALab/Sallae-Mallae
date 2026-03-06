@@ -40,18 +40,4 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       WHERE snm.news_id = :newsId
       """, nativeQuery = true)
   List<Object[]> findRelatedStocksByNewsId(@Param("newsId") Long newsId);
-
-  // FS-WATCH-006: 관심종목 보유 종목의 최신 뉴스 조회
-  @Query(value = """
-      SELECT DISTINCT sn.id, sn.title, sn.snippet, sn.url, sn.publisher, sn.published_at
-      FROM stock_news sn
-      JOIN stock_news_map snm ON sn.id = snm.news_id
-      JOIN user_watchlist uw ON snm.stock_id = uw.stock_id
-      WHERE uw.user_id = :userId
-      ORDER BY sn.published_at DESC
-      LIMIT :limit
-      """, nativeQuery = true)
-  List<Object[]> findWatchlistNews(
-      @Param("userId") Long userId,
-      @Param("limit") int limit);
 }

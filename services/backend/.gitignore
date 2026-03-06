@@ -34,6 +34,7 @@ build/
 
 ### Claude Code ###
 .claude/
+.omc/
 
 ### Docs (local only) ###
 Git convention.md

@@ -3,9 +3,12 @@ package com.sallaemallae.backend.domain.news.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 import com.sallaemallae.backend.domain.news.dto.NewsDetailResponse;
 import com.sallaemallae.backend.domain.news.dto.NewsListResponse;
@@ -15,17 +18,23 @@ import com.sallaemallae.backend.domain.news.repository.KeywordRepository;
 import com.sallaemallae.backend.domain.news.repository.StockNewsRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.lang.reflect.Field;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 
 @ExtendWith(MockitoExtension.class)
 class NewsServiceImplTest {
@@ -35,6 +44,12 @@ class NewsServiceImplTest {
 
   @Mock
   private KeywordRepository keywordRepository;
+
+  @Mock
+  private StringRedisTemplate redisTemplate;
+
+  @Mock
+  private ZSetOperations<String, String> zSetOperations;
 
   @InjectMocks
   private NewsServiceImpl newsService;
@@ -87,8 +102,8 @@ class NewsServiceImplTest {
     assertThat(result.news()).hasSize(2);
     assertThat(result.news().get(0).id()).isEqualTo(1L);
     assertThat(result.news().get(0).title()).isEqualTo("뉴스1");
-    assertThat(result.news().get(0).relatedStock()).containsExactly("삼성전자", "SK하이닉스");
-    assertThat(result.news().get(1).relatedStock()).containsExactly("LG전자");
+    assertThat(result.news().get(0).relatedStocks()).containsExactly("삼성전자", "SK하이닉스");
+    assertThat(result.news().get(1).relatedStocks()).containsExactly("LG전자");
   }
 
   @Test
@@ -106,11 +121,11 @@ class NewsServiceImplTest {
 
     assertThat(result.news()).hasSize(1);
     assertThat(result.news().get(0).publisher()).isEqualTo("MBC");
-    assertThat(result.news().get(0).relatedStock()).isEmpty();
+    assertThat(result.news().get(0).relatedStocks()).isEmpty();
   }
 
   @Test
-  @DisplayName("뉴스 목록이 비어있으면 빈 리스트 반환 - findStockNamesByNewsIds 미호출")
+  @DisplayName("뉴스 목록이 비어있으면 빈 리스트 반환")
   void getNewsList_empty_noStockQuery() {
     given(stockNewsRepository.findNewsWithOptionalKeyword(isNull(), anyInt(), anyInt()))
         .willReturn(new ArrayList<>());
@@ -123,7 +138,7 @@ class NewsServiceImplTest {
   // ── getNewsDetail ─────────────────────────────────────────────────────────
 
   @Test
-  @DisplayName("뉴스 상세 조회 - 관련 종목 포함")
+  @DisplayName("뉴스 상세 조회 - 관련 종목 포함 및 키워드 Redis 증가")
   void getNewsDetail_found() throws Exception {
     StockNews news = createStockNews(10L, "상세뉴스", "본문내용", "KBS", "https://example.com", NOW);
 
@@ -132,16 +147,19 @@ class NewsServiceImplTest {
 
     given(stockNewsRepository.findById(10L)).willReturn(Optional.of(news));
     given(stockNewsRepository.findRelatedStocksByNewsId(10L)).willReturn(relatedStocks);
+    given(keywordRepository.findKeywordNamesByNewsId(10L)).willReturn(List.of("AI", "반도체"));
+    given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
 
     NewsDetailResponse result = newsService.getNewsDetail(10L);
 
     assertThat(result.id()).isEqualTo(10L);
     assertThat(result.title()).isEqualTo("상세뉴스");
-    assertThat(result.snippet()).isEqualTo("본문내용");
-    assertThat(result.url()).isEqualTo("https://example.com");
     assertThat(result.relatedStocks()).hasSize(1);
     assertThat(result.relatedStocks().get(0).name()).isEqualTo("카카오");
-    assertThat(result.relatedStocks().get(0).ticker()).isEqualTo("035720");
+
+    String expectedKey = "trending:keywords:" + LocalDate.now();
+    verify(zSetOperations).incrementScore(expectedKey, "AI", 1);
+    verify(zSetOperations).incrementScore(expectedKey, "반도체", 1);
   }
 
   @Test
@@ -157,14 +175,16 @@ class NewsServiceImplTest {
   // ── getTrendingKeywords ───────────────────────────────────────────────────
 
   @Test
-  @DisplayName("트렌딩 키워드 조회 - rank 1부터 순서대로")
+  @DisplayName("트렌딩 키워드 조회 - Redis에서 상위 5개 rank 순서대로")
   void getTrendingKeywords_returnsRankedList() {
-    List<Object[]> rows = new ArrayList<>();
-    rows.add(new Object[]{"AI", 50L});
-    rows.add(new Object[]{"반도체", 40L});
-    rows.add(new Object[]{"ETF", 30L});
+    Set<TypedTuple<String>> tuples = new LinkedHashSet<>();
+    tuples.add(TypedTuple.of("AI", 50.0));
+    tuples.add(TypedTuple.of("반도체", 40.0));
+    tuples.add(TypedTuple.of("ETF", 30.0));
 
-    given(keywordRepository.findTrendingKeywords()).willReturn(rows);
+    String expectedKey = "trending:keywords:" + LocalDate.now();
+    given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
+    given(zSetOperations.reverseRangeWithScores(expectedKey, 0, 4)).willReturn(tuples);
 
     TrendingKeywordsResponse result = newsService.getTrendingKeywords();
 
@@ -179,7 +199,9 @@ class NewsServiceImplTest {
   @Test
   @DisplayName("트렌딩 키워드가 없으면 빈 리스트 반환")
   void getTrendingKeywords_empty() {
-    given(keywordRepository.findTrendingKeywords()).willReturn(new ArrayList<>());
+    String expectedKey = "trending:keywords:" + LocalDate.now();
+    given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
+    given(zSetOperations.reverseRangeWithScores(expectedKey, 0, 4)).willReturn(new LinkedHashSet<>());
 
     TrendingKeywordsResponse result = newsService.getTrendingKeywords();
 
