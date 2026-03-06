@@ -31,7 +31,7 @@ public class User extends BaseTimeEntity {
   @Column(name = "password_hash", length = 60)
   private String passwordHash;
 
-  @Column(length = 20)
+  @Column(nullable = false, length = 20)
   private String nickname;
 
   @Column(name = "profile_image_url", length = 512)
@@ -46,6 +46,12 @@ public class User extends BaseTimeEntity {
 
   @Column(nullable = false)
   private boolean admin;
+
+  @Column(name = "token_version", nullable = false)
+  private int tokenVersion;
+
+  @Column(name = "withdrawn_at")
+  private OffsetDateTime withdrawnAt;
 
   @Column(name = "deleted_at")
   private OffsetDateTime deletedAt;

@@ -18,7 +18,7 @@ public class StockNewsMap {
   @EmbeddedId
   private StockNewsMapId id;
 
-  @Column(name = "sentiment_score", precision = 8, scale = 4)
+  @Column(name = "sentiment_score", precision = 5, scale = 4)
   private BigDecimal sentimentScore;
 
   @Column(name = "sentiment_label", length = 20)

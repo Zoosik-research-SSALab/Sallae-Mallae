@@ -28,22 +28,22 @@ public class StockPrice {
   @Column(name = "trade_timestamp", nullable = false)
   private OffsetDateTime tradeTimestamp;
 
-  @Column(name = "open_price", nullable = false)
+  @Column(name = "open_price")
   private Integer openPrice;
 
-  @Column(name = "high_price", nullable = false)
+  @Column(name = "high_price")
   private Integer highPrice;
 
-  @Column(name = "low_price", nullable = false)
+  @Column(name = "low_price")
   private Integer lowPrice;
 
   @Column(name = "close_price", nullable = false)
   private Integer closePrice;
 
-  @Column(nullable = false)
+  @Column
   private Long volume;
 
-  @Column(name = "fluctuation_rate", precision = 8, scale = 4)
+  @Column(name = "fluctuation_rate", precision = 10, scale = 4)
   private BigDecimal fluctuationRate;
 
   @Column(name = "created_at", nullable = false)

@@ -1,6 +1,6 @@
 package com.sallaemallae.backend.domain.auth.entity;
 
-import com.sallaemallae.backend.domain.auth.enumtype.EventType;
+import com.sallaemallae.backend.domain.auth.enumtype.PasswordChangedBy;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,33 +16,27 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "login_history")
+@Table(name = "password_history")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LoginHistory {
+public class PasswordHistory {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "user_id")
+  @Column(name = "user_id", nullable = false)
   private Long userId;
 
-  @Column(name = "attempt_email", length = 255)
-  private String attemptEmail;
+  @Column(name = "password_hash", nullable = false, length = 60)
+  private String passwordHash;
+
+  @Column(name = "changed_at", nullable = false)
+  private OffsetDateTime changedAt;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "changed_by", nullable = false, length = 10)
+  private PasswordChangedBy changedBy;
 
   @Column(name = "ip_address", length = 45)
   private String ipAddress;
-
-  @Column(name = "device_info", length = 512)
-  private String deviceInfo;
-
-  @Column(name = "is_success", nullable = false)
-  private boolean isSuccess;
-
-  @Enumerated(EnumType.STRING)
-  @Column(name = "event_type", length = 30)
-  private EventType eventType;
-
-  @Column(name = "created_at", nullable = false)
-  private OffsetDateTime createdAt;
 }

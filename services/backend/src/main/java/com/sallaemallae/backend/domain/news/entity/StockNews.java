@@ -27,13 +27,16 @@ public class StockNews {
   @Column(columnDefinition = "text")
   private String snippet;
 
-  @Column(nullable = false, length = 512)
+  @Column(length = 512)
   private String url;
 
   @Column(length = 20)
   private String publisher;
 
-  @Column(name = "published_at", nullable = false)
+  @Column(name = "drive_file_id", length = 100)
+  private String driveFileId;
+
+  @Column(name = "published_at")
   private OffsetDateTime publishedAt;
 
   @Column(name = "created_at", nullable = false)
