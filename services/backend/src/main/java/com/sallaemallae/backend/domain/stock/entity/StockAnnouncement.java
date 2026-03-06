@@ -40,11 +40,11 @@ public class StockAnnouncement {
   @Column(name = "target_year")
   private Integer targetYear;
 
-  @Column(name = "has_financial_analysis", nullable = false)
-  private boolean hasFinancialAnalysis;
+  @Column(name = "has_financial_analysis")
+  private Boolean hasFinancialAnalysis;
 
-  @Column(name = "has_operating_profit", nullable = false)
-  private boolean hasOperatingProfit;
+  @Column(name = "has_operating_profit")
+  private Boolean hasOperatingProfit;
 
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;

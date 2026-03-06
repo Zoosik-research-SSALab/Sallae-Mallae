@@ -29,9 +29,18 @@ public class StockFinancial {
   private Integer reportYear;
 
   @Column(name = "report_quarter", nullable = false, length = 10)
-  private String reportQuarter;
+  private String reportQuarter;  // 1Q, 2Q, 3Q, 4Q, YEARLY
 
-  @Column(name = "revenue")
+  @Column(name = "total_assets")
+  private Long totalAssets;
+
+  @Column(name = "total_liabilities")
+  private Long totalLiabilities;
+
+  @Column(name = "total_equity")
+  private Long totalEquity;
+
+  @Column
   private Long revenue;
 
   @Column(name = "operating_profit")
@@ -40,13 +49,16 @@ public class StockFinancial {
   @Column(name = "net_income")
   private Long netIncome;
 
-  @Column(precision = 12, scale = 4)
+  @Column(name = "operating_cash_flow")
+  private Long operatingCashFlow;
+
+  @Column(precision = 10, scale = 4)
   private BigDecimal per;
 
-  @Column(precision = 12, scale = 4)
+  @Column(precision = 10, scale = 4)
   private BigDecimal pbr;
 
-  @Column(precision = 12, scale = 4)
+  @Column(precision = 10, scale = 4)
   private BigDecimal roe;
 
   @Column(name = "created_at", nullable = false)

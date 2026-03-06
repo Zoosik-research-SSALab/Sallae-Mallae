@@ -12,9 +12,12 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Entity
@@ -33,11 +36,23 @@ public class AiDebateReport {
   private LocalDate reportDate;
 
   @Enumerated(EnumType.STRING)
-  @Column(name = "debate_signal", nullable = false, length = 4)
-  private AiSignal debateSignal;
+  @Column(name = "chairman_signal", length = 4)
+  private AiSignal chairmanSignal;
 
-  @Column(name = "debate_confidence", precision = 8, scale = 4)
+  @Column(name = "debate_confidence", precision = 10, scale = 4)
   private BigDecimal debateConfidence;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "debate_summary", columnDefinition = "jsonb")
+  private Map<String, Object> debateSummary;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "final_stances", columnDefinition = "jsonb")
+  private Map<String, Object> finalStances;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "debate_full_log", columnDefinition = "jsonb")
+  private Map<String, Object> debateFullLog;
 
   @Column(name = "chairman_report", columnDefinition = "text")
   private String chairmanReport;
