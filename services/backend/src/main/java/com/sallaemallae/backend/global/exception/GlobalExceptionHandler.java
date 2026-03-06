@@ -2,13 +2,18 @@ package com.sallaemallae.backend.global.exception;
 
 import com.sallaemallae.backend.global.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  // 비즈니스 예외 (도메인별 상태코드 그대로 반환 - 401, 403, 404, 409 포함)
   @ExceptionHandler(BusinessException.class)
   public ResponseEntity<ApiResponse<?>> handleBusinessException(BusinessException e) {
     ErrorCode errorCode = e.getErrorCode();
@@ -17,6 +22,7 @@ public class GlobalExceptionHandler {
         .body(ApiResponse.fail(errorCode));
   }
 
+  // 400 - @Valid 유효성 검증 실패
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ApiResponse<?>> handleValidException(MethodArgumentNotValidException e) {
     return ResponseEntity
@@ -24,6 +30,39 @@ public class GlobalExceptionHandler {
         .body(ApiResponse.fail(GlobalErrorCode.INVALID_INPUT_VALUE));
   }
 
+  // 400 - 필수 요청 헤더 누락
+  @ExceptionHandler(MissingRequestHeaderException.class)
+  public ResponseEntity<ApiResponse<?>> handleMissingHeader(MissingRequestHeaderException e) {
+    return ResponseEntity
+        .status(400)
+        .body(ApiResponse.fail(GlobalErrorCode.INVALID_INPUT_VALUE));
+  }
+
+  // 400 - 필수 요청 파라미터 누락
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<ApiResponse<?>> handleMissingParam(MissingServletRequestParameterException e) {
+    return ResponseEntity
+        .status(400)
+        .body(ApiResponse.fail(GlobalErrorCode.INVALID_INPUT_VALUE));
+  }
+
+  // 400 - 요청 바디 파싱 실패 (잘못된 JSON 등)
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ApiResponse<?>> handleNotReadable(HttpMessageNotReadableException e) {
+    return ResponseEntity
+        .status(400)
+        .body(ApiResponse.fail(GlobalErrorCode.INVALID_INPUT_VALUE));
+  }
+
+  // 404 - 존재하지 않는 엔드포인트
+  @ExceptionHandler(NoResourceFoundException.class)
+  public ResponseEntity<ApiResponse<?>> handleNoResource(NoResourceFoundException e) {
+    return ResponseEntity
+        .status(404)
+        .body(ApiResponse.fail(GlobalErrorCode.NOT_FOUND));
+  }
+
+  // 500 - 그 외 예외
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiResponse<?>> handleException(Exception e) {
     return ResponseEntity
