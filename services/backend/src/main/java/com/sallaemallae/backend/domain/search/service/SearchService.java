@@ -1,14 +1,18 @@
 package com.sallaemallae.backend.domain.search.service;
 
 import com.sallaemallae.backend.domain.search.dto.SearchHistoryRequest;
-import com.sallaemallae.backend.domain.search.dto.SearchSuggestionResponse;
-import java.util.List;
+import com.sallaemallae.backend.domain.search.dto.SearchRecentResponse;
+import com.sallaemallae.backend.domain.search.dto.SearchResponse;
 
 public interface SearchService {
 
-  List<SearchSuggestionResponse> suggest(String keyword);
+  SearchResponse search(String keyword);
 
-  List<String> trending();
+  SearchRecentResponse getRecent(Long userId);
 
-  void saveHistory(Long userId, SearchHistoryRequest request);
+  void saveRecent(Long userId, SearchHistoryRequest request);
+
+  void deleteRecent(Long userId, String keyword);
+
+  void clearRecent(Long userId);
 }
