@@ -24,7 +24,7 @@ html {
 
 body {
   min-height: 100vh;
-  font-family: var(--font-pretendard), system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-family-base);
   background: var(--color-bg);
   color: var(--color-text);
   line-height: 1.5;
@@ -54,7 +54,6 @@ canvas,
 svg {
   display: block;
   max-width: 100%;
-  height: auto;
 }
 
 h1,
@@ -84,6 +83,77 @@ kbd,
 samp,
 pre {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ------------------------ */
+/* Typography Tokens */
+/* ------------------------ */
+
+.typo-heading-sm {
+  font-family: var(--typo-heading-sm-font-family);
+  font-weight: var(--typo-heading-sm-font-weight);
+  font-size: var(--typo-heading-sm-font-size);
+  line-height: var(--typo-heading-sm-line-height);
+}
+
+.typo-heading-md {
+  font-family: var(--typo-heading-md-font-family);
+  font-weight: var(--typo-heading-md-font-weight);
+  font-size: var(--typo-heading-md-font-size);
+  line-height: var(--typo-heading-md-line-height);
+}
+
+.typo-heading-lg {
+  font-family: var(--typo-heading-lg-font-family);
+  font-weight: var(--typo-heading-lg-font-weight);
+  font-size: var(--typo-heading-lg-font-size);
+  line-height: var(--typo-heading-lg-line-height);
+}
+
+.typo-heading-xl {
+  font-family: var(--typo-heading-xl-font-family);
+  font-weight: var(--typo-heading-xl-font-weight);
+  font-size: var(--typo-heading-xl-font-size);
+  line-height: var(--typo-heading-xl-line-height);
+}
+
+.typo-heading-2xl {
+  font-family: var(--typo-heading-2xl-font-family);
+  font-weight: var(--typo-heading-2xl-font-weight);
+  font-size: var(--typo-heading-2xl-font-size);
+  line-height: var(--typo-heading-2xl-line-height);
+}
+
+.typo-heading-3xl {
+  font-family: var(--typo-heading-3xl-font-family);
+  font-weight: var(--typo-heading-3xl-font-weight);
+  font-size: var(--typo-heading-3xl-font-size);
+  line-height: var(--typo-heading-3xl-line-height);
+}
+
+.typo-heading-4xl {
+  font-family: var(--typo-heading-4xl-font-family);
+  font-weight: var(--typo-heading-4xl-font-weight);
+  font-size: var(--typo-heading-4xl-font-size);
+  line-height: var(--typo-heading-4xl-line-height);
+}
+
+.typo-body-sm {
+  font-family: var(--typo-body-sm-font-family);
+  font-size: var(--typo-body-sm-font-size);
+  line-height: var(--typo-body-sm-line-height);
+}
+
+.typo-body-md {
+  font-family: var(--typo-body-md-font-family);
+  font-size: var(--typo-body-md-font-size);
+  line-height: var(--typo-body-md-line-height);
+}
+
+.typo-label {
+  font-family: var(--typo-label-font-family);
+  font-size: var(--typo-label-font-size);
+  line-height: var(--typo-label-line-height);
 }
 
 /* ------------------------ */
