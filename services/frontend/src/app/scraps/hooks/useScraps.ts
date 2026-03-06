@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getScraps, type ScrapItem } from "../_api/getScraps";
+import { getScraps, type ScrapItem } from "../api/getScraps";
 
 export function useScraps() {
   const [items, setItems] = useState<ScrapItem[]>([]);

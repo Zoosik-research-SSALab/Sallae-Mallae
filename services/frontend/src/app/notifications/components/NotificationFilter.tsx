@@ -1,3 +1,5 @@
+import Button from "@/shared/ui/Button";
+
 type Props = {
   typeFilter: string;
   onChange: (value: string) => void;
@@ -9,16 +11,14 @@ export default function NotificationFilter({ typeFilter, onChange }: Props) {
   return (
     <div className="row" style={{ flexWrap: "wrap" }}>
       {options.map((option) => (
-        <button
+        <Button
           key={option}
-          type="button"
-          className="button"
+          variant={typeFilter === option ? "primary" : "default"}
           onClick={() => onChange(option)}
           aria-pressed={typeFilter === option}
-          style={typeFilter === option ? { borderColor: "#18826a" } : undefined}
         >
           {option}
-        </button>
+        </Button>
       ))}
     </div>
   );

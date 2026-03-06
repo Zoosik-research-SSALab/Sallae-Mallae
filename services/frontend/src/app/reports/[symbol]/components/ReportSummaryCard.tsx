@@ -1,5 +1,5 @@
 import SignalBadge from "../../components/SignalBadge";
-import type { LatestReport } from "../../_api/getLatestReport";
+import type { LatestReport } from "../../api/getLatestReport";
 
 type Props = {
   report: LatestReport;

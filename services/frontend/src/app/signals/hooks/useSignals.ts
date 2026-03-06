@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSignals, type SignalItem } from "../_api/getSignals";
+import { getSignals, type SignalItem } from "../api/getSignals";
 
 export function useSignals() {
   const [items, setItems] = useState<SignalItem[]>([]);

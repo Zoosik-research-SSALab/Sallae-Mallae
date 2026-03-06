@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getSuggestions, type Suggestion } from "../_api/getSuggestions";
+import { getSuggestions, type Suggestion } from "../api/getSuggestions";
 
 export function useSearch() {
   const [keyword, setKeyword] = useState("");

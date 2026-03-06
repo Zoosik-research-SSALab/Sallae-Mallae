@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getStockDetail, type StockDetail } from "../_api/getStockDetail";
+import { getStockDetail, type StockDetail } from "../api/getStockDetail";
 
 export function useStockDetail(ticker: string) {
   const [item, setItem] = useState<StockDetail | null>(null);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getLatestReport, type LatestReport } from "../_api/getLatestReport";
+import { getLatestReport, type LatestReport } from "../api/getLatestReport";
 
 export function useLatestReport(symbol: string) {
   const [report, setReport] = useState<LatestReport | null>(null);

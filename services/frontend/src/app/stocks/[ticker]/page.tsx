@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import AlertSettingCard from "./components/AlertSettingCard";
 import StockDetailCard from "./components/StockDetailCard";
 import { useStockDetail } from "./hooks/useStockDetail";
+import Badge from "@/shared/ui/Badge";
 
 export default function StockDetailPage() {
   const params = useParams<{ ticker: string }>();
@@ -26,7 +27,7 @@ export default function StockDetailPage() {
       </div>
 
       {isLoading ? <p>상세 로딩 중...</p> : null}
-      {error ? <p className="badge badge--danger">{error}</p> : null}
+      {error ? <Badge tone="danger">{error}</Badge> : null}
       {item ? <StockDetailCard item={item} /> : null}
       <AlertSettingCard ticker={ticker} />
     </main>

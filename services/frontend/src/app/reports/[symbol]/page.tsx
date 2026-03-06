@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import ReportSummaryCard from "./components/ReportSummaryCard";
 import { useSymbolLatestReport } from "./hooks/useSymbolLatestReport";
+import Badge from "@/shared/ui/Badge";
 
 export default function ReportDetailPage() {
   const params = useParams<{ symbol: string }>();
@@ -26,7 +27,7 @@ export default function ReportDetailPage() {
       </div>
 
       {isLoading ? <p>리포트 로딩 중...</p> : null}
-      {error ? <p className="badge badge--danger">{error}</p> : null}
+      {error ? <Badge tone="danger">{error}</Badge> : null}
       {report ? <ReportSummaryCard report={report} /> : null}
     </main>
   );

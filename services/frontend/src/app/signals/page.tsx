@@ -2,6 +2,7 @@
 
 import SignalList from "./components/SignalList";
 import { useSignals } from "./hooks/useSignals";
+import Badge from "@/shared/ui/Badge";
 
 export default function SignalsPage() {
   const { items, isLoading, error } = useSignals();
@@ -15,7 +16,7 @@ export default function SignalsPage() {
 
       <section className="card stack">
         {isLoading ? <p>매매신호 로딩 중...</p> : null}
-        {error ? <p className="badge badge--danger">{error}</p> : null}
+        {error ? <Badge tone="danger">{error}</Badge> : null}
         {!isLoading && !error ? <SignalList items={items} /> : null}
       </section>
     </main>
