@@ -1,6 +1,6 @@
 package com.sallaemallae.backend.domain.user.controller;
 
-import com.sallaemallae.backend.domain.news.dto.WatchlistNewsResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;

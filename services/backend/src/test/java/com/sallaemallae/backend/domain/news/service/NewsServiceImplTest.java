@@ -102,8 +102,8 @@ class NewsServiceImplTest {
     assertThat(result.news()).hasSize(2);
     assertThat(result.news().get(0).id()).isEqualTo(1L);
     assertThat(result.news().get(0).title()).isEqualTo("뉴스1");
-    assertThat(result.news().get(0).relatedStock()).containsExactly("삼성전자", "SK하이닉스");
-    assertThat(result.news().get(1).relatedStock()).containsExactly("LG전자");
+    assertThat(result.news().get(0).relatedStocks()).containsExactly("삼성전자", "SK하이닉스");
+    assertThat(result.news().get(1).relatedStocks()).containsExactly("LG전자");
   }
 
   @Test
@@ -121,7 +121,7 @@ class NewsServiceImplTest {
 
     assertThat(result.news()).hasSize(1);
     assertThat(result.news().get(0).publisher()).isEqualTo("MBC");
-    assertThat(result.news().get(0).relatedStock()).isEmpty();
+    assertThat(result.news().get(0).relatedStocks()).isEmpty();
   }
 
   @Test

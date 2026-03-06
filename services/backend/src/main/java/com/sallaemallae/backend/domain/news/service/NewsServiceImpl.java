@@ -37,6 +37,7 @@ public class NewsServiceImpl implements NewsService {
 
   private static final String TRENDING_KEY_PREFIX = "trending:keywords:";
 
+  // 뉴스 목록 조회 (키워드 필터, 페이지네이션, 관련 종목명 포함)
   @Override
   public NewsListResponse getNewsList(String keyword, int offset, int limit) {
     List<Object[]> rows = stockNewsRepository.findNewsWithOptionalKeyword(keyword, limit, offset);
@@ -55,6 +56,7 @@ public class NewsServiceImpl implements NewsService {
     return new NewsListResponse(news);
   }
 
+  // 뉴스 상세 조회 (관련 종목 포함, 조회 시 키워드 Redis 트렌딩 점수 증가)
   @Override
   public NewsDetailResponse getNewsDetail(Long newsId) {
     StockNews news = stockNewsRepository.findById(newsId)
@@ -77,6 +79,7 @@ public class NewsServiceImpl implements NewsService {
         relatedStocks);
   }
 
+  // Redis Sorted Set에서 오늘 기준 상위 5개 트렌딩 키워드 조회
   @Override
   public TrendingKeywordsResponse getTrendingKeywords() {
     String key = TRENDING_KEY_PREFIX + LocalDate.now();
@@ -93,6 +96,7 @@ public class NewsServiceImpl implements NewsService {
     return new TrendingKeywordsResponse(trending);
   }
 
+  // 뉴스에 매핑된 키워드를 Redis Sorted Set에 ZINCRBY +1 (하루 TTL)
   private void incrementKeywords(Long newsId) {
     List<String> keywords = keywordRepository.findKeywordNamesByNewsId(newsId);
     if (keywords.isEmpty()) {
@@ -105,6 +109,7 @@ public class NewsServiceImpl implements NewsService {
     redisTemplate.expire(key, 1, TimeUnit.DAYS);
   }
 
+  // 뉴스 ID 목록으로 관련 종목명을 일괄 조회하여 Map으로 반환 (N+1 방지)
   private Map<Long, List<String>> buildStockNameMap(List<Long> newsIds) {
     Map<Long, List<String>> stockMap = new HashMap<>();
     if (newsIds.isEmpty()) {

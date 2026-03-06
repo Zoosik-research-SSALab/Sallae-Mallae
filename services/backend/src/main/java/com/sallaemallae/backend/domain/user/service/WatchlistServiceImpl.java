@@ -1,7 +1,7 @@
 package com.sallaemallae.backend.domain.user.service;
 
-import com.sallaemallae.backend.domain.news.dto.WatchlistNewsItemResponse;
-import com.sallaemallae.backend.domain.news.dto.WatchlistNewsResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistNewsItemResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -20,6 +20,7 @@ public class WatchlistServiceImpl implements WatchlistService {
 
   private final WatchlistRepository watchlistRepository;
 
+  // 사용자 관심종목에 연결된 최신 뉴스 조회 (관련 종목명 포함)
   @Override
   public WatchlistNewsResponse getWatchlistNews(Long userId, int limit) {
     List<Object[]> rows = watchlistRepository.findWatchlistNews(userId, limit);
@@ -40,6 +41,7 @@ public class WatchlistServiceImpl implements WatchlistService {
     return new WatchlistNewsResponse(news);
   }
 
+  // 뉴스 ID 목록으로 관련 종목명을 일괄 조회하여 Map으로 반환 (N+1 방지)
   private Map<Long, List<String>> buildStockNameMap(List<Long> newsIds) {
     Map<Long, List<String>> stockMap = new HashMap<>();
     if (newsIds.isEmpty()) {
@@ -50,11 +52,13 @@ public class WatchlistServiceImpl implements WatchlistService {
     return stockMap;
   }
 
+  // native query 결과의 Object를 Long으로 안전 변환
   private Long toLong(Object obj) {
     if (obj instanceof Number n) return n.longValue();
     return null;
   }
 
+  // native query 결과의 Object를 OffsetDateTime으로 안전 변환 (Timestamp 호환)
   private OffsetDateTime toOffsetDateTime(Object obj) {
     if (obj instanceof OffsetDateTime odt) return odt;
     if (obj instanceof java.sql.Timestamp ts) return ts.toInstant().atOffset(ZoneOffset.UTC);
