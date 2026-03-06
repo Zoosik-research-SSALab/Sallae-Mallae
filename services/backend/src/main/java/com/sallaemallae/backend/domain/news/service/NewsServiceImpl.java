@@ -6,8 +6,6 @@ import com.sallaemallae.backend.domain.news.dto.NewsListItemResponse;
 import com.sallaemallae.backend.domain.news.dto.NewsListResponse;
 import com.sallaemallae.backend.domain.news.dto.TrendingKeywordsResponse;
 import com.sallaemallae.backend.domain.news.dto.TrendingKeywordsResponse.TrendingItem;
-import com.sallaemallae.backend.domain.news.dto.WatchlistNewsItemResponse;
-import com.sallaemallae.backend.domain.news.dto.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.news.entity.StockNews;
 import com.sallaemallae.backend.domain.news.exception.NewsErrorCode;
 import com.sallaemallae.backend.domain.news.repository.KeywordRepository;
@@ -77,26 +75,6 @@ public class NewsServiceImpl implements NewsService {
       trending.add(new TrendingItem(i + 1, (String) rows.get(i)[0]));
     }
     return new TrendingKeywordsResponse(trending);
-  }
-
-  @Override
-  public WatchlistNewsResponse getWatchlistNews(Long userId, int limit) {
-    List<Object[]> rows = stockNewsRepository.findWatchlistNews(userId, limit);
-    List<Long> newsIds = rows.stream().map(r -> toLong(r[0])).toList();
-    Map<Long, List<String>> stockMap = buildStockNameMap(newsIds);
-
-    List<WatchlistNewsItemResponse> news = rows.stream()
-        .map(r -> new WatchlistNewsItemResponse(
-            toLong(r[0]),
-            (String) r[1],
-            (String) r[2],
-            (String) r[3],
-            (String) r[4],
-            toOffsetDateTime(r[5]),
-            stockMap.getOrDefault(toLong(r[0]), List.of())))
-        .toList();
-
-    return new WatchlistNewsResponse(news);
   }
 
   private Map<Long, List<String>> buildStockNameMap(List<Long> newsIds) {
