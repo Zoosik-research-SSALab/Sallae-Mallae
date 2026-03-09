@@ -178,7 +178,7 @@ cd services/backend
 
 EC2 배포는 GitLab Runner가 checkout한 현재 소스를 `/srv/sallaemallae/source/<target>`로 동기화한 뒤 실행합니다. 별도 서버-side `git clone`은 필수가 아닙니다.
 
-브랜치별 내부 포트는 `8081(dev-frontend)`, `8082(dev-backend)`, `8083(dev-ai)`, `8084(develop)`, `8085(master 수동 운영 슬롯)`를 사용합니다. 공용 gateway nginx는 루트 도메인으로 들어온 요청을 `/`, `/api`, `/ai` 기준으로 최신 dev 배포에 분기하고, `dev.<domain>`은 나중 통합 검증용으로 남겨둡니다.
+브랜치별 내부 포트는 `8081(dev-frontend)`, `8082(dev-backend)`, `8083(dev-ai)`, `8084(develop)`, `8085(master 수동 운영 슬롯)`를 사용합니다. 공용 gateway nginx는 `j14d208.p.ssafy.io`로 들어온 요청을 `/`, `/api`, `/ai` 기준으로 최신 dev 배포에 분기합니다. 나중에 통합 검증이나 최종 전환이 필요하면 gateway 타깃만 `develop` 또는 운영 슬롯으로 교체합니다.
 
 ## 문서 원칙
 
