@@ -92,16 +92,16 @@ export default function CategoryStocksSection({ categories, isLoading }: Props) 
           return (
             <article
               key={category.name}
-              className="rounded-2xl border-x border-b border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-primary)] p-6 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
+              className="flex flex-col gap-6 rounded-2xl border-x border-b border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-primary)] p-6 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
             >
-              <div className="mb-1 flex items-center gap-2">
+              <div className="flex w-full items-center gap-2">
                 <span className="inline-flex h-5 w-5 items-center justify-center text-[color:var(--color-icon-primary)]">
                   <Icon className="h-4 w-4" />
                 </span>
-                <h3 className="typo-body-md mb-0.5 font-bold text-[color:var(--color-text-primary)]">{formatCategoryLabel(category.name)}</h3>
+                <h3 className="typo-body-md font-bold text-[color:var(--color-text-primary)]">{formatCategoryLabel(category.name)}</h3>
               </div>
 
-              <div className="mt-6 flex flex-col gap-5">
+              <div className="flex w-full flex-col gap-5">
                 {category.stocks.map((stock) => (
                   <div key={`${category.name}-${stock.name}`} className="flex items-center justify-between gap-4">
                     <div>
