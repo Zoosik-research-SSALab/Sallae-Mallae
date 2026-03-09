@@ -2,7 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="${ROOT_DIR:-/srv/sallaemallae}"
-REPO_DIR="$ROOT_DIR/repo"
+CHECKOUT_DIR="${CHECKOUT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+TARGET_NAME="${TARGET_NAME:-${TARGET:-}}"
+if [[ -z "${TARGET_NAME}" ]]; then
+  TARGET_NAME="shared"
+fi
+SOURCE_DIR="${SOURCE_DIR:-$ROOT_DIR/source/$TARGET_NAME}"
 
 require_file() {
   local target="$1"
@@ -20,14 +25,26 @@ require_dir() {
   fi
 }
 
-sync_branch() {
-  local branch="$1"
-  require_dir "$REPO_DIR/.git"
+sync_source() {
+  require_dir "$CHECKOUT_DIR"
+  mkdir -p "$ROOT_DIR/source"
 
-  cd "$REPO_DIR"
-  git fetch origin
-  git checkout "$branch"
-  git pull origin "$branch"
+  local tmp_dir="$ROOT_DIR/source/.tmp-$TARGET_NAME"
+  rm -rf "$tmp_dir"
+  mkdir -p "$tmp_dir"
+
+  tar \
+    --exclude=.git \
+    --exclude=.idea \
+    --exclude=.vscode \
+    --exclude=.codex \
+    --exclude=node_modules \
+    --exclude=target \
+    -cf - -C "$CHECKOUT_DIR" . | tar -xf - -C "$tmp_dir"
+
+  rm -rf "$SOURCE_DIR"
+  mkdir -p "$(dirname "$SOURCE_DIR")"
+  mv "$tmp_dir" "$SOURCE_DIR"
 }
 
 compose_up() {
