@@ -175,6 +175,8 @@ cd services/backend
 
 - [infra/README.md](/home/ssafy/project-infra/infra/README.md)
 
+EC2 배포는 GitLab Runner가 checkout한 현재 소스를 `/srv/sallaemallae/source/<target>`로 동기화한 뒤 실행합니다. 별도 서버-side `git clone`은 필수가 아닙니다.
+
 ## 문서 원칙
 
 - 루트 `README.md`는 프로젝트 개요와 협업 규칙을 다룸
