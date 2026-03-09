@@ -128,7 +128,7 @@ CREATE TABLE stock_prices (
     low_price INT,                              -- 저가
     close_price INT NOT NULL,                   -- 종가(현재가)
     volume BIGINT,                              -- 거래량
-    fluctuation_rate NUMERIC(10,4),             -- 등락률 (예: 2.54)
+    fluctuation_rate REAL,                       -- 등락률 (예: 2.54)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
@@ -148,9 +148,9 @@ CREATE TABLE stock_financials (
     operating_profit BIGINT,                    -- 영업이익
     net_income BIGINT,                          -- 당기순이익
     operating_cash_flow BIGINT,                 -- 영업활동 현금흐름
-    per NUMERIC(10,4),                          -- PER (주가수익비율)
-    pbr NUMERIC(10,4),                          -- PBR (주가순자산비율)
-    roe NUMERIC(10,4),                          -- ROE (자기자본이익률)
+    per REAL,                                    -- PER (주가수익비율)
+    pbr REAL,                                    -- PBR (주가순자산비율)
+    roe REAL,                                    -- ROE (자기자본이익률)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
@@ -187,7 +187,7 @@ CREATE TABLE stock_news (
 CREATE TABLE stock_news_map (
     stock_id BIGINT NOT NULL,                   -- PK, FK
     news_id BIGINT NOT NULL,                    -- PK, FK
-    sentiment_score NUMERIC(5,4),               -- 감성 점수 (-1.0 ~ 1.0)
+    sentiment_score REAL,                       -- 감성 점수 (-1.0 ~ 1.0)
     sentiment_label VARCHAR(20),                -- POSITIVE, NEGATIVE, NEUTRAL
     PRIMARY KEY (stock_id, news_id),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE,
@@ -215,7 +215,7 @@ CREATE TABLE news_keyword_map (
 CREATE TABLE ai_portfolio (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,                  -- 포트폴리오 이름 (예: 의장 포트폴리오)
-    cumulative_return NUMERIC(10,4) DEFAULT 0,  -- 누적 수익률 (%)
+    cumulative_return REAL DEFAULT 0,  -- 누적 수익률 (%)
     total_trades INT DEFAULT 0,                 -- 총 매매 횟수 (매도 기준)
     winning_trades INT DEFAULT 0,               -- 성공(익절) 횟수
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -225,8 +225,8 @@ CREATE TABLE ai_portfolio_holdings (
     id BIGSERIAL PRIMARY KEY,
     portfolio_id BIGINT NOT NULL,               -- FK
     stock_id BIGINT NOT NULL,                   -- FK
-    portfolio_weight NUMERIC(10,4),             -- 포트폴리오 내 비중 (%)
-    return_rate NUMERIC(10,4),                  -- 현재 종목 수익률 (%)
+    portfolio_weight REAL,                      -- 포트폴리오 내 비중 (%)
+    return_rate REAL,                           -- 현재 종목 수익률 (%)
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (portfolio_id) REFERENCES ai_portfolio(id) ON DELETE CASCADE,
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
@@ -236,9 +236,9 @@ CREATE TABLE ai_daily_performance (
     id BIGSERIAL PRIMARY KEY,
     portfolio_id BIGINT NOT NULL,               -- FK
     record_date DATE NOT NULL,                  -- 기록 일자
-    daily_return NUMERIC(10,4),                 -- 일일 수익률 (%)
-    cumulative_return NUMERIC(10,4),            -- 해당 일자 기준 누적 수익률 (%)
-    mdd NUMERIC(10,4),                          -- 최대 낙폭 (MDD, %)
+    daily_return REAL,                          -- 일일 수익률 (%)
+    cumulative_return REAL,                     -- 해당 일자 기준 누적 수익률 (%)
+    mdd REAL,                                   -- 최대 낙폭 (MDD, %)
     FOREIGN KEY (portfolio_id) REFERENCES ai_portfolio(id) ON DELETE CASCADE
 );
 
@@ -247,7 +247,7 @@ CREATE TABLE ai_ml_reports (
     stock_id BIGINT NOT NULL,                   -- FK
     report_time TIMESTAMPTZ NOT NULL,           -- 분석 일시
     ml_signal VARCHAR(4),                       -- ML 최종 신호 (BUY, HOLD, SELL, STAY)
-    ml_confidence NUMERIC(10,4),                -- ML 신호 신뢰도
+    ml_confidence REAL,                         -- ML 신호 신뢰도
     model_versions JSONB,                       -- 모델 버전 정보 (PostgreSQL 최적화 JSONB)
     lgbm_up_prob REAL,                          -- 상승 확률 (FLOAT 최적화 REAL)
     lgbm_sideways_prob REAL,                    -- 횡보 확률
@@ -274,7 +274,7 @@ CREATE TABLE ai_debate_reports (
     stock_id BIGINT NOT NULL,                   -- FK
     report_date DATE NOT NULL,                  -- 토론 기준일
     chairman_signal VARCHAR(4),                 -- 의장 최종 신호 (BUY, HOLD, SELL, STAY)
-    debate_confidence NUMERIC(10,4),            -- 토론 신호 신뢰도
+    debate_confidence REAL,                     -- 토론 신호 신뢰도
     debate_summary JSONB,                       -- 라운드 & 에이전트별 토론 요약
     final_stances JSONB,                        -- 리포트 요약 매수, 매도 보여주는
     debate_full_log JSONB,                      -- 전체 토론 스크립트
@@ -289,9 +289,9 @@ CREATE TABLE ai_trading_history (
     stock_id BIGINT NOT NULL,                   -- FK
     ml_report_id BIGINT,                        -- FK (nullable)
     trade_type VARCHAR(4) NOT NULL,             -- BUY, SELL
-    trade_weight NUMERIC(10,4),                 -- 매매 비중 (%)
-    trade_price_rate NUMERIC(10,4),             -- 체결가 (퍼센트/비율)
-    return_rate NUMERIC(10,4),                  -- 수익률 (SELL 일 때만 기록, %)
+    trade_weight REAL,                          -- 매매 비중 (%)
+    trade_price_rate REAL,                      -- 체결가 (퍼센트/비율)
+    return_rate REAL,                           -- 수익률 (SELL 일 때만 기록, %)
     trade_time TIMESTAMPTZ NOT NULL,            -- 매매 시간
     created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (portfolio_id) REFERENCES ai_portfolio(id) ON DELETE CASCADE,
@@ -447,7 +447,7 @@ CREATE TABLE stock_prices (
     low_price INT,
     close_price INT NOT NULL,
     volume BIGINT,
-    fluctuation_rate NUMERIC(10,4),
+    fluctuation_rate REAL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
@@ -464,9 +464,9 @@ CREATE TABLE stock_financials (
     operating_profit BIGINT,
     net_income BIGINT,
     operating_cash_flow BIGINT,
-    per NUMERIC(10,4),
-    pbr NUMERIC(10,4),
-    roe NUMERIC(10,4),
+    per REAL,
+    pbr REAL,
+    roe REAL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
@@ -503,7 +503,7 @@ CREATE TABLE stock_news (
 CREATE TABLE stock_news_map (
     stock_id BIGINT NOT NULL,
     news_id BIGINT NOT NULL,
-    sentiment_score NUMERIC(5,4),
+    sentiment_score REAL,
     sentiment_label VARCHAR(20),
     PRIMARY KEY (stock_id, news_id),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE,
@@ -531,7 +531,7 @@ CREATE TABLE news_keyword_map (
 CREATE TABLE ai_portfolio (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
-    cumulative_return NUMERIC(10,4) DEFAULT 0,
+    cumulative_return REAL DEFAULT 0,
     total_trades INT DEFAULT 0,
     winning_trades INT DEFAULT 0,
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -541,8 +541,8 @@ CREATE TABLE ai_portfolio_holdings (
     id BIGSERIAL PRIMARY KEY,
     portfolio_id BIGINT NOT NULL,
     stock_id BIGINT NOT NULL,
-    portfolio_weight NUMERIC(10,4),
-    return_rate NUMERIC(10,4),
+    portfolio_weight REAL,
+    return_rate REAL,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (portfolio_id) REFERENCES ai_portfolio(id) ON DELETE CASCADE,
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
@@ -552,9 +552,9 @@ CREATE TABLE ai_daily_performance (
     id BIGSERIAL PRIMARY KEY,
     portfolio_id BIGINT NOT NULL,
     record_date DATE NOT NULL,
-    daily_return NUMERIC(10,4),
-    cumulative_return NUMERIC(10,4),
-    mdd NUMERIC(10,4),
+    daily_return REAL,
+    cumulative_return REAL,
+    mdd REAL,
     FOREIGN KEY (portfolio_id) REFERENCES ai_portfolio(id) ON DELETE CASCADE
 );
 
@@ -563,7 +563,7 @@ CREATE TABLE ai_ml_reports (
     stock_id BIGINT NOT NULL,
     report_time TIMESTAMPTZ NOT NULL,
     ml_signal VARCHAR(4),
-    ml_confidence NUMERIC(10,4),
+    ml_confidence REAL,
     model_versions JSONB,
     lgbm_up_prob REAL,
     lgbm_sideways_prob REAL,
@@ -590,7 +590,7 @@ CREATE TABLE ai_debate_reports (
     stock_id BIGINT NOT NULL,
     report_date DATE NOT NULL,
     chairman_signal VARCHAR(4),
-    debate_confidence NUMERIC(10,4),
+    debate_confidence REAL,
     debate_summary JSONB,
     final_stances JSONB,
     debate_full_log JSONB,
@@ -605,9 +605,9 @@ CREATE TABLE ai_trading_history (
     stock_id BIGINT NOT NULL,
     ml_report_id BIGINT,
     trade_type VARCHAR(4) NOT NULL,
-    trade_weight NUMERIC(10,4),
-    trade_price_rate NUMERIC(10,4),
-    return_rate NUMERIC(10,4),
+    trade_weight REAL,
+    trade_price_rate REAL,
+    return_rate REAL,
     trade_time TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (portfolio_id) REFERENCES ai_portfolio(id) ON DELETE CASCADE,

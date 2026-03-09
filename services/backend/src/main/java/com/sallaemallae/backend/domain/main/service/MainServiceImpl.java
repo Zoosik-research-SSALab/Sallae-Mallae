@@ -1,20 +1,289 @@
 package com.sallaemallae.backend.domain.main.service;
 
-import com.sallaemallae.backend.domain.main.dto.MainSummaryResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sallaemallae.backend.domain.main.dto.CategoryItemResponse;
+import com.sallaemallae.backend.domain.main.dto.CategoryStockItemResponse;
+import com.sallaemallae.backend.domain.main.dto.CategoryStocksResponse;
+import com.sallaemallae.backend.domain.main.dto.MarketIndexItemResponse;
+import com.sallaemallae.backend.domain.main.dto.MarketIndexResponse;
+import com.sallaemallae.backend.domain.main.dto.NewSignalItemResponse;
+import com.sallaemallae.backend.domain.main.dto.NewSignalsResponse;
+import com.sallaemallae.backend.domain.main.dto.TopStockItemResponse;
+import com.sallaemallae.backend.domain.main.dto.TopStocksResponse;
+import com.sallaemallae.backend.domain.main.repository.MainCacheRepository;
+import com.sallaemallae.backend.domain.main.repository.MainStockQueryRepository;
+import com.sallaemallae.backend.global.sse.SseManager;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.AbstractMap;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 public class MainServiceImpl implements MainService {
 
-  @Override
-  public MainSummaryResponse getMainSummary() {
-    return new MainSummaryResponse(
-        List.of("005930", "000660", "035420"),
-        List.of("BUY:005930", "HOLD:035420"),
-        "OPEN"
-    );
-  }
+    private static final String CHANNEL_TOP_STOCKS = "top-stocks";
+    private static final String CHANNEL_MARKET_INDEX = "market-index";
+    private static final String CHANNEL_CATEGORIES = "categories";
+
+    private static final String NAVER_INDEX_URL =
+        "https://polling.finance.naver.com/api/realtime/domestic/stock/KOSPI";
+    private static final String NAVER_KOSDAQ_URL =
+        "https://polling.finance.naver.com/api/realtime/domestic/stock/KOSDAQ";
+    private static final String NAVER_FX_URL =
+        "https://m.stock.naver.com/api/exchange/FX_USDKRW/basic";
+
+    private final MainStockQueryRepository queryRepository;
+    private final MainCacheRepository cacheRepository;
+    private final SseManager sseManager;
+    private final ObjectMapper objectMapper;
+    private final RestClient restClient;
+
+    public MainServiceImpl(
+        MainStockQueryRepository queryRepository,
+        MainCacheRepository cacheRepository,
+        SseManager sseManager,
+        ObjectMapper objectMapper
+    ) {
+        this.queryRepository = queryRepository;
+        this.cacheRepository = cacheRepository;
+        this.sseManager = sseManager;
+        this.objectMapper = objectMapper;
+        this.restClient = RestClient.builder().build();
+    }
+
+    // ── SSE 스트림 등록 메서드 ──
+
+    /** 추천 종목 TOP10 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
+    @Override
+    public SseEmitter streamTopStocks() {
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        sseManager.addEmitter(CHANNEL_TOP_STOCKS, emitter);
+        cacheRepository.getTopStocks().ifPresent(data -> sendInitial(emitter, CHANNEL_TOP_STOCKS, data));
+        return emitter;
+    }
+
+    /** 시장 지수 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
+    @Override
+    public SseEmitter streamMarketIndex() {
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        sseManager.addEmitter(CHANNEL_MARKET_INDEX, emitter);
+        cacheRepository.getMarketIndex().ifPresent(data -> sendInitial(emitter, CHANNEL_MARKET_INDEX, data));
+        return emitter;
+    }
+
+    /** 카테고리별 종목 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
+    @Override
+    public SseEmitter streamCategories() {
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        sseManager.addEmitter(CHANNEL_CATEGORIES, emitter);
+        cacheRepository.getCategories().ifPresent(data -> sendInitial(emitter, CHANNEL_CATEGORIES, data));
+        return emitter;
+    }
+
+    // ── REST GET 메서드 ──
+
+    /** 당일 매수/매도 상위 3종목 조회 (캐시 우선, 미스 시 DB 조회) */
+    @Override
+    public NewSignalsResponse getNewSignals() {
+        return cacheRepository.getNewSignals()
+            .orElseGet(() -> {
+                NewSignalsResponse data = buildNewSignals();
+                cacheRepository.saveNewSignals(data);
+                return data;
+            });
+    }
+
+    // ── @Scheduled 갱신 메서드 (1분마다 실행) ──
+
+    /** 추천 종목 TOP10 갱신 → Redis 저장 → SSE broadcast */
+    @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
+    public void refreshTopStocks() {
+        try {
+            List<TopStockItemResponse> items = queryRepository.getTopTenStocksToday();
+            TopStocksResponse data = new TopStocksResponse(items);
+            cacheRepository.saveTopStocks(data);
+            sseManager.broadcast(CHANNEL_TOP_STOCKS, data);
+            log.debug("추천 종목 TOP10 갱신 완료: {}건", items.size());
+        } catch (Exception e) {
+            log.error("추천 종목 TOP10 갱신 실패", e);
+        }
+    }
+
+    /** 카테고리별 등락률 대표 종목 갱신 → Redis 저장 → SSE broadcast */
+    @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
+    public void refreshCategories() {
+        try {
+            CategoryStocksResponse data = buildCategories();
+            cacheRepository.saveCategories(data);
+            sseManager.broadcast(CHANNEL_CATEGORIES, data);
+            log.debug("카테고리별 종목 갱신 완료");
+        } catch (Exception e) {
+            log.error("카테고리별 종목 갱신 실패", e);
+        }
+    }
+
+    /** 코스피/코스닥/환율 지수 갱신 → Redis 저장 → SSE broadcast */
+    @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
+    public void refreshMarketIndex() {
+        try {
+            MarketIndexResponse data = fetchMarketIndex();
+            cacheRepository.saveMarketIndex(data);
+            sseManager.broadcast(CHANNEL_MARKET_INDEX, data);
+            log.debug("시장 지수 갱신 완료");
+        } catch (Exception e) {
+            log.error("시장 지수 갱신 실패", e);
+        }
+    }
+
+    /** 매수/매도 신호 갱신 (캐시만 갱신, SSE 없음) */
+    @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
+    public void refreshNewSignals() {
+        try {
+            NewSignalsResponse data = buildNewSignals();
+            cacheRepository.saveNewSignals(data);
+            log.debug("매수/매도 신호 갱신 완료");
+        } catch (Exception e) {
+            log.error("매수/매도 신호 갱신 실패", e);
+        }
+    }
+
+    // ── private: 데이터 조립 ──
+
+    private NewSignalsResponse buildNewSignals() {
+        List<NewSignalItemResponse> buy = queryRepository.getTodayBuySignals();
+        List<NewSignalItemResponse> sell = queryRepository.getTodaySellSignals();
+        return new NewSignalsResponse(buy, sell);
+    }
+
+    private CategoryStocksResponse buildCategories() {
+        List<Object[]> raw = queryRepository.getCategoryStocksRaw();
+
+        // category별 그룹핑 → |fluctuation_rate| 상위 2개씩 추출
+        Map<String, List<CategoryStockItemResponse>> grouped = raw.stream()
+            .map(row -> new AbstractMap.SimpleEntry<>(
+                (String) row[0],
+                new CategoryStockItemResponse(
+                    (String) row[1],
+                    ((Number) row[2]).intValue(),
+                    toFloat(row[3])
+                )
+            ))
+            .collect(Collectors.groupingBy(
+                AbstractMap.SimpleEntry::getKey,
+                Collectors.mapping(
+                    AbstractMap.SimpleEntry::getValue,
+                    Collectors.toList()
+                )
+            ));
+
+        List<CategoryItemResponse> categories = grouped.entrySet().stream()
+            .map(entry -> {
+                List<CategoryStockItemResponse> top2 = entry.getValue().stream()
+                    .sorted(Comparator.comparing(
+                        (CategoryStockItemResponse s) -> Math.abs(s.fluctuationRate())
+                    ).reversed())
+                    .limit(2)
+                    .toList();
+                return new CategoryItemResponse(entry.getKey(), top2);
+            })
+            .toList();
+
+        return new CategoryStocksResponse(categories);
+    }
+
+    // ── private: 네이버 금융 API 호출 ──
+
+    private MarketIndexResponse fetchMarketIndex() {
+        MarketIndexItemResponse kospi = fetchNaverIndex(NAVER_INDEX_URL);
+        MarketIndexItemResponse kosdaq = fetchNaverIndex(NAVER_KOSDAQ_URL);
+        MarketIndexItemResponse usdKrw = fetchNaverFx();
+
+        String baseTime = LocalDateTime.now()
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+        return new MarketIndexResponse(kospi, kosdaq, usdKrw, baseTime);
+    }
+
+    /** 네이버 국내 지수 API 호출 (KOSPI/KOSDAQ) */
+    private MarketIndexItemResponse fetchNaverIndex(String url) {
+        try {
+            String body = restClient.get().uri(url).retrieve().body(String.class);
+            JsonNode root = objectMapper.readTree(body);
+
+            // 네이버 polling API 응답 구조에서 현재가와 등락률 추출
+            JsonNode datas = root.path("datas").path(0);
+            if (datas.isMissingNode()) {
+                datas = root;
+            }
+            float value = extractFloat(datas, "nv", "closePrice", "now");
+            float changeRate = extractFloat(datas, "cr", "fluctuationsRatio", "changeRate");
+
+            return new MarketIndexItemResponse(value, changeRate);
+        } catch (Exception e) {
+            log.warn("네이버 지수 API 호출 실패: url={}", url, e);
+            return new MarketIndexItemResponse(0f, 0f);
+        }
+    }
+
+    /** 네이버 환율 API 호출 (USD/KRW) */
+    private MarketIndexItemResponse fetchNaverFx() {
+        try {
+            String body = restClient.get().uri(NAVER_FX_URL).retrieve().body(String.class);
+            JsonNode root = objectMapper.readTree(body);
+
+            float value = extractFloat(root, "closePrice", "basePrice", "now");
+            float changeRate = extractFloat(root, "fluctuationsRatio", "changeRate", "cr");
+
+            return new MarketIndexItemResponse(value, changeRate);
+        } catch (Exception e) {
+            log.warn("네이버 환율 API 호출 실패", e);
+            return new MarketIndexItemResponse(0f, 0f);
+        }
+    }
+
+    // ── private: 유틸리티 ──
+
+    /** JSON 노드에서 여러 필드명을 시도하여 float 추출 */
+    private float extractFloat(JsonNode node, String... fieldNames) {
+        for (String name : fieldNames) {
+            JsonNode field = node.path(name);
+            if (!field.isMissingNode() && !field.isNull()) {
+                String text = field.asText().replace(",", "").replace("%", "");
+                try {
+                    return Float.parseFloat(text);
+                } catch (NumberFormatException ignored) {
+                    // 다음 필드명 시도
+                }
+            }
+        }
+        return 0f;
+    }
+
+    private void sendInitial(SseEmitter emitter, String channel, Object data) {
+        try {
+            emitter.send(SseEmitter.event().data(data));
+        } catch (IOException e) {
+            log.debug("SSE 초기 데이터 전송 실패: channel={}", channel);
+        }
+    }
+
+    private float toFloat(Object value) {
+        if (value == null) {
+            return 0f;
+        }
+        return ((Number) value).floatValue();
+    }
 }
