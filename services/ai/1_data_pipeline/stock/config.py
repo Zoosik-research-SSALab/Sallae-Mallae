@@ -1,7 +1,7 @@
 """
 config.py
 KOSPI 200 데이터 수집 프로젝트 중앙 설정 관리 모듈.
-Google Drive BASE_PATH 기반으로 모든 경로를 관리합니다.
+로컬 디스크 기반, rclone으로 Google Drive 동기화 지원.
 Python 3.10+ 호환, Google Colab 동작 지원.
 """
 
@@ -27,7 +27,7 @@ if _base_path_str is None:
     if IS_COLAB:
         _base_path_str = "/content/drive/MyDrive/kospi200-project"
     else:
-        _base_path_str = "G:/kospi200-project"
+        _base_path_str = "./data"
 
 BASE_PATH: Path = Path(_base_path_str)
 
@@ -76,3 +76,10 @@ PYKRX_DELAY: float = 0.5              # pykrx API 호출 간격 (초)
 KIS_DELAY: float = 0.3               # KIS API 호출 간격 (초) — 초당 2~3건 권장
 KIS_CHUNK_DAYS: int = 100            # KIS 수급 조회 1회 요청 날짜 범위 (달력일 기준)
 PARQUET_COMPRESSION: str = "snappy"   # Parquet 압축 방식
+
+# ---------------------------------------------------------------------------
+# rclone 동기화 설정
+# ---------------------------------------------------------------------------
+RCLONE_REMOTE: str | None = os.environ.get("RCLONE_REMOTE")  # 예: "gdrive:kospi200-project"
+RCLONE_AUTO_SYNC: bool = os.environ.get("RCLONE_AUTO_SYNC", "false").lower() == "true"
+RCLONE_SYNC_DIRS: list[str] = ["raw", "processed"]  # 동기화 대상 디렉토리
