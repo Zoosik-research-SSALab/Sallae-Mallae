@@ -4,11 +4,9 @@ services:
     restart: unless-stopped
     environment:
       ROOT_HOST: ${ROOT_HOST}
-      DEV_HOST: ${DEV_HOST}
       ROOT_WEB_TARGET: ${ROOT_WEB_TARGET:-host.docker.internal:8081}
       ROOT_API_TARGET: ${ROOT_API_TARGET:-host.docker.internal:8082}
       ROOT_AI_TARGET: ${ROOT_AI_TARGET:-host.docker.internal:8083}
-      DEV_TARGET: ${DEV_TARGET:-host.docker.internal:8084}
     ports:
       - "${GATEWAY_HTTP_PORT:-80}:80"
     extra_hosts:
