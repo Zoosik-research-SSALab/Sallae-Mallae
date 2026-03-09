@@ -46,7 +46,7 @@ public class EmailServiceImpl implements EmailService {
       mailSender.send(message);
     } catch (Exception e) {
       log.error("Failed to send email to {}: {}", maskEmail(to), e.getMessage());
-      throw new RuntimeException("이메일 발송에 실패했습니다.", e);
+      // @Async 메서드에서 예외를 던져도 호출자가 받을 수 없으므로 로깅만 처리
     }
   }
 

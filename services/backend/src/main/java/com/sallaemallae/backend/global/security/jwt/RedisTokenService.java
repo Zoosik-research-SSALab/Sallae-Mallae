@@ -123,7 +123,7 @@ public class RedisTokenService {
       redisTemplate.expire(key, 2, TimeUnit.HOURS);
     }
 
-    log.debug("Login fail count for {}: {}", email, count);
+    log.debug("Login fail count for {}: {}", maskEmail(email), count);
     return count != null ? count : 0;
   }
 
@@ -142,7 +142,7 @@ public class RedisTokenService {
   public void deleteLoginFailCount(String email) {
     String key = LOGIN_FAIL_PREFIX + email;
     redisTemplate.delete(key);
-    log.debug("Deleted login fail count for {}", email);
+    log.debug("Deleted login fail count for {}", maskEmail(email));
   }
 
   /**
@@ -168,7 +168,7 @@ public class RedisTokenService {
         VERIFICATION_CODE_TTL_SECONDS,
         TimeUnit.SECONDS
     );
-    log.debug("Saved verification code for email {} with purpose {}", email, purpose);
+    log.debug("Saved verification code for email {} with purpose {}", maskEmail(email), purpose);
   }
 
   /**
@@ -181,7 +181,7 @@ public class RedisTokenService {
     if (value == null) {
       return null;
     }
-    return value.split(":");
+    return value.split(":", 2);
   }
 
   /**
@@ -195,7 +195,7 @@ public class RedisTokenService {
       return -1;  // 키가 존재하지 않음
     }
 
-    String[] parts = value.split(":");
+    String[] parts = value.split(":", 2);
     String hashedCode = parts[0];
     int attempts = Integer.parseInt(parts[1]) + 1;
 
@@ -210,7 +210,7 @@ public class RedisTokenService {
       );
     }
 
-    log.debug("Verification attempts for {} {}: {}", purpose, email, attempts);
+    log.debug("Verification attempts for {} {}: {}", purpose, maskEmail(email), attempts);
     return attempts;
   }
 
@@ -220,7 +220,7 @@ public class RedisTokenService {
   public void deleteVerificationCode(String purpose, String email) {
     String key = EMAIL_VERIFY_PREFIX + purpose + ":" + email;
     redisTemplate.delete(key);
-    log.debug("Deleted verification code for {} {}", purpose, email);
+    log.debug("Deleted verification code for {} {}", purpose, maskEmail(email));
   }
 
   /**
@@ -236,7 +236,7 @@ public class RedisTokenService {
         VERIFIED_TOKEN_TTL_SECONDS,
         TimeUnit.SECONDS
     );
-    log.debug("Saved verified token for email {} with purpose {}", email, purpose);
+    log.debug("Saved verified token for email {} with purpose {}", maskEmail(email), purpose);
   }
 
   /**
@@ -259,6 +259,22 @@ public class RedisTokenService {
   public String getVerifiedToken(String purpose, String token) {
     String key = VERIFIED_PREFIX + purpose + ":" + token;
     return redisTemplate.opsForValue().get(key);
+  }
+
+  /**
+   * 이메일 마스킹 (로깅용)
+   */
+  private String maskEmail(String email) {
+    if (email == null || !email.contains("@")) {
+      return "***";
+    }
+    String[] parts = email.split("@");
+    String localPart = parts[0];
+    String domain = parts[1];
+    if (localPart.length() <= 2) {
+      return "**@" + domain;
+    }
+    return localPart.substring(0, 2) + "***@" + domain;
   }
 
   /**

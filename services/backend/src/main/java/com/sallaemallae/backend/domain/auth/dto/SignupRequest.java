@@ -10,7 +10,7 @@ import java.util.List;
 public record SignupRequest(
     @NotBlank String verificationToken,
     @NotBlank @Email String email,
-    @NotBlank @Size(min = 8, max = 20) String password,
+    @NotBlank String password,
     @NotBlank @Size(max = 20) String nickname,
     boolean emailOptIn,
     @NotNull @Valid List<TermAgreementDto> agreements

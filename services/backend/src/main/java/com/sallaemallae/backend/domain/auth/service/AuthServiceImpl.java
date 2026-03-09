@@ -59,10 +59,6 @@ public class AuthServiceImpl implements AuthService {
   private static final int VERIFICATION_CODE_EXPIRES_SECONDS = 300;  // 5분
   private static final int VERIFIED_TOKEN_EXPIRES_SECONDS = 600;  // 10분
 
-  // Dummy hash for timing attack prevention (same computation time for non-existent users)
-  private static final String DUMMY_HASH =
-      "$2a$10$dummyHashForTimingAttackPreventionXXXXXXXXXXXXXXXXXXXX";
-
   private final UserRepository userRepository;
   private final SocialAccountRepository socialAccountRepository;
   private final LoginHistoryRepository loginHistoryRepository;
@@ -72,7 +68,6 @@ public class AuthServiceImpl implements AuthService {
   private final JwtProvider jwtProvider;
   private final RedisTokenService redisTokenService;
   private final PasswordEncoder passwordEncoder;
-  private final PasswordValidator passwordValidator;
   private final EmailService emailService;
 
   private final SecureRandom secureRandom = new SecureRandom();
@@ -99,16 +94,14 @@ public class AuthServiceImpl implements AuthService {
     User user = userRepository.findByEmail(email).orElse(null);
 
     if (user == null) {
-      // Timing attack prevention - always hash even if user not found
-      passwordEncoder.matches(request.password(), DUMMY_HASH);
       throw new BusinessException(AuthErrorCode.LOGIN_INVALID_CREDENTIALS);
     }
 
     // 3. Check user status
     validateUserStatus(user);
 
-    // 4. Validate password
-    if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+    // 4. Validate password (프론트에서 해시된 값을 그대로 비교)
+    if (!request.password().equals(user.getPasswordHash())) {
       // Record failed login attempt
       redisTokenService.incrementLoginFailCount(email);
       loginHistoryRepository.save(
@@ -240,14 +233,7 @@ public class AuthServiceImpl implements AuthService {
       throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
     }
 
-    // 3. 비밀번호 정책 검증
-    PasswordValidator.ValidationResult validationResult =
-        passwordValidator.validate(request.password(), email);
-    if (!validationResult.valid()) {
-      throw new BusinessException(AuthErrorCode.SIGNUP_PASSWORD_POLICY_VIOLATION);
-    }
-
-    // 4. 필수 약관 동의 확인
+    // 3. 필수 약관 동의 확인
     List<Long> requiredTermsIds = termsRepository.findActiveRequiredTermsIds();
     Set<Long> agreedTermsIds = request.agreements().stream()
         .filter(TermAgreementDto::agreed)
@@ -260,35 +246,33 @@ public class AuthServiceImpl implements AuthService {
       }
     }
 
-    // 5. 비밀번호 해시
-    String hashedPassword = passwordEncoder.encode(request.password());
-
-    // 6. 사용자 생성
+    // 4. 사용자 생성 (프론트에서 해시된 비밀번호를 그대로 저장)
+    String passwordHash = request.password();
     User user = User.createEmailUser(
         email,
-        hashedPassword,
+        passwordHash,
         request.nickname(),
         request.emailOptIn()
     );
     userRepository.save(user);
 
-    // 7. 약관 동의 저장
+    // 5. 약관 동의 저장
     List<UserAgreement> agreements = request.agreements().stream()
         .map(dto -> UserAgreement.create(user.getId(), dto.termsId(), dto.agreed()))
         .toList();
     userAgreementRepository.saveAll(agreements);
 
-    // 8. 비밀번호 이력 저장
+    // 6. 비밀번호 이력 저장
     passwordHistoryRepository.save(
-        PasswordHistory.createInitial(user.getId(), hashedPassword, ipAddress)
+        PasswordHistory.createInitial(user.getId(), passwordHash, ipAddress)
     );
 
-    // 9. 회원가입 이력 저장
+    // 7. 회원가입 이력 저장
     loginHistoryRepository.save(
         LoginHistory.signup(user.getId(), email, ipAddress, userAgent)
     );
 
-    // 10. 토큰 생성
+    // 8. 토큰 생성
     String role = "USER";
     String accessToken = jwtProvider.createAccessToken(
         user.getId(), role, user.getTokenVersion(), deviceId);
