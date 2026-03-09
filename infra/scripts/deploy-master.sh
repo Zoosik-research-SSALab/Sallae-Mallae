@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+TARGET="master"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-BRANCH="master"
-
-sync_branch "$BRANCH"
-require_dir "$REPO_DIR/services/backend"
-require_dir "$REPO_DIR/services/frontend"
-require_dir "$REPO_DIR/services/ai/3_ai_server"
-require_dir "$REPO_DIR/services/ai/1_data_pipeline/stock"
+sync_source
+require_dir "$SOURCE_DIR/services/backend"
+require_dir "$SOURCE_DIR/services/frontend"
+require_dir "$SOURCE_DIR/services/ai/3_ai_server"
+require_dir "$SOURCE_DIR/services/ai/1_data_pipeline/stock"
 
 compose_up \
   "$ROOT_DIR/env/master.env" \
-  "$REPO_DIR/infra/apps/docker-compose.full.yml" \
+  "$SOURCE_DIR/infra/apps/docker-compose.full.yml" \
   "sallae-master"
