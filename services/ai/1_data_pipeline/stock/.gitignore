@@ -7,3 +7,4 @@ venv/
 .env
 *.parquet
 sector_mapping.json
+.omc/
