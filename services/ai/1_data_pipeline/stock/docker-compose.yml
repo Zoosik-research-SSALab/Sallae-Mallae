@@ -27,7 +27,7 @@ services:
       # 로컬 Google Drive 마운트 (선택, Windows 경로)
       # - G:/kospi200-project:/data
       # rclone 설정 파일 마운트 (선택)
-      - ${RCLONE_CONFIG:-./rclone.conf}:/root/.config/rclone/rclone.conf:ro
+      - ${RCLONE_CONFIG:-./rclone.conf}:/root/.config/rclone/rclone.conf
     networks:
       - stock-net
 
@@ -46,7 +46,7 @@ services:
       - RCLONE_AUTO_SYNC=${RCLONE_AUTO_SYNC:-false}
     volumes:
       - stock-data:/data
-      - ${RCLONE_CONFIG:-./rclone.conf}:/root/.config/rclone/rclone.conf:ro
+      - ${RCLONE_CONFIG:-./rclone.conf}:/root/.config/rclone/rclone.conf
     networks:
       - stock-net
 
