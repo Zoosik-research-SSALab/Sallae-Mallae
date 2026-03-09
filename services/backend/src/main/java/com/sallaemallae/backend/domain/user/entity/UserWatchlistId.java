@@ -1,4 +1,4 @@
-package com.sallaemallae.backend.domain.stock.entity;
+package com.sallaemallae.backend.domain.user.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
