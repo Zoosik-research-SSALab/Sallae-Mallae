@@ -51,7 +51,7 @@ public class SecurityConfig {
         // URL별 권한 설정
         .authorizeHttpRequests(auth -> auth
             // Health check
-            .requestMatchers("/api/health/**").permitAll()
+            .requestMatchers("/health", "/health/**", "/api/health", "/api/health/**").permitAll()
 
             // Auth - 인증 불필요
             .requestMatchers("/api/auth/login").permitAll()
