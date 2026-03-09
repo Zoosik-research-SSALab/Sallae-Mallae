@@ -18,7 +18,6 @@ import pandas as pd
 from datetime import datetime
 from typing import Optional
 
-import lightgbm as lgb
 from lightgbm import LGBMClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
@@ -120,14 +119,14 @@ class LGBMTrainer:
 
     def __init__(
         self,
-        features: list[str] = LGBM_FEATURES,
+        features: list[str] | None = None,
         target: str = TARGET,
-        categorical_features: list[str] = CATEGORICAL_FEATURES,
+        categorical_features: list[str] | None = None,
         params: dict | None = None,
     ) -> None:
-        self.features = features
+        self.features = features if features is not None else LGBM_FEATURES.copy()
         self.target = target
-        self.categorical_features = categorical_features
+        self.categorical_features = categorical_features if categorical_features is not None else CATEGORICAL_FEATURES.copy()
         self.params = params if params is not None else LGBM_PARAMS.copy()
         self.model: Optional[LGBMClassifier] = None
         self._medians: dict = {}
@@ -531,6 +530,8 @@ def main() -> None:
     print(f"Predictions saved: {pred_save_path}")
 
     print("\nDone.")
+
+    return str(model_path)
 
 
 if __name__ == "__main__":

@@ -15,10 +15,4 @@ from models.lgbm_trainer import main as train_lgbm_main
 
 def train_price_predictor() -> str:
     """LightGBM 모델 학습을 실행하고 모델 저장 경로를 반환합니다."""
-    train_lgbm_main()
-
-    from config import MODELS_LGBM_PATH
-    from datetime import datetime
-    today_str = datetime.now().strftime("%Y%m%d")
-    model_path = MODELS_LGBM_PATH / f"lgbm_model_{today_str}.pkl"
-    return str(model_path)
+    return train_lgbm_main()

@@ -27,6 +27,7 @@ from config import (
     RAW_MACRO_PATH,
     RAW_OHLCV_PATH,
     RAW_SUPPLY_PATH,
+    RAW_UNIVERSE_PATH,
     PROCESSED_BASE_PATH,
     PROCESSED_LGBM_PATH,
     TRAIN_END_DATE,
@@ -100,8 +101,8 @@ TARGET: str = "return_5d_class"
 
 def _get_wics_sector_map(tickers: list[str]) -> dict[str, str]:
     """
-    pykrx WICS API로 종목별 섹터를 조회합니다.
-    조회에 실패하거나 pykrx가 없는 종목은 "Unknown"으로 처리합니다.
+    sector_mapping.json 파일에서 종목별 GICS 섹터를 로드합니다.
+    파일이 없으면 "Unknown"으로 처리합니다.
 
     Args:
         tickers: 종목 코드 목록
@@ -109,26 +110,28 @@ def _get_wics_sector_map(tickers: list[str]) -> dict[str, str]:
     Returns:
         {ticker: sector_name} 딕셔너리
     """
-    import datetime
+    import json
 
     sector_map: dict[str, str] = {t: "Unknown" for t in tickers}
 
-    try:
-        from pykrx import stock as krx_stock  # type: ignore
+    sector_file = RAW_UNIVERSE_PATH / "sector_mapping.json"
+    if not sector_file.exists():
+        logger.warning("[SECTOR] sector_mapping.json 없음: %s — 모두 'Unknown'으로 처리합니다.", sector_file)
+        return sector_map
 
-        base_date = datetime.date.today().strftime("%Y%m%d")
-        df = krx_stock.get_market_sector_classifications(date=base_date, market="KOSPI")
-        if df is not None and not df.empty:
-            for ticker in tickers:
-                if ticker in df.index:
-                    sector_map[ticker] = str(df.loc[ticker, "섹터"])
-            logger.info("[SECTOR] WICS 섹터 조회 완료 (%d건)", sum(v != "Unknown" for v in sector_map.values()))
-        else:
-            logger.warning("[SECTOR] WICS 섹터 데이터가 비어 있습니다 — 모두 'Unknown'으로 처리합니다.")
-    except ImportError:
-        logger.warning("[SECTOR] pykrx 미설치 — 섹터 정보를 모두 'Unknown'으로 처리합니다.")
+    try:
+        with open(sector_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        ticker_data = data.get("tickers", {})
+        mapped = 0
+        for ticker in tickers:
+            if ticker in ticker_data:
+                sector_map[ticker] = ticker_data[ticker].get("gics_sector", "Unknown")
+                mapped += 1
+        logger.info("[SECTOR] sector_mapping.json 로드 완료 (%d/%d건 매핑)", mapped, len(tickers))
     except Exception as exc:
-        logger.warning("[SECTOR] WICS 섹터 조회 실패: %s — 모두 'Unknown'으로 처리합니다.", exc)
+        logger.warning("[SECTOR] sector_mapping.json 로드 실패: %s — 모두 'Unknown'으로 처리합니다.", exc)
 
     return sector_map
 

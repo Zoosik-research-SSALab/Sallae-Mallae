@@ -20,11 +20,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import joblib
 import numpy as np
 import pandas as pd
-import lightgbm as lgb
 from lightgbm import LGBMClassifier
 from sklearn.metrics import accuracy_score, classification_report
 
-from config import MODELS_CLUSTER_PATH, TARGET_HORIZON_LONG, TOP_PCT, BOTTOM_PCT, PARQUET_COMPRESSION
+from config import MODELS_CLUSTER_PATH, TARGET_HORIZON_LONG, TOP_PCT, BOTTOM_PCT
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
