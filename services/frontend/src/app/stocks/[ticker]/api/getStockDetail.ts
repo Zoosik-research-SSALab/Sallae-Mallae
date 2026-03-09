@@ -1,3 +1,5 @@
+﻿import { apiFetch } from "@/shared/lib/apiClient";
+
 export type StockDetail = {
   id: number;
   ticker: string;
@@ -12,11 +14,6 @@ type ApiResponse<T> = {
 };
 
 export async function getStockDetail(ticker: string): Promise<StockDetail> {
-  const response = await fetch(`/api/v1/stocks/${ticker}`, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`종목 상세 조회 실패: ${response.status}`);
-  }
-
-  const payload = (await response.json()) as ApiResponse<StockDetail>;
+  const payload = await apiFetch<ApiResponse<StockDetail>>(`/api/v1/stocks/${ticker}`, { cache: "no-store" });
   return payload.data;
 }

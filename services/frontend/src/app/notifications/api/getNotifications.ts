@@ -1,3 +1,5 @@
+﻿import { apiFetch } from "@/shared/lib/apiClient";
+
 export type NotificationItem = {
   id: number;
   notifyType: "SELL" | "BUY" | "FLUCTUATION" | "ANNOUNCEMENT" | string;
@@ -31,17 +33,12 @@ export async function getNotifications(cursor?: number | null, size = 6): Promis
     search.set("cursor", String(cursor));
   }
 
-  const response = await fetch(`/api/v1/notifications?${search.toString()}`, {
+  const payload = await apiFetch<ApiResponse<CursorPage<NotificationItem>>>(`/api/v1/notifications?${search.toString()}`, {
     headers: {
       "X-User-Id": "1",
     },
     cache: "no-store",
   });
 
-  if (!response.ok) {
-    throw new Error(`알림 조회 실패: ${response.status}`);
-  }
-
-  const payload = (await response.json()) as ApiResponse<CursorPage<NotificationItem>>;
   return payload.data;
 }
