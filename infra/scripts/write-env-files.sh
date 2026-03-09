@@ -47,7 +47,7 @@ case "$TARGET" in
     worker_db_password="${DEV_DB_PASSWORD}"
     ;;
   develop)
-    nginx_port="80"
+    nginx_port="8084"
     spring_profile="dev"
     java_tool_options="-Xms256m -Xmx1024m"
     app_db_name="app_dev"
@@ -58,7 +58,7 @@ case "$TARGET" in
     worker_db_password="${DEV_DB_PASSWORD}"
     ;;
   master)
-    nginx_port="8084"
+    nginx_port="8085"
     spring_profile="prod"
     java_tool_options="-Xms512m -Xmx1536m"
     app_db_name="app_prod"
