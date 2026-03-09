@@ -4,6 +4,8 @@ import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetConfirmRequest;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetRequestDto;
 import com.sallaemallae.backend.domain.auth.dto.RefreshResponse;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeResponse;
@@ -69,6 +71,7 @@ public class AuthServiceImpl implements AuthService {
   private final RedisTokenService redisTokenService;
   private final PasswordEncoder passwordEncoder;
   private final EmailService emailService;
+  private final PasswordValidator passwordValidator;
 
   private final SecureRandom secureRandom = new SecureRandom();
 
@@ -378,6 +381,70 @@ public class AuthServiceImpl implements AuthService {
     log.debug("Token refreshed for user {} device {}", userId, deviceId);
 
     return RefreshResponse.of(newAccessToken, jwtProvider.getAccessTokenExpirationSeconds());
+  }
+
+  @Override
+  @Transactional
+  public SendCodeResponse requestPasswordReset(PasswordResetRequestDto request) {
+    String email = request.email();
+
+    // 가입된 이메일인지 확인
+    userRepository.findByEmail(email)
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.PASSWORD_RESET_EMAIL_NOT_FOUND));
+
+    // 기존 인증코드 발송 로직 재활용
+    String code = generateVerificationCode();
+    String hashedCode = passwordEncoder.encode(code);
+
+    redisTokenService.saveVerificationCode("PASSWORD_RESET", email, hashedCode);
+    emailService.sendPasswordResetCode(email, code);
+
+    int remainingAttempts = redisTokenService.getRemainingVerificationAttempts("PASSWORD_RESET", email);
+    return SendCodeResponse.of(VERIFICATION_CODE_EXPIRES_SECONDS, remainingAttempts);
+  }
+
+  @Override
+  @Transactional
+  public void resetPassword(PasswordResetConfirmRequest request, String ipAddress) {
+    String email = request.email();
+    String verificationToken = request.verificationToken();
+    String newPassword = request.newPassword();
+
+    // 1. 인증 토큰 검증 및 소비
+    String verifiedEmail = redisTokenService.consumeVerifiedToken("PASSWORD_RESET", verificationToken);
+    if (verifiedEmail == null || !verifiedEmail.equals(email)) {
+      throw new BusinessException(AuthErrorCode.PASSWORD_RESET_TOKEN_INVALID);
+    }
+
+    // 2. 사용자 조회
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.PASSWORD_RESET_EMAIL_NOT_FOUND));
+
+    // 3. 현재 비밀번호와 동일한지 확인
+    if (newPassword.equals(user.getPasswordHash())) {
+      throw new BusinessException(AuthErrorCode.PASSWORD_RESET_SAME_AS_CURRENT);
+    }
+
+    // 4. 비밀번호 변경
+    user.changePassword(newPassword);
+
+    // 5. 토큰 버전 증가 (기존 모든 토큰 무효화)
+    user.incrementTokenVersion();
+
+    // 6. 모든 Refresh Token 삭제
+    redisTokenService.deleteAllRefreshTokens(user.getId());
+
+    // 7. 비밀번호 이력 저장
+    passwordHistoryRepository.save(
+        PasswordHistory.changedByReset(user.getId(), newPassword, ipAddress)
+    );
+
+    // 8. 이벤트 기록
+    loginHistoryRepository.save(
+        LoginHistory.passwordReset(user.getId(), email, ipAddress)
+    );
+
+    log.info("Password reset completed for user {}", user.getId());
   }
 
   @Override

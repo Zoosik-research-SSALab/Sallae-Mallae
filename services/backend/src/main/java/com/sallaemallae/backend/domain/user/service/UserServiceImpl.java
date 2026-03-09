@@ -1,17 +1,29 @@
 package com.sallaemallae.backend.domain.user.service;
 
+import com.sallaemallae.backend.domain.auth.entity.PasswordHistory;
+import com.sallaemallae.backend.domain.auth.entity.User;
+import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
+import com.sallaemallae.backend.domain.auth.repository.PasswordHistoryRepository;
+import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
 import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
+import com.sallaemallae.backend.global.exception.BusinessException;
+import com.sallaemallae.backend.global.exception.GlobalErrorCode;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+
+  private final UserRepository userRepository;
+  private final PasswordHistoryRepository passwordHistoryRepository;
 
   @Override
   @Transactional(readOnly = true)
@@ -58,7 +70,34 @@ public class UserServiceImpl implements UserService {
   @Override
   @Transactional
   public Map<String, Object> updatePassword(Long userId, UserPasswordUpdateRequest request) {
-    return Map.of("userId", userId, "message", "password update boilerplate");
+    // 1. 사용자 조회
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new BusinessException(GlobalErrorCode.NOT_FOUND));
+
+    // 2. 소셜 로그인 계정 체크
+    if (user.getPasswordHash() == null) {
+      throw new BusinessException(AuthErrorCode.PASSWORD_CHANGE_SOCIAL_ACCOUNT);
+    }
+
+    // 3. 현재 비밀번호 확인
+    if (!request.currentPassword().equals(user.getPasswordHash())) {
+      throw new BusinessException(AuthErrorCode.PASSWORD_CHANGE_WRONG_CURRENT);
+    }
+
+    // 4. 현재 비밀번호와 동일한지 확인
+    if (request.newPassword().equals(user.getPasswordHash())) {
+      throw new BusinessException(AuthErrorCode.PASSWORD_RESET_SAME_AS_CURRENT);
+    }
+
+    // 5. 비밀번호 변경
+    user.changePassword(request.newPassword());
+
+    // 6. 비밀번호 이력 저장
+    passwordHistoryRepository.save(
+        PasswordHistory.changedByUser(userId, request.newPassword(), null)
+    );
+
+    return Map.of("message", "비밀번호가 변경되었습니다.");
   }
 
   @Override

@@ -115,4 +115,15 @@ public class LoginHistory {
         .eventType(EventType.SIGNUP)
         .build();
   }
+
+  // 비밀번호 재설정 기록
+  public static LoginHistory passwordReset(Long userId, String email, String ipAddress) {
+    return LoginHistory.builder()
+        .userId(userId)
+        .attemptEmail(email)
+        .ipAddress(ipAddress)
+        .isSuccess(true)
+        .eventType(EventType.PASSWORD_RESET)
+        .build();
+  }
 }
