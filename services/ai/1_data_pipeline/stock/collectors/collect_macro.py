@@ -2,9 +2,9 @@
 collectors/collect_macro.py
 매크로 지표 수집 스크립트.
 
-수집 대상 (10개):
+수집 대상 (9개):
   nasdaq, sp500, usd_krw, dxy, vix, us_bond_10y, sox  -> yfinance
-  vkospi, kospi200                                      -> pykrx
+  kospi200                                              -> pykrx
   kr_bond_3y                                            -> 한국은행 ECOS API (817Y002/010190000, 일별)
 
 저장 경로: RAW_MACRO_PATH/{indicator_name}.parquet
@@ -47,7 +47,6 @@ MACRO_SOURCES: dict[str, dict] = {
     "vix":         {"source": "yfinance", "ticker": "^VIX"},
     "us_bond_10y": {"source": "yfinance", "ticker": "^TNX"},
     "sox":         {"source": "yfinance", "ticker": "^SOX"},
-    "vkospi":      {"source": "pykrx",    "ticker": "VKOSPI"},
     "kospi200":    {"source": "pykrx",    "ticker": "1028"},
     "kr_bond_3y":  {"source": "ecos",     "stat_code": "817Y002", "item_code": "010190000"},
 }
@@ -61,13 +60,6 @@ _PLACEHOLDER_FRED = {"your_fred_api_key_here", ""}
 def _to_pykrx_date(d: str) -> str:
     """'YYYY-MM-DD' -> 'YYYYMMDD'"""
     return d.replace("-", "")
-
-
-def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """컬럼명을 소문자로 통일하고 인덱스 이름을 'date'로 설정."""
-    df.columns = [c.lower() for c in df.columns]
-    df.index.name = "date"
-    return df
 
 
 # ---------------------------------------------------------------------------
@@ -136,56 +128,6 @@ def fetch_yfinance(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # pykrx 수집
 # ---------------------------------------------------------------------------
-def fetch_vkospi(start_date: str, end_date: str) -> pd.DataFrame:
-    """
-    pykrx로 VKOSPI(변동성 지수)를 수집합니다.
-
-    pykrx get_index_ohlcv_by_date 의 기본값 name_display=True 는 내부적으로
-    KRX IndexTicker API를 호출하며, 해당 API가 빈 응답을 반환하면 '지수명' KeyError
-    가 발생합니다. name_display=False 를 지정하여 이 경로를 건너뜁니다.
-
-    Returns:
-        컬럼 close 를 가진 DatetimeIndex DataFrame. 실패 시 빈 DataFrame.
-    """
-    try:
-        from pykrx import stock as krx
-    except ImportError:
-        logger.error("pykrx 패키지가 설치되지 않았습니다: pip install pykrx")
-        return pd.DataFrame()
-
-    s = _to_pykrx_date(start_date)
-    e = _to_pykrx_date(end_date)
-
-    # 방법 1: get_index_ohlcv_by_date with "VKOSPI", name_display=False
-    # name_display=False 로 IndexTicker(KRX 지수명 API) 호출을 건너뜀
-    try:
-        df = krx.get_index_ohlcv_by_date(s, e, "VKOSPI", name_display=False)
-        if df is not None and not df.empty:
-            df = _normalize_columns(df)
-            if "종가" in df.columns:
-                df = df.rename(columns={"종가": "close", "시가": "open", "고가": "high", "저가": "low", "거래량": "volume"})
-            df.index = pd.to_datetime(df.index)
-            df.index.name = "date"
-            logger.info("pykrx VKOSPI 수집 완료 (%d 행)", len(df))
-            return df
-    except Exception as exc:
-        logger.debug("pykrx VKOSPI get_index_ohlcv_by_date 실패: %s", exc)
-
-    # 방법 2: get_market_volatility_index (일부 버전에서 지원)
-    try:
-        df = krx.get_market_volatility_index(s, e)
-        if df is not None and not df.empty:
-            df = _normalize_columns(df)
-            df.index = pd.to_datetime(df.index)
-            df.index.name = "date"
-            logger.info("pykrx VKOSPI(volatility_index) 수집 완료 (%d 행)", len(df))
-            return df
-    except Exception as exc:
-        logger.warning("pykrx VKOSPI 수집 실패 (두 방법 모두 실패): %s", exc)
-
-    return pd.DataFrame()
-
-
 def fetch_kospi200(start_date: str, end_date: str) -> pd.DataFrame:
     """
     코스피200 지수를 수집합니다.
@@ -361,8 +303,6 @@ def _collect_one(name: str, cfg: dict, start_date: str, end_date: str) -> pd.Dat
 
     if source == "pykrx":
         time.sleep(PYKRX_DELAY)
-        if cfg["ticker"] == "VKOSPI":
-            return fetch_vkospi(start_date, end_date)
         if cfg["ticker"] == "1028":
             return fetch_kospi200(start_date, end_date)
         logger.warning("알 수 없는 pykrx 티커: %s", cfg["ticker"])

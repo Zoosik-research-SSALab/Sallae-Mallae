@@ -96,7 +96,6 @@ SUPPLY_FEATURES: list[str] = [
 
 MACRO_FEATURES: list[str] = [
     "kospi200_return_1d",
-    "vkospi",
     "usd_krw_change",
     "sp500_return_1d",
     "nasdaq_return_1d",
@@ -471,7 +470,7 @@ def load_macro_features() -> pd.DataFrame:
     수익률/변화율 파생 피처를 계산합니다.
 
     예상 파일 목록 (없으면 해당 컬럼 NaN):
-      kospi200.parquet, vkospi.parquet, usd_krw.parquet,
+      kospi200.parquet, usd_krw.parquet,
       sp500.parquet, nasdaq.parquet, dxy.parquet,
       vix.parquet, us_bond_10y.parquet, sox.parquet
 
@@ -494,11 +493,6 @@ def load_macro_features() -> pd.DataFrame:
     kospi200 = _load_close("kospi200.parquet")
     if kospi200 is not None:
         macro_frames["kospi200_return_1d"] = kospi200.pct_change(1)
-
-    # VKOSPI
-    vkospi = _load_close("vkospi.parquet")
-    if vkospi is not None:
-        macro_frames["vkospi"] = vkospi
 
     # USD/KRW
     usd_krw = _load_close("usd_krw.parquet")
