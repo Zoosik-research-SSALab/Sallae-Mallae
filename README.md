@@ -1,138 +1,182 @@
-# Local Infra Runbook
+# 살래말래
 
-로컬 실행 표준은 **단일 compose 파일**(`infra/docker-compose.yml`) 기준입니다.
-기본 실행은 `nginx + spring + postgres + redis`이며, FE/AI는 선택적으로 `fullstack` 프로파일로 올립니다.
+Zoo식연구소 쌀Lab 팀의 "살래말래 위원회" 프로젝트입니다.  
+이 저장소는 FE, BE, AI, 인프라를 한 레포에서 관리하며, 브랜치별 개발과 통합 배포를 동시에 지원합니다.
 
-## 1) 사전 준비
+## 프로젝트 목적
 
-- Docker Desktop 실행
-- WSL integration 활성화
-- 프로젝트 루트에서 실행
+- 종목, 뉴스, 공시, 재무, AI 분석 결과를 한 화면에서 통합 제공
+- 정량 모델과 AI 토론 결과를 함께 보여주는 종목 리포트 제공
+- AI 매매신호, 관심종목, 알림, 검색 기능을 포함한 서비스 제공
+- 로컬 개발 환경과 EC2 배포 환경을 동일한 구조로 운영
+
+## 프로젝트 범위
+
+- Frontend: Next.js 기반 사용자 화면
+- Backend: Spring Boot 기반 API 서버
+- AI: 데이터 파이프라인, 모델 학습, FastAPI 서빙
+- Infra: Docker Compose, PostgreSQL, Redis, Nginx, GitLab Runner
+
+## 기술 스택
+
+### Frontend
+
+- Next.js 16
+- React 19
+- TypeScript 5.9
+- pnpm
+
+### Backend
+
+- Java 21
+- Spring Boot 3.5.11
+- Maven
+- PostgreSQL
+- Redis
+
+### AI
+
+- Python
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- Redis
+
+### Infra
+
+- Docker / Docker Compose
+- Nginx
+- GitLab CI/CD
+- GitLab Runner
+- EC2 (Ubuntu)
+
+## 디렉토리 구조
+
+```text
+services/
+  backend/      # Spring Boot API 서버
+  frontend/     # Next.js 사용자 화면
+  ai/           # AI 파이프라인 및 FastAPI 서버 (AI 브랜치/통합 브랜치 기준)
+
+infra/
+  base/         # 공용 postgres + redis compose
+  apps/         # frontend/backend/ai/full 앱 compose
+  env/          # 배포/실행용 env example
+  nginx/        # nginx 라우팅 설정
+  postgres/     # DB init 스크립트
+  scripts/      # 배포/env 생성 스크립트
+
+scripts/
+  smoke.sh      # 로컬 smoke 테스트
+```
+
+## 브랜치 전략
+
+```text
+feature/fe/*  -> dev-frontend
+feature/be/*  -> dev-backend
+feature/ai/*  -> dev-ai
+
+dev-frontend / dev-backend / dev-ai -> develop
+develop -> master
+```
+
+원칙:
+
+- 공통 인프라 변경은 각 파트 브랜치에 동일하게 반영
+- 앱 기능 개발은 파트별 `feature/*` 브랜치에서 진행
+- 통합 검증은 `develop`
+- 운영 반영은 `master`
+
+## 개발 흐름
+
+1. 작업 브랜치 생성
+2. 로컬 개발 및 검증
+3. Jira 이슈 키 기준 커밋
+4. 대상 `dev-*` 또는 `develop` 브랜치로 MR 생성
+5. 리뷰 및 수정
+6. 머지 후 자동 배포 또는 통합 반영
+
+## 커밋 규칙
+
+형식:
+
+```text
+[FE/BE/AI/INFRA] Type: JiraKey 제목
+```
+
+예시:
+
+```text
+[BE] Feat: S14P21D208-108 Search API 5종 구현
+[INFRA] Build: S14P21D208-29 EC2 공통 인프라 compose 구조 및 배포 스크립트 정리
+```
+
+## MR 규칙
+
+MR 본문은 최소 아래 3개를 포함합니다.
+
+```text
+## 📄 MR 한 줄 요약
+## 🧑‍💻 MR 세부 내용
+## 📎 Issue 번호
+```
+
+MR 작성 원칙:
+
+- 한 MR에는 하나의 목적만 담기
+- 빌드/기동/문서 반영 여부를 본문에 명시
+- 비밀값, `.env`, 개인 설정 파일 포함 금지
+
+## 리뷰 기준
+
+리뷰 시 최소 아래를 확인합니다.
+
+- 브랜치 대상이 맞는지
+- Jira 이슈 키와 MR 내용이 일치하는지
+- 불필요한 파일 변경이 없는지
+- 빌드/실행/compose 검증이 되었는지
+- 문서/API 계약 변경 시 README 또는 명세가 갱신되었는지
+- secret, `.env`, 키 파일이 커밋되지 않았는지
+
+## 머지 전략
+
+- `feature/*` -> `dev-*` : squash merge 권장
+- `dev-*` -> `develop` : 통합 확인 후 merge
+- `develop` -> `master` : 운영 반영 기준 merge
+
+원칙:
+
+- 머지된 브랜치와 중단된 브랜치는 즉시 삭제
+- force-push는 개인 feature 브랜치에서만 제한적으로 사용
+- 공유 브랜치(`dev-*`, `develop`, `master`)에는 force-push 금지
+
+## 로컬 시작 가이드
+
+### FE
 
 ```bash
-cd /home/ssafy/project
+cd services/frontend
+corepack enable
+pnpm install
+pnpm dev
 ```
 
-## 2) 기본 실행 표준 (Jira 19)
-
-### 2-1. 환경 파일 준비
+### BE
 
 ```bash
-cp infra/.env.example infra/.env
+cd services/backend
+./mvnw spring-boot:run
 ```
 
-### 2-2. compose 유효성 확인
+### Infra
 
-```bash
-cd infra
-docker compose --env-file .env -f docker-compose.yml config
-```
+인프라 실행, EC2 배포, GitLab Variables, base 수동 배포는 아래 문서를 기준으로 합니다.
 
-### 2-3. 기본 스택 기동
+- [infra/README.md](/home/ssafy/project-infra/infra/README.md)
 
-```bash
-docker compose --env-file .env -f docker-compose.yml up -d --build
-```
+## 문서 원칙
 
-### 2-4. 상태 확인
-
-```bash
-docker compose --env-file .env -f docker-compose.yml ps
-```
-
-## 3) 선택 실행: FE/AI 포함 전체 스택
-
-`services/frontend`, `services/ml-server`, `services/ml-worker`가 있는 브랜치에서만 실행하세요.
-
-```bash
-cd infra
-docker compose --profile fullstack --env-file .env -f docker-compose.yml up -d --build
-```
-
-또는 `.env`에 `COMPOSE_PROFILES=fullstack`을 넣고 기본 명령으로 실행할 수 있습니다.
-
-## 4) Health Check 확인
-
-프로젝트 루트에서 실행:
-
-```bash
-curl -i http://localhost/api/health
-bash scripts/smoke.sh
-```
-
-예상 결과:
-- HTTP `200`
-- 본문에 `{"status":"OK"...}` 포함
-
-## 5) PostgreSQL 논리 분리 사용 (`app_dev` / `app_prod`)
-
-초기 기동 시 자동 생성:
-- DB: `app_dev`, `app_prod`
-- 계정: `app_dev_user`, `app_prod_user`
-
-### 5-1. 기본(dev) 설정
-
-```env
-SPRING_PROFILE=dev
-APP_DB_NAME=app_dev
-APP_DB_USER=app_dev_user
-APP_DB_PASSWORD=change_me_dev
-```
-
-### 5-2. prod DB로 전환
-
-`.env` 수정 후 재기동:
-
-```env
-SPRING_PROFILE=prod
-APP_DB_NAME=app_prod
-APP_DB_USER=app_prod_user
-APP_DB_PASSWORD=change_me_prod
-```
-
-```bash
-cd infra
-docker compose --env-file .env -f docker-compose.yml up -d --build
-```
-
-### 5-3. 권한 검증
-
-```bash
-docker exec -it postgres psql -U app_dev_user -d app_dev -c "select current_database(), current_user;"
-docker exec -it postgres psql -U app_prod_user -d app_prod -c "select current_database(), current_user;"
-```
-
-교차 접근 차단(실패가 정상):
-
-```bash
-docker exec -it postgres psql -U app_dev_user -d app_prod -c "select 1;"
-docker exec -it postgres psql -U app_prod_user -d app_dev -c "select 1;"
-```
-
-## 6) 중지
-
-```bash
-cd infra
-docker compose --env-file .env -f docker-compose.yml down
-```
-
-## 7) 트러블슈팅 (Jira 22)
-
-### 7-1. 포트 충돌
-- 증상: `Bind for 0.0.0.0:80 failed`
-- 확인: `ss -lntp | grep ':80'`
-- 조치: 점유 프로세스 종료 또는 `.env`에서 `NGINX_PORT` 변경
-
-### 7-2. DB 연결 실패
-- 증상: Spring에서 DB 접속 오류
-- 확인: `docker compose --env-file .env -f infra/docker-compose.yml ps`에서 `postgres` health 상태
-- 조치: `.env`의 `APP_DB_*`와 `DEV_DB_* / PROD_DB_*` 값 일치 여부 확인 후 재기동
-
-### 7-3. Docker 엔진 문제
-- 증상: `Cannot connect to the Docker daemon`
-- 조치: Docker Desktop 재실행, WSL integration 활성화 확인
-
-### 7-4. 기동 직후 502
-- 증상: `curl http://localhost/api/health`가 초반 502
-- 원인: 초기 헬스체크 대기 구간
-- 조치: `bash scripts/smoke.sh`로 재시도
+- 루트 `README.md`는 프로젝트 개요와 협업 규칙을 다룸
+- 인프라/배포 절차는 `infra/README.md`에 작성
+- 상세한 Jira/Git 규칙은 Wiki를 참고하되, 핵심 운영 규칙은 README에 남김
