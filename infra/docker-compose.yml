@@ -70,7 +70,7 @@ services:
     profiles:
       - fullstack
     build:
-      context: ../services/ml-server
+      context: ../services/ai/3_ai_server
       dockerfile: Dockerfile
     container_name: ml-server
     restart: unless-stopped
@@ -83,7 +83,7 @@ services:
     profiles:
       - fullstack
     build:
-      context: ../services/ml-worker
+      context: ../services/ai/1_data_pipeline/stock
       dockerfile: Dockerfile
     container_name: ml-worker
     restart: unless-stopped
