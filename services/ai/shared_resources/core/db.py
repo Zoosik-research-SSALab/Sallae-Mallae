@@ -3,6 +3,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+# 환경변수 또는 core.config에서 DB URL을 가져온다
 DB_URL = os.getenv("AI_DB_URL", "postgresql+psycopg2://app_dev_user:change_me_dev@localhost:5432/app_dev")
 
 engine = create_engine(DB_URL, pool_pre_ping=True)
