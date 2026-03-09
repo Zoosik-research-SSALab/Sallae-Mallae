@@ -23,7 +23,20 @@ public enum AuthErrorCode implements ErrorCode {
   TOKEN_REFRESH_EXPIRED(401, "TOKEN_001", "리프레시 토큰이 만료되었습니다."),
   TOKEN_ALREADY_USED(401, "TOKEN_002", "이미 사용된 토큰입니다."),
   TOKEN_DEVICE_MISMATCH(401, "TOKEN_003", "기기 정보가 일치하지 않습니다."),
-  TOKEN_VERSION_MISMATCH(401, "TOKEN_004", "토큰 버전이 일치하지 않습니다.");
+  TOKEN_VERSION_MISMATCH(401, "TOKEN_004", "토큰 버전이 일치하지 않습니다."),
+
+  // 이메일
+  EMAIL_ALREADY_EXISTS(409, "EMAIL_001", "이미 가입된 이메일입니다."),
+
+  // 인증코드
+  VERIFY_CODE_MISMATCH(400, "VERIFY_001", "인증코드가 일치하지 않습니다."),
+  VERIFY_CODE_EXPIRED(400, "VERIFY_002", "인증코드가 만료되었습니다."),
+  VERIFY_ATTEMPTS_EXCEEDED(400, "VERIFY_003", "인증 시도 횟수를 초과했습니다."),
+
+  // 회원가입
+  SIGNUP_TOKEN_INVALID(400, "SIGNUP_001", "인증 토큰이 유효하지 않습니다."),
+  SIGNUP_PASSWORD_POLICY_VIOLATION(400, "SIGNUP_002", "비밀번호 정책을 위반했습니다."),
+  SIGNUP_REQUIRED_TERMS_NOT_AGREED(400, "SIGNUP_003", "필수 약관에 동의해야 합니다.");
 
   private final int status;
   private final String code;

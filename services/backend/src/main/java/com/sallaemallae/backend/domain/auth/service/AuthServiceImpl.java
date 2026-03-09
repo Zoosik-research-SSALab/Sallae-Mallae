@@ -1,18 +1,31 @@
 package com.sallaemallae.backend.domain.auth.service;
 
 import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
+import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
 import com.sallaemallae.backend.domain.auth.dto.RefreshResponse;
+import com.sallaemallae.backend.domain.auth.dto.SendCodeRequest;
+import com.sallaemallae.backend.domain.auth.dto.SendCodeResponse;
 import com.sallaemallae.backend.domain.auth.dto.SignupRequest;
+import com.sallaemallae.backend.domain.auth.dto.SignupResponse;
+import com.sallaemallae.backend.domain.auth.dto.TermAgreementDto;
+import com.sallaemallae.backend.domain.auth.dto.VerifyCodeRequest;
+import com.sallaemallae.backend.domain.auth.dto.VerifyCodeResponse;
 import com.sallaemallae.backend.domain.auth.entity.LoginHistory;
+import com.sallaemallae.backend.domain.auth.entity.PasswordHistory;
 import com.sallaemallae.backend.domain.auth.entity.User;
+import com.sallaemallae.backend.domain.auth.entity.UserAgreement;
 import com.sallaemallae.backend.domain.auth.enumtype.AuthProvider;
 import com.sallaemallae.backend.domain.auth.enumtype.UserStatus;
 import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.domain.auth.repository.LoginHistoryRepository;
+import com.sallaemallae.backend.domain.auth.repository.PasswordHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.SocialAccountRepository;
+import com.sallaemallae.backend.domain.auth.repository.TermsRepository;
+import com.sallaemallae.backend.domain.auth.repository.UserAgreementRepository;
 import com.sallaemallae.backend.domain.auth.repository.UserRepository;
+import com.sallaemallae.backend.global.email.EmailService;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.global.security.jwt.JwtProvider;
 import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
@@ -20,10 +33,14 @@ import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.Map;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,6 +55,9 @@ public class AuthServiceImpl implements AuthService {
   private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
   private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/auth";
   private static final int RECOVERY_PERIOD_DAYS = 30;
+  private static final int VERIFICATION_CODE_LENGTH = 6;
+  private static final int VERIFICATION_CODE_EXPIRES_SECONDS = 300;  // 5분
+  private static final int VERIFIED_TOKEN_EXPIRES_SECONDS = 600;  // 10분
 
   // Dummy hash for timing attack prevention (same computation time for non-existent users)
   private static final String DUMMY_HASH =
@@ -46,9 +66,16 @@ public class AuthServiceImpl implements AuthService {
   private final UserRepository userRepository;
   private final SocialAccountRepository socialAccountRepository;
   private final LoginHistoryRepository loginHistoryRepository;
+  private final PasswordHistoryRepository passwordHistoryRepository;
+  private final TermsRepository termsRepository;
+  private final UserAgreementRepository userAgreementRepository;
   private final JwtProvider jwtProvider;
   private final RedisTokenService redisTokenService;
   private final PasswordEncoder passwordEncoder;
+  private final PasswordValidator passwordValidator;
+  private final EmailService emailService;
+
+  private final SecureRandom secureRandom = new SecureRandom();
 
   @Override
   @Transactional(readOnly = true)
@@ -120,32 +147,162 @@ public class AuthServiceImpl implements AuthService {
   }
 
   @Override
+  @Transactional(readOnly = true)
+  public CheckEmailResponse checkEmailDuplicate(String email) {
+    boolean exists = userRepository.findByEmail(email).isPresent();
+    return CheckEmailResponse.of(email, !exists);
+  }
+
+  @Override
   @Transactional
-  public Map<String, Object> signup(SignupRequest request) {
-    // 이메일 중복 체크
-    if (userRepository.findByEmail(request.email()).isPresent()) {
-      return Map.of("success", false, "message", "이미 사용 중인 이메일입니다.");
+  public SendCodeResponse sendVerificationCode(SendCodeRequest request) {
+    String email = request.email();
+    String purpose = request.purpose();
+
+    // SIGNUP 목적일 경우 이미 가입된 이메일인지 확인
+    if ("SIGNUP".equals(purpose) && userRepository.findByEmail(email).isPresent()) {
+      throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
     }
 
-    // 비밀번호 해시
+    // 인증코드 생성
+    String code = generateVerificationCode();
+    String hashedCode = passwordEncoder.encode(code);
+
+    // Redis에 저장
+    redisTokenService.saveVerificationCode(purpose, email, hashedCode);
+
+    // 이메일 발송
+    if ("SIGNUP".equals(purpose)) {
+      emailService.sendVerificationCode(email, code);
+    } else {
+      emailService.sendPasswordResetCode(email, code);
+    }
+
+    int remainingAttempts = redisTokenService.getRemainingVerificationAttempts(purpose, email);
+
+    return SendCodeResponse.of(VERIFICATION_CODE_EXPIRES_SECONDS, remainingAttempts);
+  }
+
+  @Override
+  @Transactional
+  public VerifyCodeResponse verifyCode(VerifyCodeRequest request) {
+    String email = request.email();
+    String code = request.code();
+    String purpose = request.purpose();
+
+    // 시도 횟수 초과 확인
+    if (redisTokenService.isVerificationAttemptsExceeded(purpose, email)) {
+      throw new BusinessException(AuthErrorCode.VERIFY_ATTEMPTS_EXCEEDED);
+    }
+
+    // 인증코드 정보 조회
+    String[] codeInfo = redisTokenService.getVerificationCode(purpose, email);
+    if (codeInfo == null) {
+      throw new BusinessException(AuthErrorCode.VERIFY_CODE_EXPIRED);
+    }
+
+    String hashedCode = codeInfo[0];
+
+    // 시도 횟수 증가
+    redisTokenService.incrementVerificationAttempts(purpose, email);
+
+    // 인증코드 검증
+    if (!passwordEncoder.matches(code, hashedCode)) {
+      throw new BusinessException(AuthErrorCode.VERIFY_CODE_MISMATCH);
+    }
+
+    // 인증 성공 - 인증코드 삭제
+    redisTokenService.deleteVerificationCode(purpose, email);
+
+    // 인증 완료 토큰 생성 및 저장
+    String verificationToken = "verify_" + UUID.randomUUID().toString().replace("-", "");
+    redisTokenService.saveVerifiedToken(purpose, verificationToken, email);
+
+    return VerifyCodeResponse.of(verificationToken, VERIFIED_TOKEN_EXPIRES_SECONDS);
+  }
+
+  @Override
+  @Transactional
+  public SignupResponse signup(SignupRequest request, String deviceId, String userAgent,
+      String ipAddress, HttpServletResponse response) {
+
+    String verificationToken = request.verificationToken();
+    String email = request.email();
+
+    // 1. 인증 토큰 검증 및 소비
+    String verifiedEmail = redisTokenService.consumeVerifiedToken("SIGNUP", verificationToken);
+    if (verifiedEmail == null || !verifiedEmail.equals(email)) {
+      throw new BusinessException(AuthErrorCode.SIGNUP_TOKEN_INVALID);
+    }
+
+    // 2. 이메일 중복 체크 (다시 한번)
+    if (userRepository.findByEmail(email).isPresent()) {
+      throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
+    }
+
+    // 3. 비밀번호 정책 검증
+    PasswordValidator.ValidationResult validationResult =
+        passwordValidator.validate(request.password(), email);
+    if (!validationResult.valid()) {
+      throw new BusinessException(AuthErrorCode.SIGNUP_PASSWORD_POLICY_VIOLATION);
+    }
+
+    // 4. 필수 약관 동의 확인
+    List<Long> requiredTermsIds = termsRepository.findActiveRequiredTermsIds();
+    Set<Long> agreedTermsIds = request.agreements().stream()
+        .filter(TermAgreementDto::agreed)
+        .map(TermAgreementDto::termsId)
+        .collect(Collectors.toSet());
+
+    for (Long requiredId : requiredTermsIds) {
+      if (!agreedTermsIds.contains(requiredId)) {
+        throw new BusinessException(AuthErrorCode.SIGNUP_REQUIRED_TERMS_NOT_AGREED);
+      }
+    }
+
+    // 5. 비밀번호 해시
     String hashedPassword = passwordEncoder.encode(request.password());
 
-    // 사용자 생성
+    // 6. 사용자 생성
     User user = User.createEmailUser(
-        request.email(),
+        email,
         hashedPassword,
         request.nickname(),
         request.emailOptIn()
     );
-
     userRepository.save(user);
 
-    return Map.of(
-        "success", true,
-        "message", "회원가입 성공",
-        "userId", user.getId(),
-        "email", user.getEmail()
+    // 7. 약관 동의 저장
+    List<UserAgreement> agreements = request.agreements().stream()
+        .map(dto -> UserAgreement.create(user.getId(), dto.termsId(), dto.agreed()))
+        .toList();
+    userAgreementRepository.saveAll(agreements);
+
+    // 8. 비밀번호 이력 저장
+    passwordHistoryRepository.save(
+        PasswordHistory.createInitial(user.getId(), hashedPassword, ipAddress)
     );
+
+    // 9. 회원가입 이력 저장
+    loginHistoryRepository.save(
+        LoginHistory.signup(user.getId(), email, ipAddress, userAgent)
+    );
+
+    // 10. 토큰 생성
+    String role = "USER";
+    String accessToken = jwtProvider.createAccessToken(
+        user.getId(), role, user.getTokenVersion(), deviceId);
+    String refreshToken = jwtProvider.createRefreshToken(user.getId(), deviceId);
+
+    // 11. Refresh Token 저장
+    redisTokenService.saveRefreshToken(user.getId(), deviceId, refreshToken);
+
+    // 12. Refresh Token 쿠키 설정
+    setRefreshTokenCookie(response, refreshToken);
+
+    log.info("New user registered: {}", email);
+
+    return SignupResponse.of(accessToken, jwtProvider.getAccessTokenExpirationSeconds(), user);
   }
 
   @Override
@@ -243,6 +400,11 @@ public class AuthServiceImpl implements AuthService {
   @Transactional(readOnly = true)
   public String getOAuthStartUrl(String provider) {
     return "/api/v1/auth/oauth/" + provider + "/callback";
+  }
+
+  private String generateVerificationCode() {
+    int code = secureRandom.nextInt(900000) + 100000;  // 100000 ~ 999999
+    return String.valueOf(code);
   }
 
   private void validateUserStatus(User user) {
