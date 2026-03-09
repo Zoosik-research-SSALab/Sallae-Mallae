@@ -5,6 +5,16 @@ default:
   tags:
     - ec2
 
+deploy_base_manual:
+  stage: deploy
+  when: manual
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev-backend"'
+  script:
+    - bash infra/scripts/write-env-files.sh base
+    - bash infra/scripts/deploy-base.sh
+
 deploy_dev_frontend:
   stage: deploy
   rules:

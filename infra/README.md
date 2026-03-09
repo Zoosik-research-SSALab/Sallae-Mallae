@@ -40,6 +40,11 @@ EC2 배포용 AI 경로는 `services/ai/3_ai_server`와 `services/ai/1_data_pipe
 
 실제 비밀번호는 레포에 두지 않고 GitLab CI/CD Variables에서 주입합니다.
 
+CI job은 GitLab Runner가 checkout한 현재 작업 디렉토리를 `/srv/sallaemallae/source/<target>`로 동기화한 뒤, 그 경로를 기준으로 compose를 실행합니다.
+
+- EC2에 별도 `git clone`을 유지할 필요가 없습니다.
+- 각 배포 타깃은 서로 다른 source 디렉토리를 사용하므로 브랜치별 배포가 서로의 bind mount를 덮어쓰지 않습니다.
+
 필수 GitLab Variables:
 
 - `POSTGRES_SUPERPASSWORD`
@@ -51,8 +56,7 @@ CI job은 위 세 값을 이용해 `/srv/sallaemallae/env/base.env`, `/srv/salla
 공용 `base` 스택(`postgres`, `redis`)은 앱 브랜치 배포 시 자동 재배포하지 않습니다.
 
 - 초기 1회 수동 실행:
-  - `bash infra/scripts/write-env-files.sh base`
-  - `bash infra/scripts/deploy-base.sh`
+  - GitLab `dev-backend` 파이프라인의 `deploy_base_manual` job 수동 실행
 - 이후에는 인프라 변경이 필요한 경우에만 별도 반영
 
 ## Local Development Modes
