@@ -60,6 +60,8 @@ public class AuthServiceImpl implements AuthService {
   private static final int VERIFICATION_CODE_LENGTH = 6;
   private static final int VERIFICATION_CODE_EXPIRES_SECONDS = 300;  // 5분
   private static final int VERIFIED_TOKEN_EXPIRES_SECONDS = 600;  // 10분
+  private static final int MAX_VERIFICATION_ATTEMPTS = 5;
+  private static final int RECENT_PASSWORD_CHECK_COUNT = 3;
 
   private final UserRepository userRepository;
   private final SocialAccountRepository socialAccountRepository;
@@ -388,19 +390,18 @@ public class AuthServiceImpl implements AuthService {
   public SendCodeResponse requestPasswordReset(PasswordResetRequestDto request) {
     String email = request.email();
 
-    // 가입된 이메일인지 확인
-    userRepository.findByEmail(email)
-        .orElseThrow(() -> new BusinessException(AuthErrorCode.PASSWORD_RESET_EMAIL_NOT_FOUND));
+    // 열거 방어: 가입 여부와 무관하게 동일한 200 응답 반환
+    // 실제 메일은 가입된 사용자에게만 Async 발송
+    User user = userRepository.findByEmail(email).orElse(null);
 
-    // 기존 인증코드 발송 로직 재활용
-    String code = generateVerificationCode();
-    String hashedCode = passwordEncoder.encode(code);
+    if (user != null) {
+      String code = generateVerificationCode();
+      String hashedCode = passwordEncoder.encode(code);
+      redisTokenService.saveVerificationCode("PASSWORD_RESET", email, hashedCode);
+      emailService.sendPasswordResetCode(email, code);
+    }
 
-    redisTokenService.saveVerificationCode("PASSWORD_RESET", email, hashedCode);
-    emailService.sendPasswordResetCode(email, code);
-
-    int remainingAttempts = redisTokenService.getRemainingVerificationAttempts("PASSWORD_RESET", email);
-    return SendCodeResponse.of(VERIFICATION_CODE_EXPIRES_SECONDS, remainingAttempts);
+    return SendCodeResponse.of(VERIFICATION_CODE_EXPIRES_SECONDS, MAX_VERIFICATION_ATTEMPTS);
   }
 
   @Override
@@ -413,17 +414,15 @@ public class AuthServiceImpl implements AuthService {
     // 1. 인증 토큰 검증 및 소비
     String verifiedEmail = redisTokenService.consumeVerifiedToken("PASSWORD_RESET", verificationToken);
     if (verifiedEmail == null || !verifiedEmail.equals(email)) {
-      throw new BusinessException(AuthErrorCode.PASSWORD_RESET_TOKEN_INVALID);
+      throw new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID);
     }
 
     // 2. 사용자 조회
     User user = userRepository.findByEmail(email)
-        .orElseThrow(() -> new BusinessException(AuthErrorCode.PASSWORD_RESET_EMAIL_NOT_FOUND));
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID));
 
-    // 3. 현재 비밀번호와 동일한지 확인
-    if (newPassword.equals(user.getPasswordHash())) {
-      throw new BusinessException(AuthErrorCode.PASSWORD_RESET_SAME_AS_CURRENT);
-    }
+    // 3. 최근 3개 비밀번호 재사용 확인
+    checkRecentPasswordReuse(user.getId(), newPassword);
 
     // 4. 비밀번호 변경
     user.changePassword(newPassword);
@@ -434,12 +433,15 @@ public class AuthServiceImpl implements AuthService {
     // 6. 모든 Refresh Token 삭제
     redisTokenService.deleteAllRefreshTokens(user.getId());
 
-    // 7. 비밀번호 이력 저장
+    // 7. 로그인 실패 카운터 삭제 (잠금 해제)
+    redisTokenService.deleteLoginFailCount(email);
+
+    // 8. 비밀번호 이력 저장
     passwordHistoryRepository.save(
         PasswordHistory.changedByReset(user.getId(), newPassword, ipAddress)
     );
 
-    // 8. 이벤트 기록
+    // 9. 이벤트 기록
     loginHistoryRepository.save(
         LoginHistory.passwordReset(user.getId(), email, ipAddress)
     );
@@ -451,6 +453,17 @@ public class AuthServiceImpl implements AuthService {
   @Transactional(readOnly = true)
   public String getOAuthStartUrl(String provider) {
     return "/api/v1/auth/oauth/" + provider + "/callback";
+  }
+
+  private void checkRecentPasswordReuse(Long userId, String newPassword) {
+    // 현재 비밀번호 포함 최근 3개와 비교 (프론트에서 해시된 값이므로 equals 비교)
+    List<PasswordHistory> recentPasswords =
+        passwordHistoryRepository.findRecentByUserId(userId, RECENT_PASSWORD_CHECK_COUNT);
+    for (PasswordHistory ph : recentPasswords) {
+      if (newPassword.equals(ph.getPasswordHash())) {
+        throw new BusinessException(AuthErrorCode.PWD_RECENT_REUSE);
+      }
+    }
   }
 
   private String generateVerificationCode() {

@@ -76,17 +76,21 @@ public class UserServiceImpl implements UserService {
 
     // 2. 소셜 로그인 계정 체크
     if (user.getPasswordHash() == null) {
-      throw new BusinessException(AuthErrorCode.PASSWORD_CHANGE_SOCIAL_ACCOUNT);
+      throw new BusinessException(AuthErrorCode.PWD_SOCIAL_ACCOUNT);
     }
 
     // 3. 현재 비밀번호 확인
     if (!request.currentPassword().equals(user.getPasswordHash())) {
-      throw new BusinessException(AuthErrorCode.PASSWORD_CHANGE_WRONG_CURRENT);
+      throw new BusinessException(AuthErrorCode.PWD_WRONG_CURRENT);
     }
 
-    // 4. 현재 비밀번호와 동일한지 확인
-    if (request.newPassword().equals(user.getPasswordHash())) {
-      throw new BusinessException(AuthErrorCode.PASSWORD_RESET_SAME_AS_CURRENT);
+    // 4. 최근 3개 비밀번호 재사용 확인
+    List<PasswordHistory> recentPasswords =
+        passwordHistoryRepository.findRecentByUserId(userId, 3);
+    for (PasswordHistory ph : recentPasswords) {
+      if (request.newPassword().equals(ph.getPasswordHash())) {
+        throw new BusinessException(AuthErrorCode.PWD_RECENT_REUSE);
+      }
     }
 
     // 5. 비밀번호 변경
