@@ -18,6 +18,7 @@
 infra/
   base/      # shared postgres + redis
   apps/      # frontend/backend/ai/full app stacks
+  gateway/   # public gateway nginx compose
   env/       # branch-specific env examples
   nginx/     # routing configs per deployment target
   scripts/   # standard deploy commands for EC2 runner/jobs
@@ -38,12 +39,46 @@ EC2 배포용 AI 경로는 `services/ai/3_ai_server`와 `services/ai/1_data_pipe
 - `develop` : full 스택 자동 배포
 - `master` : 자동 배포 제외
 
+내부 앱 포트는 아래처럼 유지합니다.
+
+- `dev-frontend` : `8081`
+- `dev-backend` : `8082`
+- `dev-ai` : `8083`
+- `develop` : `8084`
+- `master` : `8085` (수동 운영 슬롯)
+
+외부 공개 포트는 장기적으로 gateway nginx의 `80/443`만 사용하도록 구성합니다.
+
 실제 비밀번호는 레포에 두지 않고 GitLab CI/CD Variables에서 주입합니다.
 
 CI job은 GitLab Runner가 checkout한 현재 작업 디렉토리를 `/srv/sallaemallae/source/<target>`로 동기화한 뒤, 그 경로를 기준으로 compose를 실행합니다.
 
 - EC2에 별도 `git clone`을 유지할 필요가 없습니다.
 - 각 배포 타깃은 서로 다른 source 디렉토리를 사용하므로 브랜치별 배포가 서로의 bind mount를 덮어쓰지 않습니다.
+
+## Gateway Nginx
+
+gateway nginx는 외부에서 들어온 요청을 최신 파트별 dev 배포로 분기하는 공용 진입점입니다.
+
+- `<domain>` + `/` -> `127.0.0.1:8081` (`dev-frontend`)
+- `<domain>` + `/api/` -> `127.0.0.1:8082` (`dev-backend`)
+- `<domain>` + `/ai/` -> `127.0.0.1:8083` (`dev-ai`)
+- `dev.<domain>` -> `127.0.0.1:8084` (`develop`, 통합 검증용 예비 슬롯)
+
+구성 파일:
+
+- compose: `infra/gateway/docker-compose.gateway.yml`
+- env example: `infra/env/gateway.env.example`
+- nginx template: `infra/nginx/nginx.gateway.conf.template`
+
+초기 적용은 수동으로 진행합니다.
+
+1. `cp infra/env/gateway.env.example /srv/sallaemallae/env/gateway.env`
+2. `ROOT_HOST`, `DEV_HOST`에 실제 도메인 값 입력
+3. `bash infra/scripts/deploy-gateway.sh`
+
+gateway를 쓰기 시작하면 EC2 보안그룹/UFW는 외부 기준으로 `80/443`만 열고, `8081~8084`는 외부에서 닫는 방향이 맞습니다.
+나중에 `develop` 검증이 끝나면 gateway env에서 `ROOT_WEB_TARGET`, `ROOT_API_TARGET`, `ROOT_AI_TARGET`을 바꾸는 방식으로 루트 도메인 대상을 쉽게 교체할 수 있습니다.
 
 필수 GitLab Variables:
 
