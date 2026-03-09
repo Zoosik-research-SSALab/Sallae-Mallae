@@ -1,7 +1,7 @@
 package com.sallaemallae.backend.domain.user.repository;
 
-import com.sallaemallae.backend.domain.notification.entity.UserWatchlist;
-import com.sallaemallae.backend.domain.notification.entity.UserWatchlistId;
+import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
+import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

@@ -62,9 +62,14 @@ public class SecurityConfig {
             .requestMatchers("/api/auth/password/reset-request").permitAll()
             .requestMatchers("/api/auth/password/reset").permitAll()
             .requestMatchers("/api/auth/policy").permitAll()
+            .requestMatchers("/api/auth/status").permitAll()
             .requestMatchers("/api/auth/google/callback").permitAll()
             .requestMatchers("/api/auth/naver/callback").permitAll()
             .requestMatchers("/api/auth/kakao/callback").permitAll()
+
+            // Auth - 인증 필요
+            .requestMatchers("/api/auth/logout").authenticated()
+            .requestMatchers("/api/auth/logout/all").authenticated()
 
             // Swagger / API docs (개발용)
             .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
