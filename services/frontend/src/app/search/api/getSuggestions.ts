@@ -1,3 +1,5 @@
+﻿import { apiFetch } from "@/shared/lib/apiClient";
+
 export type Suggestion = {
   keyword: string;
   ticker: string;
@@ -14,13 +16,9 @@ export async function getSuggestions(keyword: string): Promise<Suggestion[]> {
     return [];
   }
 
-  const response = await fetch(`/api/v1/search/suggestions?keyword=${encodeURIComponent(keyword)}`, {
+  const payload = await apiFetch<ApiResponse<Suggestion[]>>(`/api/v1/search/suggestions?keyword=${encodeURIComponent(keyword)}`, {
     cache: "no-store",
   });
-  if (!response.ok) {
-    throw new Error(`검색 제안 조회 실패: ${response.status}`);
-  }
 
-  const payload = (await response.json()) as ApiResponse<Suggestion[]>;
   return payload.data ?? [];
 }

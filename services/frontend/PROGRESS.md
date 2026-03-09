@@ -1,6 +1,10 @@
 # Progress Log
 
 ## Current Focus
+- [x] (2026-03-09) Design token sync: align theme semantics with Figma token export for header and main page
+- [x] (2026-03-09) Watchlist interaction polish: optimistic mock toggle + muted-surface hover contrast
+- [x] (2026-03-09) Main UX refinement: watchlist common logic + rate flash feedback + category expansion
+- [x] (2026-03-06) Main page rebuild: replace placeholder home with responsive market dashboard + SSE/GET data flow
 - [x] (2026-03-04) Header UX update: centered layout + logo/icon/avatar components + conditional notification badge
 - [x] (2026-03-04) React Query Devtools integration: add global QueryClientProvider and show devtools in development
 - [x] (2026-03-04) Header rendering fix: restore Tailwind v4 scale utilities in globals.css
@@ -14,6 +18,112 @@
 - [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
 
 ## Changes
+### (2026-03-09) Design token sync
+- Scope:
+  - Synced `theme.css` semantic color and heading token values to the provided design-token export where those values are actually consumed by the current UI
+  - Applied interactive text-color semantics to the header so hover states use the exported brand-interactive token rather than a generic primary color
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/styles/theme.css
+  - ~ src/shared/components/AppNav.tsx
+- Decisions:
+  - Kept the existing token names and mapped them to the design-token export instead of replacing the whole theme layer with raw Figma paths.
+  - Limited component changes to header hover semantics because the main page already referenced semantic tokens correctly and picked up the new values automatically.
+- Notes / Issues:
+  - Header and home components now inherit updated light/dark semantic values from `theme.css`.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] If more screens adopt the same token set, expand the mapping to shared UI primitives (`Button`, `Input`) in a dedicated pass.
+
+### (2026-03-09) Watchlist interaction polish
+- Scope:
+  - Tightened shared watchlist toggle behavior so local mock add/remove is reflected immediately through optimistic query updates
+  - Improved heart-button affordance on gray cards by adding a darker muted hover surface and explicit pointer cursor
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/shared/hooks/useWatchlist.ts
+  - ~ src/shared/components/WatchlistHeartButton.tsx
+  - ~ src/app/home/components/{TopStocksSection,SignalPointsSection}.tsx
+- Decisions:
+  - Kept the interaction fix inside shared watchlist primitives so other pages can reuse the same improved behavior without page-specific patches.
+  - Used a muted hover token only on gray card surfaces to preserve contrast without changing white-card behavior.
+- Notes / Issues:
+  - `useWatchlist` now applies optimistic cache updates before the mock route round-trip and revalidates after settle.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] When real backend watchlist endpoints are connected, keep the optimistic cache flow and replace only the transport implementation.
+
+### (2026-03-09) Main UX refinement
+- Scope:
+  - Replaced all main-page bookmark actions with a shared heart-based watchlist flow backed by common API/query logic
+  - Added change-flash feedback for SSE-driven rate values so price movement is visually easier to detect
+  - Adjusted main-page UI details: TOP10 card background pattern, signal card icons/links, category expansion to 21 items, and mobile/tablet header spacing
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/app/home/components/{TopStocksSection,SignalPointsSection,CategoryStocksSection,SidebarPanel}.tsx
+  - ~ src/shared/components/AppNav.tsx
+  - ~ src/shared/lib/mockMainData.ts
+  - ~ src/app/globals.css
+  - ~ src/styles/theme.css
+  - + src/shared/components/{WatchlistHeartButton,ValueChangeRateText}.tsx
+  - + src/shared/hooks/useWatchlist.ts
+  - + src/shared/lib/{watchlistApi,mockWatchlistStore}.ts
+  - + src/shared/types/watchlist.ts
+  - + src/app/api/users/watchlist/route.ts
+  - + src/app/api/users/watchlist/[stockId]/route.ts
+- Decisions:
+  - Centralized watchlist behavior in `src/shared/*` so the same button/query flow can be reused in other pages without duplicating API logic.
+  - Kept the backend contract snake_case at the transport layer and continued using camelCase in components through `apiFetch`.
+  - Used theme tokens and global animation utilities for change feedback instead of hardcoded colors in component state transitions.
+- Notes / Issues:
+  - The new watchlist API is currently backed by an in-memory mock store for local verification.
+  - Main-page headings were switched to theme-token-based sizing on desktop breakpoints.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] Reuse `useWatchlist` and `WatchlistHeartButton` in `stocks`, `signals`, and `scraps` pages when those UIs are touched next.
+  - [ ] Replace the mock watchlist routes with the real backend once auth/session requirements are finalized.
+
+### (2026-03-06) Main page rebuild
+- Scope:
+  - Replaced the placeholder home screen with a responsive main dashboard based on the provided web/mobile layouts
+  - Added a shared snake_case <-> camelCase conversion layer and routed new main page API/SSE calls through it
+  - Added missing mock main endpoints so the screen can be verified end-to-end in the current frontend workspace
+  - Refined mobile/tablet header drawer width behavior and kept the menu trigger anchored to the far right
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/app/page.tsx
+  - + src/app/home/api/main.ts
+  - + src/app/home/{HomePageClient.tsx,components/{TopStocksSection,SignalPointsSection,CategoryStocksSection,SidebarPanel}.tsx}
+  - + src/app/home/hooks/{useSseState,useTopStocks,useMarketIndex,useCategories,useMainNewSignalsQuery,usePopularSearchesQuery}.ts
+  - + src/app/home/types/main.ts
+  - + src/app/home/utils/formatters.ts
+  - + src/shared/utils/case.ts
+  - + src/shared/lib/{apiClient,mockMainData,sseResponse}.ts
+  - + src/app/api/main/{top-stocks,market-index,categories,new-signals,popular-searches}/route.ts
+  - ~ src/shared/components/AppNav.tsx
+  - ~ src/styles/theme.css
+  - ~ src/shared/components/AppNav.tsx
+  - ~ src/app/layout.tsx
+  - ~ src/app/notifications/api/getNotifications.ts
+  - ~ src/app/portfolio/api/getChairmanPortfolio.ts
+  - ~ src/app/reports/api/getLatestReport.ts
+  - ~ src/app/search/api/getSuggestions.ts
+  - ~ src/app/signals/api/getSignals.ts
+  - ~ src/app/stocks/api/getStocks.ts
+  - ~ src/app/stocks/[ticker]/api/getStockDetail.ts
+- Decisions:
+  - Renamed the root-page implementation area to `src/app/home/*` because safe colocation already prevents routing without `page.tsx` and the directory now reads more naturally in the app structure.
+  - Standardized new frontend calls on `apiFetch` and `connectSse`, with automatic camelCase usage in components and snake_case transport at the boundary.
+  - Added `/api/main/top-stocks` because the TOP10 SSE endpoint path was not specified.
+  - Added `/api/main/popular-searches` because the new design requires a popular-search panel but no API contract was provided.
+- Notes / Issues:
+  - Main page data is currently served by local mock route handlers in `src/app/api/main/*` so the UI is testable immediately.
+  - Existing legacy pages now use the same `apiFetch` utility for HTTP requests, but SSE is currently introduced only for the new main page scope.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] Replace local main mocks with real backend endpoints once the final contracts are fixed.
+  - [ ] Confirm whether popular-searches should remain GET or move to SSE when backend spec arrives.
+
 ### (2026-03-04) Project structure cleanup
 - Scope:
   - Unified route API folder naming (_api -> api)

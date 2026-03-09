@@ -1,3 +1,5 @@
+﻿import { apiFetch } from "@/shared/lib/apiClient";
+
 export type PortfolioHolding = {
   stockId: number;
   ticker: string;
@@ -24,7 +26,7 @@ export type ChairmanPortfolio = {
 };
 
 const fallbackData: ChairmanPortfolio = {
-  name: "의장 포트폴리오",
+  name: "회장 포트폴리오",
   cumulativeReturn: 3.24,
   totalTrades: 12,
   winningTrades: 7,
@@ -34,8 +36,8 @@ const fallbackData: ChairmanPortfolio = {
     { stockId: 3, ticker: "035420", stockName: "NAVER", portfolioWeight: 9.0, returnRate: -1.2 },
   ],
   performance: [
-    { recordDate: "2026-03-01", dailyReturn: 0.42, cumulativeReturn: 2.10, mdd: -1.5 },
-    { recordDate: "2026-03-02", dailyReturn: 0.30, cumulativeReturn: 2.40, mdd: -1.5 },
+    { recordDate: "2026-03-01", dailyReturn: 0.42, cumulativeReturn: 2.1, mdd: -1.5 },
+    { recordDate: "2026-03-02", dailyReturn: 0.3, cumulativeReturn: 2.4, mdd: -1.5 },
     { recordDate: "2026-03-03", dailyReturn: 0.84, cumulativeReturn: 3.24, mdd: -1.5 },
   ],
   source: "fallback",
@@ -43,12 +45,7 @@ const fallbackData: ChairmanPortfolio = {
 
 export async function getChairmanPortfolio(): Promise<ChairmanPortfolio> {
   try {
-    const response = await fetch("/api/v1/portfolio/chairman", { cache: "no-store" });
-    if (!response.ok) {
-      return fallbackData;
-    }
-
-    const payload = (await response.json()) as { data?: ChairmanPortfolio };
+    const payload = await apiFetch<{ data?: ChairmanPortfolio }>("/api/v1/portfolio/chairman", { cache: "no-store" });
     return payload.data ? { ...payload.data, source: "api" } : fallbackData;
   } catch {
     return fallbackData;

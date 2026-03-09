@@ -12,6 +12,7 @@ import type { IconType } from "react-icons";
 import { MdOutlineFavorite } from "react-icons/md";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
 import { useTheme } from "@/shared/hooks/useTheme";
+import { apiFetch } from "@/shared/lib/apiClient";
 import {
   clearSessionUser,
   extractSessionUser,
@@ -37,43 +38,18 @@ const navItems: NavItem[] = [
 const loginButtonClassName =
   "typo-body-md inline-flex items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 
-type RecordLike = Record<string, unknown>;
-
-function isRecord(value: unknown): value is RecordLike {
-  return typeof value === "object" && value !== null;
-}
-
-function getErrorMessage(payload: unknown, fallback: string) {
-  if (!isRecord(payload)) {
-    return fallback;
-  }
-
-  const message = payload.message;
-  return typeof message === "string" && message.length > 0 ? message : fallback;
-}
-
 async function requestQuickLogin() {
-  const response = await fetch("/api/auth/login", {
+  const payload = await apiFetch<unknown, { email: string; password: string }>("/api/auth/login", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+    body: {
       email: "demo@sallaemallae.ai",
       password: "demo1234",
-    }),
+    },
   });
 
-  let payload: unknown = null;
-  try {
-    payload = (await response.json()) as unknown;
-  } catch {
-    payload = null;
-  }
-
   const user = extractSessionUser(payload);
-  if (!response.ok || !user) {
-    throw new Error(getErrorMessage(payload, `로그인 요청 실패 (${response.status})`));
+  if (!user) {
+    throw new Error("로그인 응답에 사용자 정보가 없습니다.");
   }
 
   return user;
@@ -95,12 +71,13 @@ export default function AppNav() {
   const { resolvedTheme } = useTheme();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isThemeReady, setIsThemeReady] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
 
-  const logoSrc = resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
+  const logoSrc = isThemeReady && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
   const isLoggedIn = Boolean(currentUser);
   const profileImage =
     currentUser?.profile_image_url && currentUser.profile_image_url.startsWith("/")
@@ -110,6 +87,10 @@ export default function AppNav() {
   const { data: notificationCount } = useNotificationCountQuery(isAuthReady && isLoggedIn);
   const unreadCount = isLoggedIn && typeof notificationCount === "number" ? notificationCount : 0;
   const displayCount = unreadCount > 99 ? "99+" : String(unreadCount);
+
+  useEffect(() => {
+    setIsThemeReady(true);
+  }, []);
 
   useEffect(() => {
     setCurrentUser(readSessionUser());
@@ -194,7 +175,7 @@ export default function AppNav() {
   return (
     <>
       <header className="flex w-full flex-col items-center border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] backdrop-blur-[6px]">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center gap-6 px-4 py-3 md:px-6 md:py-4 lg:px-8 xl:px-12">
+        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-4 py-3 md:px-6 md:py-4 lg:px-8 xl:px-12">
           <div className="flex items-center gap-8 xl:gap-10">
             <Link href="/" className="inline-flex h-[24px] items-center md:h-[28px] lg:h-[32px]">
               <Image src={logoSrc} alt="살래말래위원회" width={392} height={78} priority className="h-full w-auto max-w-none" />
@@ -205,7 +186,7 @@ export default function AppNav() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-primary)]"
+                  className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                 >
                   {item.label}
                 </Link>
@@ -231,7 +212,7 @@ export default function AppNav() {
               <button
                 type="button"
                 onClick={goToSearch}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-primary)]"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                 aria-label="검색"
               >
                 <GoSearch className="h-4 w-4" />
@@ -243,7 +224,7 @@ export default function AppNav() {
                 <div className="flex items-center gap-3">
                   <Link
                     href="/notifications"
-                    className="relative inline-flex h-9 w-9 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-primary)]"
+                    className="relative inline-flex h-9 w-9 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     aria-label="알림"
                   >
                     <HiOutlineBell className="h-6 w-6" />
@@ -271,7 +252,7 @@ export default function AppNav() {
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-primary)] lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)] lg:hidden"
             aria-label="메뉴 열기"
           >
             <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none">
@@ -290,7 +271,7 @@ export default function AppNav() {
             aria-label="메뉴 닫기"
           />
 
-          <aside className="absolute right-0 top-0 inline-flex h-full w-full flex-col items-center justify-start overflow-hidden bg-[color:var(--color-bg-primary)] md:w-96">
+          <aside className="absolute right-0 top-0 inline-flex h-full w-[min(23.5rem,calc(100vw-12px))] max-w-full flex-col items-center justify-start overflow-hidden bg-[color:var(--color-bg-primary)] sm:w-[min(24rem,calc(100vw-16px))] md:w-[min(24.5rem,calc(100vw-20px))]">
             <div className="flex w-full flex-col items-start border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-6 py-4 backdrop-blur-[6px]">
               <div className="inline-flex w-full items-center justify-between">
                 <Image src={logoSrc} alt="살래말래위원회" width={196} height={39} className="h-6 w-auto" />
@@ -306,13 +287,13 @@ export default function AppNav() {
               </div>
             </div>
 
-            <div className="flex w-full flex-1 flex-col items-start overflow-y-auto py-6">
+            <div className="flex w-full flex-1 flex-col items-start overflow-y-auto">
               <div className="flex w-full justify-start px-6">
-                <div className="flex w-full max-w-[352px] items-center rounded-lg bg-[color:var(--color-bg-tertiary)]">
+                <div className="flex w-full max-w-[22rem] items-center rounded-lg bg-[color:var(--color-bg-tertiary)]">
                   <button
                     type="button"
                     onClick={() => goToPath("/notifications")}
-                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-primary)]"
+                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                   >
                     <HiOutlineBell className="h-5 w-5 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">알림함</span>
@@ -321,7 +302,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={goToSearch}
-                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-primary)]"
+                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">검색하기</span>
@@ -340,7 +321,7 @@ export default function AppNav() {
                         className="inline-flex w-full items-center gap-2"
                       >
                         <CategoryIcon Icon={item.icon} />
-                        <span className="typo-body-md whitespace-nowrap font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-primary)]">
+                        <span className="typo-body-md whitespace-nowrap font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]">
                           {item.label}
                         </span>
                       </Link>
@@ -360,19 +341,19 @@ export default function AppNav() {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-primary)]"
+                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     >
                       로그아웃
                     </button>
                     <button
                       type="button"
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-primary)]"
+                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     >
                       비밀번호 변경
                     </button>
                     <button
                       type="button"
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-primary)]"
+                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     >
                       내 정보 수정
                     </button>
