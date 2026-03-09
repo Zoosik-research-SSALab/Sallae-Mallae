@@ -95,8 +95,73 @@ else
     info ".env 파일이 이미 존재합니다. 건너뜁니다."
 fi
 
-# ── 7. Drive 폴더 구조 확인 ──
-info "Drive 폴더 구조 확인 중..."
+# ── 7. rclone 설치 및 설정 ──
+info "rclone 확인 중..."
+
+if command -v rclone &>/dev/null; then
+    info "rclone 이미 설치됨 ($(rclone version --check 2>/dev/null | head -1 || rclone --version 2>/dev/null | head -1))"
+else
+    info "rclone 설치 중..."
+    # OS 별 설치
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+            # Windows (Git Bash)
+            RCLONE_ZIP="rclone-current-windows-amd64.zip"
+            RCLONE_URL="https://downloads.rclone.org/${RCLONE_ZIP}"
+            RCLONE_DIR="$HOME/.local/bin"
+            mkdir -p "$RCLONE_DIR"
+            curl -sSL "$RCLONE_URL" -o "/tmp/${RCLONE_ZIP}"
+            unzip -o -j "/tmp/${RCLONE_ZIP}" "*/rclone.exe" -d "$RCLONE_DIR" 2>/dev/null
+            rm -f "/tmp/${RCLONE_ZIP}"
+            # PATH에 추가 (현재 세션)
+            export PATH="$RCLONE_DIR:$PATH"
+            if command -v rclone &>/dev/null; then
+                info "rclone 설치 완료 (${RCLONE_DIR}/rclone.exe)"
+                warn "영구 PATH 등록: .bashrc에 export PATH=\"\$HOME/.local/bin:\$PATH\" 를 추가하세요"
+            else
+                warn "rclone 설치 실패. https://rclone.org/downloads/ 에서 수동 설치하세요"
+            fi
+            ;;
+        Linux*)
+            curl -sSL https://rclone.org/install.sh | sudo bash 2>/dev/null \
+                && info "rclone 설치 완료" \
+                || warn "rclone 설치 실패. sudo 권한을 확인하세요"
+            ;;
+        Darwin*)
+            if command -v brew &>/dev/null; then
+                brew install rclone && info "rclone 설치 완료"
+            else
+                curl -sSL https://rclone.org/install.sh | sudo bash 2>/dev/null \
+                    && info "rclone 설치 완료" \
+                    || warn "rclone 설치 실패"
+            fi
+            ;;
+        *)
+            warn "알 수 없는 OS. https://rclone.org/downloads/ 에서 수동 설치하세요"
+            ;;
+    esac
+fi
+
+# rclone.conf 존재 확인 및 설정 안내
+if command -v rclone &>/dev/null; then
+    RCLONE_CONF_PATH=$(rclone config file 2>/dev/null | tail -1)
+    if [[ -f "$RCLONE_CONF_PATH" ]] && grep -q "\[" "$RCLONE_CONF_PATH" 2>/dev/null; then
+        info "rclone 설정 파일 확인: ${RCLONE_CONF_PATH}"
+    else
+        warn "rclone remote가 설정되지 않았습니다"
+        echo "    Google Drive 연동 설정:"
+        echo "      1. rclone config"
+        echo "      2. n (New remote) → 이름: gdrive → Storage: drive"
+        echo "      3. OAuth 인증 완료"
+        echo "      4. .env에 RCLONE_REMOTE=gdrive:kospi200-project 설정"
+        echo ""
+        echo "    Docker에서 사용 시 rclone.conf를 프로젝트 디렉토리에 복사:"
+        echo "      cp ${RCLONE_CONF_PATH} ./rclone.conf"
+    fi
+fi
+
+# ── 8. 데이터 폴더 구조 확인 ──
+info "데이터 폴더 구조 확인 중..."
 python -c "
 from config import BASE_PATH
 from pathlib import Path
@@ -108,7 +173,7 @@ else:
     print('  python setup_drive.py 를 실행하여 폴더 구조를 생성하세요.')
 " 2>/dev/null || warn "config.py 로드 실패. .env 설정 후 다시 시도하세요."
 
-# ── 8. 설치 검증 ──
+# ── 9. 설치 검증 ──
 info "핵심 패키지 import 검증 중..."
 python -c "
 import sys
@@ -146,8 +211,9 @@ if [[ $? -eq 0 ]]; then
     echo "  다음 단계:"
     echo "    1. .env 파일에 API 키 설정"
     echo "    2. source ${VENV_DIR}/Scripts/activate  (Git Bash)"
-    echo "    3. python setup_drive.py               (최초 1회)"
-    echo "    4. python pipeline.py --mode initial    (초기 수집)"
+    echo "    3. rclone config                        (Google Drive 연동, 최초 1회)"
+    echo "    4. python setup_drive.py               (폴더 구조 생성, 최초 1회)"
+    echo "    5. python pipeline.py --mode initial    (초기 수집)"
     echo ""
 else
     error "패키지 검증 실패. 위 오류를 확인하세요."

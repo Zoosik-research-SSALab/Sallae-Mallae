@@ -6,6 +6,8 @@
 #   docker compose up stock-scheduler         # 자동 스케줄러 (매 거래일 16:30)
 #   docker compose run stock-pipeline python validators/data_quality.py  # 품질 검증
 #   docker compose run stock-pipeline python processors/build_base_features.py  # 피처 생성
+#   docker compose run stock-pipeline rclone config                      # rclone 초기 설정
+#   docker compose run stock-pipeline python -c "from utils.drive_utils import rclone_sync_down; ..."  # 수동 동기화
 
 services:
   stock-pipeline:
@@ -17,11 +19,15 @@ services:
       - .env
     environment:
       - BASE_PATH=/data
+      - RCLONE_REMOTE=${RCLONE_REMOTE:-}
+      - RCLONE_AUTO_SYNC=${RCLONE_AUTO_SYNC:-false}
     volumes:
       # 데이터 영속 볼륨
       - stock-data:/data
       # 로컬 Google Drive 마운트 (선택, Windows 경로)
       # - G:/kospi200-project:/data
+      # rclone 설정 파일 마운트 (선택)
+      - ${RCLONE_CONFIG:-./rclone.conf}:/root/.config/rclone/rclone.conf
     networks:
       - stock-net
 
@@ -36,8 +42,11 @@ services:
       - .env
     environment:
       - BASE_PATH=/data
+      - RCLONE_REMOTE=${RCLONE_REMOTE:-}
+      - RCLONE_AUTO_SYNC=${RCLONE_AUTO_SYNC:-false}
     volumes:
       - stock-data:/data
+      - ${RCLONE_CONFIG:-./rclone.conf}:/root/.config/rclone/rclone.conf
     networks:
       - stock-net
 

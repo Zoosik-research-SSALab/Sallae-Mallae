@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Python**: 3.14.x (가상환경 `.venv/` 사용)
 - **OS**: Windows 11, shell: Git Bash (Unix 경로 문법 사용)
-- **데이터 저장소**: Google Drive for Desktop — `G:/kospi200-project/` (`.env`의 `BASE_PATH`로 오버라이드)
+- **데이터 저장소**: 로컬 디스크 `./data` (기본값), rclone으로 Google Drive 동기화 지원 (`.env`의 `BASE_PATH`로 오버라이드)
 - **활성화**: `source .venv/Scripts/activate` (Git Bash 기준)
 
 패키지 설치 시 반드시 `--only-binary :all:` 플래그 사용 (Python 3.14은 소스 컴파일 대부분 미지원).
@@ -14,13 +14,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## .env 필수 키
 
 ```
-BASE_PATH=G:/kospi200-project          # 선택 (기본값 사용 시 생략 가능)
+BASE_PATH=./data                        # 선택 (기본값: ./data, Docker: /data)
 DART_API_KEY=...                        # 재무 데이터 수집 필수
 FRED_API_KEY=...                        # kr_bond_3y 수집 (미설정 시 건너뜀)
 KRX_USER_ID=...                         # 수급 수집 (pykrx KRX 세션) 필수
 KRX_PASSWORD=...                        # 수급 수집 (pykrx KRX 세션) 필수
 KIS_API_KEY=...                         # 수급 수집 (KIS API, 대체 수집기) 선택
 KIS_SECRET_KEY=...                      # 수급 수집 (KIS API, 대체 수집기) 선택
+RCLONE_REMOTE=gdrive:kospi200-project   # rclone 동기화 대상 (선택)
+RCLONE_AUTO_SYNC=false                  # 파이프라인 실행 후 자동 동기화 (선택)
 ```
 
 ## Common Commands

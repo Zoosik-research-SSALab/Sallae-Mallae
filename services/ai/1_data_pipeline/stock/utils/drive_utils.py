@@ -1,12 +1,14 @@
 """
 utils/drive_utils.py
-Google Drive 경로 유틸리티 모듈.
+데이터 경로 유틸리티 모듈. Parquet I/O 및 rclone 동기화 지원.
 Parquet 저장/로드, 디렉토리 생성, 증분 업데이트 지원 함수 모음.
 Python 3.10+ 호환, Google Colab 동작 지원.
 """
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 import pandas as pd
@@ -101,3 +103,83 @@ def file_is_valid(path: Path) -> bool:
         return path.is_file() and path.stat().st_size > 0
     except OSError:
         return False
+
+
+def _rclone_available() -> bool:
+    """rclone이 시스템 PATH에 설치되어 있는지 확인합니다."""
+    return shutil.which("rclone") is not None
+
+
+def rclone_sync_up(local_path: Path, remote: str, subdir: str = "") -> bool:
+    """
+    로컬 디렉토리를 rclone remote로 업로드 동기화합니다.
+
+    Args:
+        local_path: 로컬 BASE_PATH
+        remote: rclone remote 경로 (예: "gdrive:kospi200-project")
+        subdir: 동기화할 하위 디렉토리 (예: "raw/ohlcv"). 빈 문자열이면 전체.
+
+    Returns:
+        성공 여부
+    """
+    if not _rclone_available():
+        return False
+
+    src = local_path / subdir if subdir else local_path
+    dst = f"{remote}/{subdir}" if subdir else remote
+
+    if not src.exists():
+        return False
+
+    result = subprocess.run(
+        ["rclone", "sync", str(src), dst, "--progress"],
+        capture_output=True, text=True,
+    )
+    return result.returncode == 0
+
+
+def rclone_sync_down(remote: str, local_path: Path, subdir: str = "") -> bool:
+    """
+    rclone remote에서 로컬로 다운로드 동기화합니다.
+
+    Args:
+        remote: rclone remote 경로 (예: "gdrive:kospi200-project")
+        local_path: 로컬 BASE_PATH
+        subdir: 동기화할 하위 디렉토리. 빈 문자열이면 전체.
+
+    Returns:
+        성공 여부
+    """
+    if not _rclone_available():
+        return False
+
+    src = f"{remote}/{subdir}" if subdir else remote
+    dst = local_path / subdir if subdir else local_path
+    ensure_dir(dst)
+
+    result = subprocess.run(
+        ["rclone", "sync", str(src), str(dst), "--progress"],
+        capture_output=True, text=True,
+    )
+    return result.returncode == 0
+
+
+def rclone_copy_file(local_file: Path, remote: str) -> bool:
+    """
+    단일 파일을 rclone remote로 복사합니다.
+
+    Args:
+        local_file: 로컬 파일 경로
+        remote: rclone remote 대상 디렉토리 (예: "gdrive:kospi200-project/raw/ohlcv")
+
+    Returns:
+        성공 여부
+    """
+    if not _rclone_available() or not local_file.is_file():
+        return False
+
+    result = subprocess.run(
+        ["rclone", "copy", str(local_file), remote],
+        capture_output=True, text=True,
+    )
+    return result.returncode == 0
