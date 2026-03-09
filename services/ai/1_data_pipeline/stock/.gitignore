@@ -8,3 +8,4 @@ venv/
 *.parquet
 sector_mapping.json
 .omc/
+rclone.conf
