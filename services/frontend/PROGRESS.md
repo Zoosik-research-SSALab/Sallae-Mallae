@@ -1,6 +1,7 @@
 # Progress Log
 
 ## Current Focus
+- [x] (2026-03-09) Design token sync: align theme semantics with Figma token export for header and main page
 - [x] (2026-03-09) Watchlist interaction polish: optimistic mock toggle + muted-surface hover contrast
 - [x] (2026-03-09) Main UX refinement: watchlist common logic + rate flash feedback + category expansion
 - [x] (2026-03-06) Main page rebuild: replace placeholder home with responsive market dashboard + SSE/GET data flow
@@ -17,6 +18,23 @@
 - [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
 
 ## Changes
+### (2026-03-09) Design token sync
+- Scope:
+  - Synced `theme.css` semantic color and heading token values to the provided design-token export where those values are actually consumed by the current UI
+  - Applied interactive text-color semantics to the header so hover states use the exported brand-interactive token rather than a generic primary color
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/styles/theme.css
+  - ~ src/shared/components/AppNav.tsx
+- Decisions:
+  - Kept the existing token names and mapped them to the design-token export instead of replacing the whole theme layer with raw Figma paths.
+  - Limited component changes to header hover semantics because the main page already referenced semantic tokens correctly and picked up the new values automatically.
+- Notes / Issues:
+  - Header and home components now inherit updated light/dark semantic values from `theme.css`.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] If more screens adopt the same token set, expand the mapping to shared UI primitives (`Button`, `Input`) in a dedicated pass.
+
 ### (2026-03-09) Watchlist interaction polish
 - Scope:
   - Tightened shared watchlist toggle behavior so local mock add/remove is reflected immediately through optimistic query updates
@@ -25,7 +43,7 @@
   - ~ PROGRESS.md
   - ~ src/shared/hooks/useWatchlist.ts
   - ~ src/shared/components/WatchlistHeartButton.tsx
-  - ~ src/app/_home/components/{TopStocksSection,SignalPointsSection}.tsx
+  - ~ src/app/home/components/{TopStocksSection,SignalPointsSection}.tsx
 - Decisions:
   - Kept the interaction fix inside shared watchlist primitives so other pages can reuse the same improved behavior without page-specific patches.
   - Used a muted hover token only on gray card surfaces to preserve contrast without changing white-card behavior.
@@ -42,7 +60,7 @@
   - Adjusted main-page UI details: TOP10 card background pattern, signal card icons/links, category expansion to 21 items, and mobile/tablet header spacing
 - Files:
   - ~ PROGRESS.md
-  - ~ src/app/_home/components/{TopStocksSection,SignalPointsSection,CategoryStocksSection,SidebarPanel}.tsx
+  - ~ src/app/home/components/{TopStocksSection,SignalPointsSection,CategoryStocksSection,SidebarPanel}.tsx
   - ~ src/shared/components/AppNav.tsx
   - ~ src/shared/lib/mockMainData.ts
   - ~ src/app/globals.css
@@ -74,11 +92,11 @@
 - Files:
   - ~ PROGRESS.md
   - ~ src/app/page.tsx
-  - + src/app/_home/api/main.ts
-  - + src/app/_home/components/{HomePageClient,TopStocksSection,SignalPointsSection,CategoryStocksSection,SidebarPanel}.tsx
-  - + src/app/_home/hooks/{useSseState,useTopStocks,useMarketIndex,useCategories,useMainNewSignalsQuery,usePopularSearchesQuery}.ts
-  - + src/app/_home/types/main.ts
-  - + src/app/_home/utils/formatters.ts
+  - + src/app/home/api/main.ts
+  - + src/app/home/{HomePageClient.tsx,components/{TopStocksSection,SignalPointsSection,CategoryStocksSection,SidebarPanel}.tsx}
+  - + src/app/home/hooks/{useSseState,useTopStocks,useMarketIndex,useCategories,useMainNewSignalsQuery,usePopularSearchesQuery}.ts
+  - + src/app/home/types/main.ts
+  - + src/app/home/utils/formatters.ts
   - + src/shared/utils/case.ts
   - + src/shared/lib/{apiClient,mockMainData,sseResponse}.ts
   - + src/app/api/main/{top-stocks,market-index,categories,new-signals,popular-searches}/route.ts
@@ -94,7 +112,7 @@
   - ~ src/app/stocks/api/getStocks.ts
   - ~ src/app/stocks/[ticker]/api/getStockDetail.ts
 - Decisions:
-  - Used `src/app/_home/*` as the root-route private implementation area so the existing App Router colocation style is preserved without creating a public `/home` route.
+  - Renamed the root-page implementation area to `src/app/home/*` because safe colocation already prevents routing without `page.tsx` and the directory now reads more naturally in the app structure.
   - Standardized new frontend calls on `apiFetch` and `connectSse`, with automatic camelCase usage in components and snake_case transport at the boundary.
   - Added `/api/main/top-stocks` because the TOP10 SSE endpoint path was not specified.
   - Added `/api/main/popular-searches` because the new design requires a popular-search panel but no API contract was provided.

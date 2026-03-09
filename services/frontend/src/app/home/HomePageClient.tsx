@@ -1,14 +1,14 @@
-﻿"use client";
+"use client";
 
-import CategoryStocksSection from "./CategoryStocksSection";
-import SidebarPanel from "./SidebarPanel";
-import SignalPointsSection from "./SignalPointsSection";
-import TopStocksSection from "./TopStocksSection";
-import { useCategories } from "../hooks/useCategories";
-import { useMainNewSignalsQuery } from "../hooks/useMainNewSignalsQuery";
-import { useMarketIndex } from "../hooks/useMarketIndex";
-import { usePopularSearchesQuery } from "../hooks/usePopularSearchesQuery";
-import { useTopStocks } from "../hooks/useTopStocks";
+import CategoryStocksSection from "./components/CategoryStocksSection";
+import SidebarPanel from "./components/SidebarPanel";
+import SignalPointsSection from "./components/SignalPointsSection";
+import TopStocksSection from "./components/TopStocksSection";
+import { useCategories } from "./hooks/useCategories";
+import { useMainNewSignalsQuery } from "./hooks/useMainNewSignalsQuery";
+import { useMarketIndex } from "./hooks/useMarketIndex";
+import { usePopularSearchesQuery } from "./hooks/usePopularSearchesQuery";
+import { useTopStocks } from "./hooks/useTopStocks";
 
 export default function HomePageClient() {
   const { data: topStocksData, isLoading: topStocksLoading } = useTopStocks();

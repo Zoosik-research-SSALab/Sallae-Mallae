@@ -1,10 +1,10 @@
-﻿import type {
+import type {
   CategoriesPayload,
   MarketIndexPayload,
   NewSignalsPayload,
   PopularSearchesPayload,
   TopStocksPayload,
-} from "@/app/_home/types/main";
+} from "@/app/home/types/main";
 
 const topStockSeeds = [
   { stockId: 1, name: "쌀숭전자", price: 162500, fluctuationRate: 2.45, signal: "strong_buy", confidence: 96 },

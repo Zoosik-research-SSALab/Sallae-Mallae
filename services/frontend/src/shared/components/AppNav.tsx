@@ -71,12 +71,13 @@ export default function AppNav() {
   const { resolvedTheme } = useTheme();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isThemeReady, setIsThemeReady] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
 
-  const logoSrc = resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
+  const logoSrc = isThemeReady && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
   const isLoggedIn = Boolean(currentUser);
   const profileImage =
     currentUser?.profile_image_url && currentUser.profile_image_url.startsWith("/")
@@ -86,6 +87,10 @@ export default function AppNav() {
   const { data: notificationCount } = useNotificationCountQuery(isAuthReady && isLoggedIn);
   const unreadCount = isLoggedIn && typeof notificationCount === "number" ? notificationCount : 0;
   const displayCount = unreadCount > 99 ? "99+" : String(unreadCount);
+
+  useEffect(() => {
+    setIsThemeReady(true);
+  }, []);
 
   useEffect(() => {
     setCurrentUser(readSessionUser());
@@ -181,7 +186,7 @@ export default function AppNav() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-primary)]"
+                  className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                 >
                   {item.label}
                 </Link>
@@ -207,7 +212,7 @@ export default function AppNav() {
               <button
                 type="button"
                 onClick={goToSearch}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-primary)]"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                 aria-label="검색"
               >
                 <GoSearch className="h-4 w-4" />
@@ -219,7 +224,7 @@ export default function AppNav() {
                 <div className="flex items-center gap-3">
                   <Link
                     href="/notifications"
-                    className="relative inline-flex h-9 w-9 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-primary)]"
+                    className="relative inline-flex h-9 w-9 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     aria-label="알림"
                   >
                     <HiOutlineBell className="h-6 w-6" />
@@ -247,7 +252,7 @@ export default function AppNav() {
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-primary)] lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)] lg:hidden"
             aria-label="메뉴 열기"
           >
             <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none">
@@ -288,7 +293,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={() => goToPath("/notifications")}
-                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-primary)]"
+                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                   >
                     <HiOutlineBell className="h-5 w-5 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">알림함</span>
@@ -297,7 +302,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={goToSearch}
-                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-primary)]"
+                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">검색하기</span>
@@ -316,7 +321,7 @@ export default function AppNav() {
                         className="inline-flex w-full items-center gap-2"
                       >
                         <CategoryIcon Icon={item.icon} />
-                        <span className="typo-body-md whitespace-nowrap font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-primary)]">
+                        <span className="typo-body-md whitespace-nowrap font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]">
                           {item.label}
                         </span>
                       </Link>
@@ -336,19 +341,19 @@ export default function AppNav() {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-primary)]"
+                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     >
                       로그아웃
                     </button>
                     <button
                       type="button"
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-primary)]"
+                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     >
                       비밀번호 변경
                     </button>
                     <button
                       type="button"
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-primary)]"
+                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     >
                       내 정보 수정
                     </button>

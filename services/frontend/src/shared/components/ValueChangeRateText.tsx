@@ -7,10 +7,11 @@ import { cn } from "@/shared/utils/cn";
 type Props = {
   value: number;
   className?: string;
+  padding?: "default" | "x-none";
   children: ReactNode;
 };
 
-export default function ValueChangeRateText({ value, className, children }: Props) {
+export default function ValueChangeRateText({ value, className, padding = "default", children }: Props) {
   const previousValueRef = useRef<number | null>(null);
   const [flashTone, setFlashTone] = useState<"positive" | "negative" | null>(null);
   const [flashKey, setFlashKey] = useState(0);
@@ -49,7 +50,12 @@ export default function ValueChangeRateText({ value, className, children }: Prop
     <span
       key={flashKey}
       style={flashStyle}
-      className={cn("inline-flex rounded-md px-1.5 py-0.5", flashTone ? "value-change-flash" : "", className)}
+      className={cn(
+        "inline-flex rounded-md py-0.5",
+        padding === "default" ? "px-1.5" : "",
+        flashTone ? "value-change-flash" : "",
+        className,
+      )}
     >
       {children}
     </span>

@@ -1,4 +1,4 @@
-﻿import HomePageClient from "@/app/_home/components/HomePageClient";
+import HomePageClient from "@/app/home/HomePageClient";
 
 export default function HomePage() {
   return <HomePageClient />;

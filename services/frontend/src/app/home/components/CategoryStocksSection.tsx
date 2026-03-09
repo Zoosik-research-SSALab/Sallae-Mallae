@@ -109,7 +109,11 @@ export default function CategoryStocksSection({ categories, isLoading }: Props) 
                       <div className="typo-body-sm text-[color:var(--color-text-tertiary)]">{formatPrice(stock.price)}</div>
                     </div>
                     <div className="flex flex-col items-end gap-0.5 text-right">
-                      <ValueChangeRateText value={stock.fluctuationRate} className={`typo-body-sm px-0 font-semibold ${getRateClassName(stock.fluctuationRate)}`}>
+                      <ValueChangeRateText
+                        value={stock.fluctuationRate}
+                        padding="x-none"
+                        className={`typo-body-sm font-semibold ${getRateClassName(stock.fluctuationRate)}`}
+                      >
                         {formatSignedRate(stock.fluctuationRate)}
                       </ValueChangeRateText>
                       <span className={`typo-body-xs font-medium ${getRateClassName(stock.fluctuationRate)}`}>
