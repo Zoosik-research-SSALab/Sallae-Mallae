@@ -60,10 +60,11 @@ CI job은 GitLab Runner가 checkout한 현재 작업 디렉토리를 `/srv/salla
 
 gateway nginx는 외부에서 들어온 요청을 최신 파트별 dev 배포로 분기하는 공용 진입점입니다.
 
-- `<domain>` + `/` -> `127.0.0.1:8081` (`dev-frontend`)
-- `<domain>` + `/api/` -> `127.0.0.1:8082` (`dev-backend`)
-- `<domain>` + `/ai/` -> `127.0.0.1:8083` (`dev-ai`)
-- `dev.<domain>` -> `127.0.0.1:8084` (`develop`, 통합 검증용 예비 슬롯)
+- `j14d208.p.ssafy.io` + `/` -> `127.0.0.1:8081` (`dev-frontend`)
+- `j14d208.p.ssafy.io` + `/api/` -> `127.0.0.1:8082` (`dev-backend`)
+- `j14d208.p.ssafy.io` + `/ai/` -> `127.0.0.1:8083` (`dev-ai`)
+
+`develop`(`8084`)과 `master` 수동 운영 슬롯(`8085`)은 외부에 별도 도메인을 두지 않고 내부 전환 대상으로만 유지합니다. 통합 검증 시점에는 gateway의 `ROOT_WEB_TARGET`, `ROOT_API_TARGET`, `ROOT_AI_TARGET` 값을 `develop` 쪽으로 바꿔 같은 도메인에서 확인합니다.
 
 구성 파일:
 
@@ -74,11 +75,11 @@ gateway nginx는 외부에서 들어온 요청을 최신 파트별 dev 배포로
 초기 적용은 수동으로 진행합니다.
 
 1. `cp infra/env/gateway.env.example /srv/sallaemallae/env/gateway.env`
-2. `ROOT_HOST`, `DEV_HOST`에 실제 도메인 값 입력
+2. 필요하면 `ROOT_WEB_TARGET`, `ROOT_API_TARGET`, `ROOT_AI_TARGET`을 현재 운영 대상에 맞게 수정
 3. `bash infra/scripts/deploy-gateway.sh`
 
-gateway를 쓰기 시작하면 EC2 보안그룹/UFW는 외부 기준으로 `80/443`만 열고, `8081~8084`는 외부에서 닫는 방향이 맞습니다.
-나중에 `develop` 검증이 끝나면 gateway env에서 `ROOT_WEB_TARGET`, `ROOT_API_TARGET`, `ROOT_AI_TARGET`을 바꾸는 방식으로 루트 도메인 대상을 쉽게 교체할 수 있습니다.
+gateway를 쓰기 시작하면 EC2 보안그룹/UFW는 외부 기준으로 `80/443`만 열고, `8081~8085`는 외부에서 닫는 방향이 맞습니다.
+나중에 `develop` 검증이 필요하면 gateway env에서 `ROOT_WEB_TARGET`, `ROOT_API_TARGET`, `ROOT_AI_TARGET`을 `develop` 대상에 맞게 바꿔 같은 도메인에서 확인합니다. 최종 운영도 같은 방식으로 전환할 수 있습니다.
 
 필수 GitLab Variables:
 
