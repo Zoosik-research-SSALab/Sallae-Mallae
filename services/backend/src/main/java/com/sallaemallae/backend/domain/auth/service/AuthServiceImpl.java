@@ -4,6 +4,9 @@ import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
+import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackRequest;
+import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackResponse;
+import com.sallaemallae.backend.domain.auth.dto.OAuthTermsAgreeRequest;
 import com.sallaemallae.backend.domain.auth.dto.RefreshResponse;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeResponse;
@@ -14,11 +17,15 @@ import com.sallaemallae.backend.domain.auth.dto.VerifyCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.VerifyCodeResponse;
 import com.sallaemallae.backend.domain.auth.entity.LoginHistory;
 import com.sallaemallae.backend.domain.auth.entity.PasswordHistory;
+import com.sallaemallae.backend.domain.auth.entity.SocialAccount;
+import com.sallaemallae.backend.domain.auth.entity.Terms;
 import com.sallaemallae.backend.domain.auth.entity.User;
 import com.sallaemallae.backend.domain.auth.entity.UserAgreement;
 import com.sallaemallae.backend.domain.auth.enumtype.AuthProvider;
 import com.sallaemallae.backend.domain.auth.enumtype.UserStatus;
 import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
+import com.sallaemallae.backend.domain.auth.oauth.OAuthProviderClient;
+import com.sallaemallae.backend.domain.auth.oauth.OAuthUserProfile;
 import com.sallaemallae.backend.domain.auth.repository.LoginHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.PasswordHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.SocialAccountRepository;
@@ -29,7 +36,10 @@ import com.sallaemallae.backend.global.email.EmailService;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.global.security.jwt.JwtProvider;
 import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,7 +47,9 @@ import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -69,8 +81,20 @@ public class AuthServiceImpl implements AuthService {
   private final RedisTokenService redisTokenService;
   private final PasswordEncoder passwordEncoder;
   private final EmailService emailService;
+  private final ObjectMapper objectMapper;
+  private final List<OAuthProviderClient> oauthProviderClients;
+
+  private Map<AuthProvider, OAuthProviderClient> oauthClientMap;
 
   private final SecureRandom secureRandom = new SecureRandom();
+
+  @PostConstruct
+  void initOAuthClients() {
+    oauthClientMap = new EnumMap<>(AuthProvider.class);
+    for (OAuthProviderClient client : oauthProviderClients) {
+      oauthClientMap.put(client.getProvider(), client);
+    }
+  }
 
   @Override
   @Transactional(readOnly = true)
@@ -383,7 +407,202 @@ public class AuthServiceImpl implements AuthService {
   @Override
   @Transactional(readOnly = true)
   public String getOAuthStartUrl(String provider) {
-    return "/api/v1/auth/oauth/" + provider + "/callback";
+    AuthProvider authProvider = parseProvider(provider);
+    String state = UUID.randomUUID().toString();
+    redisTokenService.saveOAuthState(state, authProvider.name());
+    return "/api/auth/" + provider + "/callback?state=" + state;
+  }
+
+  @Override
+  @Transactional
+  public OAuthCallbackResponse oauthCallback(String provider, OAuthCallbackRequest request,
+      String deviceId, String userAgent, String ipAddress, HttpServletResponse response) {
+
+    // 1. Provider 파싱
+    AuthProvider authProvider = parseProvider(provider);
+
+    // 2. CSRF state 검증
+    String storedProvider = redisTokenService.consumeOAuthState(request.state());
+    if (storedProvider == null) {
+      throw new BusinessException(AuthErrorCode.OAUTH_STATE_MISMATCH);
+    }
+
+    // 3. Provider에서 사용자 프로필 조회
+    OAuthProviderClient client = oauthClientMap.get(authProvider);
+    OAuthUserProfile profile = client.getUserProfile(request.authorizationCode());
+
+    // 4. 기존 소셜 계정 조회
+    return socialAccountRepository
+        .findByProviderAndProviderAccountId(authProvider, profile.providerAccountId())
+        .map(socialAccount -> handleExistingUser(socialAccount, authProvider, deviceId, userAgent,
+            ipAddress, response))
+        .orElseGet(() -> handleNewUser(profile, authProvider));
+  }
+
+  @Override
+  @Transactional
+  public LoginResponse oauthTermsAgree(OAuthTermsAgreeRequest request,
+      String deviceId, String userAgent, String ipAddress, HttpServletResponse response) {
+
+    // 1. 임시 토큰 소비
+    String json = redisTokenService.consumeTempToken(request.tempToken());
+    if (json == null) {
+      throw new BusinessException(AuthErrorCode.OAUTH_TEMP_TOKEN_INVALID);
+    }
+
+    // 2. 임시 데이터 역직렬화
+    Map<String, String> tempData;
+    try {
+      tempData = objectMapper.readValue(json, Map.class);
+    } catch (JsonProcessingException e) {
+      throw new BusinessException(AuthErrorCode.OAUTH_TEMP_TOKEN_INVALID);
+    }
+
+    String email = tempData.get("email");
+    String profileImageUrl = tempData.get("profileImageUrl");
+    AuthProvider authProvider = AuthProvider.valueOf(tempData.get("provider"));
+    String providerAccountId = tempData.get("providerAccountId");
+
+    // 3. 필수 약관 검증
+    List<Long> requiredTermsIds = termsRepository.findActiveRequiredTermsIds();
+    Set<Long> agreedTermsIds = request.agreements().stream()
+        .filter(TermAgreementDto::agreed)
+        .map(TermAgreementDto::termsId)
+        .collect(Collectors.toSet());
+
+    for (Long requiredId : requiredTermsIds) {
+      if (!agreedTermsIds.contains(requiredId)) {
+        throw new BusinessException(AuthErrorCode.SIGNUP_REQUIRED_TERMS_NOT_AGREED);
+      }
+    }
+
+    // 4. 사용자 생성
+    User user = User.createSocialUser(email, request.nickname(), profileImageUrl,
+        request.emailOptIn());
+    userRepository.save(user);
+
+    // 5. 소셜 계정 연동
+    socialAccountRepository.save(
+        SocialAccount.create(user.getId(), authProvider, providerAccountId));
+
+    // 6. 약관 동의 저장
+    List<UserAgreement> agreements = request.agreements().stream()
+        .map(dto -> UserAgreement.create(user.getId(), dto.termsId(), dto.agreed()))
+        .toList();
+    userAgreementRepository.saveAll(agreements);
+
+    // 7. 로그인 이력 저장
+    loginHistoryRepository.save(
+        LoginHistory.socialLoginSuccess(user.getId(), email, ipAddress, userAgent));
+
+    // 8. 토큰 생성
+    String role = "USER";
+    String accessToken = jwtProvider.createAccessToken(
+        user.getId(), role, user.getTokenVersion(), deviceId);
+    String refreshToken = jwtProvider.createRefreshToken(user.getId(), deviceId);
+
+    redisTokenService.saveRefreshToken(user.getId(), deviceId, refreshToken);
+    setRefreshTokenCookie(response, refreshToken);
+
+    log.info("New social user registered: {} via {}", email, authProvider);
+
+    return LoginResponse.of(
+        accessToken,
+        jwtProvider.getAccessTokenExpirationSeconds(),
+        LoginResponse.UserInfo.from(user, authProvider, OffsetDateTime.now())
+    );
+  }
+
+  private OAuthCallbackResponse handleExistingUser(SocialAccount socialAccount,
+      AuthProvider authProvider, String deviceId, String userAgent, String ipAddress,
+      HttpServletResponse response) {
+
+    User user = userRepository.findById(socialAccount.getUserId())
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.AUTH_UNAUTHORIZED));
+
+    // 탈퇴 상태이면 복구
+    if (user.getStatus() == UserStatus.WITHDRAWN) {
+      OffsetDateTime withdrawnAt = user.getWithdrawnAt();
+      if (withdrawnAt != null) {
+        long days = ChronoUnit.DAYS.between(withdrawnAt, OffsetDateTime.now());
+        if (days > RECOVERY_PERIOD_DAYS) {
+          throw new BusinessException(AuthErrorCode.LOGIN_WITHDRAWN_EXPIRED);
+        }
+      }
+      user.recover();
+    } else if (user.getStatus() != UserStatus.ACTIVE) {
+      throw new BusinessException(AuthErrorCode.LOGIN_ACCOUNT_BANNED);
+    }
+
+    // 토큰 생성
+    String role = user.isAdmin() ? "ADMIN" : "USER";
+    String accessToken = jwtProvider.createAccessToken(
+        user.getId(), role, user.getTokenVersion(), deviceId);
+    String refreshToken = jwtProvider.createRefreshToken(user.getId(), deviceId);
+
+    redisTokenService.saveRefreshToken(user.getId(), deviceId, refreshToken);
+    setRefreshTokenCookie(response, refreshToken);
+
+    loginHistoryRepository.save(
+        LoginHistory.socialLoginSuccess(user.getId(), user.getEmail(), ipAddress, userAgent));
+
+    return OAuthCallbackResponse.existingUser(
+        accessToken,
+        jwtProvider.getAccessTokenExpirationSeconds(),
+        LoginResponse.UserInfo.from(user, authProvider, OffsetDateTime.now())
+    );
+  }
+
+  private OAuthCallbackResponse handleNewUser(OAuthUserProfile profile,
+      AuthProvider authProvider) {
+
+    // 이미 이메일 가입된 사용자인지 확인
+    if (userRepository.findByEmail(profile.email()).isPresent()) {
+      throw new BusinessException(AuthErrorCode.OAUTH_EMAIL_ALREADY_EXISTS);
+    }
+
+    // 임시 토큰 생성 및 Redis 저장
+    String tempToken = "temp_" + UUID.randomUUID().toString().replace("-", "");
+    try {
+      String json = objectMapper.writeValueAsString(Map.of(
+          "email", profile.email(),
+          "nickname", profile.nickname() != null ? profile.nickname() : "",
+          "profileImageUrl", profile.profileImageUrl() != null ? profile.profileImageUrl() : "",
+          "provider", authProvider.name(),
+          "providerAccountId", profile.providerAccountId()
+      ));
+      redisTokenService.saveTempToken(tempToken, json);
+    } catch (JsonProcessingException e) {
+      throw new BusinessException(AuthErrorCode.OAUTH_PROVIDER_ERROR);
+    }
+
+    // 약관 목록 조회
+    List<Terms> activeTerms = termsRepository.findActiveTerms();
+    List<OAuthCallbackResponse.TermsDto> requiredTerms = activeTerms.stream()
+        .filter(Terms::isRequired)
+        .map(t -> OAuthCallbackResponse.TermsDto.builder()
+            .termsId(t.getId()).title(t.getTitle()).required(true).build())
+        .toList();
+    List<OAuthCallbackResponse.TermsDto> optionalTerms = activeTerms.stream()
+        .filter(t -> !t.isRequired())
+        .map(t -> OAuthCallbackResponse.TermsDto.builder()
+            .termsId(t.getId()).title(t.getTitle()).required(false).build())
+        .toList();
+
+    return OAuthCallbackResponse.newUser(
+        tempToken, profile.email(), authProvider.name(), requiredTerms, optionalTerms);
+  }
+
+  private AuthProvider parseProvider(String provider) {
+    try {
+      AuthProvider authProvider = AuthProvider.valueOf(provider.toUpperCase());
+      if (authProvider == AuthProvider.EMAIL) {
+        throw new BusinessException(AuthErrorCode.OAUTH_UNSUPPORTED_PROVIDER);
+      }
+      return authProvider;
+    } catch (IllegalArgumentException e) {
+      throw new BusinessException(AuthErrorCode.OAUTH_UNSUPPORTED_PROVIDER);
+    }
   }
 
   private String generateVerificationCode() {

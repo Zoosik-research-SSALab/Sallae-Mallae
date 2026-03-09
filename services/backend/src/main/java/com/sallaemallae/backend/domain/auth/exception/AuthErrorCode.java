@@ -36,7 +36,16 @@ public enum AuthErrorCode implements ErrorCode {
   // 회원가입
   SIGNUP_TOKEN_INVALID(400, "SIGNUP_001", "인증 토큰이 유효하지 않습니다."),
   SIGNUP_PASSWORD_POLICY_VIOLATION(400, "SIGNUP_002", "비밀번호 정책을 위반했습니다."),
-  SIGNUP_REQUIRED_TERMS_NOT_AGREED(400, "SIGNUP_003", "필수 약관에 동의해야 합니다.");
+  SIGNUP_REQUIRED_TERMS_NOT_AGREED(400, "SIGNUP_003", "필수 약관에 동의해야 합니다."),
+
+  // OAuth 관련
+  OAUTH_INVALID_AUTH_CODE(400, "OAUTH_001", "유효하지 않은 인가 코드입니다."),
+  OAUTH_INVALID_REDIRECT_URI(400, "OAUTH_002", "허용되지 않은 Redirect URI입니다."),
+  OAUTH_STATE_MISMATCH(400, "OAUTH_003", "state 값이 일치하지 않습니다."),
+  OAUTH_UNSUPPORTED_PROVIDER(400, "OAUTH_004", "지원하지 않는 Provider입니다."),
+  OAUTH_EMAIL_ALREADY_EXISTS(409, "OAUTH_005", "이미 다른 방식으로 가입된 이메일입니다."),
+  OAUTH_PROVIDER_ERROR(502, "OAUTH_006", "Provider 서버와의 통신에 실패했습니다."),
+  OAUTH_TEMP_TOKEN_INVALID(400, "OAUTH_007", "임시 토큰이 유효하지 않습니다.");
 
   private final int status;
   private final String code;

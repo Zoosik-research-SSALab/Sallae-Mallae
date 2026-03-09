@@ -4,6 +4,9 @@ import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
+import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackRequest;
+import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackResponse;
+import com.sallaemallae.backend.domain.auth.dto.OAuthTermsAgreeRequest;
 import com.sallaemallae.backend.domain.auth.dto.RefreshResponse;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeResponse;
@@ -155,6 +158,48 @@ public class AuthController {
       @Parameter(description = "OAuth 제공자 (kakao, naver, google)", required = true) @PathVariable String provider) {
     return ApiResponse.success(
         Map.of("provider", provider, "redirect", authService.getOAuthStartUrl(provider)));
+  }
+
+  @Operation(summary = "소셜 로그인", description = "소셜 로그인/회원가입을 처리합니다. 기존 회원이면 로그인, 신규 회원이면 약관 동의를 요청합니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공 또는 약관 동의 필요"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "인가 코드 무효/state 불일치"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 다른 방식으로 가입된 이메일"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "Provider 통신 실패")
+  })
+  @PostMapping("/{provider}/callback")
+  public ApiResponse<OAuthCallbackResponse> oauthCallback(
+      @Parameter(description = "OAuth 제공자 (google, naver, kakao)", required = true) @PathVariable String provider,
+      @Valid @RequestBody OAuthCallbackRequest request,
+      @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") String deviceId,
+      @Parameter(description = "User-Agent 헤더") @RequestHeader(value = "User-Agent", defaultValue = "Unknown") String userAgent,
+      HttpServletRequest httpRequest,
+      HttpServletResponse response) {
+
+    String ipAddress = getClientIpAddress(httpRequest);
+    OAuthCallbackResponse callbackResponse = authService.oauthCallback(
+        provider, request, deviceId, userAgent, ipAddress, response);
+    return ApiResponse.success(callbackResponse);
+  }
+
+  @Operation(summary = "소셜 회원가입 약관 동의", description = "소셜 로그인 신규 회원의 약관 동의를 처리하고 회원가입을 완료합니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "회원가입 성공"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "임시 토큰 무효/필수 약관 미동의")
+  })
+  @PostMapping("/policy")
+  @ResponseStatus(HttpStatus.CREATED)
+  public ApiResponse<LoginResponse> oauthTermsAgree(
+      @Valid @RequestBody OAuthTermsAgreeRequest request,
+      @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") String deviceId,
+      @Parameter(description = "User-Agent 헤더") @RequestHeader(value = "User-Agent", defaultValue = "Unknown") String userAgent,
+      HttpServletRequest httpRequest,
+      HttpServletResponse response) {
+
+    String ipAddress = getClientIpAddress(httpRequest);
+    LoginResponse loginResponse = authService.oauthTermsAgree(
+        request, deviceId, userAgent, ipAddress, response);
+    return ApiResponse.success(loginResponse);
   }
 
   private String extractAccessToken(String authorization) {

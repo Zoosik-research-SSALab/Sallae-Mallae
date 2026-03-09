@@ -21,11 +21,17 @@ public class RedisTokenService {
   private static final String LOGIN_FAIL_PREFIX = "LOGIN_FAIL:";  // 로그인 실패 카운터
   private static final String EMAIL_VERIFY_PREFIX = "EMAIL_VERIFY:";  // 이메일 인증코드
   private static final String VERIFIED_PREFIX = "VERIFIED:";  // 인증 완료 토큰
+  private static final String TEMP_PREFIX = "TEMP:";      // 소셜 로그인 임시 토큰
+  private static final String OAUTH_STATE_PREFIX = "OAUTH_STATE:";  // OAuth state CSRF 검증
 
   // 이메일 인증 관련 상수
   private static final long VERIFICATION_CODE_TTL_SECONDS = 300;  // 5분
   private static final long VERIFIED_TOKEN_TTL_SECONDS = 600;  // 10분
   private static final int MAX_VERIFICATION_ATTEMPTS = 5;
+
+  // OAuth 관련 상수
+  private static final long TEMP_TOKEN_TTL_SECONDS = 600;  // 10분
+  private static final long OAUTH_STATE_TTL_SECONDS = 300;  // 5분
 
   // ==================== Refresh Token 관리 ====================
 
@@ -275,6 +281,54 @@ public class RedisTokenService {
       return "**@" + domain;
     }
     return localPart.substring(0, 2) + "***@" + domain;
+  }
+
+  // ==================== OAuth 임시 토큰 관리 ====================
+
+  /**
+   * OAuth state 저장 (CSRF 방어)
+   * Key: OAUTH_STATE:{state}
+   */
+  public void saveOAuthState(String state, String provider) {
+    String key = OAUTH_STATE_PREFIX + state;
+    redisTemplate.opsForValue().set(key, provider, OAUTH_STATE_TTL_SECONDS, TimeUnit.SECONDS);
+    log.debug("Saved OAuth state for provider {}", provider);
+  }
+
+  /**
+   * OAuth state 소비 (조회 후 삭제)
+   */
+  public String consumeOAuthState(String state) {
+    String key = OAUTH_STATE_PREFIX + state;
+    String provider = redisTemplate.opsForValue().get(key);
+    if (provider != null) {
+      redisTemplate.delete(key);
+      log.debug("Consumed OAuth state");
+    }
+    return provider;
+  }
+
+  /**
+   * 소셜 로그인 임시 토큰 저장
+   * Key: TEMP:{tempToken}
+   */
+  public void saveTempToken(String tempToken, String jsonValue) {
+    String key = TEMP_PREFIX + tempToken;
+    redisTemplate.opsForValue().set(key, jsonValue, TEMP_TOKEN_TTL_SECONDS, TimeUnit.SECONDS);
+    log.debug("Saved temp token for social login");
+  }
+
+  /**
+   * 소셜 로그인 임시 토큰 소비 (조회 후 삭제)
+   */
+  public String consumeTempToken(String tempToken) {
+    String key = TEMP_PREFIX + tempToken;
+    String value = redisTemplate.opsForValue().get(key);
+    if (value != null) {
+      redisTemplate.delete(key);
+      log.debug("Consumed temp token for social login");
+    }
+    return value;
   }
 
   /**
