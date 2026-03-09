@@ -1,10 +1,10 @@
+.venv/
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-.venv/
-venv/
 .env
+.omc/
+.git/
 *.parquet
 sector_mapping.json
-.omc/
+CLAUDE.md
