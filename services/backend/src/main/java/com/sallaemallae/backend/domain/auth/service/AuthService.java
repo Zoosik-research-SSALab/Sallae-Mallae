@@ -4,6 +4,8 @@ import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetConfirmRequest;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetRequestDto;
 import com.sallaemallae.backend.domain.auth.dto.RefreshResponse;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeResponse;
@@ -36,4 +38,8 @@ public interface AuthService {
       HttpServletResponse response);
 
   String getOAuthStartUrl(String provider);
+
+  SendCodeResponse requestPasswordReset(PasswordResetRequestDto request);
+
+  void resetPassword(PasswordResetConfirmRequest request, String ipAddress);
 }

@@ -36,7 +36,14 @@ public enum AuthErrorCode implements ErrorCode {
   // 회원가입
   SIGNUP_TOKEN_INVALID(400, "SIGNUP_001", "인증 토큰이 유효하지 않습니다."),
   SIGNUP_PASSWORD_POLICY_VIOLATION(400, "SIGNUP_002", "비밀번호 정책을 위반했습니다."),
-  SIGNUP_REQUIRED_TERMS_NOT_AGREED(400, "SIGNUP_003", "필수 약관에 동의해야 합니다.");
+  SIGNUP_REQUIRED_TERMS_NOT_AGREED(400, "SIGNUP_003", "필수 약관에 동의해야 합니다."),
+
+  // 비밀번호 관리
+  PWD_TOKEN_INVALID(400, "PWD_001", "인증 토큰이 유효하지 않거나 만료되었습니다."),
+  PWD_POLICY_VIOLATION(400, "PWD_002", "비밀번호 정책을 위반했습니다."),
+  PWD_RECENT_REUSE(400, "PWD_003", "최근 사용한 비밀번호와 동일합니다."),
+  PWD_WRONG_CURRENT(401, "PWD_004", "현재 비밀번호가 올바르지 않습니다."),
+  PWD_SOCIAL_ACCOUNT(400, "PWD_005", "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.");
 
   private final int status;
   private final String code;
