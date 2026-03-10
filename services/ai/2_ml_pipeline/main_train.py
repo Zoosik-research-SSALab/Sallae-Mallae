@@ -23,9 +23,10 @@ def main() -> None:
     parser.add_argument("--only-garch", action="store_true", help="GARCH만 실행")
     parser.add_argument("--only-ensemble", action="store_true", help="앙상블만 실행")
     parser.add_argument("--only-packets", action="store_true", help="통합 패킷만 생성")
+    parser.add_argument("--only-fundamental", action="store_true", help="재무 팩터 생성만 실행")
     args = parser.parse_args()
 
-    only_flags = [args.only_lgbm, args.only_lstm, args.only_garch, args.only_ensemble, args.only_packets]
+    only_flags = [args.only_lgbm, args.only_lstm, args.only_garch, args.only_ensemble, args.only_packets, args.only_fundamental]
     run_all = not any(only_flags)
 
     # --- LightGBM ---
@@ -58,6 +59,13 @@ def main() -> None:
         from models.garch_trainer import main as train_garch
         garch_model_path = train_garch()
         print(f"[train] garch model: {garch_model_path}")
+
+    # --- 재무 팩터 ---
+    if run_all or args.only_fundamental:
+        print("[pipeline] 재무 팩터 생성 시작...")
+        from features.build_fundamental_factors import main as build_fundamental
+        fundamental_path = build_fundamental()
+        print(f"[train] fundamental factors: {fundamental_path}")
 
     # --- 앙상블 ---
     if run_all or args.only_ensemble:
