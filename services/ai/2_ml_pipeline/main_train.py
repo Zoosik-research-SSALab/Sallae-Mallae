@@ -21,9 +21,10 @@ def main() -> None:
     parser.add_argument("--only-lgbm", action="store_true", help="LightGBM만 실행")
     parser.add_argument("--only-lstm", action="store_true", help="LSTM만 실행")
     parser.add_argument("--only-garch", action="store_true", help="GARCH만 실행")
+    parser.add_argument("--only-ensemble", action="store_true", help="앙상블만 실행")
     args = parser.parse_args()
 
-    only_flags = [args.only_lgbm, args.only_lstm, args.only_garch]
+    only_flags = [args.only_lgbm, args.only_lstm, args.only_garch, args.only_ensemble]
     run_all = not any(only_flags)
 
     # --- LightGBM ---
@@ -56,6 +57,13 @@ def main() -> None:
         from models.garch_trainer import main as train_garch
         garch_model_path = train_garch()
         print(f"[train] garch model: {garch_model_path}")
+
+    # --- 앙상블 ---
+    if run_all or args.only_ensemble:
+        print("[pipeline] 스태킹 앙상블 메타 모델 학습 시작...")
+        from models.ensemble_trainer import main as train_ensemble
+        ensemble_model_path = train_ensemble()
+        print(f"[train] ensemble model: {ensemble_model_path}")
 
     # --- 뉴스 감성 분석 (스켈레톤) ---
     if run_all:
