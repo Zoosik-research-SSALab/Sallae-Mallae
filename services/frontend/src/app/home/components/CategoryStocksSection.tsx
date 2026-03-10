@@ -1,47 +1,13 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
-import type { IconType } from "react-icons";
-import { AiOutlineDollar } from "react-icons/ai";
-import { CgSmartHomeRefrigerator } from "react-icons/cg";
-import { CiMicrochip } from "react-icons/ci";
-import { FaBatteryThreeQuarters, FaCogs, FaEllipsisH, FaLaptopCode, FaShoppingCart, FaTruck } from "react-icons/fa";
-import { IoGameControllerOutline } from "react-icons/io5";
-import { MdDeveloperBoard, MdEnergySavingsLeaf, MdMonitor, MdOutlineGrid4X4, MdSmartphone } from "react-icons/md";
-import { PiTShirtBold } from "react-icons/pi";
-import { RiCustomerService2Fill, RiShip2Line } from "react-icons/ri";
-import { SlEnergy } from "react-icons/sl";
-import { TbBuildings, TbTank } from "react-icons/tb";
 import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
+import { findMarketCategory, formatCategoryDisplayName } from "@/shared/lib/marketCategories";
 import type { CategoryItem } from "../types/main";
 import { formatPrice, formatSignedPriceChange, formatSignedRate, getRateTone } from "../utils/formatters";
 
 const COLLAPSED_CATEGORY_COUNT = 3;
 const EXPANDED_CATEGORY_COUNT = 21;
-
-const categoryIconMap: Record<string, IconType> = {
-  에너지: SlEnergy,
-  친환경탄소: MdEnergySavingsLeaf,
-  소재: MdOutlineGrid4X4,
-  반도체: CiMicrochip,
-  디스플레이: MdMonitor,
-  전자부품: MdDeveloperBoard,
-  IT플랫폼소프트웨어: FaLaptopCode,
-  게임디지털콘텐츠: IoGameControllerOutline,
-  "2차전지": FaBatteryThreeQuarters,
-  스마트기기: MdSmartphone,
-  기계산업장비: FaCogs,
-  건설인프라: TbBuildings,
-  조선: RiShip2Line,
-  방산: TbTank,
-  운송물류: FaTruck,
-  소비내구재: CgSmartHomeRefrigerator,
-  필수소비재: FaShoppingCart,
-  패션뷰티: PiTShirtBold,
-  유통서비스: RiCustomerService2Fill,
-  금융헬스케어: AiOutlineDollar,
-  기타: FaEllipsisH,
-};
 
 function getRateClassName(value: number) {
   const tone = getRateTone(value);
@@ -55,14 +21,6 @@ function getRateClassName(value: number) {
   }
 
   return "text-[color:var(--color-text-tertiary)]";
-}
-
-function getCategoryKey(name: string) {
-  return name.replace(/\s*[·/]\s*/g, "").replace(/\s+/g, "").trim();
-}
-
-function formatCategoryLabel(name: string) {
-  return name.replace(/\s*\/\s*/g, " · ");
 }
 
 type Props = {
@@ -87,7 +45,7 @@ export default function CategoryStocksSection({ categories, isLoading }: Props) 
 
       <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {visibleCategories.map((category) => {
-          const Icon = categoryIconMap[getCategoryKey(category.name)] ?? FaEllipsisH;
+          const Icon = findMarketCategory(category.name)?.icon;
 
           return (
             <article
@@ -96,9 +54,9 @@ export default function CategoryStocksSection({ categories, isLoading }: Props) 
             >
               <div className="flex w-full items-center gap-2">
                 <span className="inline-flex h-5 w-5 items-center justify-center text-[color:var(--color-icon-primary)]">
-                  <Icon className="h-4 w-4" />
+                  {Icon ? <Icon className="h-4 w-4" /> : null}
                 </span>
-                <h3 className="typo-body-md font-bold text-[color:var(--color-text-primary)]">{formatCategoryLabel(category.name)}</h3>
+                <h3 className="typo-body-md font-bold text-[color:var(--color-text-primary)]">{formatCategoryDisplayName(category.name)}</h3>
               </div>
 
               <div className="flex w-full flex-col gap-5">

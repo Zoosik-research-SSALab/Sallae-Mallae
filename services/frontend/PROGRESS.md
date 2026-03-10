@@ -1,6 +1,8 @@
 # Progress Log
 
 ## Current Focus
+- [x] (2026-03-10) API base routing: centralize mock/real base URL switching in `apiClient` and align local env files
+- [x] (2026-03-09) Signals page rebuild: responsive market-signal board with shared category filters, infinite pagination, and mock `/api/signals`
 - [x] (2026-03-09) Design token sync: align theme semantics with Figma token export for header and main page
 - [x] (2026-03-09) Watchlist interaction polish: optimistic mock toggle + muted-surface hover contrast
 - [x] (2026-03-09) Main UX refinement: watchlist common logic + rate flash feedback + category expansion
@@ -18,6 +20,60 @@
 - [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
 
 ## Changes
+### (2026-03-10) API base routing
+- Scope:
+  - Added central mock/real base URL resolution to the shared API client so browser-side HTTP/SSE calls can switch through env without editing each feature module
+  - Preserved the existing frontend login proxy/mock route by opting the header login request out of public base URL rewriting
+  - Added local env examples for the current deployment host `http://j14d208.p.ssafy.io`
+- Files:
+  - ~ PROGRESS.md
+  - ~ .env.example
+  - ~ src/shared/lib/apiClient.ts
+  - ~ src/shared/components/AppNav.tsx
+  - + .env.local
+- Decisions:
+  - Used `NEXT_PUBLIC_API_MOCKING`, `NEXT_PUBLIC_API_BASE_URL`, and `NEXT_PUBLIC_MOCK_BASE_URL` for browser-side route selection.
+  - Kept `AUTH_USE_MOCK` and `AUTH_API_BASE_URL` as server-side login settings because `/api/auth/login` already has its own proxy/mock logic.
+  - Implemented `/api` prefix de-duplication in the API client so both host-only and `/api`-suffixed base URLs can be tolerated.
+- Notes / Issues:
+  - `NEXT_PUBLIC_*` values are injected at build time, so deployment changes require rebuild/redeploy.
+  - When `NEXT_PUBLIC_API_MOCKING=disabled`, data APIs resolve against `NEXT_PUBLIC_API_BASE_URL`; when enabled, they resolve against `NEXT_PUBLIC_MOCK_BASE_URL`.
+  - `AppNav` login intentionally uses `useBaseUrl: false` so it continues to hit the frontend route handler at `/api/auth/login`.
+- Next:
+  - [ ] If deployment still bypasses frontend mocks, verify nginx routes for `/api/*` and SSE buffering separately from env configuration.
+
+### (2026-03-09) Signals page rebuild
+- Scope:
+  - Replaced the placeholder `signals` route with a responsive market-signal page based on the provided desktop/mobile layouts
+  - Added a mock `/api/signals` endpoint with query-based filtering, sorting, and 6-item pagination for frontend verification
+  - Extracted shared market-category definitions so both `home` and `signals` consume the same category source
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/styles/theme.css
+  - ~ src/app/signals/page.tsx
+  - + src/app/signals/SignalsPageClient.tsx
+  - + src/app/signals/api/signals.ts
+  - + src/app/signals/hooks/useSignalsInfiniteQuery.ts
+  - + src/app/signals/types/signals.ts
+  - + src/app/signals/components/{SignalsDesktopTable,SignalsFilterPanel,SignalsMobileList,SignalsSortToggle}.tsx
+  - + src/app/api/signals/route.ts
+  - + src/shared/lib/{marketCategories,stockFormatters}.ts
+  - + src/app/signals/utils/mockSignalsData.ts
+  - ~ src/app/home/components/CategoryStocksSection.tsx
+  - ~ src/app/home/utils/formatters.ts
+  - - src/app/signals/api/getSignals.ts
+  - - src/app/signals/components/SignalList.tsx
+  - - src/app/signals/hooks/useSignals.ts
+- Decisions:
+  - Used `useInfiniteQuery` instead of route-local `useState` pagination so sort/filter combinations are cached and “더보기” appends quickly without custom store code.
+  - Added optional query params `categories`, `market_cap`, `keyword` and response fields `category`, `market_cap_size` because the provided API contract alone was not sufficient to render or filter the requested UI.
+  - Kept the global shared header from `AppNav` and implemented only the page body; mobile/tablet use a filter modal instead of duplicating the desktop sidebar.
+- Notes / Issues:
+  - Desktop sort labels were aligned to the actual backend sort contract (`LATEST`, `UP`, `DOWN`) rather than the earlier Figma labels that implied unsupported sort semantics.
+  - `signals` and `home` now share the same category source in `src/shared/lib/marketCategories.ts`.
+- Next:
+  - [ ] Replace the mock `/api/signals` route with the real backend endpoint once the final query/response contract is confirmed.
+
 ### (2026-03-09) Design token sync
 - Scope:
   - Synced `theme.css` semantic color and heading token values to the provided design-token export where those values are actually consumed by the current UI

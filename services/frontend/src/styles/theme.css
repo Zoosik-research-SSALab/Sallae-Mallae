@@ -178,18 +178,23 @@
   --color-bg-danger-bold: var(--color-red-700);
   --color-bg-danger-subtle: var(--color-red-50);
   --color-bg-info-subtle: var(--color-blue-50);
+  --color-bg-disabled: var(--color-neutral-200);
+  --color-bg-interactive-primary: var(--color-blue-600);
+  --color-bg-interactive-secondary-hovered: var(--color-neutral-100);
   --color-bg-inverse-bolder: var(--color-neutral-900);
   --color-border-primary: var(--color-neutral-300);
   --color-border-secondary: var(--color-neutral-100);
   --color-border-base: var(--color-black);
   --color-border-disabled: var(--color-neutral-400);
   --color-border-interactive-primary: var(--color-blue-600);
+  --color-border-interactive-primary-pressed: var(--color-blue-700);
   --color-border-interactive-secondary: var(--color-neutral-400);
   --color-text-base: var(--color-white);
   --color-text-primary: var(--color-neutral-900);
   --color-text-secondary: var(--color-neutral-500);
   --color-text-tertiary: var(--color-neutral-400);
-  --color-text-danger: var(--color-red-600);
+  --color-text-danger: var(--color-red-400);
+  --color-text-danger-bold: var(--color-red-400);
   --color-text-info: var(--color-blue-600);
   --color-text-interactive-primary: var(--color-blue-600);
   --color-text-interactive-inverse: var(--color-white);
@@ -198,8 +203,10 @@
   --color-icon-disabled: var(--color-neutral-400);
   --color-icon-interactive-primary: var(--color-blue-600);
   --color-icon-interactive-inverse: var(--color-white);
-  --color-bg-flash-positive: var(--color-red-100);
-  --color-bg-flash-negative: var(--color-blue-100);
+  --color-signal-confidence-buy: var(--color-red-500);
+  --color-signal-confidence-sell: var(--color-blue-500);
+    --color-bg-flash-positive: var(--color-red-200);
+    --color-bg-flash-negative: rgba(81, 162, 255, 0.24);
 }
 
 :root[data-theme="dark"] {
@@ -223,18 +230,23 @@
   --color-bg-danger-bold: var(--color-red-400);
   --color-bg-danger-subtle: var(--color-red-800);
   --color-bg-info-subtle: var(--color-blue-800);
+  --color-bg-disabled: var(--color-neutral-700);
+  --color-bg-interactive-primary: var(--color-blue-400);
+  --color-bg-interactive-secondary-hovered: var(--color-neutral-700);
   --color-bg-inverse-bolder: var(--color-white);
   --color-border-primary: var(--color-neutral-500);
   --color-border-secondary: var(--color-neutral-700);
   --color-border-base: var(--color-white);
   --color-border-disabled: var(--color-neutral-300);
   --color-border-interactive-primary: var(--color-blue-400);
+  --color-border-interactive-primary-pressed: var(--color-blue-300);
   --color-border-interactive-secondary: var(--color-neutral-500);
   --color-text-base: var(--color-neutral-900);
   --color-text-primary: var(--color-neutral-50);
   --color-text-secondary: var(--color-neutral-300);
   --color-text-tertiary: var(--color-neutral-400);
-  --color-text-danger: var(--color-red-200);
+  --color-text-danger: var(--color-red-400);
+  --color-text-danger-bold: var(--color-red-400);
   --color-text-info: var(--color-blue-200);
   --color-text-interactive-primary: var(--color-blue-400);
   --color-text-interactive-inverse: var(--color-neutral-900);
@@ -243,8 +255,10 @@
   --color-icon-disabled: var(--color-neutral-300);
   --color-icon-interactive-primary: var(--color-blue-400);
   --color-icon-interactive-inverse: var(--color-neutral-900);
-  --color-bg-flash-positive: rgba(255, 100, 103, 0.24);
-  --color-bg-flash-negative: rgba(81, 162, 255, 0.24);
+  --color-signal-confidence-buy: var(--color-red-400);
+  --color-signal-confidence-sell: var(--color-blue-400);
+    --color-bg-flash-positive: var(--color-red-200);
+    --color-bg-flash-negative: rgba(81, 162, 255, 0.24);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -269,18 +283,23 @@
     --color-bg-danger-bold: var(--color-red-400);
     --color-bg-danger-subtle: var(--color-red-800);
     --color-bg-info-subtle: var(--color-blue-800);
+    --color-bg-disabled: var(--color-neutral-700);
+    --color-bg-interactive-primary: var(--color-blue-400);
+    --color-bg-interactive-secondary-hovered: var(--color-neutral-700);
     --color-bg-inverse-bolder: var(--color-white);
     --color-border-primary: var(--color-neutral-500);
     --color-border-secondary: var(--color-neutral-700);
     --color-border-base: var(--color-white);
     --color-border-disabled: var(--color-neutral-300);
     --color-border-interactive-primary: var(--color-blue-400);
+    --color-border-interactive-primary-pressed: var(--color-blue-300);
     --color-border-interactive-secondary: var(--color-neutral-500);
     --color-text-base: var(--color-neutral-900);
     --color-text-primary: var(--color-neutral-50);
     --color-text-secondary: var(--color-neutral-300);
     --color-text-tertiary: var(--color-neutral-400);
-    --color-text-danger: var(--color-red-200);
+    --color-text-danger: var(--color-red-400);
+    --color-text-danger-bold: var(--color-red-400);
     --color-text-info: var(--color-blue-200);
     --color-text-interactive-primary: var(--color-blue-400);
     --color-text-interactive-inverse: var(--color-neutral-900);
@@ -289,7 +308,9 @@
     --color-icon-disabled: var(--color-neutral-300);
     --color-icon-interactive-primary: var(--color-blue-400);
     --color-icon-interactive-inverse: var(--color-neutral-900);
-    --color-bg-flash-positive: rgba(255, 100, 103, 0.24);
+    --color-signal-confidence-buy: var(--color-red-400);
+    --color-signal-confidence-sell: var(--color-blue-400);
+    --color-bg-flash-positive: var(--color-red-200);
     --color-bg-flash-negative: rgba(81, 162, 255, 0.24);
   }
 }
