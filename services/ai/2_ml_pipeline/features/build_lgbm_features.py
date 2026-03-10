@@ -47,15 +47,14 @@ logger = setup_logger(__name__)
 # ---------------------------------------------------------------------------
 TECH_FEATURES: list[str] = [
     "rsi_14",
-    "macd",
-    "macd_signal",
-    "macd_hist",
-    "bb_upper",
-    "bb_middle",
-    "bb_lower",
-    "ma_5",
-    "ma_20",
-    "ma_60",
+    "macd_norm",
+    "macd_signal_norm",
+    "macd_hist_norm",
+    "bb_percent_b",
+    "bb_width",
+    "close_to_ma5",
+    "close_to_ma20",
+    "close_to_ma60",
     "volume_ratio_5d",
     "volume_ratio_20d",
     "momentum_5d",
@@ -330,6 +329,70 @@ def _add_momentum_features(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.groupby(level="ticker", group_keys=False).apply(_momentum_for_ticker)
     logger.info("[MOMENTUM] momentum 피처 계산 완료")
+    return df
+
+
+# ---------------------------------------------------------------------------
+# 가격 정규화 피처 (가격 레벨 → 상대 비율)
+# ---------------------------------------------------------------------------
+
+def _normalize_price_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    가격 레벨 피처를 가격 대비 비율로 정규화합니다.
+
+    종목 간 가격 수준 차이(삼성전자 7만 vs 소형주 200원)로 인한
+    가짜 상관(spurious correlation)을 제거합니다.
+
+    변환:
+      ma_5, ma_20, ma_60  → close / ma_N - 1 (이동평균 괴리율)
+      bb_upper, bb_lower  → bb_percent_b = (close - bb_lower) / (bb_upper - bb_lower)
+      bb_upper, bb_lower  → bb_width = (bb_upper - bb_lower) / bb_middle
+      macd, macd_signal, macd_hist → / close * 100 (가격 대비 정규화)
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame, close + 기술지표 컬럼 필요
+
+    Returns:
+        정규화 피처 컬럼이 추가된 DataFrame
+    """
+    df = df.copy()
+    close = df["close"].astype(float)
+
+    logger.info("[NORM] 가격 정규화 피처 계산 시작")
+
+    # 이동평균 괴리율: close / ma_N - 1
+    for n in [5, 20, 60]:
+        ma_col = f"ma_{n}"
+        norm_col = f"close_to_ma{n}"
+        if ma_col in df.columns:
+            ma_val = df[ma_col].astype(float).replace(0, np.nan)
+            df[norm_col] = close / ma_val - 1
+        else:
+            df[norm_col] = np.nan
+
+    # 볼린저밴드 %B: (close - bb_lower) / (bb_upper - bb_lower)
+    if "bb_upper" in df.columns and "bb_lower" in df.columns:
+        bb_range = (df["bb_upper"].astype(float) - df["bb_lower"].astype(float)).replace(0, np.nan)
+        df["bb_percent_b"] = (close - df["bb_lower"].astype(float)) / bb_range
+    else:
+        df["bb_percent_b"] = np.nan
+
+    # 볼린저밴드 폭: (bb_upper - bb_lower) / bb_middle
+    if "bb_upper" in df.columns and "bb_lower" in df.columns and "bb_middle" in df.columns:
+        bb_mid = df["bb_middle"].astype(float).replace(0, np.nan)
+        df["bb_width"] = (df["bb_upper"].astype(float) - df["bb_lower"].astype(float)) / bb_mid
+    else:
+        df["bb_width"] = np.nan
+
+    # MACD 정규화: / close * 100
+    for col, norm_col in [("macd", "macd_norm"), ("macd_signal", "macd_signal_norm"), ("macd_hist", "macd_hist_norm")]:
+        if col in df.columns:
+            close_nonzero = close.replace(0, np.nan)
+            df[norm_col] = df[col].astype(float) / close_nonzero * 100
+        else:
+            df[norm_col] = np.nan
+
+    logger.info("[NORM] 가격 정규화 피처 계산 완료 (8개 피처 추가)")
     return df
 
 
@@ -699,6 +762,9 @@ def build_lgbm_features() -> pd.DataFrame:
 
     # 2. momentum 피처 추가
     df = _add_momentum_features(df)
+
+    # 2.5. 가격 정규화 피처
+    df = _normalize_price_features(df)
 
     # 3. 수급 피처 보완
     df = _add_supply_features_from_raw(df, tickers)

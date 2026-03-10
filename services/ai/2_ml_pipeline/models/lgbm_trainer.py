@@ -37,26 +37,26 @@ logger = setup_logger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 LGBM_FEATURES = [
-    # Technical
-    "rsi_14", "macd", "macd_signal", "macd_hist",
-    "bb_upper", "bb_middle", "bb_lower",
-    "ma_5", "ma_20", "ma_60",
+    # Technical (price-normalized)
+    "rsi_14", "macd_norm", "macd_signal_norm", "macd_hist_norm",
+    "bb_percent_b", "bb_width",
+    "close_to_ma5", "close_to_ma20", "close_to_ma60",
     "volume_ratio_5d", "volume_ratio_20d",
     "momentum_5d", "momentum_20d",
     # Supply (may have NaN for pre-2020 data)
     "foreign_net_buy_1d", "foreign_net_buy_5d", "foreign_net_buy_20d",
     "institution_net_buy_1d", "institution_net_buy_5d",
     # Macro
-    "kospi200_return_1d", "vkospi", "usd_krw_change",
+    "kospi200_return_1d", "usd_krw_change",
     "sp500_return_1d", "nasdaq_return_1d", "dxy_change",
     "vix", "vix_change", "us_bond_10y", "us_bond_10y_change", "sox_return_1d",
     # Meta (categorical)
-    "stock_id", "sector_id", "market_cap_rank",
+    "stock_id", "cluster_id", "market_cap_rank",
 ]
 
 TARGET = "return_5d_class"  # 0=down, 1=sideways, 2=up
 
-CATEGORICAL_FEATURES = ["stock_id", "sector_id"]
+CATEGORICAL_FEATURES = ["stock_id", "cluster_id"]
 
 LGBM_PARAMS = {
     "objective": "multiclass",
