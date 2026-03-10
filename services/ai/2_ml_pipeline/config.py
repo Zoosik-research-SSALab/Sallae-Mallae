@@ -41,6 +41,7 @@ RAW_OHLCV_PATH: Path = BASE_PATH / "raw" / "ohlcv"
 RAW_SUPPLY_PATH: Path = BASE_PATH / "raw" / "supply_demand"
 RAW_MACRO_PATH: Path = BASE_PATH / "raw" / "macro"
 RAW_FINANCIAL_PATH: Path = BASE_PATH / "raw" / "financial"
+RAW_FUNDAMENTAL_PATH: Path = BASE_PATH / "raw" / "fundamental"
 RAW_UNIVERSE_PATH: Path = BASE_PATH / "raw" / "universe"
 PROCESSED_BASE_PATH: Path = BASE_PATH / "processed" / "base_features"
 
@@ -53,6 +54,7 @@ PROCESSED_LSTM_PATH: Path = BASE_PATH / "processed" / "lstm_sequences"
 PROCESSED_GARCH_PATH: Path = BASE_PATH / "processed" / "garch"
 
 PROCESSED_ENSEMBLE_PATH: Path = BASE_PATH / "processed" / "ensemble"
+PROCESSED_FUNDAMENTAL_PATH: Path = BASE_PATH / "processed" / "fundamental"
 PROCESSED_PACKETS_PATH: Path = BASE_PATH / "processed" / "packets"
 
 MODELS_PATH: Path = BASE_PATH / "models"
