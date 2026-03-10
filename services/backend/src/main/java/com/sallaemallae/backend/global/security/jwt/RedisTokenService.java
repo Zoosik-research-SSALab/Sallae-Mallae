@@ -19,6 +19,13 @@ public class RedisTokenService {
   private static final String RT_PREFIX = "RT:";          // Refresh Token
   private static final String BL_PREFIX = "BL:";          // Blacklist (Access Token)
   private static final String LOGIN_FAIL_PREFIX = "LOGIN_FAIL:";  // 로그인 실패 카운터
+  private static final String EMAIL_VERIFY_PREFIX = "EMAIL_VERIFY:";  // 이메일 인증코드
+  private static final String VERIFIED_PREFIX = "VERIFIED:";  // 인증 완료 토큰
+
+  // 이메일 인증 관련 상수
+  private static final long VERIFICATION_CODE_TTL_SECONDS = 300;  // 5분
+  private static final long VERIFIED_TOKEN_TTL_SECONDS = 600;  // 10분
+  private static final int MAX_VERIFICATION_ATTEMPTS = 5;
 
   // ==================== Refresh Token 관리 ====================
 
@@ -116,7 +123,7 @@ public class RedisTokenService {
       redisTemplate.expire(key, 2, TimeUnit.HOURS);
     }
 
-    log.debug("Login fail count for {}: {}", email, count);
+    log.debug("Login fail count for {}: {}", maskEmail(email), count);
     return count != null ? count : 0;
   }
 
@@ -135,7 +142,7 @@ public class RedisTokenService {
   public void deleteLoginFailCount(String email) {
     String key = LOGIN_FAIL_PREFIX + email;
     redisTemplate.delete(key);
-    log.debug("Deleted login fail count for {}", email);
+    log.debug("Deleted login fail count for {}", maskEmail(email));
   }
 
   /**
@@ -143,5 +150,152 @@ public class RedisTokenService {
    */
   public boolean isAccountLocked(String email) {
     return getLoginFailCount(email) >= 5;
+  }
+
+  // ==================== 이메일 인증 관리 ====================
+
+  /**
+   * 이메일 인증코드 저장
+   * Key: EMAIL_VERIFY:{purpose}:{email}
+   * Value: {hashedCode}:{attempts}
+   */
+  public void saveVerificationCode(String purpose, String email, String hashedCode) {
+    String key = EMAIL_VERIFY_PREFIX + purpose + ":" + email;
+    String value = hashedCode + ":0";  // 초기 시도 횟수는 0
+    redisTemplate.opsForValue().set(
+        key,
+        value,
+        VERIFICATION_CODE_TTL_SECONDS,
+        TimeUnit.SECONDS
+    );
+    log.debug("Saved verification code for email {} with purpose {}", maskEmail(email), purpose);
+  }
+
+  /**
+   * 이메일 인증코드 정보 조회
+   * Returns: [hashedCode, attempts] or null if not found
+   */
+  public String[] getVerificationCode(String purpose, String email) {
+    String key = EMAIL_VERIFY_PREFIX + purpose + ":" + email;
+    String value = redisTemplate.opsForValue().get(key);
+    if (value == null) {
+      return null;
+    }
+    return value.split(":", 2);
+  }
+
+  /**
+   * 인증 시도 횟수 증가
+   * Returns: 증가 후 시도 횟수
+   */
+  public int incrementVerificationAttempts(String purpose, String email) {
+    String key = EMAIL_VERIFY_PREFIX + purpose + ":" + email;
+    String value = redisTemplate.opsForValue().get(key);
+    if (value == null) {
+      return -1;  // 키가 존재하지 않음
+    }
+
+    String[] parts = value.split(":", 2);
+    String hashedCode = parts[0];
+    int attempts = Integer.parseInt(parts[1]) + 1;
+
+    // 남은 TTL 유지하면서 업데이트
+    Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+    if (ttl != null && ttl > 0) {
+      redisTemplate.opsForValue().set(
+          key,
+          hashedCode + ":" + attempts,
+          ttl,
+          TimeUnit.SECONDS
+      );
+    }
+
+    log.debug("Verification attempts for {} {}: {}", purpose, maskEmail(email), attempts);
+    return attempts;
+  }
+
+  /**
+   * 인증코드 삭제
+   */
+  public void deleteVerificationCode(String purpose, String email) {
+    String key = EMAIL_VERIFY_PREFIX + purpose + ":" + email;
+    redisTemplate.delete(key);
+    log.debug("Deleted verification code for {} {}", purpose, maskEmail(email));
+  }
+
+  /**
+   * 인증 완료 토큰 저장
+   * Key: VERIFIED:{purpose}:{token}
+   * Value: email
+   */
+  public void saveVerifiedToken(String purpose, String token, String email) {
+    String key = VERIFIED_PREFIX + purpose + ":" + token;
+    redisTemplate.opsForValue().set(
+        key,
+        email,
+        VERIFIED_TOKEN_TTL_SECONDS,
+        TimeUnit.SECONDS
+    );
+    log.debug("Saved verified token for email {} with purpose {}", maskEmail(email), purpose);
+  }
+
+  /**
+   * 인증 완료 토큰 소비 (조회 후 삭제)
+   * Returns: email or null if not found
+   */
+  public String consumeVerifiedToken(String purpose, String token) {
+    String key = VERIFIED_PREFIX + purpose + ":" + token;
+    String email = redisTemplate.opsForValue().get(key);
+    if (email != null) {
+      redisTemplate.delete(key);
+      log.debug("Consumed verified token for purpose {}", purpose);
+    }
+    return email;
+  }
+
+  /**
+   * 인증 완료 토큰 조회 (삭제하지 않음)
+   */
+  public String getVerifiedToken(String purpose, String token) {
+    String key = VERIFIED_PREFIX + purpose + ":" + token;
+    return redisTemplate.opsForValue().get(key);
+  }
+
+  /**
+   * 이메일 마스킹 (로깅용)
+   */
+  private String maskEmail(String email) {
+    if (email == null || !email.contains("@")) {
+      return "***";
+    }
+    String[] parts = email.split("@");
+    String localPart = parts[0];
+    String domain = parts[1];
+    if (localPart.length() <= 2) {
+      return "**@" + domain;
+    }
+    return localPart.substring(0, 2) + "***@" + domain;
+  }
+
+  /**
+   * 최대 인증 시도 횟수 초과 여부 확인
+   */
+  public boolean isVerificationAttemptsExceeded(String purpose, String email) {
+    String[] codeInfo = getVerificationCode(purpose, email);
+    if (codeInfo == null || codeInfo.length < 2) {
+      return false;
+    }
+    return Integer.parseInt(codeInfo[1]) >= MAX_VERIFICATION_ATTEMPTS;
+  }
+
+  /**
+   * 남은 인증 시도 횟수 반환
+   */
+  public int getRemainingVerificationAttempts(String purpose, String email) {
+    String[] codeInfo = getVerificationCode(purpose, email);
+    if (codeInfo == null || codeInfo.length < 2) {
+      return MAX_VERIFICATION_ATTEMPTS;
+    }
+    return Math.max(0, MAX_VERIFICATION_ATTEMPTS - Integer.parseInt(codeInfo[1]));
   }
 }

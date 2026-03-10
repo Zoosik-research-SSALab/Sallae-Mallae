@@ -8,8 +8,42 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AuthErrorCode implements ErrorCode {
 
+  // 인증 관련
   AUTH_UNAUTHORIZED(401, "AUTH_001", "인증 정보가 유효하지 않습니다."),
-  AUTH_FORBIDDEN(403, "AUTH_002", "접근 권한이 없습니다.");
+  AUTH_FORBIDDEN(403, "AUTH_002", "접근 권한이 없습니다."),
+
+  // 로그인 관련
+  LOGIN_INVALID_CREDENTIALS(401, "LOGIN_001", "이메일 또는 비밀번호가 올바르지 않습니다."),
+  LOGIN_ACCOUNT_LOCKED(423, "LOGIN_002", "계정이 일시적으로 잠겼습니다."),
+  LOGIN_WITHDRAWN_RECOVERABLE(403, "LOGIN_003", "탈퇴 처리 중인 계정입니다. 복구하시겠습니까?"),
+  LOGIN_WITHDRAWN_EXPIRED(410, "LOGIN_004", "복구 기간이 만료된 계정입니다."),
+  LOGIN_ACCOUNT_BANNED(403, "LOGIN_005", "정지된 계정입니다."),
+
+  // 토큰 관련
+  TOKEN_REFRESH_EXPIRED(401, "TOKEN_001", "리프레시 토큰이 만료되었습니다."),
+  TOKEN_ALREADY_USED(401, "TOKEN_002", "이미 사용된 토큰입니다."),
+  TOKEN_DEVICE_MISMATCH(401, "TOKEN_003", "기기 정보가 일치하지 않습니다."),
+  TOKEN_VERSION_MISMATCH(401, "TOKEN_004", "토큰 버전이 일치하지 않습니다."),
+
+  // 이메일
+  EMAIL_ALREADY_EXISTS(409, "EMAIL_001", "이미 가입된 이메일입니다."),
+
+  // 인증코드
+  VERIFY_CODE_MISMATCH(400, "VERIFY_001", "인증코드가 일치하지 않습니다."),
+  VERIFY_CODE_EXPIRED(400, "VERIFY_002", "인증코드가 만료되었습니다."),
+  VERIFY_ATTEMPTS_EXCEEDED(400, "VERIFY_003", "인증 시도 횟수를 초과했습니다."),
+
+  // 회원가입
+  SIGNUP_TOKEN_INVALID(400, "SIGNUP_001", "인증 토큰이 유효하지 않습니다."),
+  SIGNUP_PASSWORD_POLICY_VIOLATION(400, "SIGNUP_002", "비밀번호 정책을 위반했습니다."),
+  SIGNUP_REQUIRED_TERMS_NOT_AGREED(400, "SIGNUP_003", "필수 약관에 동의해야 합니다."),
+
+  // 비밀번호 관리
+  PWD_TOKEN_INVALID(400, "PWD_001", "인증 토큰이 유효하지 않거나 만료되었습니다."),
+  PWD_POLICY_VIOLATION(400, "PWD_002", "비밀번호 정책을 위반했습니다."),
+  PWD_RECENT_REUSE(400, "PWD_003", "최근 사용한 비밀번호와 동일합니다."),
+  PWD_WRONG_CURRENT(401, "PWD_004", "현재 비밀번호가 올바르지 않습니다."),
+  PWD_SOCIAL_ACCOUNT(400, "PWD_005", "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.");
 
   private final int status;
   private final String code;
