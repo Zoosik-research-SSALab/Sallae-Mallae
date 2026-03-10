@@ -1,6 +1,7 @@
 package com.sallaemallae.backend.global.config;
 
 import com.sallaemallae.backend.global.security.jwt.JwtAuthenticationFilter;
+import com.sallaemallae.backend.global.security.ratelimit.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +28,7 @@ import java.util.List;
 public class SecurityConfig {
 
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
+  private final RateLimitFilter rateLimitFilter;
   private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
   private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
@@ -79,8 +81,9 @@ public class SecurityConfig {
             .anyRequest().authenticated()
         )
 
-        // JWT 필터 추가
-        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        // Rate Limit 필터 → JWT 필터 순서로 추가
+        .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+        .addFilterAfter(jwtAuthenticationFilter, RateLimitFilter.class);
 
     return http.build();
   }

@@ -38,6 +38,8 @@ import com.sallaemallae.backend.global.email.EmailService;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.global.security.jwt.JwtProvider;
 import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
+import com.sallaemallae.backend.global.security.ratelimit.RateLimitResult;
+import com.sallaemallae.backend.global.security.ratelimit.RateLimitService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
@@ -90,6 +92,10 @@ public class AuthServiceImpl implements AuthService {
   private final ObjectMapper objectMapper;
   private final List<OAuthProviderClient> oauthProviderClients;
   private final PasswordValidator passwordValidator;
+  private final RateLimitService rateLimitService;
+
+  private static final int EMAIL_RATE_LIMIT = 3;
+  private static final int EMAIL_RATE_WINDOW_SECONDS = 3600;  // 1시간
 
   private Map<AuthProvider, OAuthProviderClient> oauthClientMap;
 
@@ -187,6 +193,13 @@ public class AuthServiceImpl implements AuthService {
   public SendCodeResponse sendVerificationCode(SendCodeRequest request) {
     String email = request.email();
     String purpose = request.purpose();
+
+    // 이메일당 Rate Limit 체크 (3회/시간)
+    RateLimitResult emailRateResult = rateLimitService.checkEmailLimit(
+        email, EMAIL_RATE_LIMIT, EMAIL_RATE_WINDOW_SECONDS);
+    if (!emailRateResult.isAllowed()) {
+      throw new BusinessException(AuthErrorCode.EMAIL_RATE_EXCEEDED);
+    }
 
     // SIGNUP 목적일 경우 이미 가입된 이메일인지 확인
     if ("SIGNUP".equals(purpose) && userRepository.findByEmail(email).isPresent()) {
@@ -426,6 +439,13 @@ public class AuthServiceImpl implements AuthService {
   @Transactional
   public SendCodeResponse requestPasswordReset(PasswordResetRequestDto request) {
     String email = request.email();
+
+    // 이메일 기반 Rate Limit 체크 (3회/시간) — 열거 방어를 위해 에러 대신 정상 응답 반환
+    RateLimitResult emailRateResult = rateLimitService.checkEmailLimit(
+        email, EMAIL_RATE_LIMIT, EMAIL_RATE_WINDOW_SECONDS);
+    if (!emailRateResult.isAllowed()) {
+      return SendCodeResponse.of(VERIFICATION_CODE_EXPIRES_SECONDS, 0);
+    }
 
     // 열거 방어: 가입 여부와 무관하게 동일한 200 응답 반환
     // 실제 메일은 가입된 사용자에게만 Async 발송
