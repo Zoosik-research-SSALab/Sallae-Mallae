@@ -69,7 +69,7 @@ public class MainServiceImpl implements MainService {
     /** 추천 종목 TOP10 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
     @Override
     public SseEmitter streamTopStocks() {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         sseManager.addEmitter(CHANNEL_TOP_STOCKS, emitter);
         cacheRepository.getTopStocks().ifPresent(data -> sendInitial(emitter, CHANNEL_TOP_STOCKS, data));
         return emitter;
@@ -78,7 +78,7 @@ public class MainServiceImpl implements MainService {
     /** 시장 지수 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
     @Override
     public SseEmitter streamMarketIndex() {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         sseManager.addEmitter(CHANNEL_MARKET_INDEX, emitter);
         cacheRepository.getMarketIndex().ifPresent(data -> sendInitial(emitter, CHANNEL_MARKET_INDEX, data));
         return emitter;
@@ -87,7 +87,7 @@ public class MainServiceImpl implements MainService {
     /** 카테고리별 종목 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
     @Override
     public SseEmitter streamCategories() {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         sseManager.addEmitter(CHANNEL_CATEGORIES, emitter);
         cacheRepository.getCategories().ifPresent(data -> sendInitial(emitter, CHANNEL_CATEGORIES, data));
         return emitter;
@@ -123,7 +123,7 @@ public class MainServiceImpl implements MainService {
     }
 
     /** 카테고리별 등락률 대표 종목 갱신 → Redis 저장 → SSE broadcast */
-    @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
+    @Scheduled(fixedRate = 60_000, initialDelay = 10_000)
     public void refreshCategories() {
         try {
             CategoryStocksResponse data = buildCategories();
@@ -135,11 +135,14 @@ public class MainServiceImpl implements MainService {
         }
     }
 
-    /** 코스피/코스닥/환율 지수 갱신 → Redis 저장 → SSE broadcast */
-    @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
+    /** 코스피/코스닥/환율 지수 갱신 → Redis 저장 → SSE broadcast (실패 시 이전 캐시 유지) */
+    @Scheduled(fixedRate = 60_000, initialDelay = 15_000)
     public void refreshMarketIndex() {
         try {
             MarketIndexResponse data = fetchMarketIndex();
+            if (data == null) {
+                return;
+            }
             cacheRepository.saveMarketIndex(data);
             sseManager.broadcast(CHANNEL_MARKET_INDEX, data);
             log.debug("시장 지수 갱신 완료");
@@ -149,7 +152,7 @@ public class MainServiceImpl implements MainService {
     }
 
     /** 매수/매도 신호 갱신 (캐시만 갱신, SSE 없음) */
-    @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
+    @Scheduled(fixedRate = 60_000, initialDelay = 20_000)
     public void refreshNewSignals() {
         try {
             NewSignalsResponse data = buildNewSignals();
@@ -206,10 +209,16 @@ public class MainServiceImpl implements MainService {
 
     // ── private: 네이버 금융 API 호출 ──
 
+    /** 네이버 금융 API 3건 호출, 하나라도 실패하면 null 반환 (이전 캐시 유지) */
     private MarketIndexResponse fetchMarketIndex() {
         MarketIndexItemResponse kospi = fetchNaverIndex(NAVER_INDEX_URL);
         MarketIndexItemResponse kosdaq = fetchNaverIndex(NAVER_KOSDAQ_URL);
         MarketIndexItemResponse usdKrw = fetchNaverFx();
+
+        if (kospi == null || kosdaq == null || usdKrw == null) {
+            log.warn("시장 지수 일부 조회 실패 → 이전 캐시 유지");
+            return null;
+        }
 
         String baseTime = LocalDateTime.now()
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
@@ -217,7 +226,7 @@ public class MainServiceImpl implements MainService {
         return new MarketIndexResponse(kospi, kosdaq, usdKrw, baseTime);
     }
 
-    /** 네이버 국내 지수 API 호출 (KOSPI/KOSDAQ) */
+    /** 네이버 국내 지수 API 호출 (KOSPI/KOSDAQ), 실패 시 null 반환 */
     private MarketIndexItemResponse fetchNaverIndex(String url) {
         try {
             String body = restClient.get().uri(url).retrieve().body(String.class);
@@ -234,11 +243,11 @@ public class MainServiceImpl implements MainService {
             return new MarketIndexItemResponse(value, changeRate);
         } catch (Exception e) {
             log.warn("네이버 지수 API 호출 실패: url={}", url, e);
-            return new MarketIndexItemResponse(0f, 0f);
+            return null;
         }
     }
 
-    /** 네이버 환율 API 호출 (USD/KRW) */
+    /** 네이버 환율 API 호출 (USD/KRW), 실패 시 null 반환 */
     private MarketIndexItemResponse fetchNaverFx() {
         try {
             String body = restClient.get().uri(NAVER_FX_URL).retrieve().body(String.class);
@@ -250,7 +259,7 @@ public class MainServiceImpl implements MainService {
             return new MarketIndexItemResponse(value, changeRate);
         } catch (Exception e) {
             log.warn("네이버 환율 API 호출 실패", e);
-            return new MarketIndexItemResponse(0f, 0f);
+            return null;
         }
     }
 

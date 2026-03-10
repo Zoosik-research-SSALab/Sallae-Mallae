@@ -133,6 +133,8 @@ CREATE TABLE stock_prices (
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_stock_prices_stock_time ON stock_prices(stock_id, trade_timestamp DESC);
+
 -- 💡 [중요] TimescaleDB를 사용하신다면 위 stock_prices 생성 후 아래 명령어를 실행하세요.
 -- SELECT create_hypertable('stock_prices', 'trade_timestamp');
 
@@ -268,6 +270,8 @@ CREATE TABLE ai_ml_reports (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_ai_ml_reports_stock_time ON ai_ml_reports(stock_id, report_time DESC);
 
 CREATE TABLE ai_debate_reports (
     id BIGSERIAL PRIMARY KEY,
@@ -452,6 +456,8 @@ CREATE TABLE stock_prices (
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_stock_prices_stock_time ON stock_prices(stock_id, trade_timestamp DESC);
+
 CREATE TABLE stock_financials (
     id BIGSERIAL PRIMARY KEY,
     stock_id BIGINT NOT NULL,
@@ -584,6 +590,8 @@ CREATE TABLE ai_ml_reports (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_ai_ml_reports_stock_time ON ai_ml_reports(stock_id, report_time DESC);
 
 CREATE TABLE ai_debate_reports (
     id BIGSERIAL PRIMARY KEY,
