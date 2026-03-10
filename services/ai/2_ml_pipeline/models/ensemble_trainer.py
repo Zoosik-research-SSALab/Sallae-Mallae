@@ -405,6 +405,144 @@ def display_summary(metrics: dict, predictions: pd.DataFrame) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Walk-Forward 지원 함수
+# ---------------------------------------------------------------------------
+
+
+def build_meta_features_from_dfs(
+    lgbm_df: pd.DataFrame | None,
+    lstm_df: pd.DataFrame | None,
+    garch_df: pd.DataFrame | None,
+) -> pd.DataFrame | None:
+    """
+    Walk-Forward용: DataFrame을 직접 받아 메타 피처를 생성합니다.
+
+    기존 build_meta_features()와 동일한 로직이지만,
+    파일에서 로드하는 대신 DataFrame을 직접 받습니다.
+
+    Args:
+        lgbm_df: LightGBM 예측 (date, ticker, prob_up, prob_down, confidence, true_class)
+        lstm_df: LSTM 예측 (date, ticker, prob, y_true)
+        garch_df: GARCH 결과 (ticker, vol_5d, percentile_vs_1y, risk_flag)
+
+    Returns:
+        메타 피처 DataFrame 또는 None
+    """
+    if lgbm_df is None and lstm_df is None:
+        logger.warning("[ENSEMBLE-WF] LightGBM과 LSTM 예측이 모두 없습니다.")
+        return None
+
+    # 컬럼명 정규화
+    if lgbm_df is not None:
+        lgbm = lgbm_df.copy()
+        lgbm["date"] = pd.to_datetime(lgbm["date"]).dt.strftime("%Y-%m-%d")
+        rename_map = {}
+        if "prob_up" in lgbm.columns:
+            rename_map["prob_up"] = "lgbm_up_prob"
+        if "prob_down" in lgbm.columns:
+            rename_map["prob_down"] = "lgbm_down_prob"
+        if "confidence" in lgbm.columns:
+            rename_map["confidence"] = "lgbm_confidence"
+        if "true_class" in lgbm.columns:
+            rename_map["true_class"] = "lgbm_true_class"
+        lgbm = lgbm.rename(columns=rename_map)
+    else:
+        lgbm = None
+
+    if lstm_df is not None:
+        lstm = lstm_df.copy()
+        lstm["date"] = pd.to_datetime(lstm["date"]).dt.strftime("%Y-%m-%d")
+        lstm = lstm.rename(columns={"prob": "lstm_score", "y_true": "lstm_true"})
+    else:
+        lstm = None
+
+    # 병합 (build_meta_features와 동일 로직)
+    if lgbm is not None and lstm is not None:
+        merged = pd.merge(lgbm, lstm, on=["date", "ticker"], how="inner")
+    elif lgbm is not None:
+        merged = lgbm.copy()
+        merged["lstm_score"] = 0.5
+    else:
+        merged = lstm.copy()
+        merged["lgbm_up_prob"] = 1 / 3
+        merged["lgbm_down_prob"] = 1 / 3
+
+    # GARCH join
+    if garch_df is not None:
+        garch = garch_df.copy()
+        garch_rename = {
+            "vol_5d": "garch_vol_5d",
+            "percentile_vs_1y": "garch_percentile",
+            "risk_flag": "garch_risk_flag",
+        }
+        garch = garch.rename(columns=garch_rename)
+        keep = ["ticker"] + [c for c in ["garch_vol_5d", "garch_percentile", "garch_risk_flag"] if c in garch.columns]
+        merged = pd.merge(merged, garch[keep], on="ticker", how="left")
+    else:
+        merged["garch_vol_5d"] = np.nan
+        merged["garch_percentile"] = np.nan
+        merged["garch_risk_flag"] = False
+
+    # 결측 처리
+    merged["lgbm_up_prob"] = merged.get("lgbm_up_prob", pd.Series(1/3, index=merged.index)).fillna(1/3)
+    merged["lgbm_down_prob"] = merged.get("lgbm_down_prob", pd.Series(1/3, index=merged.index)).fillna(1/3)
+    merged["lstm_score"] = merged.get("lstm_score", pd.Series(0.5, index=merged.index)).fillna(0.5)
+    merged["garch_vol_5d"] = merged["garch_vol_5d"].fillna(merged["garch_vol_5d"].median() if merged["garch_vol_5d"].notna().any() else 30.0)
+    merged["garch_percentile"] = merged["garch_percentile"].fillna(50.0)
+    merged["garch_risk_flag"] = merged.get("garch_risk_flag", pd.Series(False, index=merged.index)).fillna(False)
+
+    # 파생 메타 피처
+    lgbm_bullish = merged["lgbm_up_prob"] > merged["lgbm_down_prob"]
+    lstm_bullish = merged["lstm_score"] > 0.5
+    merged["signal_agreement"] = (lgbm_bullish == lstm_bullish).astype(float)
+    merged["confidence_gap"] = abs(merged["lgbm_up_prob"] - merged["lstm_score"])
+    merged["high_risk"] = merged["garch_risk_flag"].astype(float)
+
+    # 타겟 결정
+    if "lgbm_true_class" in merged.columns:
+        merged["target"] = merged["lgbm_true_class"].map({0: 0, 1: np.nan, 2: 1})
+    elif "lstm_true" in merged.columns:
+        merged["target"] = merged["lstm_true"]
+    else:
+        merged["target"] = np.nan
+
+    logger.info("[ENSEMBLE-WF] 메타 피처 생성 완료: %d행", len(merged))
+    return merged
+
+
+def train_and_predict_window(
+    lgbm_df: pd.DataFrame | None,
+    lstm_df: pd.DataFrame | None,
+    garch_df: pd.DataFrame | None,
+) -> tuple[pd.DataFrame, dict] | None:
+    """
+    Walk-Forward용: 3개 모델 예측 DataFrame으로 앙상블 학습 및 예측.
+
+    Args:
+        lgbm_df: LightGBM 예측 DataFrame
+        lstm_df: LSTM 예측 DataFrame
+        garch_df: GARCH 결과 DataFrame
+
+    Returns:
+        (predictions_df, metrics_dict) 튜플 또는 None
+    """
+    meta_df = build_meta_features_from_dfs(lgbm_df, lstm_df, garch_df)
+    if meta_df is None or len(meta_df) < 50:
+        logger.warning("[ENSEMBLE-WF] 메타 피처 부족: %s", len(meta_df) if meta_df is not None else 0)
+        return None
+
+    result = train_meta_model(meta_df)
+    if result is None:
+        return None
+
+    model, metrics = result
+    predictions = generate_ensemble_predictions(meta_df, model)
+
+    logger.info("[ENSEMBLE-WF] 앙상블 예측 완료: %d행, accuracy=%.4f", len(predictions), metrics["accuracy"])
+    return predictions, metrics
+
+
+# ---------------------------------------------------------------------------
 # 메인 엔트리포인트
 # ---------------------------------------------------------------------------
 

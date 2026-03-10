@@ -24,9 +24,12 @@ def main() -> None:
     parser.add_argument("--only-ensemble", action="store_true", help="앙상블만 실행")
     parser.add_argument("--only-packets", action="store_true", help="통합 패킷만 생성")
     parser.add_argument("--only-fundamental", action="store_true", help="재무 팩터 생성만 실행")
+    parser.add_argument("--only-validation", action="store_true", help="Walk-Forward 검증만 실행")
+    parser.add_argument("--model", nargs="*", default=None,
+                        help="Walk-Forward 검증 대상 모델 (lgbm lstm garch ensemble)")
     args = parser.parse_args()
 
-    only_flags = [args.only_lgbm, args.only_lstm, args.only_garch, args.only_ensemble, args.only_packets, args.only_fundamental]
+    only_flags = [args.only_lgbm, args.only_lstm, args.only_garch, args.only_ensemble, args.only_packets, args.only_fundamental, args.only_validation]
     run_all = not any(only_flags)
 
     # --- LightGBM ---
@@ -83,6 +86,17 @@ def main() -> None:
         from models.packet_builder import main as build_packets
         packets_dir = build_packets()
         print(f"[train] packets: {packets_dir}")
+
+    # --- Walk-Forward 검증 ---
+    if run_all or args.only_validation:
+        model_desc = f" (모델: {', '.join(args.model)})" if args.model else ""
+        print(f"[pipeline] Walk-Forward 검증 시작...{model_desc}")
+        from validation.walk_forward_validator import main as run_validation
+        validation_path = run_validation(models=args.model)
+        if validation_path is None:
+            print("[pipeline] Walk-Forward 검증 실패 — 건너뜁니다.")
+        else:
+            print(f"[train] validation results: {validation_path}")
 
     # --- 뉴스 감성 분석 (스켈레톤) ---
     if run_all:
