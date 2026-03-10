@@ -60,12 +60,15 @@ def main() -> None:
         garch_model_path = train_garch()
         print(f"[train] garch model: {garch_model_path}")
 
-    # --- 재무 팩터 ---
+    # --- 재무 팩터 (--skip-features 미적용: 독립 피처 생성 단계) ---
     if run_all or args.only_fundamental:
         print("[pipeline] 재무 팩터 생성 시작...")
         from features.build_fundamental_factors import main as build_fundamental
         fundamental_path = build_fundamental()
-        print(f"[train] fundamental factors: {fundamental_path}")
+        if fundamental_path is None:
+            print("[pipeline] 재무 팩터 생성 실패 — 건너뜁니다.")
+        else:
+            print(f"[train] fundamental factors: {fundamental_path}")
 
     # --- 앙상블 ---
     if run_all or args.only_ensemble:

@@ -81,8 +81,8 @@ def _to_float(value: object) -> float:
 
 
 def _safe_divide(numerator: float, denominator: float) -> float:
-    """0 나눗셈을 방지하며 나눗셈을 수행합니다. 분모가 0이면 NaN 반환."""
-    if denominator == 0 or np.isnan(denominator) or np.isnan(numerator):
+    """0 나눗셈을 방지하며 나눗셈을 수행합니다. 분모가 0이거나 유한하지 않으면 NaN 반환."""
+    if denominator == 0 or not np.isfinite(denominator) or not np.isfinite(numerator):
         return float("nan")
     return numerator / denominator
 
@@ -122,20 +122,24 @@ def _load_sector_map() -> dict[str, str]:
 # DART 분기 재무데이터 로드 (Point-in-Time)
 # ---------------------------------------------------------------------------
 
-def _load_dart_financial(ticker: str, reference_date: pd.Timestamp) -> pd.Series | None:
+def _load_dart_financials(
+    ticker: str, reference_date: pd.Timestamp
+) -> tuple[pd.Series | None, float]:
     """
-    분기별 DART 재무 파일을 로드하고, 참조일 기준 가장 최근 분기 데이터를 반환합니다.
+    분기별 DART 재무 파일을 한 번만 읽어 두 가지 결과를 동시에 반환합니다.
 
     Point-in-Time 보장: as_of_date <= reference_date 인 레코드만 사용합니다.
 
     Returns:
-        가장 최근 분기 데이터의 Series, 또는 데이터 없음 시 None
+        (latest_row, revenue_growth_qoq)
+          - latest_row: 가장 최근 분기 데이터의 Series, 또는 데이터 없음 시 None
+          - revenue_growth_qoq: 직전 2개 분기 매출 기준 QoQ 성장률(%), 계산 불가 시 NaN
     """
     fin_files = sorted(RAW_FINANCIAL_PATH.glob(f"{ticker}_*.parquet"))
     if not fin_files:
-        return None
+        return None, float("nan")
 
-    records: list[pd.Series] = []
+    frames: list[pd.DataFrame] = []
     for fpath in fin_files:
         try:
             df = pd.read_parquet(fpath)
@@ -146,37 +150,52 @@ def _load_dart_financial(ticker: str, reference_date: pd.Timestamp) -> pd.Series
         if df.empty:
             continue
 
-        for _, row in df.iterrows():
-            # as_of_date가 참조일 이하인 레코드만 포함 (Point-in-Time)
-            as_of_raw = row.get("as_of_date", None)
-            if as_of_raw is None:
-                continue
-            try:
-                as_of = pd.Timestamp(str(as_of_raw))
-            except Exception:
-                continue
+        frames.append(df)
 
-            if as_of > reference_date:
-                continue
+    if not frames:
+        return None, float("nan")
 
-            records.append(row)
+    # 모든 분기 파일을 하나의 DataFrame으로 합산
+    all_df = pd.concat(frames, ignore_index=True)
 
-    if not records:
-        return None
+    # as_of_date 벡터화 필터링 (Point-in-Time)
+    all_df["as_of_date"] = pd.to_datetime(all_df["as_of_date"], errors="coerce")
+    all_df = all_df[all_df["as_of_date"] <= reference_date]
 
-    # DataFrame으로 변환 후 (fiscal_year, fiscal_quarter) 기준 최신 레코드 선택
-    fin_df = pd.DataFrame(records)
+    if all_df.empty:
+        return None, float("nan")
 
     # fiscal_year, fiscal_quarter를 숫자로 변환
-    fin_df["fiscal_year"] = pd.to_numeric(fin_df["fiscal_year"], errors="coerce")
-    fin_df["fiscal_quarter"] = pd.to_numeric(fin_df["fiscal_quarter"], errors="coerce")
-    fin_df = fin_df.dropna(subset=["fiscal_year", "fiscal_quarter"])
+    all_df["fiscal_year"] = pd.to_numeric(all_df["fiscal_year"], errors="coerce")
+    all_df["fiscal_quarter"] = pd.to_numeric(all_df["fiscal_quarter"], errors="coerce")
+    all_df = all_df.dropna(subset=["fiscal_year", "fiscal_quarter"])
 
-    if fin_df.empty:
-        return None
+    if all_df.empty:
+        return None, float("nan")
 
-    fin_df = fin_df.sort_values(["fiscal_year", "fiscal_quarter"], ascending=True)
-    return fin_df.iloc[-1]
+    all_df = all_df.sort_values(["fiscal_year", "fiscal_quarter"], ascending=True)
+
+    # latest_row: 가장 최근 분기 레코드
+    latest_row: pd.Series = all_df.iloc[-1]
+
+    # revenue_growth_qoq: 직전 2개 분기 매출 이용
+    rev_df = all_df[["fiscal_year", "fiscal_quarter", "revenue"]].copy()
+    rev_df["revenue"] = pd.to_numeric(rev_df["revenue"], errors="coerce")
+    rev_df = rev_df.dropna(subset=["revenue"])
+    rev_df = rev_df.drop_duplicates(subset=["fiscal_year", "fiscal_quarter"])
+    rev_df = rev_df.sort_values(["fiscal_year", "fiscal_quarter"], ascending=True)
+
+    if len(rev_df) < 2:
+        revenue_growth_qoq = float("nan")
+    else:
+        rev_current = float(rev_df.iloc[-1]["revenue"])
+        rev_prev = float(rev_df.iloc[-2]["revenue"])
+        if rev_prev == 0 or not np.isfinite(rev_prev) or not np.isfinite(rev_current):
+            revenue_growth_qoq = float("nan")
+        else:
+            revenue_growth_qoq = (rev_current - rev_prev) / abs(rev_prev) * 100
+
+    return latest_row, revenue_growth_qoq
 
 
 # ---------------------------------------------------------------------------
@@ -235,15 +254,15 @@ def _load_pykrx_fundamental(ticker: str, reference_date: pd.Timestamp) -> dict[s
 def _compute_ticker_factors(
     ticker: str,
     reference_date: pd.Timestamp,
-) -> dict[str, object] | None:
+) -> dict[str, str | float] | None:
     """
     단일 종목의 기본적 팩터를 계산합니다.
 
     Returns:
         팩터 딕셔너리 또는 데이터 부족 시 None
     """
-    # 1. DART 분기 재무데이터 로드 (Point-in-Time)
-    dart_row = _load_dart_financial(ticker, reference_date)
+    # 1. DART 분기 재무데이터 로드 (Point-in-Time) — 단일 I/O로 latest_row와 QoQ 성장률 동시 반환
+    dart_row, revenue_growth_qoq = _load_dart_financials(ticker, reference_date)
 
     # 2. pykrx 기본값 로드
     pykrx = _load_pykrx_fundamental(ticker, reference_date)
@@ -263,10 +282,6 @@ def _compute_ticker_factors(
         dart_roe = _to_float(dart_row.get("roe", None))
         fiscal_year = _to_float(dart_row.get("fiscal_year", None))
         fiscal_quarter = _to_float(dart_row.get("fiscal_quarter", None))
-
-        # revenue_growth_qoq: 이전 분기 대비 매출 성장률
-        # (동일 파일에 이전 분기가 없으므로 NaN으로 처리; 다중 분기 로직은 별도 함수에서)
-        revenue_growth_qoq = _compute_revenue_growth_qoq(ticker, reference_date)
     else:
         revenue = operating_income = net_income = float("nan")
         total_assets = total_equity = dart_debt_ratio = dart_roe = float("nan")
@@ -311,66 +326,6 @@ def _compute_ticker_factors(
     }
 
 
-def _compute_revenue_growth_qoq(ticker: str, reference_date: pd.Timestamp) -> float:
-    """
-    분기별 DART 재무 파일에서 직전 2개 분기 매출을 이용하여 QoQ 성장률을 계산합니다.
-
-    Returns:
-        revenue_growth_qoq (%) 또는 NaN
-    """
-    fin_files = sorted(RAW_FINANCIAL_PATH.glob(f"{ticker}_*.parquet"))
-    if not fin_files:
-        return float("nan")
-
-    records: list[dict] = []
-    for fpath in fin_files:
-        try:
-            df = pd.read_parquet(fpath)
-        except Exception:
-            continue
-
-        if df.empty:
-            continue
-
-        for _, row in df.iterrows():
-            as_of_raw = row.get("as_of_date", None)
-            if as_of_raw is None:
-                continue
-            try:
-                as_of = pd.Timestamp(str(as_of_raw))
-            except Exception:
-                continue
-
-            if as_of > reference_date:
-                continue
-
-            fy = _to_float(row.get("fiscal_year", None))
-            fq = _to_float(row.get("fiscal_quarter", None))
-            rev = _to_float(row.get("revenue", None))
-
-            if np.isnan(fy) or np.isnan(fq) or np.isnan(rev):
-                continue
-
-            records.append({"fiscal_year": fy, "fiscal_quarter": fq, "revenue": rev})
-
-    if len(records) < 2:
-        return float("nan")
-
-    rec_df = pd.DataFrame(records).drop_duplicates(subset=["fiscal_year", "fiscal_quarter"])
-    rec_df = rec_df.sort_values(["fiscal_year", "fiscal_quarter"], ascending=True)
-
-    if len(rec_df) < 2:
-        return float("nan")
-
-    rev_current = rec_df.iloc[-1]["revenue"]
-    rev_prev = rec_df.iloc[-2]["revenue"]
-
-    if rev_prev == 0 or np.isnan(rev_prev) or np.isnan(rev_current):
-        return float("nan")
-
-    return (rev_current - rev_prev) / abs(rev_prev) * 100
-
-
 # ---------------------------------------------------------------------------
 # 섹터 내 z-score 계산
 # ---------------------------------------------------------------------------
@@ -399,17 +354,14 @@ def _compute_sector_zscores(
         df[zscore_col] = float("nan")
 
         for sector, group in df.groupby("gics_sector"):
-            valid_mask = df["gics_sector"] == sector
-            vals = df.loc[valid_mask, factor].astype(float)
+            vals = group[factor].astype(float)
+            mean, std = vals.mean(), vals.std()
 
-            sector_mean = vals.mean()
-            sector_std = vals.std()
-
-            if np.isnan(sector_mean) or sector_std == 0 or np.isnan(sector_std):
+            if np.isnan(mean) or std == 0 or np.isnan(std):
                 # 표준편차가 0이거나 NaN이면 z-score를 0으로 (모두 같은 값)
-                df.loc[valid_mask, zscore_col] = 0.0
+                df.loc[group.index, zscore_col] = 0.0
             else:
-                df.loc[valid_mask, zscore_col] = (vals - sector_mean) / sector_std
+                df.loc[group.index, zscore_col] = (vals - mean) / std
 
     # 섹터 컬럼 제거 (출력 스키마에 포함되지 않음)
     df = df.drop(columns=["gics_sector"])
@@ -467,7 +419,9 @@ def _resolve_reference_date(reference_date: str | None) -> pd.Timestamp:
 
     # 최신 날짜 결정: pykrx fundamental 파일들의 인덱스 최댓값
     latest: pd.Timestamp | None = None
-    for fpath in sorted(RAW_FUNDAMENTAL_PATH.glob("*.parquet"))[:10]:  # 샘플 10개만 확인
+    all_files = sorted(RAW_FUNDAMENTAL_PATH.glob("*.parquet"))
+    sample_files = all_files[:5] + all_files[-5:]  # head + tail
+    for fpath in sample_files:
         try:
             df = pd.read_parquet(fpath)
             df.index = pd.to_datetime(df.index)
@@ -550,7 +504,7 @@ def main(reference_date: str | None = None) -> str | None:
     sector_map = _load_sector_map()
 
     # 종목별 팩터 계산
-    factor_records: list[dict[str, object]] = []
+    factor_records: list[dict[str, str | float]] = []
     skipped = 0
 
     for ticker in tickers:
