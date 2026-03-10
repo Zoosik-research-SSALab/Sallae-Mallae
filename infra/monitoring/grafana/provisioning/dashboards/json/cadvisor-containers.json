@@ -1,51 +1,37 @@
 {
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
+  "title": "cAdvisor Containers",
+  "uid": "cadvisor-containers",
+  "schemaVersion": 39,
+  "version": 1,
   "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": null,
-  "links": [],
-  "liveNow": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "panels": [
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
       "id": 1,
+      "title": "Container CPU Usage (cores)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
       "options": {
         "legend": {
-          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -57,44 +43,36 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "refId": "A",
           "editorMode": "code",
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\", image!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\",image!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
-          "range": true,
-          "refId": "A"
+          "range": true
         }
-      ],
-      "title": "Container CPU Usage (cores)",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
+      "id": 2,
+      "title": "Container Memory Working Set",
+      "type": "timeseries",
+      "datasource": "Prometheus",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
         "y": 0
       },
-      "id": 2,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
       "options": {
         "legend": {
-          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -106,44 +84,36 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "refId": "A",
           "editorMode": "code",
-          "expr": "sum by (name) (container_memory_working_set_bytes{name!=\"\", image!=\"\"})",
+          "expr": "sum by (name) (container_memory_working_set_bytes{name!=\"\",image!=\"\"})",
           "legendFormat": "{{name}}",
-          "range": true,
-          "refId": "A"
+          "range": true
         }
-      ],
-      "title": "Container Memory Working Set",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
+      "id": 3,
+      "title": "Container Network Receive",
+      "type": "timeseries",
+      "datasource": "Prometheus",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
         "y": 8
       },
-      "id": 3,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
       "options": {
         "legend": {
-          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -155,44 +125,36 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "refId": "A",
           "editorMode": "code",
-          "expr": "sum by (name) (rate(container_network_receive_bytes_total{name!=\"\", image!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_network_receive_bytes_total{name!=\"\",image!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
-          "range": true,
-          "refId": "A"
+          "range": true
         }
-      ],
-      "title": "Container Network Receive",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
+      "id": 4,
+      "title": "Container Network Transmit",
+      "type": "timeseries",
+      "datasource": "Prometheus",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
         "y": 8
       },
-      "id": 4,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
       "options": {
         "legend": {
-          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -204,31 +166,31 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "refId": "A",
           "editorMode": "code",
-          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{name!=\"\", image!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{name!=\"\",image!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
-          "range": true,
-          "refId": "A"
+          "range": true
         }
-      ],
-      "title": "Container Network Transmit",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "id": 5,
+      "title": "Running Containers Seen",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 16
       },
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -237,18 +199,10 @@
                 "value": null
               }
             ]
-          },
-          "unit": "short"
+          }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "id": 5,
       "options": {
         "reduceOptions": {
           "calcs": [
@@ -258,115 +212,55 @@
           "values": false
         },
         "orientation": "auto",
-        "textMode": "auto"
+        "textMode": "auto",
+        "colorMode": "value"
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "refId": "A",
           "editorMode": "code",
-          "expr": "count(count by (name) (container_last_seen{name!=\"\", image!=\"\"}))",
-          "refId": "A"
+          "expr": "count(count by (name) (container_last_seen{name!=\"\",image!=\"\"}))",
+          "instant": true,
+          "range": false
         }
-      ],
-      "title": "Running Containers Seen",
-      "type": "stat"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "id": 6,
+      "title": "Top CPU Containers",
+      "type": "table",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 6,
+        "y": 16
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
-      "id": 6,
       "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "refId": "A",
           "editorMode": "code",
-          "expr": "topk(10, sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\", image!=\"\"}[5m])))",
-          "format": "table",
+          "expr": "topk(10, sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\",image!=\"\"}[5m])))",
           "instant": true,
-          "legendFormat": "{{name}}",
-          "refId": "A"
+          "range": false,
+          "format": "table"
         }
-      ],
-      "title": "Top CPU Containers",
-      "transformations": [
-        {
-          "id": "labelsToFields",
-          "options": {
-            "mode": "columns"
-          }
-        }
-      ],
-      "type": "table"
+      ]
     }
-  ],
-  "refresh": "30s",
-  "schemaVersion": 39,
-  "style": "dark",
-  "tags": [
-    "cadvisor",
-    "docker"
-  ],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "",
-  "title": "cAdvisor Containers",
-  "uid": "cadvisor-containers",
-  "version": 1,
-  "weekStart": ""
+  ]
 }
