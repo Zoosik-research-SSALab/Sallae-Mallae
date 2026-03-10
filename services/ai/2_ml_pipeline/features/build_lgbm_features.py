@@ -82,13 +82,21 @@ MACRO_FEATURES: list[str] = [
     "sox_return_1d",
 ]
 
+REGIME_FEATURES: list[str] = [
+    "vix_regime",
+    "vix_ma20_ratio",
+    "bond_trend_60d",
+    "market_momentum_20d",
+    "volatility_regime",
+]
+
 META_FEATURES: list[str] = [
     "stock_id",
     "sector_id",
     "market_cap_rank",
 ]
 
-FEATURES: list[str] = TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + META_FEATURES
+FEATURES: list[str] = TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + REGIME_FEATURES + META_FEATURES
 
 TARGET: str = "return_5d_class"
 
@@ -566,6 +574,83 @@ def _add_macro_features_from_raw(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# 시장 레짐 피처 (매크로 기반 파생)
+# ---------------------------------------------------------------------------
+
+def _add_regime_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    매크로 데이터에서 시장 레짐 판단 피처를 파생합니다.
+
+    모든 종목에 같은 날짜는 같은 값이지만, 트리 모델이
+    "이 레짐에서는 이 패턴이 유효하다"를 학습하는 데 사용됩니다.
+
+    피처:
+      vix_regime: VIX가 20일 평균 이상이면 1 (공포 레짐)
+      vix_ma20_ratio: VIX / VIX_MA20 - 1 (VIX 괴리율)
+      bond_trend_60d: 60거래일 금리 변화 (양수면 인상 추세)
+      market_momentum_20d: KOSPI200 20일 수익률
+      volatility_regime: VIX 수준 범주 (0=안정 <15, 1=보통 15-25, 2=불안 25-35, 3=공포 >35)
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame
+
+    Returns:
+        레짐 피처 컬럼이 추가된 DataFrame
+    """
+    logger.info("[REGIME] 시장 레짐 피처 계산 시작")
+
+    # 날짜 레벨 추출
+    date_level = df.index.get_level_values("date")
+    unique_dates = pd.DatetimeIndex(sorted(date_level.unique()))
+
+    # 날짜 기준 레짐 피처 계산 (Series)
+    regime_df = pd.DataFrame(index=unique_dates)
+
+    # VIX 기반 레짐
+    if "vix" in df.columns:
+        # 날짜별 VIX 값 (모든 종목 동일이므로 첫 번째 값 사용)
+        vix_daily = df.groupby(level="date")["vix"].first().reindex(unique_dates)
+        vix_ma20 = vix_daily.rolling(window=20, min_periods=5).mean()
+
+        regime_df["vix_regime"] = (vix_daily > vix_ma20).astype(float)
+        regime_df["vix_ma20_ratio"] = vix_daily / vix_ma20.replace(0, np.nan) - 1
+
+        # VIX 수준 범주화
+        regime_df["volatility_regime"] = 0.0
+        regime_df.loc[vix_daily >= 15, "volatility_regime"] = 1.0
+        regime_df.loc[vix_daily >= 25, "volatility_regime"] = 2.0
+        regime_df.loc[vix_daily >= 35, "volatility_regime"] = 3.0
+    else:
+        regime_df["vix_regime"] = np.nan
+        regime_df["vix_ma20_ratio"] = np.nan
+        regime_df["volatility_regime"] = np.nan
+
+    # 금리 추세
+    if "us_bond_10y" in df.columns:
+        bond_daily = df.groupby(level="date")["us_bond_10y"].first().reindex(unique_dates)
+        regime_df["bond_trend_60d"] = bond_daily.diff(60)
+    else:
+        regime_df["bond_trend_60d"] = np.nan
+
+    # 시장 모멘텀
+    if "kospi200_return_1d" in df.columns:
+        kospi_daily = df.groupby(level="date")["kospi200_return_1d"].first().reindex(unique_dates)
+        regime_df["market_momentum_20d"] = kospi_daily.rolling(window=20, min_periods=5).sum()
+    else:
+        regime_df["market_momentum_20d"] = np.nan
+
+    # MultiIndex에 매핑
+    for col in REGIME_FEATURES:
+        if col in regime_df.columns:
+            df[col] = regime_df[col].reindex(date_level).values
+        else:
+            df[col] = np.nan
+
+    logger.info("[REGIME] 시장 레짐 피처 계산 완료 (%d개 피처)", len(REGIME_FEATURES))
+    return df
+
+
+# ---------------------------------------------------------------------------
 # 타겟 계산 — 단면 분위수 기반 3클래스 (date별 cross-sectional quantile)
 # ---------------------------------------------------------------------------
 
@@ -702,7 +787,7 @@ def _fill_and_clean(df: pd.DataFrame) -> pd.DataFrame:
         결측치 처리된 DataFrame
     """
     numeric_feature_cols = [
-        c for c in TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES
+        c for c in TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + REGIME_FEATURES
         if c in df.columns
     ]
 
@@ -771,6 +856,9 @@ def build_lgbm_features() -> pd.DataFrame:
 
     # 4. 매크로 피처 보완
     df = _add_macro_features_from_raw(df)
+
+    # 4.5. 시장 레짐 피처
+    df = _add_regime_features(df)
 
     # 5. 타겟 생성
     df = compute_target(df)

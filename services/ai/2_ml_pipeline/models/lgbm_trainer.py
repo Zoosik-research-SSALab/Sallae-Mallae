@@ -50,6 +50,9 @@ LGBM_FEATURES = [
     "kospi200_return_1d", "usd_krw_change",
     "sp500_return_1d", "nasdaq_return_1d", "dxy_change",
     "vix", "vix_change", "us_bond_10y", "us_bond_10y_change", "sox_return_1d",
+    # Regime (market state)
+    "vix_regime", "vix_ma20_ratio", "bond_trend_60d",
+    "market_momentum_20d", "volatility_regime",
     # Meta (categorical)
     "stock_id", "cluster_id", "market_cap_rank",
 ]
