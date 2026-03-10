@@ -36,9 +36,9 @@ public class SearchQueryRepository {
         FROM stocks s
                  LEFT JOIN LATERAL (
             SELECT sp.close_price, sp.fluctuation_rate
-            FROM stock_prices sp
+            FROM stock_prices_daily sp
             WHERE sp.stock_id = s.id
-            ORDER BY sp.trade_timestamp DESC
+            ORDER BY sp.trade_date DESC
             LIMIT 1
             ) latest_price ON TRUE
         WHERE s.is_active = true

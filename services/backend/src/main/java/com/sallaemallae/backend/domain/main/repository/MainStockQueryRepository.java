@@ -25,16 +25,15 @@ public class MainStockQueryRepository {
                 SELECT ml_signal, ml_confidence
                 FROM ai_ml_reports
                 WHERE stock_id = s.id
-                  AND report_time >= CURRENT_DATE
-                  AND report_time <  CURRENT_DATE + INTERVAL '1 day'
-                ORDER BY report_time DESC LIMIT 1
+                  AND report_date = CURRENT_DATE
+                ORDER BY created_at DESC LIMIT 1
             ) r ON true
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
-                FROM stock_prices
+                FROM stock_prices_daily
                 WHERE stock_id = s.id
-                  AND trade_timestamp >= CURRENT_DATE
-                ORDER BY trade_timestamp DESC LIMIT 1
+                  AND trade_date = CURRENT_DATE
+                LIMIT 1
             ) sp ON true
             WHERE s.is_active = true
             ORDER BY r.ml_confidence DESC
@@ -76,10 +75,10 @@ public class MainStockQueryRepository {
             FROM stocks s
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
-                FROM stock_prices
+                FROM stock_prices_daily
                 WHERE stock_id = s.id
-                  AND trade_timestamp >= CURRENT_DATE
-                ORDER BY trade_timestamp DESC LIMIT 1
+                  AND trade_date = CURRENT_DATE
+                LIMIT 1
             ) sp ON true
             WHERE s.category IS NOT NULL
               AND s.is_active = true
@@ -99,10 +98,10 @@ public class MainStockQueryRepository {
             LEFT JOIN ai_ml_reports r ON r.id = h.ml_report_id
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
-                FROM stock_prices
+                FROM stock_prices_daily
                 WHERE stock_id = s.id
-                  AND trade_timestamp >= CURRENT_DATE
-                ORDER BY trade_timestamp DESC LIMIT 1
+                  AND trade_date = CURRENT_DATE
+                LIMIT 1
             ) sp ON true
             WHERE h.trade_time >= CURRENT_DATE
               AND h.trade_type = :tradeType
