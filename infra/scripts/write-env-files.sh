@@ -10,6 +10,8 @@ if [[ -z "$TARGET" ]]; then
   exit 1
 fi
 
+frontend_auth_use_mock=""
+
 case "$TARGET" in
   base)
     ;;
@@ -23,6 +25,7 @@ case "$TARGET" in
     worker_db_name="app_dev"
     worker_db_user="app_dev_user"
     worker_db_password="${DEV_DB_PASSWORD}"
+    frontend_auth_use_mock="${AUTH_USE_MOCK:-true}"
     ;;
   dev-backend)
     nginx_port="8082"
@@ -109,6 +112,13 @@ WORKER_DB_NAME=${worker_db_name}
 WORKER_DB_USER=${worker_db_user}
 WORKER_DB_PASSWORD=${worker_db_password}
 EOF
+
+if [[ -n "$frontend_auth_use_mock" ]]; then
+  cat >> "$ROOT_DIR/env/${TARGET}.env" <<EOF
+
+AUTH_USE_MOCK=${frontend_auth_use_mock}
+EOF
+fi
 
 echo "generated:"
 echo "  $ROOT_DIR/env/base.env"

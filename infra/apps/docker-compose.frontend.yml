@@ -17,6 +17,8 @@ services:
       context: ../../services/frontend
       dockerfile: Dockerfile
     restart: unless-stopped
+    environment:
+      AUTH_USE_MOCK: ${AUTH_USE_MOCK:-false}
     expose:
       - "3000"
     healthcheck:
