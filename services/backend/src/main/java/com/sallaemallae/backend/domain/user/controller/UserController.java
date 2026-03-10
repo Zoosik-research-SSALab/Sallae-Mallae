@@ -12,11 +12,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,8 +31,8 @@ public class UserController {
 
   @PatchMapping("/profile")
   public ApiResponse<Map<String, Object>> updateProfile(
-      @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
       @Valid @RequestBody UserProfileUpdateRequest request) {
+    Long userId = getAuthenticatedUserId();
     return ApiResponse.success(userService.updateProfile(userId, request));
   }
 
@@ -43,21 +44,26 @@ public class UserController {
   })
   @PutMapping("/profile/password")
   public ApiResponse<Map<String, Object>> updatePassword(
-      @Parameter(description = "사용자 ID", required = true) @RequestHeader(name = "X-User-Id") Long userId,
       @Valid @RequestBody UserPasswordUpdateRequest request) {
+    Long userId = getAuthenticatedUserId();
     return ApiResponse.success(userService.updatePassword(userId, request));
   }
 
   @PatchMapping("/profile/email-opt-in")
   public ApiResponse<Map<String, Object>> updateEmailOptIn(
-      @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId,
       @Valid @RequestBody UserEmailOptInRequest request) {
+    Long userId = getAuthenticatedUserId();
     return ApiResponse.success(userService.updateEmailOptIn(userId, request));
   }
 
   @DeleteMapping("/profile")
-  public ApiResponse<Map<String, Object>> deleteProfile(
-      @RequestHeader(name = "X-User-Id", defaultValue = "1") Long userId) {
+  public ApiResponse<Map<String, Object>> deleteProfile() {
+    Long userId = getAuthenticatedUserId();
     return ApiResponse.success(userService.deleteProfile(userId));
+  }
+
+  private Long getAuthenticatedUserId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    return (Long) authentication.getPrincipal();
   }
 }

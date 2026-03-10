@@ -94,7 +94,7 @@ public class SecurityConfig {
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
 
-    // 허용할 Origin (프론트엔드 주소)
+    // 허용할 Origin (로컬 개발용, 배포 시 nginx 프록시로 Same-Origin)
     configuration.setAllowedOrigins(List.of(
         "http://localhost:3000",
         "http://localhost:5173"

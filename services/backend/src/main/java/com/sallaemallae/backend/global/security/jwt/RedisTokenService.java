@@ -1,10 +1,16 @@
 package com.sallaemallae.backend.global.security.jwt;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -72,11 +78,17 @@ public class RedisTokenService {
    */
   public long deleteAllRefreshTokens(Long userId) {
     String pattern = RT_PREFIX + userId + ":*";
-    Set<String> keys = redisTemplate.keys(pattern);
-    if (keys != null && !keys.isEmpty()) {
-      redisTemplate.delete(keys);
-      log.debug("Deleted all {} refresh tokens for user {}", keys.size(), userId);
-      return keys.size();
+    ScanOptions options = ScanOptions.scanOptions().match(pattern).count(100).build();
+    List<String> keysToDelete = new ArrayList<>();
+    try (Cursor<String> cursor = redisTemplate.scan(options)) {
+      while (cursor.hasNext()) {
+        keysToDelete.add(cursor.next());
+      }
+    }
+    if (!keysToDelete.isEmpty()) {
+      redisTemplate.delete(keysToDelete);
+      log.debug("Deleted all {} refresh tokens for user {}", keysToDelete.size(), userId);
+      return keysToDelete.size();
     }
     return 0;
   }
@@ -196,26 +208,21 @@ public class RedisTokenService {
    */
   public int incrementVerificationAttempts(String purpose, String email) {
     String key = EMAIL_VERIFY_PREFIX + purpose + ":" + email;
-    String value = redisTemplate.opsForValue().get(key);
-    if (value == null) {
-      return -1;  // 키가 존재하지 않음
-    }
-
-    String[] parts = value.split(":", 2);
-    String hashedCode = parts[0];
-    int attempts = Integer.parseInt(parts[1]) + 1;
-
-    // 남은 TTL 유지하면서 업데이트
-    Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
-    if (ttl != null && ttl > 0) {
-      redisTemplate.opsForValue().set(
-          key,
-          hashedCode + ":" + attempts,
-          ttl,
-          TimeUnit.SECONDS
-      );
-    }
-
+    // Lua 스크립트로 원자적 처리 (레이스 컨디션 방지)
+    String luaScript =
+        "local val = redis.call('GET', KEYS[1]) " +
+        "if not val then return -1 end " +
+        "local sep = string.find(val, ':', 1, true) " +
+        "local hash = string.sub(val, 1, sep - 1) " +
+        "local attempts = tonumber(string.sub(val, sep + 1)) + 1 " +
+        "local ttl = redis.call('TTL', KEYS[1]) " +
+        "if ttl > 0 then " +
+        "  redis.call('SET', KEYS[1], hash .. ':' .. attempts, 'EX', ttl) " +
+        "end " +
+        "return attempts";
+    DefaultRedisScript<Long> script = new DefaultRedisScript<>(luaScript, Long.class);
+    Long result = redisTemplate.execute(script, Collections.singletonList(key));
+    int attempts = result != null ? result.intValue() : -1;
     log.debug("Verification attempts for {} {}: {}", purpose, maskEmail(email), attempts);
     return attempts;
   }
@@ -251,9 +258,8 @@ public class RedisTokenService {
    */
   public String consumeVerifiedToken(String purpose, String token) {
     String key = VERIFIED_PREFIX + purpose + ":" + token;
-    String email = redisTemplate.opsForValue().get(key);
+    String email = redisTemplate.opsForValue().getAndDelete(key);
     if (email != null) {
-      redisTemplate.delete(key);
       log.debug("Consumed verified token for purpose {}", purpose);
     }
     return email;
@@ -300,9 +306,8 @@ public class RedisTokenService {
    */
   public String consumeOAuthState(String state) {
     String key = OAUTH_STATE_PREFIX + state;
-    String provider = redisTemplate.opsForValue().get(key);
+    String provider = redisTemplate.opsForValue().getAndDelete(key);
     if (provider != null) {
-      redisTemplate.delete(key);
       log.debug("Consumed OAuth state");
     }
     return provider;
@@ -323,9 +328,8 @@ public class RedisTokenService {
    */
   public String consumeTempToken(String tempToken) {
     String key = TEMP_PREFIX + tempToken;
-    String value = redisTemplate.opsForValue().get(key);
+    String value = redisTemplate.opsForValue().getAndDelete(key);
     if (value != null) {
-      redisTemplate.delete(key);
       log.debug("Consumed temp token for social login");
     }
     return value;

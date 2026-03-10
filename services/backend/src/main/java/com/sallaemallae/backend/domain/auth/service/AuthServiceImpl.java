@@ -74,6 +74,8 @@ public class AuthServiceImpl implements AuthService {
   private static final int VERIFIED_TOKEN_EXPIRES_SECONDS = 600;  // 10분
   private static final int MAX_VERIFICATION_ATTEMPTS = 5;
   private static final int RECENT_PASSWORD_CHECK_COUNT = 3;
+  // 타이밍 공격 방어: 존재하지 않는 유저에도 BCrypt 비교 시간 소비
+  private static final String DUMMY_HASH = "$2a$10$dummyHashForTimingAttackDefense000000000000000000000";
 
   private final UserRepository userRepository;
   private final SocialAccountRepository socialAccountRepository;
@@ -119,10 +121,11 @@ public class AuthServiceImpl implements AuthService {
       throw new BusinessException(AuthErrorCode.LOGIN_ACCOUNT_LOCKED);
     }
 
-    // 2. Find user by email
+    // 2. Find user by email (타이밍 공격 방어: 유저 유무와 관계없이 BCrypt 비교 수행)
     User user = userRepository.findByEmail(email).orElse(null);
 
     if (user == null) {
+      passwordEncoder.matches(request.password(), DUMMY_HASH);
       throw new BusinessException(AuthErrorCode.LOGIN_INVALID_CREDENTIALS);
     }
 
@@ -160,11 +163,15 @@ public class AuthServiceImpl implements AuthService {
     // 10. Determine provider
     AuthProvider provider = determineProvider(user);
 
-    // 11. Build and return response
+    // 11. 이전 로그인 시간 조회
+    OffsetDateTime lastLoginAt = loginHistoryRepository.findLastLoginAt(user.getId())
+        .orElse(null);
+
+    // 12. Build and return response
     return LoginResponse.of(
         accessToken,
         jwtProvider.getAccessTokenExpirationSeconds(),
-        LoginResponse.UserInfo.from(user, provider, OffsetDateTime.now())
+        LoginResponse.UserInfo.from(user, provider, lastLoginAt)
     );
   }
 
@@ -503,9 +510,9 @@ public class AuthServiceImpl implements AuthService {
     // 1. Provider 파싱
     AuthProvider authProvider = parseProvider(provider);
 
-    // 2. CSRF state 검증
+    // 2. CSRF state 검증 + provider 일치 확인
     String storedProvider = redisTokenService.consumeOAuthState(request.state());
-    if (storedProvider == null) {
+    if (storedProvider == null || !storedProvider.equals(authProvider.name())) {
       throw new BusinessException(AuthErrorCode.OAUTH_STATE_MISMATCH);
     }
 

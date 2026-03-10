@@ -11,7 +11,7 @@ public record SignupRequest(
     @NotBlank String verificationToken,
     @NotBlank @Email String email,
     @NotBlank String password,
-    @NotBlank @Size(max = 20) String nickname,
+    @NotBlank @Size(min = 2, max = 20) String nickname,
     boolean emailOptIn,
     @NotNull @Valid List<TermAgreementDto> agreements
 ) {

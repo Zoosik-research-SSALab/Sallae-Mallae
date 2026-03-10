@@ -6,6 +6,7 @@ import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.domain.auth.repository.PasswordHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import com.sallaemallae.backend.domain.auth.service.PasswordValidator;
+import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
 import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
@@ -28,6 +29,7 @@ public class UserServiceImpl implements UserService {
   private final PasswordHistoryRepository passwordHistoryRepository;
   private final PasswordValidator passwordValidator;
   private final PasswordEncoder passwordEncoder;
+  private final RedisTokenService redisTokenService;
 
   @Override
   @Transactional(readOnly = true)
@@ -108,7 +110,13 @@ public class UserServiceImpl implements UserService {
     String hashedPassword = passwordEncoder.encode(request.newPassword());
     user.changePassword(hashedPassword);
 
-    // 7. 비밀번호 이력 저장
+    // 7. 토큰 버전 증가 (기존 모든 AT 무효화)
+    user.incrementTokenVersion();
+
+    // 8. 모든 Refresh Token 삭제
+    redisTokenService.deleteAllRefreshTokens(userId);
+
+    // 9. 비밀번호 이력 저장
     passwordHistoryRepository.save(
         PasswordHistory.changedByUser(userId, hashedPassword, null)
     );
