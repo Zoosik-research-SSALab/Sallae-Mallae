@@ -96,6 +96,10 @@ REGIME_ACCURACY_THRESHOLD: float = 0.50  # 레짐 변화 감지 임계값
 REGIME_ROLLING_WINDOW: int = 6         # 롤링 윈도우 수 (레짐 감지)
 TREND_WINDOW: int = 3                  # 추세 기울기 계산 윈도우 수
 
+# Progressive 모드 기준 (조기 중단)
+PROGRESSIVE_DA_THRESHOLD: float = 0.52   # 최소 방향 정확도 (랜덤 이상)
+PROGRESSIVE_MAX_FAILS: int = 2           # 연속 실패 허용 횟수
+
 # 단순 가중 평균 가중치
 SIMPLE_AVG_WEIGHTS: dict[str, float] = {
     "lgbm": 0.4,
@@ -825,6 +829,13 @@ def _display_summary(payload: dict) -> None:
     print("=" * 70)
     print(f"  기준일             : {meta.get('reference_date', '-')}")
     print(f"  검증 범위          : {meta.get('validation_range', '-')}")
+    if meta.get("progressive"):
+        threshold = meta.get("progressive_threshold", PROGRESSIVE_DA_THRESHOLD)
+        print(f"  모드               : Progressive (DA >= {threshold:.0%} 기준)")
+        if meta.get("stopped_early"):
+            print(f"  조기 중단          : YES (Window {meta.get('windows_completed', '?')}/{meta.get('num_windows', '?')}에서 중단)")
+        else:
+            print(f"  조기 중단          : NO (전체 완료)")
     print(f"  총 윈도우 수        : {meta.get('num_windows', '-')}")
     print(f"  성공 윈도우 수      : {meta.get('ok_windows', '-')}")
 
@@ -898,7 +909,7 @@ def _display_summary(payload: dict) -> None:
 # 메인 엔트리포인트
 # ---------------------------------------------------------------------------
 
-def main(reference_date: str | None = None, models: list[str] | None = None) -> str | None:
+def main(reference_date: str | None = None, models: list[str] | None = None, progressive: bool = False) -> str | None:
     """
     Walk-Forward 검증 전체 파이프라인 실행.
 
@@ -938,9 +949,38 @@ def main(reference_date: str | None = None, models: list[str] | None = None) -> 
     # 2. 윈도우별 학습 + 검증
     per_window_metrics: list[dict] = []
 
+    consecutive_fails = 0
+    stopped_early = False
+
     for idx, (w_start, w_end) in enumerate(windows):
         wm = _validate_window(idx, w_start, w_end, models=run_models)
         per_window_metrics.append(wm)
+
+        # Progressive 모드: 기준 미달 시 조기 중단
+        if progressive:
+            da = wm.get("direction_accuracy")
+            if da is not None and da >= PROGRESSIVE_DA_THRESHOLD:
+                consecutive_fails = 0
+                logger.info(
+                    "[WF] Window %d PASS (DA=%.4f >= %.2f)",
+                    idx, da, PROGRESSIVE_DA_THRESHOLD,
+                )
+            elif da is not None:
+                consecutive_fails += 1
+                logger.warning(
+                    "[WF] Window %d FAIL (DA=%.4f < %.2f) [연속 %d회]",
+                    idx, da, PROGRESSIVE_DA_THRESHOLD, consecutive_fails,
+                )
+            else:
+                logger.info("[WF] Window %d: 메트릭 계산 불가 (데이터 부족)", idx)
+
+            if consecutive_fails >= PROGRESSIVE_MAX_FAILS:
+                logger.warning(
+                    "[WF] Progressive 조기 중단: 연속 %d회 기준 미달 (Window %d)",
+                    consecutive_fails, idx,
+                )
+                stopped_early = True
+                break
 
     # 3. 전체 메트릭 집계
     ok_windows = [w for w in per_window_metrics if w["status"] == "ok"]
@@ -963,6 +1003,10 @@ def main(reference_date: str | None = None, models: list[str] | None = None) -> 
             "target_horizon": TARGET_HORIZON,
             "mode": "train_per_window",
             "selected_models": sorted(run_models) if run_models else sorted(VALID_MODELS),
+            "progressive": progressive,
+            "progressive_threshold": PROGRESSIVE_DA_THRESHOLD if progressive else None,
+            "stopped_early": stopped_early if progressive else False,
+            "windows_completed": len(per_window_metrics),
         },
         "overall_metrics": overall_metrics,
         "per_window_metrics": per_window_metrics,

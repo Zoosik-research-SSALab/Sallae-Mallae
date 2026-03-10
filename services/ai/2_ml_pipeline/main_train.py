@@ -27,6 +27,8 @@ def main() -> None:
     parser.add_argument("--only-validation", action="store_true", help="Walk-Forward 검증만 실행")
     parser.add_argument("--model", nargs="*", default=None,
                         help="Walk-Forward 검증 대상 모델 (lgbm lstm garch ensemble)")
+    parser.add_argument("--progressive", action="store_true",
+                        help="Walk-Forward Progressive 모드 (기준 미달 시 조기 중단)")
     args = parser.parse_args()
 
     only_flags = [args.only_lgbm, args.only_lstm, args.only_garch, args.only_ensemble, args.only_packets, args.only_fundamental, args.only_validation]
@@ -90,9 +92,11 @@ def main() -> None:
     # --- Walk-Forward 검증 ---
     if run_all or args.only_validation:
         model_desc = f" (모델: {', '.join(args.model)})" if args.model else ""
+        if args.progressive:
+            model_desc += " [Progressive]"
         print(f"[pipeline] Walk-Forward 검증 시작...{model_desc}")
         from validation.walk_forward_validator import main as run_validation
-        validation_path = run_validation(models=args.model)
+        validation_path = run_validation(models=args.model, progressive=args.progressive)
         if validation_path is None:
             print("[pipeline] Walk-Forward 검증 실패 — 건너뜁니다.")
         else:
