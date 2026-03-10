@@ -50,9 +50,12 @@ PROCESSED_BASE_PATH: Path = BASE_PATH / "processed" / "base_features"
 PROCESSED_LGBM_PATH: Path = BASE_PATH / "processed" / "lgbm_features"
 PROCESSED_LSTM_PATH: Path = BASE_PATH / "processed" / "lstm_sequences"
 
+PROCESSED_GARCH_PATH: Path = BASE_PATH / "processed" / "garch"
+
 MODELS_PATH: Path = BASE_PATH / "models"
 MODELS_LGBM_PATH: Path = BASE_PATH / "models" / "lgbm"
 MODELS_LSTM_PATH: Path = BASE_PATH / "models" / "lstm"
+MODELS_GARCH_PATH: Path = BASE_PATH / "models" / "garch"
 
 VALIDATION_PATH: Path = BASE_PATH / "validation"
 LOGS_PATH: Path = BASE_PATH / "logs" / "ml_model"
