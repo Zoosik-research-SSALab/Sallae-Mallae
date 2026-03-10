@@ -45,7 +45,14 @@ public enum AuthErrorCode implements ErrorCode {
   OAUTH_UNSUPPORTED_PROVIDER(400, "OAUTH_004", "지원하지 않는 Provider입니다."),
   OAUTH_EMAIL_ALREADY_EXISTS(409, "OAUTH_005", "이미 다른 방식으로 가입된 이메일입니다."),
   OAUTH_PROVIDER_ERROR(502, "OAUTH_006", "Provider 서버와의 통신에 실패했습니다."),
-  OAUTH_TEMP_TOKEN_INVALID(400, "OAUTH_007", "임시 토큰이 유효하지 않습니다.");
+  OAUTH_TEMP_TOKEN_INVALID(400, "OAUTH_007", "임시 토큰이 유효하지 않습니다."),
+
+  // 비밀번호 관리
+  PWD_TOKEN_INVALID(400, "PWD_001", "인증 토큰이 유효하지 않거나 만료되었습니다."),
+  PWD_POLICY_VIOLATION(400, "PWD_002", "비밀번호 정책을 위반했습니다."),
+  PWD_RECENT_REUSE(400, "PWD_003", "최근 사용한 비밀번호와 동일합니다."),
+  PWD_WRONG_CURRENT(401, "PWD_004", "현재 비밀번호가 올바르지 않습니다."),
+  PWD_SOCIAL_ACCOUNT(400, "PWD_005", "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.");
 
   private final int status;
   private final String code;

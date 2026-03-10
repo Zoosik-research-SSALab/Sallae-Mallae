@@ -7,6 +7,8 @@ import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
 import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackRequest;
 import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackResponse;
 import com.sallaemallae.backend.domain.auth.dto.OAuthTermsAgreeRequest;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetConfirmRequest;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetRequestDto;
 import com.sallaemallae.backend.domain.auth.dto.RefreshResponse;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeResponse;
@@ -147,6 +149,31 @@ public class AuthController {
 
     RefreshResponse refreshResponse = authService.refresh(request, deviceId, response);
     return ApiResponse.success(refreshResponse);
+  }
+
+  @Operation(summary = "비밀번호 찾기 - 인증코드 발송", description = "비밀번호 재설정을 위한 인증코드를 이메일로 발송합니다. 가입된 이메일만 가능합니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "인증코드 발송 성공"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "가입되지 않은 이메일")
+  })
+  @PostMapping("/password/reset-request")
+  public ApiResponse<SendCodeResponse> requestPasswordReset(
+      @Valid @RequestBody PasswordResetRequestDto request) {
+    return ApiResponse.success(authService.requestPasswordReset(request));
+  }
+
+  @Operation(summary = "비밀번호 재설정", description = "이메일 인증 완료 후 새 비밀번호로 재설정합니다. 기존 모든 세션이 무효화됩니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "비밀번호 재설정 성공"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "인증 토큰 유효하지 않음/비밀번호 정책 위반")
+  })
+  @PostMapping("/password/reset")
+  public ApiResponse<Void> resetPassword(
+      @Valid @RequestBody PasswordResetConfirmRequest request,
+      HttpServletRequest httpRequest) {
+    String ipAddress = getClientIpAddress(httpRequest);
+    authService.resetPassword(request, ipAddress);
+    return ApiResponse.success();
   }
 
   @Operation(summary = "OAuth 시작", description = "소셜 로그인을 위한 OAuth 인증 URL을 반환합니다.")

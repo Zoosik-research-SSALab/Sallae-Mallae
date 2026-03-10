@@ -7,6 +7,8 @@ import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
 import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackRequest;
 import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackResponse;
 import com.sallaemallae.backend.domain.auth.dto.OAuthTermsAgreeRequest;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetConfirmRequest;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetRequestDto;
 import com.sallaemallae.backend.domain.auth.dto.RefreshResponse;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeResponse;
@@ -70,6 +72,8 @@ public class AuthServiceImpl implements AuthService {
   private static final int VERIFICATION_CODE_LENGTH = 6;
   private static final int VERIFICATION_CODE_EXPIRES_SECONDS = 300;  // 5분
   private static final int VERIFIED_TOKEN_EXPIRES_SECONDS = 600;  // 10분
+  private static final int MAX_VERIFICATION_ATTEMPTS = 5;
+  private static final int RECENT_PASSWORD_CHECK_COUNT = 3;
 
   private final UserRepository userRepository;
   private final SocialAccountRepository socialAccountRepository;
@@ -83,6 +87,7 @@ public class AuthServiceImpl implements AuthService {
   private final EmailService emailService;
   private final ObjectMapper objectMapper;
   private final List<OAuthProviderClient> oauthProviderClients;
+  private final PasswordValidator passwordValidator;
 
   private Map<AuthProvider, OAuthProviderClient> oauthClientMap;
 
@@ -124,8 +129,8 @@ public class AuthServiceImpl implements AuthService {
     // 3. Check user status
     validateUserStatus(user);
 
-    // 4. Validate password (프론트에서 해시된 값을 그대로 비교)
-    if (!request.password().equals(user.getPasswordHash())) {
+    // 4. Validate password (BCrypt 비교)
+    if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
       // Record failed login attempt
       redisTokenService.incrementLoginFailCount(email);
       loginHistoryRepository.save(
@@ -270,8 +275,14 @@ public class AuthServiceImpl implements AuthService {
       }
     }
 
-    // 4. 사용자 생성 (프론트에서 해시된 비밀번호를 그대로 저장)
-    String passwordHash = request.password();
+    // 4. 비밀번호 정책 검증
+    PasswordValidator.ValidationResult validationResult = passwordValidator.validate(request.password(), email);
+    if (!validationResult.valid()) {
+      throw new BusinessException(AuthErrorCode.PWD_POLICY_VIOLATION);
+    }
+
+    // 5. 사용자 생성 (비밀번호 해시)
+    String passwordHash = passwordEncoder.encode(request.password());
     User user = User.createEmailUser(
         email,
         passwordHash,
@@ -402,6 +413,77 @@ public class AuthServiceImpl implements AuthService {
     log.debug("Token refreshed for user {} device {}", userId, deviceId);
 
     return RefreshResponse.of(newAccessToken, jwtProvider.getAccessTokenExpirationSeconds());
+  }
+
+  @Override
+  @Transactional
+  public SendCodeResponse requestPasswordReset(PasswordResetRequestDto request) {
+    String email = request.email();
+
+    // 열거 방어: 가입 여부와 무관하게 동일한 200 응답 반환
+    // 실제 메일은 가입된 사용자에게만 Async 발송
+    User user = userRepository.findByEmail(email).orElse(null);
+
+    if (user != null) {
+      String code = generateVerificationCode();
+      String hashedCode = passwordEncoder.encode(code);
+      redisTokenService.saveVerificationCode("PASSWORD_RESET", email, hashedCode);
+      emailService.sendPasswordResetCode(email, code);
+    }
+
+    return SendCodeResponse.of(VERIFICATION_CODE_EXPIRES_SECONDS, MAX_VERIFICATION_ATTEMPTS);
+  }
+
+  @Override
+  @Transactional
+  public void resetPassword(PasswordResetConfirmRequest request, String ipAddress) {
+    String email = request.email();
+    String verificationToken = request.verificationToken();
+    String newPassword = request.newPassword();
+
+    // 1. 인증 토큰 검증 및 소비
+    String verifiedEmail = redisTokenService.consumeVerifiedToken("PASSWORD_RESET", verificationToken);
+    if (verifiedEmail == null || !verifiedEmail.equals(email)) {
+      throw new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID);
+    }
+
+    // 2. 사용자 조회
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID));
+
+    // 3. 비밀번호 정책 검증
+    PasswordValidator.ValidationResult validationResult = passwordValidator.validate(newPassword, email);
+    if (!validationResult.valid()) {
+      throw new BusinessException(AuthErrorCode.PWD_POLICY_VIOLATION);
+    }
+
+    // 4. 최근 3개 비밀번호 재사용 확인
+    checkRecentPasswordReuse(user.getId(), newPassword);
+
+    // 5. 비밀번호 해시 및 변경
+    String hashedPassword = passwordEncoder.encode(newPassword);
+    user.changePassword(hashedPassword);
+
+    // 5. 토큰 버전 증가 (기존 모든 토큰 무효화)
+    user.incrementTokenVersion();
+
+    // 6. 모든 Refresh Token 삭제
+    redisTokenService.deleteAllRefreshTokens(user.getId());
+
+    // 7. 로그인 실패 카운터 삭제 (잠금 해제)
+    redisTokenService.deleteLoginFailCount(email);
+
+    // 9. 비밀번호 이력 저장
+    passwordHistoryRepository.save(
+        PasswordHistory.changedByReset(user.getId(), hashedPassword, ipAddress)
+    );
+
+    // 9. 이벤트 기록
+    loginHistoryRepository.save(
+        LoginHistory.passwordReset(user.getId(), email, ipAddress)
+    );
+
+    log.info("Password reset completed for user {}", user.getId());
   }
 
   @Override
@@ -602,6 +684,17 @@ public class AuthServiceImpl implements AuthService {
       return authProvider;
     } catch (IllegalArgumentException e) {
       throw new BusinessException(AuthErrorCode.OAUTH_UNSUPPORTED_PROVIDER);
+    }
+  }
+
+  private void checkRecentPasswordReuse(Long userId, String newPassword) {
+    // 현재 비밀번호 포함 최근 3개와 비교 (BCrypt로 비교)
+    List<PasswordHistory> recentPasswords =
+        passwordHistoryRepository.findRecentByUserId(userId, RECENT_PASSWORD_CHECK_COUNT);
+    for (PasswordHistory ph : recentPasswords) {
+      if (passwordEncoder.matches(newPassword, ph.getPasswordHash())) {
+        throw new BusinessException(AuthErrorCode.PWD_RECENT_REUSE);
+      }
     }
   }
 

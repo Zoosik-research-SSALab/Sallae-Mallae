@@ -7,6 +7,8 @@ import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
 import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackRequest;
 import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackResponse;
 import com.sallaemallae.backend.domain.auth.dto.OAuthTermsAgreeRequest;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetConfirmRequest;
+import com.sallaemallae.backend.domain.auth.dto.PasswordResetRequestDto;
 import com.sallaemallae.backend.domain.auth.dto.RefreshResponse;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.SendCodeResponse;
@@ -45,4 +47,8 @@ public interface AuthService {
 
   LoginResponse oauthTermsAgree(OAuthTermsAgreeRequest request,
       String deviceId, String userAgent, String ipAddress, HttpServletResponse response);
+
+  SendCodeResponse requestPasswordReset(PasswordResetRequestDto request);
+
+  void resetPassword(PasswordResetConfirmRequest request, String ipAddress);
 }
