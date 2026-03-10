@@ -68,7 +68,7 @@ fi
 
 sudo "${certbot_args[@]}"
 
-if [[ ! -f "$letsencrypt_dir/live/$ROOT_HOST/fullchain.pem" ]]; then
+if ! sudo test -f "$letsencrypt_dir/live/$ROOT_HOST/fullchain.pem"; then
   echo "certificate issuance did not produce $letsencrypt_dir/live/$ROOT_HOST/fullchain.pem" >&2
   exit 1
 fi
