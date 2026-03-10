@@ -22,9 +22,10 @@ def main() -> None:
     parser.add_argument("--only-lstm", action="store_true", help="LSTM만 실행")
     parser.add_argument("--only-garch", action="store_true", help="GARCH만 실행")
     parser.add_argument("--only-ensemble", action="store_true", help="앙상블만 실행")
+    parser.add_argument("--only-packets", action="store_true", help="통합 패킷만 생성")
     args = parser.parse_args()
 
-    only_flags = [args.only_lgbm, args.only_lstm, args.only_garch, args.only_ensemble]
+    only_flags = [args.only_lgbm, args.only_lstm, args.only_garch, args.only_ensemble, args.only_packets]
     run_all = not any(only_flags)
 
     # --- LightGBM ---
@@ -64,6 +65,13 @@ def main() -> None:
         from models.ensemble_trainer import main as train_ensemble
         ensemble_model_path = train_ensemble()
         print(f"[train] ensemble model: {ensemble_model_path}")
+
+    # --- 통합 패킷 ---
+    if run_all or args.only_packets:
+        print("[pipeline] 계층적 통합 패킷 생성 시작...")
+        from models.packet_builder import main as build_packets
+        packets_dir = build_packets()
+        print(f"[train] packets: {packets_dir}")
 
     # --- 뉴스 감성 분석 (스켈레톤) ---
     if run_all:
