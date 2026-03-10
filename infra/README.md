@@ -120,8 +120,7 @@ bash infra/scripts/renew-gateway-cert.sh
 필수 GitLab Variables:
 
 - `POSTGRES_SUPERPASSWORD`
-- `DEV_DB_PASSWORD`
-- `PROD_DB_PASSWORD`
+- `APP_DB_PASSWORD`
 
 CI job은 위 세 값을 이용해 `/srv/sallaemallae/env/base.env`, `/srv/sallaemallae/env/<branch>.env`를 생성한 뒤 배포 스크립트를 실행합니다.
 
@@ -274,31 +273,33 @@ bash scripts/smoke.sh
 - HTTP `200`
 - 본문에 `{"status":"OK"...}` 포함
 
-## 5) PostgreSQL 논리 분리 사용 (`app_dev` / `app_prod`)
+## 5) PostgreSQL 단일 DB 사용
 
 초기 기동 시 자동 생성:
 
-- DB: `app_dev`, `app_prod`
-- 계정: `app_dev_user`, `app_prod_user`
+- DB: `app`
+- 계정: `app_user`
 
-### 5-1. 기본(dev) 설정
+### 5-1. 공통 설정
 
 ```env
 SPRING_PROFILE=dev
-APP_DB_NAME=app_dev
-APP_DB_USER=app_dev_user
-APP_DB_PASSWORD=change_me_dev
+APP_DB_NAME=app
+APP_DB_USER=app_user
+APP_DB_PASSWORD=change_me_app
 ```
 
-### 5-2. prod DB로 전환
+`dev`, `develop`, `master` 모두 같은 DB를 사용하고, 앱 동작 차이는 `SPRING_PROFILE`로만 분리합니다.
 
-`.env` 수정 후 재기동:
+### 5-2. profile만 전환
+
+운영 동작으로 검증할 때는 DB를 바꾸지 않고 profile만 변경합니다.
 
 ```env
 SPRING_PROFILE=prod
-APP_DB_NAME=app_prod
-APP_DB_USER=app_prod_user
-APP_DB_PASSWORD=change_me_prod
+APP_DB_NAME=app
+APP_DB_USER=app_user
+APP_DB_PASSWORD=change_me_app
 ```
 
 ```bash
@@ -309,15 +310,7 @@ docker compose --env-file .env -f docker-compose.yml up -d --build
 ### 5-3. 권한 검증
 
 ```bash
-docker exec -it postgres psql -U app_dev_user -d app_dev -c "select current_database(), current_user;"
-docker exec -it postgres psql -U app_prod_user -d app_prod -c "select current_database(), current_user;"
-```
-
-교차 접근 차단(실패가 정상):
-
-```bash
-docker exec -it postgres psql -U app_dev_user -d app_prod -c "select 1;"
-docker exec -it postgres psql -U app_prod_user -d app_dev -c "select 1;"
+docker exec -it postgres psql -U app_user -d app -c "select current_database(), current_user;"
 ```
 
 ## 6) 중지
@@ -339,7 +332,7 @@ docker compose --env-file .env -f docker-compose.yml down
 
 - 증상: Spring에서 DB 접속 오류
 - 확인: `docker compose --env-file .env -f infra/docker-compose.yml ps`에서 `postgres` health 상태
-- 조치: `.env`의 `APP_DB_*`와 `DEV_DB_* / PROD_DB_*` 값 일치 여부 확인 후 재기동
+- 조치: `.env`의 `APP_DB_*` 값과 실제 PostgreSQL 초기화 값이 일치하는지 확인 후 재기동
 
 ### 7-3. Docker 엔진 문제
 
