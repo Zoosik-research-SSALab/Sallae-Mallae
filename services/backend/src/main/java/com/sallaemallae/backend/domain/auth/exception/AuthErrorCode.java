@@ -52,7 +52,11 @@ public enum AuthErrorCode implements ErrorCode {
   PWD_POLICY_VIOLATION(400, "PWD_002", "비밀번호 정책을 위반했습니다."),
   PWD_RECENT_REUSE(400, "PWD_003", "최근 사용한 비밀번호와 동일합니다."),
   PWD_WRONG_CURRENT(401, "PWD_004", "현재 비밀번호가 올바르지 않습니다."),
-  PWD_SOCIAL_ACCOUNT(400, "PWD_005", "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.");
+  PWD_SOCIAL_ACCOUNT(400, "PWD_005", "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다."),
+
+  // Rate Limit
+  RATE_EXCEEDED(429, "RATE_001", "요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
+  EMAIL_RATE_EXCEEDED(429, "RATE_002", "이메일 발송 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.");
 
   private final int status;
   private final String code;
