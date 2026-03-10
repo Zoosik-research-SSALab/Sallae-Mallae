@@ -8,6 +8,9 @@
 -- =============================================================================
 \connect app
 
+-- pgvector 확장 (키워드 의미 벡터 검색용)
+CREATE EXTENSION IF NOT EXISTS vector;
+
 SET search_path TO public;
 
 -- =========================================================================
@@ -279,6 +282,12 @@ CREATE TABLE news_keyword_map (
     keyword_id BIGINT NOT NULL,                 -- PK, FK
     PRIMARY KEY (news_id, keyword_id),
     FOREIGN KEY (news_id) REFERENCES stock_news(id) ON DELETE CASCADE,
+    FOREIGN KEY (keyword_id) REFERENCES keywords(id) ON DELETE CASCADE
+);
+
+CREATE TABLE keyword_embeddings (
+    keyword_id BIGINT PRIMARY KEY,              -- FK → keywords
+    embedding vector(384) NOT NULL,             -- 의미 벡터 (384차원)
     FOREIGN KEY (keyword_id) REFERENCES keywords(id) ON DELETE CASCADE
 );
 
