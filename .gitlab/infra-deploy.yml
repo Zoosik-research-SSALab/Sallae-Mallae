@@ -70,3 +70,18 @@ deploy_develop:
     - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
     - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" develop
     - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-develop.sh"
+
+deploy_monitoring_manual:
+  stage: deploy
+  when: manual
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "infra-common"'
+  script:
+    - rm -rf "$INFRA_TMP_DIR"
+    - mkdir -p "$INFRA_TMP_DIR"
+    - git fetch origin "$DEPLOY_INFRA_REF"
+    - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
+    - mkdir -p /srv/sallaemallae/env
+    - if [ ! -f /srv/sallaemallae/env/monitoring.env ]; then cp "$INFRA_TMP_DIR/infra/env/monitoring.env.example" /srv/sallaemallae/env/monitoring.env; fi
+    - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-monitoring.sh"

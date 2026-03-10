@@ -19,6 +19,7 @@ infra/
   base/      # shared postgres + redis
   apps/      # frontend/backend/ai/full app stacks
   gateway/   # public gateway nginx compose
+  monitoring/# prometheus + grafana + exporters
   env/       # branch-specific env examples
   nginx/     # routing configs per deployment target
   scripts/   # standard deploy commands for EC2 runner/jobs
@@ -38,6 +39,8 @@ EC2 배포용 AI 경로는 `services/ai/3_ai_server`와 `services/ai/1_data_pipe
 - `dev-ai` : ai 스택 자동 배포
 - `develop` : full 스택 자동 배포
 - `master` : 자동 배포 제외
+
+공통 인프라 성격의 monitoring 스택은 `infra-common` 브랜치에서 수동 job으로 배포합니다.
 
 내부 앱 포트는 아래처럼 유지합니다.
 
@@ -129,6 +132,50 @@ CI job은 위 세 값을 이용해 `/srv/sallaemallae/env/base.env`, `/srv/salla
 - 초기 1회 수동 실행:
   - GitLab `dev-backend` 파이프라인의 `deploy_base_manual` job 수동 실행
 - 이후에는 인프라 변경이 필요한 경우에만 별도 반영
+
+## Monitoring
+
+1차 모니터링 스택은 아래 4개로 구성합니다.
+
+- `prometheus` : 메트릭 수집/저장
+- `grafana` : 대시보드 시각화
+- `node-exporter` : EC2 호스트 메트릭
+- `cadvisor` : Docker 컨테이너 메트릭
+
+구성 파일:
+
+- compose: `infra/monitoring/docker-compose.monitoring.yml`
+- prometheus config: `infra/monitoring/prometheus/prometheus.yml`
+- grafana provisioning: `infra/monitoring/grafana/provisioning/*`
+- env example: `infra/env/monitoring.env.example`
+- deploy script: `infra/scripts/deploy-monitoring.sh`
+
+기본 포트는 외부 공개 없이 localhost bind 기준입니다.
+
+- Prometheus: `127.0.0.1:9090`
+- Grafana: `127.0.0.1:3001`
+- node-exporter: `127.0.0.1:9100`
+- cAdvisor: `127.0.0.1:8088`
+
+배포 방법은 2가지입니다.
+
+1. 권장: GitLab `infra-common` 파이프라인의 `deploy_monitoring_manual` job 실행
+2. 수동: EC2에서 `bash infra/scripts/deploy-monitoring.sh`
+
+최초 실행 시 job은 `/srv/sallaemallae/env/monitoring.env`가 없으면 `infra/env/monitoring.env.example`를 복사해 기본값으로 생성합니다.
+
+SSH 터널 예시:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 -L 9090:127.0.0.1:9090 sallae-ec2
+```
+
+이후 로컬 브라우저에서 아래 주소로 접속합니다.
+
+- Grafana: `http://localhost:3001`
+- Prometheus: `http://localhost:9090`
+
+1차 범위는 서버/컨테이너 모니터링입니다. 앱 메트릭은 2차로 확장합니다.
 
 ## Local Development Modes
 
