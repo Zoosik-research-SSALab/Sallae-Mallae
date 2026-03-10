@@ -1,8 +1,7 @@
 -- Baseline schema managed by Flyway.
 -- Apply to the currently selected application database.
 
--- pgvector 확장 (키워드 의미 벡터 검색용)
-CREATE EXTENSION IF NOT EXISTS vector;
+-- pgvector 확장은 base postgres init 단계에서 superuser 권한으로 생성한다.
 
 SET search_path TO public;
 
