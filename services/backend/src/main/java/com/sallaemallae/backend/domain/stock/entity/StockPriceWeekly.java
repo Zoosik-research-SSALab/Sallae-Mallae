@@ -6,7 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
+import jakarta.persistence.UniqueConstraint;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -14,9 +15,11 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "stock_prices")
+@Table(name = "stock_prices_weekly", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"stock_id", "trade_week"})
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class StockPrice {
+public class StockPriceWeekly {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,8 +28,8 @@ public class StockPrice {
   @Column(name = "stock_id", nullable = false)
   private Long stockId;
 
-  @Column(name = "trade_timestamp", nullable = false)
-  private OffsetDateTime tradeTimestamp;
+  @Column(name = "trade_week", nullable = false)
+  private LocalDate tradeWeek;
 
   @Column(name = "open_price")
   private Integer openPrice;
@@ -43,8 +46,8 @@ public class StockPrice {
   @Column
   private Long volume;
 
-  @Column(name = "fluctuation_rate", precision = 10, scale = 4)
-  private BigDecimal fluctuationRate;
+  @Column(name = "fluctuation_rate")
+  private Float fluctuationRate;
 
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;

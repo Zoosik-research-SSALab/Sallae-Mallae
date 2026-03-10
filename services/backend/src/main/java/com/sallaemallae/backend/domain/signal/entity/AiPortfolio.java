@@ -6,7 +6,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -25,8 +24,14 @@ public class AiPortfolio {
   @Column(nullable = false, length = 50)
   private String name;
 
-  @Column(name = "cumulative_return", precision = 10, scale = 4)
-  private BigDecimal cumulativeReturn;
+  @Column(name = "model_version", nullable = false, length = 20)
+  private String modelVersion;
+
+  @Column(name = "debate_version", length = 20)
+  private String debateVersion;
+
+  @Column(name = "cumulative_return")
+  private Float cumulativeReturn;
 
   @Column(name = "total_trades", nullable = false)
   private int totalTrades;

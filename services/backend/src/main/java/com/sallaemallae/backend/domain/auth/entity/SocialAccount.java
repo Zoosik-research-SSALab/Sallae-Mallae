@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -18,7 +19,9 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "social_accounts")
+@Table(name = "social_accounts", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"provider", "provider_account_id"})
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SocialAccount {
 
