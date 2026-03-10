@@ -62,8 +62,6 @@ services:
       context: ../../services/ai/3_ai_server
       dockerfile: Dockerfile
     restart: unless-stopped
-    environment:
-      AI_DB_URL: postgresql+psycopg2://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres:5432/${APP_DB_NAME}
     expose:
       - "8000"
     networks:
@@ -81,9 +79,9 @@ services:
       REDIS_PORT: 6379
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${APP_DB_NAME}
-      DB_USER: ${APP_DB_USER}
-      DB_PASSWORD: ${APP_DB_PASSWORD}
+      DB_NAME: ${WORKER_DB_NAME}
+      DB_USER: ${WORKER_DB_USER}
+      DB_PASSWORD: ${WORKER_DB_PASSWORD}
     networks:
       - app-net
       - base-net
