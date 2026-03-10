@@ -47,15 +47,14 @@ logger = setup_logger(__name__)
 # ---------------------------------------------------------------------------
 TECH_FEATURES: list[str] = [
     "rsi_14",
-    "macd",
-    "macd_signal",
-    "macd_hist",
-    "bb_upper",
-    "bb_middle",
-    "bb_lower",
-    "ma_5",
-    "ma_20",
-    "ma_60",
+    "macd_norm",
+    "macd_signal_norm",
+    "macd_hist_norm",
+    "bb_percent_b",
+    "bb_width",
+    "close_to_ma5",
+    "close_to_ma20",
+    "close_to_ma60",
     "volume_ratio_5d",
     "volume_ratio_20d",
     "momentum_5d",
@@ -83,13 +82,21 @@ MACRO_FEATURES: list[str] = [
     "sox_return_1d",
 ]
 
+REGIME_FEATURES: list[str] = [
+    "vix_regime",
+    "vix_ma20_ratio",
+    "bond_trend_60d",
+    "market_momentum_20d",
+    "volatility_regime",
+]
+
 META_FEATURES: list[str] = [
     "stock_id",
     "sector_id",
     "market_cap_rank",
 ]
 
-FEATURES: list[str] = TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + META_FEATURES
+FEATURES: list[str] = TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + REGIME_FEATURES + META_FEATURES
 
 TARGET: str = "return_5d_class"
 
@@ -333,6 +340,70 @@ def _add_momentum_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# ---------------------------------------------------------------------------
+# 가격 정규화 피처 (가격 레벨 → 상대 비율)
+# ---------------------------------------------------------------------------
+
+def _normalize_price_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    가격 레벨 피처를 가격 대비 비율로 정규화합니다.
+
+    종목 간 가격 수준 차이(삼성전자 7만 vs 소형주 200원)로 인한
+    가짜 상관(spurious correlation)을 제거합니다.
+
+    변환:
+      ma_5, ma_20, ma_60  → close / ma_N - 1 (이동평균 괴리율)
+      bb_upper, bb_lower  → bb_percent_b = (close - bb_lower) / (bb_upper - bb_lower)
+      bb_upper, bb_lower  → bb_width = (bb_upper - bb_lower) / bb_middle
+      macd, macd_signal, macd_hist → / close * 100 (가격 대비 정규화)
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame, close + 기술지표 컬럼 필요
+
+    Returns:
+        정규화 피처 컬럼이 추가된 DataFrame
+    """
+    df = df.copy()
+    close = df["close"].astype(float)
+
+    logger.info("[NORM] 가격 정규화 피처 계산 시작")
+
+    # 이동평균 괴리율: close / ma_N - 1
+    for n in [5, 20, 60]:
+        ma_col = f"ma_{n}"
+        norm_col = f"close_to_ma{n}"
+        if ma_col in df.columns:
+            ma_val = df[ma_col].astype(float).replace(0, np.nan)
+            df[norm_col] = close / ma_val - 1
+        else:
+            df[norm_col] = np.nan
+
+    # 볼린저밴드 %B: (close - bb_lower) / (bb_upper - bb_lower)
+    if "bb_upper" in df.columns and "bb_lower" in df.columns:
+        bb_range = (df["bb_upper"].astype(float) - df["bb_lower"].astype(float)).replace(0, np.nan)
+        df["bb_percent_b"] = (close - df["bb_lower"].astype(float)) / bb_range
+    else:
+        df["bb_percent_b"] = np.nan
+
+    # 볼린저밴드 폭: (bb_upper - bb_lower) / bb_middle
+    if "bb_upper" in df.columns and "bb_lower" in df.columns and "bb_middle" in df.columns:
+        bb_mid = df["bb_middle"].astype(float).replace(0, np.nan)
+        df["bb_width"] = (df["bb_upper"].astype(float) - df["bb_lower"].astype(float)) / bb_mid
+    else:
+        df["bb_width"] = np.nan
+
+    # MACD 정규화: / close * 100
+    for col, norm_col in [("macd", "macd_norm"), ("macd_signal", "macd_signal_norm"), ("macd_hist", "macd_hist_norm")]:
+        if col in df.columns:
+            close_nonzero = close.replace(0, np.nan)
+            df[norm_col] = df[col].astype(float) / close_nonzero * 100
+        else:
+            df[norm_col] = np.nan
+
+    logger.info("[NORM] 가격 정규화 피처 계산 완료 (8개 피처 추가)")
+    return df
+
+
 def _add_supply_features_from_raw(
     df: pd.DataFrame,
     tickers: list[str],
@@ -503,6 +574,83 @@ def _add_macro_features_from_raw(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# 시장 레짐 피처 (매크로 기반 파생)
+# ---------------------------------------------------------------------------
+
+def _add_regime_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    매크로 데이터에서 시장 레짐 판단 피처를 파생합니다.
+
+    모든 종목에 같은 날짜는 같은 값이지만, 트리 모델이
+    "이 레짐에서는 이 패턴이 유효하다"를 학습하는 데 사용됩니다.
+
+    피처:
+      vix_regime: VIX가 20일 평균 이상이면 1 (공포 레짐)
+      vix_ma20_ratio: VIX / VIX_MA20 - 1 (VIX 괴리율)
+      bond_trend_60d: 60거래일 금리 변화 (양수면 인상 추세)
+      market_momentum_20d: KOSPI200 20일 수익률
+      volatility_regime: VIX 수준 범주 (0=안정 <15, 1=보통 15-25, 2=불안 25-35, 3=공포 >35)
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame
+
+    Returns:
+        레짐 피처 컬럼이 추가된 DataFrame
+    """
+    logger.info("[REGIME] 시장 레짐 피처 계산 시작")
+
+    # 날짜 레벨 추출
+    date_level = df.index.get_level_values("date")
+    unique_dates = pd.DatetimeIndex(sorted(date_level.unique()))
+
+    # 날짜 기준 레짐 피처 계산 (Series)
+    regime_df = pd.DataFrame(index=unique_dates)
+
+    # VIX 기반 레짐
+    if "vix" in df.columns:
+        # 날짜별 VIX 값 (모든 종목 동일이므로 첫 번째 값 사용)
+        vix_daily = df.groupby(level="date")["vix"].first().reindex(unique_dates)
+        vix_ma20 = vix_daily.rolling(window=20, min_periods=5).mean()
+
+        regime_df["vix_regime"] = (vix_daily > vix_ma20).astype(float)
+        regime_df["vix_ma20_ratio"] = vix_daily / vix_ma20.replace(0, np.nan) - 1
+
+        # VIX 수준 범주화
+        regime_df["volatility_regime"] = 0.0
+        regime_df.loc[vix_daily >= 15, "volatility_regime"] = 1.0
+        regime_df.loc[vix_daily >= 25, "volatility_regime"] = 2.0
+        regime_df.loc[vix_daily >= 35, "volatility_regime"] = 3.0
+    else:
+        regime_df["vix_regime"] = np.nan
+        regime_df["vix_ma20_ratio"] = np.nan
+        regime_df["volatility_regime"] = np.nan
+
+    # 금리 추세
+    if "us_bond_10y" in df.columns:
+        bond_daily = df.groupby(level="date")["us_bond_10y"].first().reindex(unique_dates)
+        regime_df["bond_trend_60d"] = bond_daily.diff(60)
+    else:
+        regime_df["bond_trend_60d"] = np.nan
+
+    # 시장 모멘텀
+    if "kospi200_return_1d" in df.columns:
+        kospi_daily = df.groupby(level="date")["kospi200_return_1d"].first().reindex(unique_dates)
+        regime_df["market_momentum_20d"] = kospi_daily.rolling(window=20, min_periods=5).sum()
+    else:
+        regime_df["market_momentum_20d"] = np.nan
+
+    # MultiIndex에 매핑
+    for col in REGIME_FEATURES:
+        if col in regime_df.columns:
+            df[col] = regime_df[col].reindex(date_level).values
+        else:
+            df[col] = np.nan
+
+    logger.info("[REGIME] 시장 레짐 피처 계산 완료 (%d개 피처)", len(REGIME_FEATURES))
+    return df
+
+
+# ---------------------------------------------------------------------------
 # 타겟 계산 — 단면 분위수 기반 3클래스 (date별 cross-sectional quantile)
 # ---------------------------------------------------------------------------
 
@@ -639,7 +787,7 @@ def _fill_and_clean(df: pd.DataFrame) -> pd.DataFrame:
         결측치 처리된 DataFrame
     """
     numeric_feature_cols = [
-        c for c in TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES
+        c for c in TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + REGIME_FEATURES
         if c in df.columns
     ]
 
@@ -700,11 +848,17 @@ def build_lgbm_features() -> pd.DataFrame:
     # 2. momentum 피처 추가
     df = _add_momentum_features(df)
 
+    # 2.5. 가격 정규화 피처
+    df = _normalize_price_features(df)
+
     # 3. 수급 피처 보완
     df = _add_supply_features_from_raw(df, tickers)
 
     # 4. 매크로 피처 보완
     df = _add_macro_features_from_raw(df)
+
+    # 4.5. 시장 레짐 피처
+    df = _add_regime_features(df)
 
     # 5. 타겟 생성
     df = compute_target(df)

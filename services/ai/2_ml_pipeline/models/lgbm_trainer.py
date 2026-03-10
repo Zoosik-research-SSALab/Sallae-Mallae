@@ -37,26 +37,29 @@ logger = setup_logger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 LGBM_FEATURES = [
-    # Technical
-    "rsi_14", "macd", "macd_signal", "macd_hist",
-    "bb_upper", "bb_middle", "bb_lower",
-    "ma_5", "ma_20", "ma_60",
+    # Technical (price-normalized)
+    "rsi_14", "macd_norm", "macd_signal_norm", "macd_hist_norm",
+    "bb_percent_b", "bb_width",
+    "close_to_ma5", "close_to_ma20", "close_to_ma60",
     "volume_ratio_5d", "volume_ratio_20d",
     "momentum_5d", "momentum_20d",
     # Supply (may have NaN for pre-2020 data)
     "foreign_net_buy_1d", "foreign_net_buy_5d", "foreign_net_buy_20d",
     "institution_net_buy_1d", "institution_net_buy_5d",
     # Macro
-    "kospi200_return_1d", "vkospi", "usd_krw_change",
+    "kospi200_return_1d", "usd_krw_change",
     "sp500_return_1d", "nasdaq_return_1d", "dxy_change",
     "vix", "vix_change", "us_bond_10y", "us_bond_10y_change", "sox_return_1d",
+    # Regime (market state)
+    "vix_regime", "vix_ma20_ratio", "bond_trend_60d",
+    "market_momentum_20d", "volatility_regime",
     # Meta (categorical)
-    "stock_id", "sector_id", "market_cap_rank",
+    "stock_id", "cluster_id", "market_cap_rank",
 ]
 
 TARGET = "return_5d_class"  # 0=down, 1=sideways, 2=up
 
-CATEGORICAL_FEATURES = ["stock_id", "sector_id"]
+CATEGORICAL_FEATURES = ["stock_id", "cluster_id"]
 
 LGBM_PARAMS = {
     "objective": "multiclass",
@@ -376,6 +379,101 @@ def evaluate_predictions(
         "per_class_report": per_class_report,
         "confusion_matrix": conf_matrix,
     }
+
+
+# ---------------------------------------------------------------------------
+# Walk-Forward 예측 (단일 윈도우)
+# ---------------------------------------------------------------------------
+def train_and_predict_window(
+    train_end_date: str,
+    predict_start: str,
+    predict_end: str,
+) -> pd.DataFrame | None:
+    """
+    Walk-Forward용: 지정된 날짜 범위로 LightGBM 학습 및 예측.
+
+    Args:
+        train_end_date: 학습 종료일 (YYYY-MM-DD)
+        predict_start: 예측 시작일 (YYYY-MM-DD)
+        predict_end: 예측 종료일 (YYYY-MM-DD)
+
+    Returns:
+        예측 DataFrame (date, ticker, prob_up, prob_down, prob_sideways,
+        predicted_label, confidence, true_class) 또는 None
+    """
+    # 전체 피처 파일 로드
+    features_path = PROCESSED_LGBM_PATH / "lgbm_features.parquet"
+    if not features_path.exists():
+        logger.warning("[LGBM-WF] 피처 파일 없음: %s", features_path)
+        return None
+
+    full_df = pd.read_parquet(features_path)
+
+    # MultiIndex (date, ticker) 처리
+    if isinstance(full_df.index, pd.MultiIndex):
+        dates = pd.to_datetime(full_df.index.get_level_values("date"))
+    else:
+        full_df = full_df.reset_index()
+        dates = pd.to_datetime(full_df["date"])
+        full_df = full_df.set_index(["date", "ticker"])
+        dates = pd.to_datetime(full_df.index.get_level_values("date"))
+
+    train_end_ts = pd.Timestamp(train_end_date)
+    predict_start_ts = pd.Timestamp(predict_start)
+    predict_end_ts = pd.Timestamp(predict_end)
+
+    # 학습/테스트 분할
+    train_mask = dates <= train_end_ts
+    test_mask = (dates >= predict_start_ts) & (dates <= predict_end_ts)
+
+    train_df = full_df[train_mask]
+    test_df = full_df[test_mask]
+
+    if train_df.empty or test_df.empty:
+        logger.warning("[LGBM-WF] 데이터 부족 (train=%d, test=%d)", len(train_df), len(test_df))
+        return None
+
+    # TARGET 컬럼 확인
+    if TARGET not in train_df.columns or TARGET not in test_df.columns:
+        logger.warning("[LGBM-WF] 타겟 컬럼 없음: %s", TARGET)
+        return None
+
+    logger.info(
+        "[LGBM-WF] train=%d rows (~ %s), test=%d rows (%s ~ %s)",
+        len(train_df), train_end_date, len(test_df), predict_start, predict_end,
+    )
+
+    # 학습
+    trainer = LGBMTrainer()
+    trainer.train(train_df)
+
+    # 예측
+    preds_df = trainer.predict(test_df)
+
+    # 결과 DataFrame 구성 (MultiIndex → flat columns)
+    result = preds_df.copy()
+    if isinstance(result.index, pd.MultiIndex):
+        result = result.reset_index()
+
+    # date, ticker 컬럼 확보
+    if "date" not in result.columns and isinstance(test_df.index, pd.MultiIndex):
+        idx = test_df.index.to_frame(index=False)
+        result["date"] = idx["date"].values
+        result["ticker"] = idx["ticker"].values
+
+    result["date"] = pd.to_datetime(result["date"])
+
+    # true_class 추가
+    if TARGET in test_df.columns:
+        if isinstance(test_df.index, pd.MultiIndex):
+            result["true_class"] = test_df[TARGET].astype(int).values
+        else:
+            result["true_class"] = test_df[TARGET].astype(int).values
+
+    result["predicted_label"] = result["predicted_class"].map(CLASS_NAMES)
+
+    logger.info("[LGBM-WF] 예측 완료: %d행", len(result))
+    return result
 
 
 # ---------------------------------------------------------------------------

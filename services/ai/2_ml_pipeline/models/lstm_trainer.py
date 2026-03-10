@@ -373,6 +373,128 @@ def save_predictions(all_results: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Walk-Forward 학습 및 예측
+# ---------------------------------------------------------------------------
+
+def train_and_predict_window(
+    train_end_date: str,
+    predict_start: str,
+    predict_end: str,
+) -> pd.DataFrame | None:
+    """
+    Walk-Forward용: 지정된 날짜 범위로 LSTM 학습 및 예측.
+
+    train/ 및 test/ 디렉토리의 모든 NPZ 파일을 로드하고,
+    날짜 기준으로 재분할하여 학습 및 예측을 수행합니다.
+
+    Args:
+        train_end_date: 학습 종료일 (YYYY-MM-DD)
+        predict_start: 예측 시작일 (YYYY-MM-DD)
+        predict_end: 예측 종료일 (YYYY-MM-DD)
+
+    Returns:
+        예측 DataFrame (date, ticker, prob, y_true) 또는 None
+    """
+    train_dir = PROCESSED_LSTM_PATH / "train"
+    test_dir = PROCESSED_LSTM_PATH / "test"
+
+    # 모든 NPZ 파일 수집 (train + test)
+    all_npz: list[Path] = []
+    if train_dir.exists():
+        all_npz.extend(sorted(train_dir.glob("sector_*.npz")))
+    if test_dir.exists():
+        all_npz.extend(sorted(test_dir.glob("sector_*.npz")))
+
+    if not all_npz:
+        logger.warning("[LSTM-WF] NPZ 파일 없음")
+        return None
+
+    train_end_ts = pd.Timestamp(train_end_date)
+    predict_start_ts = pd.Timestamp(predict_start)
+    predict_end_ts = pd.Timestamp(predict_end)
+
+    all_predictions: list[dict] = []
+    sectors_trained = 0
+
+    # 섹터별로 처리 (같은 sector_id를 가진 train/test NPZ를 합침)
+    sector_data: dict[str, list[tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray | None]]] = {}
+
+    for npz_path in all_npz:
+        sector_id = npz_path.stem.replace("sector_", "")
+        X, y, tickers, dates = _load_npz(npz_path)
+
+        if dates is None:
+            logger.debug("[LSTM-WF] 섹터 %s: 날짜 메타데이터 없음 — 건너뜀", sector_id)
+            continue
+
+        if sector_id not in sector_data:
+            sector_data[sector_id] = []
+        sector_data[sector_id].append((X, y, tickers, dates))
+
+    if not sector_data:
+        logger.warning("[LSTM-WF] 날짜 메타데이터가 있는 섹터가 없습니다.")
+        return None
+
+    for sector_id, data_list in sector_data.items():
+        # 같은 섹터의 모든 NPZ 합치기
+        X_all = np.concatenate([d[0] for d in data_list])
+        y_all = np.concatenate([d[1] for d in data_list])
+        tickers_all = np.concatenate([d[2] for d in data_list]) if all(d[2] is not None for d in data_list) else None
+        dates_all = np.concatenate([d[3] for d in data_list])
+
+        # 날짜 기준 분할
+        dates_ts = pd.to_datetime(dates_all)
+        train_mask = dates_ts <= train_end_ts
+        test_mask = (dates_ts >= predict_start_ts) & (dates_ts <= predict_end_ts)
+
+        X_train = X_all[train_mask]
+        y_train = y_all[train_mask]
+        X_test = X_all[test_mask]
+        y_test = y_all[test_mask]
+
+        if len(X_train) < MIN_SAMPLES or len(X_test) == 0:
+            continue
+
+        # NaN 처리
+        X_train = np.nan_to_num(X_train, nan=0.0)
+        X_test = np.nan_to_num(X_test, nan=0.0)
+
+        # 학습
+        trainer = SectorLSTMTrainer(sector_id=sector_id)
+        trainer.train(X_train, y_train)
+
+        # 예측
+        probs, preds = trainer.predict(X_test)
+        sectors_trained += 1
+
+        # 결과 수집
+        test_tickers = tickers_all[test_mask] if tickers_all is not None else [None] * len(X_test)
+        test_dates = dates_all[test_mask]
+
+        for i in range(len(X_test)):
+            all_predictions.append({
+                "date": test_dates[i],
+                "ticker": test_tickers[i],
+                "prob": float(probs[i]),
+                "y_true": int(y_test[i]),
+                "sector_id": sector_id,
+            })
+
+    if not all_predictions:
+        logger.warning("[LSTM-WF] 예측 결과 없음")
+        return None
+
+    result = pd.DataFrame(all_predictions)
+    result["date"] = pd.to_datetime(result["date"])
+
+    logger.info(
+        "[LSTM-WF] 완료: %d섹터, %d예측 (%s ~ %s)",
+        sectors_trained, len(result), predict_start, predict_end,
+    )
+    return result
+
+
+# ---------------------------------------------------------------------------
 # 엔트리포인트
 # ---------------------------------------------------------------------------
 

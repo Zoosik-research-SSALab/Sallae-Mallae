@@ -210,6 +210,53 @@ def fit_all_tickers(forecast_date: str | None = None) -> pd.DataFrame:
     return pd.DataFrame(results)
 
 
+def fit_all_tickers_window(train_end_date: str) -> pd.DataFrame:
+    """
+    Walk-Forward용: train_end_date까지의 OHLCV 데이터로 GARCH 피팅.
+
+    Args:
+        train_end_date: 학습 종료일 (YYYY-MM-DD). 이 날짜까지의 데이터만 사용.
+
+    Returns:
+        종목별 변동성 예측 결과 DataFrame (fit_all_tickers와 동일 스키마)
+    """
+    if not RAW_OHLCV_PATH.exists():
+        logger.error("RAW_OHLCV_PATH가 존재하지 않습니다: %s", RAW_OHLCV_PATH)
+        return pd.DataFrame()
+
+    parquet_files = sorted(RAW_OHLCV_PATH.glob("*.parquet"))
+    if not parquet_files:
+        logger.error("OHLCV parquet 파일 없음: %s", RAW_OHLCV_PATH)
+        return pd.DataFrame()
+
+    end_ts = pd.Timestamp(train_end_date)
+    logger.info("[GARCH-WF] 피팅 시작 (%d 종목, train_end=%s)", len(parquet_files), train_end_date)
+
+    results: list[dict] = []
+    for pf in parquet_files:
+        ticker = pf.stem
+        try:
+            ohlcv_df = pd.read_parquet(pf)
+        except Exception:
+            continue
+        if ohlcv_df.empty:
+            continue
+
+        # train_end_date까지만 필터링
+        ohlcv_df.index = pd.to_datetime(ohlcv_df.index)
+        ohlcv_df = ohlcv_df[ohlcv_df.index <= end_ts]
+
+        if ohlcv_df.empty:
+            continue
+
+        result = fit_single_ticker(ticker, ohlcv_df, forecast_date=train_end_date)
+        if result is not None:
+            results.append(result)
+
+    logger.info("[GARCH-WF] 피팅 완료: %d종목 성공", len(results))
+    return pd.DataFrame(results) if results else pd.DataFrame()
+
+
 # ---------------------------------------------------------------------------
 # 결과 저장
 # ---------------------------------------------------------------------------
