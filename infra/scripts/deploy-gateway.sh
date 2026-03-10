@@ -6,5 +6,5 @@ source "$SCRIPT_DIR/common.sh"
 
 compose_up \
   "$ROOT_DIR/env/gateway.env" \
-  "$CHECKOUT_DIR/infra/gateway/docker-compose.gateway.yml" \
+  "$INFRA_TEMPLATE_DIR/gateway/docker-compose.gateway.yml" \
   "sallae-gateway"

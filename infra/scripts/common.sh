@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="${ROOT_DIR:-/srv/sallaemallae}"
 CHECKOUT_DIR="${CHECKOUT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+INFRA_TEMPLATE_DIR="${INFRA_TEMPLATE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 TARGET_NAME="${TARGET_NAME:-${TARGET:-}}"
 if [[ -z "${TARGET_NAME}" ]]; then
   TARGET_NAME="shared"
@@ -27,6 +28,7 @@ require_dir() {
 
 sync_source() {
   require_dir "$CHECKOUT_DIR"
+  require_dir "$INFRA_TEMPLATE_DIR"
   mkdir -p "$ROOT_DIR/source"
 
   local tmp_dir="$ROOT_DIR/source/.tmp-$TARGET_NAME"
@@ -41,6 +43,9 @@ sync_source() {
     --exclude=node_modules \
     --exclude=target \
     -cf - -C "$CHECKOUT_DIR" . | tar -xf - -C "$tmp_dir"
+
+  rm -rf "$tmp_dir/infra"
+  cp -a "$INFRA_TEMPLATE_DIR" "$tmp_dir/infra"
 
   rm -rf "$SOURCE_DIR"
   mkdir -p "$(dirname "$SOURCE_DIR")"
