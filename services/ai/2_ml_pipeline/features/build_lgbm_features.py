@@ -72,7 +72,6 @@ SUPPLY_FEATURES: list[str] = [
 
 MACRO_FEATURES: list[str] = [
     "kospi200_return_1d",
-    "vkospi",
     "usd_krw_change",
     "sp500_return_1d",
     "nasdaq_return_1d",
@@ -450,10 +449,6 @@ def _add_macro_features_from_raw(df: pd.DataFrame) -> pd.DataFrame:
     kospi200 = _load_close("kospi200.parquet")
     if kospi200 is not None:
         macro_series["kospi200_return_1d"] = kospi200.pct_change(1)
-
-    vkospi = _load_close("vkospi.parquet")
-    if vkospi is not None:
-        macro_series["vkospi"] = vkospi
 
     usd_krw = _load_close("usd_krw.parquet")
     if usd_krw is not None:
