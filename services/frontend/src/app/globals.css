@@ -310,10 +310,6 @@ pre {
     background-color: var(--flash-bg-color, transparent);
   }
 
-  70% {
-    background-color: var(--color-bg-primary);
-  }
-
   100% {
     background-color: transparent;
   }

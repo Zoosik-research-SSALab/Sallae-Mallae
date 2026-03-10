@@ -41,6 +41,7 @@ const loginButtonClassName =
 async function requestQuickLogin() {
   const payload = await apiFetch<unknown, { email: string; password: string }>("/api/auth/login", {
     method: "POST",
+    useBaseUrl: false,
     body: {
       email: "demo@sallaemallae.ai",
       password: "demo1234",
