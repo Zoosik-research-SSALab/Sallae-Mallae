@@ -4,6 +4,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.sallaemallae.backend.domain.auth.entity.User;
+import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   private final JwtProvider jwtProvider;
   private final RedisTokenService redisTokenService;
+  private final UserRepository userRepository;
 
   private static final String AUTHORIZATION_HEADER = "Authorization";
   private static final String BEARER_PREFIX = "Bearer ";
@@ -45,7 +48,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
       // 인증 정보 설정
       Long userId = jwtProvider.getUserId(token);
+      Integer tokenVersion = jwtProvider.getTokenVersion(token);
       String role = jwtProvider.getRole(token);
+
+      // tokenVersion DB 검증 (비밀번호 재설정 등으로 무효화된 토큰 차단)
+      User user = userRepository.findById(userId).orElse(null);
+      if (user == null || (tokenVersion != null && tokenVersion != user.getTokenVersion())) {
+        log.warn("Token version mismatch for user {}: token={}, db={}",
+            userId, tokenVersion, user != null ? user.getTokenVersion() : "N/A");
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"status\":401,\"code\":\"AUTH_001\",\"message\":\"무효화된 토큰입니다.\"}");
+        return;
+      }
 
       UsernamePasswordAuthenticationToken authentication =
           new UsernamePasswordAuthenticationToken(
@@ -57,7 +72,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       // 추가 정보 저장 (deviceId, tokenVersion, authLevel 등)
       authentication.setDetails(new JwtAuthenticationDetails(
           jwtProvider.getDeviceId(token),
-          jwtProvider.getTokenVersion(token),
+          tokenVersion,
           jwtProvider.getAuthLevel(token),
           jwtProvider.getAuthTime(token)
       ));

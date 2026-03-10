@@ -63,6 +63,7 @@ public class SecurityConfig {
             .requestMatchers("/api/auth/password/reset").permitAll()
             .requestMatchers("/api/auth/policy").permitAll()
             .requestMatchers("/api/auth/status").permitAll()
+            .requestMatchers("/api/auth/oauth/*/start").permitAll()
             .requestMatchers("/api/auth/google/callback").permitAll()
             .requestMatchers("/api/auth/naver/callback").permitAll()
             .requestMatchers("/api/auth/kakao/callback").permitAll()
@@ -93,7 +94,7 @@ public class SecurityConfig {
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
 
-    // 허용할 Origin (프론트엔드 주소)
+    // 허용할 Origin (로컬 개발용, 배포 시 nginx 프록시로 Same-Origin)
     configuration.setAllowedOrigins(List.of(
         "http://localhost:3000",
         "http://localhost:5173"
