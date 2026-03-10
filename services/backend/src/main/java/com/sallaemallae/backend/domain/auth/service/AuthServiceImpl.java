@@ -105,8 +105,8 @@ public class AuthServiceImpl implements AuthService {
     // 3. Check user status
     validateUserStatus(user);
 
-    // 4. Validate password (프론트에서 해시된 값을 그대로 비교)
-    if (!request.password().equals(user.getPasswordHash())) {
+    // 4. Validate password (BCrypt 비교)
+    if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
       // Record failed login attempt
       redisTokenService.incrementLoginFailCount(email);
       loginHistoryRepository.save(
@@ -251,8 +251,14 @@ public class AuthServiceImpl implements AuthService {
       }
     }
 
-    // 4. 사용자 생성 (프론트에서 해시된 비밀번호를 그대로 저장)
-    String passwordHash = request.password();
+    // 4. 비밀번호 정책 검증
+    PasswordValidator.ValidationResult validationResult = passwordValidator.validate(request.password(), email);
+    if (!validationResult.valid()) {
+      throw new BusinessException(AuthErrorCode.PWD_POLICY_VIOLATION);
+    }
+
+    // 5. 사용자 생성 (비밀번호 해시)
+    String passwordHash = passwordEncoder.encode(request.password());
     User user = User.createEmailUser(
         email,
         passwordHash,
@@ -421,11 +427,18 @@ public class AuthServiceImpl implements AuthService {
     User user = userRepository.findByEmail(email)
         .orElseThrow(() -> new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID));
 
-    // 3. 최근 3개 비밀번호 재사용 확인
+    // 3. 비밀번호 정책 검증
+    PasswordValidator.ValidationResult validationResult = passwordValidator.validate(newPassword, email);
+    if (!validationResult.valid()) {
+      throw new BusinessException(AuthErrorCode.PWD_POLICY_VIOLATION);
+    }
+
+    // 4. 최근 3개 비밀번호 재사용 확인
     checkRecentPasswordReuse(user.getId(), newPassword);
 
-    // 4. 비밀번호 변경
-    user.changePassword(newPassword);
+    // 5. 비밀번호 해시 및 변경
+    String hashedPassword = passwordEncoder.encode(newPassword);
+    user.changePassword(hashedPassword);
 
     // 5. 토큰 버전 증가 (기존 모든 토큰 무효화)
     user.incrementTokenVersion();
@@ -436,9 +449,9 @@ public class AuthServiceImpl implements AuthService {
     // 7. 로그인 실패 카운터 삭제 (잠금 해제)
     redisTokenService.deleteLoginFailCount(email);
 
-    // 8. 비밀번호 이력 저장
+    // 9. 비밀번호 이력 저장
     passwordHistoryRepository.save(
-        PasswordHistory.changedByReset(user.getId(), newPassword, ipAddress)
+        PasswordHistory.changedByReset(user.getId(), hashedPassword, ipAddress)
     );
 
     // 9. 이벤트 기록
@@ -456,11 +469,11 @@ public class AuthServiceImpl implements AuthService {
   }
 
   private void checkRecentPasswordReuse(Long userId, String newPassword) {
-    // 현재 비밀번호 포함 최근 3개와 비교 (프론트에서 해시된 값이므로 equals 비교)
+    // 현재 비밀번호 포함 최근 3개와 비교 (BCrypt로 비교)
     List<PasswordHistory> recentPasswords =
         passwordHistoryRepository.findRecentByUserId(userId, RECENT_PASSWORD_CHECK_COUNT);
     for (PasswordHistory ph : recentPasswords) {
-      if (newPassword.equals(ph.getPasswordHash())) {
+      if (passwordEncoder.matches(newPassword, ph.getPasswordHash())) {
         throw new BusinessException(AuthErrorCode.PWD_RECENT_REUSE);
       }
     }
