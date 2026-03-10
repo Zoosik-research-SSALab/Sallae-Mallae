@@ -1,5 +1,6 @@
 package com.sallaemallae.backend.global.security.jwt;
 
+import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,9 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       String jti = jwtProvider.getJti(token);
       if (redisTokenService.isBlacklisted(jti)) {
         log.warn("Blacklisted token used: jti={}", jti);
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write("{\"status\":401,\"code\":\"AUTH_001\",\"message\":\"무효화된 토큰입니다.\"}");
+        writeErrorResponse(response, AuthErrorCode.AUTH_UNAUTHORIZED);
         return;
       }
 
@@ -56,9 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       if (user == null || (tokenVersion != null && tokenVersion != user.getTokenVersion())) {
         log.warn("Token version mismatch for user {}: token={}, db={}",
             userId, tokenVersion, user != null ? user.getTokenVersion() : "N/A");
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write("{\"status\":401,\"code\":\"AUTH_001\",\"message\":\"무효화된 토큰입니다.\"}");
+        writeErrorResponse(response, AuthErrorCode.TOKEN_VERSION_MISMATCH);
         return;
       }
 
@@ -82,6 +79,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     filterChain.doFilter(request, response);
+  }
+
+  private void writeErrorResponse(HttpServletResponse response, AuthErrorCode errorCode)
+      throws IOException {
+    response.setStatus(errorCode.getStatus());
+    response.setContentType("application/json;charset=UTF-8");
+    response.getWriter().write(
+        "{\"success\":false,\"data\":null,\"error\":{\"code\":\"" + errorCode.getCode()
+            + "\",\"message\":\"" + errorCode.getMessage() + "\"}}");
   }
 
   /**

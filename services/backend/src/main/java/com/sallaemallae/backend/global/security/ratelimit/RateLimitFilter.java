@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import java.io.IOException;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -55,11 +56,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String.valueOf(System.currentTimeMillis() / 1000 + result.getResetSeconds()));
 
     if (!result.isAllowed()) {
+      AuthErrorCode errorCode = AuthErrorCode.RATE_EXCEEDED;
       response.setHeader("Retry-After", String.valueOf(result.getResetSeconds()));
-      response.setStatus(429);
+      response.setStatus(errorCode.getStatus());
       response.setContentType("application/json;charset=UTF-8");
       response.getWriter().write(
-          "{\"status\":429,\"code\":\"RATE_001\",\"message\":\"요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.\"}");
+          "{\"success\":false,\"data\":null,\"error\":{\"code\":\"" + errorCode.getCode()
+              + "\",\"message\":\"" + errorCode.getMessage() + "\"}}");
       return;
     }
 
