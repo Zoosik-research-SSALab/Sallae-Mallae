@@ -63,6 +63,7 @@ public class SecurityConfig {
             .requestMatchers("/api/auth/password/reset").permitAll()
             .requestMatchers("/api/auth/policy").permitAll()
             .requestMatchers("/api/auth/status").permitAll()
+            .requestMatchers("/api/auth/oauth/*/start").permitAll()
             .requestMatchers("/api/auth/google/callback").permitAll()
             .requestMatchers("/api/auth/naver/callback").permitAll()
             .requestMatchers("/api/auth/kakao/callback").permitAll()
