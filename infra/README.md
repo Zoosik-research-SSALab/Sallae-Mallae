@@ -71,6 +71,7 @@ gateway nginx는 외부에서 들어온 요청을 최신 파트별 dev 배포로
 - compose: `infra/gateway/docker-compose.gateway.yml`
 - env example: `infra/env/gateway.env.example`
 - nginx template: `infra/nginx/nginx.gateway.conf.template`
+- https template: `infra/nginx/nginx.gateway.https.conf.template`
 
 초기 적용은 수동으로 진행합니다.
 
@@ -81,11 +82,45 @@ gateway nginx는 외부에서 들어온 요청을 최신 파트별 dev 배포로
 gateway를 쓰기 시작하면 EC2 보안그룹/UFW는 외부 기준으로 `80/443`만 열고, `8081~8085`는 외부에서 닫는 방향이 맞습니다.
 나중에 `develop` 검증이 필요하면 gateway env에서 `ROOT_WEB_TARGET`, `ROOT_API_TARGET`, `ROOT_AI_TARGET`을 `develop` 대상에 맞게 바꿔 같은 도메인에서 확인합니다. 최종 운영도 같은 방식으로 전환할 수 있습니다.
 
+### Gateway HTTPS
+
+gateway HTTPS는 `certbot + Let's Encrypt + webroot` 방식으로 적용합니다.
+
+- 최초 발급 전 gateway는 HTTP 템플릿(`infra/nginx/nginx.gateway.conf.template`)으로 올라갑니다.
+- 인증서 발급이 끝나면 gateway env의 템플릿 경로를 HTTPS 템플릿으로 바꾸고, `80 -> 443` 리다이렉트를 활성화합니다.
+
+준비 조건:
+
+- DNS에서 `ROOT_HOST`가 현재 EC2 공인 IP를 가리켜야 함
+- EC2 보안그룹에서 `80`, `443` 허용
+- EC2에 `certbot` 설치 완료
+
+권장 순서:
+
+1. `cp infra/env/gateway.env.example /srv/sallaemallae/env/gateway.env`
+2. `ROOT_HOST`, `ROOT_WEB_TARGET`, `ROOT_API_TARGET`, `ROOT_AI_TARGET` 수정
+3. 필요하면 `CERTBOT_EMAIL` 입력
+4. `bash infra/scripts/issue-gateway-cert.sh`
+
+위 스크립트는 아래를 자동으로 수행합니다.
+
+- ACME challenge가 가능한 HTTP gateway 배포
+- `certbot certonly --webroot` 실행
+- HTTPS 템플릿으로 전환
+- `80 -> 443` 리다이렉트가 포함된 gateway 재배포
+
+수동 갱신 테스트:
+
+```bash
+bash infra/scripts/renew-gateway-cert.sh
+```
+
+자동 갱신은 cron 또는 systemd timer에서 위 스크립트를 호출하면 됩니다.
+
 필수 GitLab Variables:
 
 - `POSTGRES_SUPERPASSWORD`
-- `DEV_DB_PASSWORD`
-- `PROD_DB_PASSWORD`
+- `APP_DB_PASSWORD`
 
 CI job은 위 세 값을 이용해 `/srv/sallaemallae/env/base.env`, `/srv/sallaemallae/env/<branch>.env`를 생성한 뒤 배포 스크립트를 실행합니다.
 
@@ -238,31 +273,33 @@ bash scripts/smoke.sh
 - HTTP `200`
 - 본문에 `{"status":"OK"...}` 포함
 
-## 5) PostgreSQL 논리 분리 사용 (`app_dev` / `app_prod`)
+## 5) PostgreSQL 단일 DB 사용
 
 초기 기동 시 자동 생성:
 
-- DB: `app_dev`, `app_prod`
-- 계정: `app_dev_user`, `app_prod_user`
+- DB: `app`
+- 계정: `app_user`
 
-### 5-1. 기본(dev) 설정
+### 5-1. 공통 설정
 
 ```env
 SPRING_PROFILE=dev
-APP_DB_NAME=app_dev
-APP_DB_USER=app_dev_user
-APP_DB_PASSWORD=change_me_dev
+APP_DB_NAME=app
+APP_DB_USER=app_user
+APP_DB_PASSWORD=change_me_app
 ```
 
-### 5-2. prod DB로 전환
+`dev`, `develop`, `master` 모두 같은 DB를 사용하고, 앱 동작 차이는 `SPRING_PROFILE`로만 분리합니다.
 
-`.env` 수정 후 재기동:
+### 5-2. profile만 전환
+
+운영 동작으로 검증할 때는 DB를 바꾸지 않고 profile만 변경합니다.
 
 ```env
 SPRING_PROFILE=prod
-APP_DB_NAME=app_prod
-APP_DB_USER=app_prod_user
-APP_DB_PASSWORD=change_me_prod
+APP_DB_NAME=app
+APP_DB_USER=app_user
+APP_DB_PASSWORD=change_me_app
 ```
 
 ```bash
@@ -273,15 +310,7 @@ docker compose --env-file .env -f docker-compose.yml up -d --build
 ### 5-3. 권한 검증
 
 ```bash
-docker exec -it postgres psql -U app_dev_user -d app_dev -c "select current_database(), current_user;"
-docker exec -it postgres psql -U app_prod_user -d app_prod -c "select current_database(), current_user;"
-```
-
-교차 접근 차단(실패가 정상):
-
-```bash
-docker exec -it postgres psql -U app_dev_user -d app_prod -c "select 1;"
-docker exec -it postgres psql -U app_prod_user -d app_dev -c "select 1;"
+docker exec -it postgres psql -U app_user -d app -c "select current_database(), current_user;"
 ```
 
 ## 6) 중지
@@ -303,7 +332,7 @@ docker compose --env-file .env -f docker-compose.yml down
 
 - 증상: Spring에서 DB 접속 오류
 - 확인: `docker compose --env-file .env -f infra/docker-compose.yml ps`에서 `postgres` health 상태
-- 조치: `.env`의 `APP_DB_*`와 `DEV_DB_* / PROD_DB_*` 값 일치 여부 확인 후 재기동
+- 조치: `.env`의 `APP_DB_*` 값과 실제 PostgreSQL 초기화 값이 일치하는지 확인 후 재기동
 
 ### 7-3. Docker 엔진 문제
 

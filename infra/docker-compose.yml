@@ -30,9 +30,9 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-dev}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${APP_DB_NAME:-app_dev}
-      DB_USER: ${APP_DB_USER:-app_dev_user}
-      DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_dev}
+      DB_NAME: ${APP_DB_NAME:-app}
+      DB_USER: ${APP_DB_USER:-app_user}
+      DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_app}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms256m -Xmx1024m}
@@ -74,6 +74,8 @@ services:
       dockerfile: Dockerfile
     container_name: ml-server
     restart: unless-stopped
+    environment:
+      AI_DB_URL: postgresql+psycopg2://${APP_DB_USER:-app_user}:${APP_DB_PASSWORD:-change_me_app}@postgres:5432/${APP_DB_NAME:-app}
     expose:
       - "8000"
     networks:
@@ -98,9 +100,9 @@ services:
       REDIS_PORT: 6379
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${WORKER_DB_NAME:-app_dev}
-      DB_USER: ${WORKER_DB_USER:-app_dev_user}
-      DB_PASSWORD: ${WORKER_DB_PASSWORD:-change_me_dev}
+      DB_NAME: ${APP_DB_NAME:-app}
+      DB_USER: ${APP_DB_USER:-app_user}
+      DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_app}
     networks:
       - app-net
 
@@ -108,18 +110,13 @@ services:
     image: postgres:16-alpine
     container_name: postgres
     restart: unless-stopped
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_SUPERPASSWORD:-postgres}
       POSTGRES_DB: postgres
-      DEV_DB_NAME: ${DEV_DB_NAME:-app_dev}
-      DEV_DB_USER: ${DEV_DB_USER:-app_dev_user}
-      DEV_DB_PASSWORD: ${DEV_DB_PASSWORD:-change_me_dev}
-      PROD_DB_NAME: ${PROD_DB_NAME:-app_prod}
-      PROD_DB_USER: ${PROD_DB_USER:-app_prod_user}
-      PROD_DB_PASSWORD: ${PROD_DB_PASSWORD:-change_me_prod}
+      APP_DB_NAME: ${APP_DB_NAME:-app}
+      APP_DB_USER: ${APP_DB_USER:-app_user}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_app}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d postgres"]
       interval: 10s
@@ -136,8 +133,6 @@ services:
     image: redis:7-alpine
     container_name: redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
