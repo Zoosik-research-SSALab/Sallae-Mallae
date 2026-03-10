@@ -43,9 +43,11 @@ LGBM_FEATURES = [
     "close_to_ma5", "close_to_ma20", "close_to_ma60",
     "volume_ratio_5d", "volume_ratio_20d",
     "momentum_5d", "momentum_20d",
-    # Supply (may have NaN for pre-2020 data)
+    "momentum_accel", "rsi_divergence", "volume_climax",
+    # Supply (raw + volume-normalized)
     "foreign_net_buy_1d", "foreign_net_buy_5d", "foreign_net_buy_20d",
     "institution_net_buy_1d", "institution_net_buy_5d",
+    "foreign_buy_ratio_1d", "institution_buy_ratio_1d",
     # Macro
     "kospi200_return_1d", "usd_krw_change",
     "sp500_return_1d", "nasdaq_return_1d", "dxy_change",
@@ -53,17 +55,26 @@ LGBM_FEATURES = [
     # Regime (market state)
     "vix_regime", "vix_ma20_ratio", "bond_trend_60d",
     "market_momentum_20d", "volatility_regime",
+    # Fundamental (sector-neutral z-scores)
+    "per_zscore", "pbr_zscore", "roe_zscore",
+    # Cross-sectional rank (date-wise percentile)
+    "rsi_14_rank",
+    "close_to_ma5_rank", "close_to_ma20_rank", "close_to_ma60_rank",
+    "bb_percent_b_rank", "bb_width_rank",
+    "macd_norm_rank", "macd_hist_norm_rank",
+    "volume_ratio_5d_rank", "volume_ratio_20d_rank",
+    "momentum_5d_rank", "momentum_20d_rank",
+    "momentum_accel_rank",
     # Meta (categorical)
     "stock_id", "cluster_id", "market_cap_rank",
 ]
 
-TARGET = "return_5d_class"  # 0=down, 1=sideways, 2=up
+TARGET = "return_5d_binary"  # 0=하락(하위50%), 1=상승(상위50%)
 
 CATEGORICAL_FEATURES = ["stock_id", "cluster_id"]
 
 LGBM_PARAMS = {
-    "objective": "multiclass",
-    "num_class": 3,
+    "objective": "binary",
     "num_leaves": 31,
     "learning_rate": 0.05,
     "n_estimators": 500,
@@ -77,7 +88,7 @@ LGBM_PARAMS = {
     "verbose": -1,
 }
 
-CLASS_NAMES = {0: "down", 1: "sideways", 2: "up"}
+CLASS_NAMES = {0: "down", 1: "up"}
 
 
 # ---------------------------------------------------------------------------
@@ -181,13 +192,13 @@ class LGBMTrainer:
 
         Returns a DataFrame with columns:
             predicted_class, confidence,
-            prob_down (class 0), prob_sideways (class 1), prob_up (class 2)
+            prob_down (class 0), prob_up (class 1)
         """
         if self.model is None:
             raise RuntimeError("Model is not trained. Call train() first.")
 
         X = self._prepare_X(df)
-        proba = self.model.predict_proba(X)  # shape (n, 3)
+        proba = self.model.predict_proba(X)  # shape (n, 2) for binary
         pred_class = proba.argmax(axis=1)
         confidence = proba.max(axis=1)
 
@@ -196,8 +207,7 @@ class LGBMTrainer:
                 "predicted_class": pred_class,
                 "confidence": confidence,
                 "prob_down": proba[:, 0],
-                "prob_sideways": proba[:, 1],
-                "prob_up": proba[:, 2],
+                "prob_up": proba[:, 1],
             },
             index=df.index,
         )
@@ -353,12 +363,8 @@ def evaluate_predictions(
     """
     accuracy = accuracy_score(y_true, y_pred)
 
-    # Direction accuracy: exclude sideways (class 1), compare up vs down
-    binary_mask = (y_true != 1) & (y_pred != 1)
-    if binary_mask.sum() > 0:
-        direction_accuracy = accuracy_score(y_true[binary_mask], y_pred[binary_mask])
-    else:
-        direction_accuracy = float("nan")
+    # Direction accuracy: same as accuracy for binary classification
+    direction_accuracy = accuracy_score(y_true, y_pred)
 
     # Information coefficient: Spearman correlation between predicted class and true class
     # Higher predicted class (2=up) should correlate with higher true class
@@ -368,9 +374,9 @@ def evaluate_predictions(
         ic = float("nan")
 
     per_class_report = classification_report(
-        y_true, y_pred, target_names=["down", "sideways", "up"], zero_division=0
+        y_true, y_pred, target_names=["down", "up"], zero_division=0
     )
-    conf_matrix = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
+    conf_matrix = confusion_matrix(y_true, y_pred, labels=[0, 1])
 
     return {
         "accuracy": accuracy,
@@ -398,7 +404,7 @@ def train_and_predict_window(
         predict_end: 예측 종료일 (YYYY-MM-DD)
 
     Returns:
-        예측 DataFrame (date, ticker, prob_up, prob_down, prob_sideways,
+        예측 DataFrame (date, ticker, prob_up, prob_down,
         predicted_label, confidence, true_class) 또는 None
     """
     # 전체 피처 파일 로드
@@ -422,8 +428,9 @@ def train_and_predict_window(
     predict_start_ts = pd.Timestamp(predict_start)
     predict_end_ts = pd.Timestamp(predict_end)
 
-    # 학습/테스트 분할
-    train_mask = dates <= train_end_ts
+    # 학습/테스트 분할 (최근 5년만 사용 — 오래된 데이터의 노이즈 제거)
+    train_start_ts = train_end_ts - pd.DateOffset(years=5)
+    train_mask = (dates >= train_start_ts) & (dates <= train_end_ts)
     test_mask = (dates >= predict_start_ts) & (dates <= predict_end_ts)
 
     train_df = full_df[train_mask]
@@ -553,7 +560,7 @@ def main() -> None:
     # Attach ground truth for evaluation
     y_true = test_df[TARGET].astype(int).values
     y_pred = preds_df["predicted_class"].values
-    y_prob = preds_df[["prob_down", "prob_sideways", "prob_up"]].values
+    y_prob = preds_df[["prob_down", "prob_up"]].values
 
     # ------------------------------------------------------------------
     # 5. Evaluate
@@ -573,7 +580,7 @@ def main() -> None:
     print(f"\n--- Per-Class Report ---")
     print(metrics["per_class_report"])
     print("--- Confusion Matrix (rows=true, cols=pred) ---")
-    print("  Labels: [down, sideways, up]")
+    print("  Labels: [down, up]")
     print(metrics["confusion_matrix"])
 
     # ------------------------------------------------------------------
@@ -598,7 +605,7 @@ def main() -> None:
     sample_preds["true_label"] = sample_preds["true_class"].map(CLASS_NAMES)
 
     print("\n--- Sample Predictions (first 10 rows) ---")
-    display_cols = ["true_label", "predicted_label", "confidence", "prob_down", "prob_sideways", "prob_up"]
+    display_cols = ["true_label", "predicted_label", "confidence", "prob_down", "prob_up"]
     print(sample_preds[display_cols].to_string())
 
     # ------------------------------------------------------------------
