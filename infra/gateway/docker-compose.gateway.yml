@@ -9,7 +9,10 @@ services:
       ROOT_AI_TARGET: ${ROOT_AI_TARGET:-host.docker.internal:8083}
     ports:
       - "${GATEWAY_HTTP_PORT:-80}:80"
+      - "${GATEWAY_HTTPS_PORT:-443}:443"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ../nginx/nginx.gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${GATEWAY_NGINX_TEMPLATE:-../nginx/nginx.gateway.conf.template}:/etc/nginx/templates/default.conf.template:ro
+      - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+      - ${CERTBOT_WEBROOT:-/var/www/certbot}:/var/www/certbot:ro

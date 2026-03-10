@@ -6,6 +6,21 @@ server {
         root /var/www/certbot;
     }
 
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ${ROOT_HOST};
+
+    ssl_certificate /etc/letsencrypt/live/${ROOT_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${ROOT_HOST}/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_tickets off;
+
     location /api/ {
         proxy_pass http://${ROOT_API_TARGET};
         proxy_http_version 1.1;
