@@ -440,6 +440,13 @@ public class AuthServiceImpl implements AuthService {
   public SendCodeResponse requestPasswordReset(PasswordResetRequestDto request) {
     String email = request.email();
 
+    // 이메일 기반 Rate Limit 체크 (3회/시간) — 열거 방어를 위해 에러 대신 정상 응답 반환
+    RateLimitResult emailRateResult = rateLimitService.checkEmailLimit(
+        email, EMAIL_RATE_LIMIT, EMAIL_RATE_WINDOW_SECONDS);
+    if (!emailRateResult.isAllowed()) {
+      return SendCodeResponse.of(VERIFICATION_CODE_EXPIRES_SECONDS, 0);
+    }
+
     // 열거 방어: 가입 여부와 무관하게 동일한 200 응답 반환
     // 실제 메일은 가입된 사용자에게만 Async 발송
     User user = userRepository.findByEmail(email).orElse(null);

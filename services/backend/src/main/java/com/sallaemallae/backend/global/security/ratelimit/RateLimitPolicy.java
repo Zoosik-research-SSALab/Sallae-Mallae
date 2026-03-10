@@ -17,6 +17,7 @@ public enum RateLimitPolicy {
   PWD_RESET_REQUEST("PWD_RESET", 3, 600),
   PWD_RESET("PWD_RESET_CONFIRM", 5, 3600),
   POLICY("POLICY", 10, 3600),
+  WITHDRAW("WITHDRAW", 1, 86400),
   GENERAL("API", 100, 60);
 
   private final String action;

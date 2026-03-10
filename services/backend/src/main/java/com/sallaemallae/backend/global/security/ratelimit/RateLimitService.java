@@ -1,9 +1,12 @@
 package com.sallaemallae.backend.global.security.ratelimit;
 
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -15,13 +18,19 @@ public class RateLimitService {
 
   private static final String RATE_LIMIT_PREFIX = "RATE_LIMIT:";
 
+  private static final RedisScript<Long> INCR_WITH_EXPIRE_SCRIPT = new DefaultRedisScript<>(
+      "local count = redis.call('INCR', KEYS[1]) "
+          + "if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end "
+          + "return count",
+      Long.class
+  );
+
   /**
    * IP 기반 Rate Limit 체크
-   * @return true면 허용, false면 차단
    */
   public RateLimitResult checkIpLimit(String ip, RateLimitPolicy policy) {
     String key = RATE_LIMIT_PREFIX + "IP:" + ip + ":" + policy.getAction();
-    return checkLimit(key, policy);
+    return checkLimit(key, policy.getLimit(), policy.getWindowSeconds());
   }
 
   /**
@@ -32,18 +41,23 @@ public class RateLimitService {
     return checkLimit(key, limit, windowSeconds);
   }
 
-  private RateLimitResult checkLimit(String key, RateLimitPolicy policy) {
+  /**
+   * 사용자 기반 Rate Limit 체크 (회원 탈퇴 등)
+   */
+  public RateLimitResult checkUserLimit(Long userId, RateLimitPolicy policy) {
+    String key = RATE_LIMIT_PREFIX + "USER:" + userId + ":" + policy.getAction();
     return checkLimit(key, policy.getLimit(), policy.getWindowSeconds());
   }
 
   private RateLimitResult checkLimit(String key, int limit, int windowSeconds) {
-    Long count = redisTemplate.opsForValue().increment(key);
+    Long count = redisTemplate.execute(
+        INCR_WITH_EXPIRE_SCRIPT,
+        Collections.singletonList(key),
+        String.valueOf(windowSeconds)
+    );
+
     if (count == null) {
       return RateLimitResult.allowed(limit, limit - 1, windowSeconds);
-    }
-
-    if (count == 1) {
-      redisTemplate.expire(key, windowSeconds, TimeUnit.SECONDS);
     }
 
     int remaining = Math.max(0, limit - count.intValue());

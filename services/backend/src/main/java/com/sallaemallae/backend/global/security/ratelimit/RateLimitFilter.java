@@ -24,7 +24,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
       Map.entry("POST:/api/auth/email/verify-code", RateLimitPolicy.EMAIL_VERIFY),
       Map.entry("POST:/api/auth/signup", RateLimitPolicy.SIGNUP),
       Map.entry("POST:/api/auth/refresh", RateLimitPolicy.REFRESH),
-      Map.entry("GET:/api/auth/check-email", RateLimitPolicy.CHECK_EMAIL),
       Map.entry("POST:/api/auth/password/reset-request", RateLimitPolicy.PWD_RESET_REQUEST),
       Map.entry("POST:/api/auth/password/reset", RateLimitPolicy.PWD_RESET),
       Map.entry("POST:/api/auth/policy", RateLimitPolicy.POLICY),
