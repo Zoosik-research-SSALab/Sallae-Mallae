@@ -9,7 +9,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -35,12 +34,15 @@ public class AiDebateReport {
   @Column(name = "report_date", nullable = false)
   private LocalDate reportDate;
 
+  @Column(name = "debate_version", length = 20)
+  private String debateVersion;
+
   @Enumerated(EnumType.STRING)
   @Column(name = "chairman_signal", length = 4)
   private AiSignal chairmanSignal;
 
-  @Column(name = "debate_confidence", precision = 10, scale = 4)
-  private BigDecimal debateConfidence;
+  @Column(name = "debate_confidence")
+  private Float debateConfidence;
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "debate_summary", columnDefinition = "jsonb")
