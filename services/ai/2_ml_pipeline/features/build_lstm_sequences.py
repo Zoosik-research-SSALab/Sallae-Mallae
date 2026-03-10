@@ -94,17 +94,26 @@ def _load_kospi200() -> pd.Series | None:
 # 섹터 조회 헬퍼 (sector_mapping.json 사용)
 # ---------------------------------------------------------------------------
 
-def _get_sector_map(tickers: list[str]) -> dict[str, str]:
+def _get_group_map(tickers: list[str], group_by: str = "cluster") -> dict[str, str]:
     """
-    sector_mapping.json 파일에서 종목별 GICS 섹터를 로드합니다.
-    파일이 없으면 "Unknown"으로 처리합니다.
+    sector_mapping.json에서 종목별 그룹을 로드합니다.
+
+    Args:
+        tickers: 종목 코드 목록
+        group_by: "cluster" (gics_cluster: 3그룹) 또는 "sector" (gics_sector: 11그룹)
+
+    Returns:
+        {ticker: group_name} 딕셔너리
     """
-    sector_map: dict[str, str] = {t: "Unknown" for t in tickers}
+    key_map = {"cluster": "gics_cluster", "sector": "gics_sector"}
+    json_key = key_map.get(group_by, "gics_cluster")
+
+    group_map: dict[str, str] = {t: "Unknown" for t in tickers}
 
     sector_file = RAW_UNIVERSE_PATH / "sector_mapping.json"
     if not sector_file.exists():
-        logger.warning("[SECTOR] sector_mapping.json 없음: %s — 모두 'Unknown'으로 처리합니다.", sector_file)
-        return sector_map
+        logger.warning("[GROUP] sector_mapping.json 없음: %s — 모두 'Unknown'으로 처리합니다.", sector_file)
+        return group_map
 
     try:
         with open(sector_file, encoding="utf-8") as f:
@@ -114,13 +123,13 @@ def _get_sector_map(tickers: list[str]) -> dict[str, str]:
         mapped = 0
         for ticker in tickers:
             if ticker in ticker_data:
-                sector_map[ticker] = ticker_data[ticker].get("gics_sector", "Unknown")
+                group_map[ticker] = ticker_data[ticker].get(json_key, "Unknown")
                 mapped += 1
-        logger.info("[SECTOR] sector_mapping.json 로드 완료 (%d/%d건 매핑)", mapped, len(tickers))
+        logger.info("[GROUP] %s 기준 매핑 완료 (%d/%d건)", group_by, mapped, len(tickers))
     except Exception as exc:
-        logger.warning("[SECTOR] sector_mapping.json 로드 실패: %s — 모두 'Unknown'으로 처리합니다.", exc)
+        logger.warning("[GROUP] sector_mapping.json 로드 실패: %s — 모두 'Unknown'으로 처리합니다.", exc)
 
-    return sector_map
+    return group_map
 
 
 # ---------------------------------------------------------------------------
@@ -414,9 +423,14 @@ def _save_scaler(
 # 메인
 # ---------------------------------------------------------------------------
 
-def main() -> None:
-    """전체 섹터별 LSTM 시퀀스 파일을 생성합니다."""
-    logger.info("=== LSTM 시퀀스 생성 파이프라인 시작 ===")
+def main(group_by: str = "cluster") -> None:
+    """
+    전체 그룹별 LSTM 시퀀스 파일을 생성합니다.
+
+    Args:
+        group_by: "cluster" (3그룹) 또는 "sector" (11그룹)
+    """
+    logger.info("=== LSTM 시퀀스 생성 파이프라인 시작 (group_by=%s) ===", group_by)
     logger.info("학습 기간: ~ %s", TRAIN_END_DATE)
     logger.info("테스트 기간: %s ~ %s", TEST_START_DATE, TEST_END_DATE)
 
@@ -433,11 +447,11 @@ def main() -> None:
 
     kospi200_series = _load_kospi200()
 
-    sector_map = _get_sector_map(tickers)
+    group_map = _get_group_map(tickers, group_by=group_by)
     sector_groups: dict[str, list[str]] = {}
-    for ticker, sector in sector_map.items():
-        sector_groups.setdefault(sector, []).append(ticker)
-    logger.info("[SECTOR] 섹터 수: %d", len(sector_groups))
+    for ticker, group in group_map.items():
+        sector_groups.setdefault(group, []).append(ticker)
+    logger.info("[GROUP] %s 그룹 수: %d", group_by, len(sector_groups))
 
     train_dir = PROCESSED_LSTM_PATH / "train"
     test_dir = PROCESSED_LSTM_PATH / "test"
