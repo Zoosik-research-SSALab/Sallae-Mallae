@@ -14,3 +14,4 @@ tqdm>=4.67.0
 setuptools<81
 torch>=2.6.0
 torchvision>=0.21.0
+arch>=7.0.0
