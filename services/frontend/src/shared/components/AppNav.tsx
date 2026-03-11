@@ -38,6 +38,8 @@ const navItems: NavItem[] = [
 
 const loginButtonClassName =
   "typo-body-md inline-flex items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
+const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
+const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
 
 async function requestQuickLogin() {
   const payload = await apiFetch<unknown, { email: string; password: string }>("/api/auth/login", {
@@ -205,14 +207,14 @@ export default function AppNav() {
                 const isActive = isActivePath(item);
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`typo-heading-sm whitespace-nowrap transition-colors hover:!text-[color:var(--color-text-interactive-primary)] ${getNavItemTextClassName(item)}`}
-                  >
-                    {item.label}
-                  </Link>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`typo-heading-sm whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
+                    >
+                      {item.label}
+                    </Link>
                 );
               })}
             </nav>
@@ -233,13 +235,13 @@ export default function AppNav() {
                 placeholder="종목명 또는 코드 검색"
                 className="typo-body-sm w-full rounded-xl bg-[color:var(--color-bg-secondary)] py-2.5 pl-9 pr-4 text-[color:var(--color-text-tertiary)] outline outline-1 outline-[color:var(--color-border-secondary)] placeholder:text-[color:var(--color-text-tertiary)] transition-colors focus:text-[color:var(--color-text-primary)]"
               />
-              <button
-                type="button"
-                onClick={goToSearch}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
-                aria-label="검색"
-              >
-                <GoSearch className="h-4 w-4" />
+                <button
+                  type="button"
+                  onClick={goToSearch}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
+                  aria-label="검색"
+                >
+                  <GoSearch className="h-4 w-4" />
               </button>
             </div>
 
@@ -248,7 +250,7 @@ export default function AppNav() {
                 <div className="flex items-center gap-3">
                   <Link
                     href="/notifications"
-                    className="relative inline-flex h-9 w-9 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                    className={`relative inline-flex h-9 w-9 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
                     aria-label="알림"
                   >
                     <HiOutlineBell className="h-6 w-6" />
@@ -276,7 +278,7 @@ export default function AppNav() {
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)] lg:hidden"
+            className={`inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName} lg:hidden`}
             aria-label="메뉴 열기"
           >
             <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none">
@@ -317,7 +319,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={() => goToPath("/notifications")}
-                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                    className={`typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <HiOutlineBell className="h-5 w-5 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">알림함</span>
@@ -326,7 +328,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={goToSearch}
-                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                    className={`typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">검색하기</span>
@@ -350,7 +352,7 @@ export default function AppNav() {
                         >
                           <CategoryIcon Icon={item.icon} active={isActive} />
                           <span
-                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors hover:!text-[color:var(--color-text-interactive-primary)] ${getNavItemTextClassName(item)}`}
+                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
                           >
                             {item.label}
                           </span>
@@ -372,19 +374,19 @@ export default function AppNav() {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                     >
                       로그아웃
                     </button>
                     <button
                       type="button"
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                     >
                       비밀번호 변경
                     </button>
                     <button
                       type="button"
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                     >
                       내 정보 수정
                     </button>

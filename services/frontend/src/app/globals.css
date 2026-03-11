@@ -56,8 +56,12 @@ svg {
   max-width: 100%;
 }
 
-.heading-reset {
+:where(h1, h2, h3, h4, h5, h6) {
   font: inherit;
+}
+
+.heading-reset {
+  margin: 0;
 }
 
 p {
