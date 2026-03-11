@@ -129,6 +129,15 @@ export default function ScrapsPageClient({ initialPage }: Props) {
           {newsErrorMessage ? <Badge tone="danger">{newsErrorMessage}</Badge> : null}
 
           <section className="flex flex-col gap-6 pt-2">
+            <div className="flex justify-end lg:hidden">
+              <Link
+                href="/stocks"
+                className="typo-body-sm inline-flex rounded-lg border border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-4 py-2 font-semibold text-[color:var(--color-text-secondary)] shadow-[0px_1px_2px_rgba(0,0,0,0.12)] transition-colors hover:bg-[color:var(--color-bg-secondary)] hover:text-[color:var(--color-text-primary)]"
+              >
+                + 관심 더 찾아보기
+              </Link>
+            </div>
+
             <WatchlistMobileList
               items={displayedItems}
               pageSize={WATCHLIST_PAGE_SIZE}
@@ -155,7 +164,7 @@ export default function ScrapsPageClient({ initialPage }: Props) {
               </div>
             ) : null}
 
-            <div className="flex justify-end pt-2 md:pt-4">
+            <div className="hidden justify-end pt-2 md:pt-4 lg:flex">
               <Link
                 href="/stocks"
                 className="typo-body-md inline-flex rounded-lg border border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-6 py-3 font-semibold text-[color:var(--color-text-secondary)] shadow-[0px_1px_2px_rgba(0,0,0,0.12)] transition-colors hover:bg-[color:var(--color-bg-secondary)] hover:text-[color:var(--color-text-primary)]"

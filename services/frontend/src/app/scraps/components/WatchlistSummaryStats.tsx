@@ -16,19 +16,23 @@ export default function WatchlistSummaryStats({ summary }: Props) {
     <section className="grid w-full grid-cols-2 gap-x-6 gap-y-0 px-2 py-2 md:px-4 lg:grid-cols-4 lg:gap-x-8 lg:px-0 lg:py-8">
       {summaryItems.map((item, index) => {
         const value = summary[item.key];
-        const isMobileLeftColumn = index % 2 === 0;
-        const hasDesktopRightBorder = index < summaryItems.length - 1;
-        const hasMobileBottomBorder = index < 2;
+        const hasMobileDivider = index % 2 === 0;
+        const hasDesktopDivider = index < summaryItems.length - 1;
 
         return (
-          <div
-            key={item.key}
-            className={`flex flex-col gap-1 px-2 py-4 ${
-              isMobileLeftColumn ? "border-r border-[color:var(--color-border-secondary)]" : ""
-            } ${hasMobileBottomBorder ? "border-b border-[color:var(--color-border-secondary)]" : ""} ${
-              hasDesktopRightBorder ? "lg:border-r" : ""
-            } lg:border-b-0`}
-          >
+          <div key={item.key} className="relative flex flex-col gap-1 px-2 py-4 lg:border-b-0">
+            {hasMobileDivider ? (
+              <span
+                aria-hidden="true"
+                className="absolute right-0 top-1/2 h-12 -translate-y-1/2 border-r border-[color:var(--color-border-secondary)] md:h-14 lg:hidden"
+              />
+            ) : null}
+            {hasDesktopDivider ? (
+              <span
+                aria-hidden="true"
+                className="absolute right-0 top-1/2 hidden h-16 -translate-y-1/2 border-r border-[color:var(--color-border-secondary)] lg:block"
+              />
+            ) : null}
             <span className="typo-body-sm text-sm font-medium leading-5 text-[color:var(--color-text-secondary)] md:text-base md:leading-6">
               {item.label}
             </span>

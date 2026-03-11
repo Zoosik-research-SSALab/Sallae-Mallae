@@ -187,27 +187,27 @@ export default function AppNav() {
     return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
+  const getNavItemTextClassName = (item: NavItem) => {
+    return isActivePath(item) ? "!text-[color:var(--color-text-primary)]" : "!text-[color:var(--color-text-tertiary)]";
+  };
+
   return (
     <>
       <header className="flex w-full flex-col items-center border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] backdrop-blur-[6px]">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-4 py-3 md:px-6 md:py-4 lg:px-8 xl:px-12">
           <div className="flex items-center gap-8 xl:gap-10">
-            <Link href="/" className="inline-flex h-[24px] items-center md:h-[28px] lg:h-[32px]">
-              <Image src={logoSrc} alt="살래말래위원회" width={392} height={78} priority className="h-full w-auto max-w-none" />
+            <Link href="/" className="inline-flex w-[136px] items-center md:w-[160px] lg:w-[192px]">
+              <Image src={logoSrc} alt="살래말래위원회" width={392} height={78} priority className="h-auto w-full max-w-none" />
             </Link>
 
             <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
               {navItems.map((item) => {
-                const isActive = isActivePath(item);
-
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`typo-heading-sm whitespace-nowrap transition-colors hover:text-[color:var(--color-text-interactive-primary)] ${
-                      isActive ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-tertiary)]"
-                    }`}
+                    aria-current={isActivePath(item) ? "page" : undefined}
+                    className={`typo-heading-sm whitespace-nowrap transition-colors hover:!text-[color:var(--color-text-interactive-primary)] ${getNavItemTextClassName(item)}`}
                   >
                     {item.label}
                   </Link>
@@ -296,7 +296,7 @@ export default function AppNav() {
           <aside className="absolute right-0 top-0 inline-flex h-full w-[min(23.5rem,calc(100vw-12px))] max-w-full flex-col items-center justify-start overflow-hidden bg-[color:var(--color-bg-primary)] sm:w-[min(24rem,calc(100vw-16px))] md:w-[min(24.5rem,calc(100vw-20px))]">
             <div className="flex w-full flex-col items-start border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-6 py-4 backdrop-blur-[6px]">
               <div className="inline-flex w-full items-center justify-between">
-                <Image src={logoSrc} alt="살래말래위원회" width={196} height={39} className="h-6 w-auto" />
+                <Image src={logoSrc} alt="살래말래위원회" width={196} height={39} className="h-auto w-[136px] md:w-[160px]" />
                 <div className="h-6 flex-1 px-6" />
                 <button
                   type="button"
@@ -336,21 +336,17 @@ export default function AppNav() {
                 <div className="flex flex-col gap-6">
                   <nav className="flex flex-col gap-4">
                     {navItems.map((item) => {
-                      const isActive = isActivePath(item);
-
                       return (
                         <Link
                           key={`drawer-${item.href}`}
                           href={item.href}
                           onClick={() => setIsDrawerOpen(false)}
-                          aria-current={isActive ? "page" : undefined}
+                          aria-current={isActivePath(item) ? "page" : undefined}
                           className="inline-flex w-full items-center gap-2"
                         >
                           <CategoryIcon Icon={item.icon} />
                           <span
-                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors hover:text-[color:var(--color-text-interactive-primary)] ${
-                              isActive ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-tertiary)]"
-                            }`}
+                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors hover:!text-[color:var(--color-text-interactive-primary)] ${getNavItemTextClassName(item)}`}
                           >
                             {item.label}
                           </span>

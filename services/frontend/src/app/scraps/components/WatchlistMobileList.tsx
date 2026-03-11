@@ -1,9 +1,9 @@
 import Link from "next/link";
 import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
+import Pagination from "@/shared/ui/Pagination";
 import type { WatchlistStockItem } from "../types/scraps";
 import { formatPriceLabel, formatSignedRateLabel, getRateTextClassName } from "../utils/watchlistDisplay";
-import WatchlistPagination from "./WatchlistPagination";
 import WatchlistSignalBadge from "./WatchlistSignalBadge";
 
 type Props = {
@@ -98,8 +98,8 @@ export default function WatchlistMobileList({
       </div>
 
       {items.length > 0 ? (
-        <div className="border-t border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] p-4">
-          <WatchlistPagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} compact />
+        <div className="border-t border-[color:var(--color-border-secondary)] p-4">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
         </div>
       ) : null}
     </section>
