@@ -146,11 +146,18 @@ def _check_macro_quality() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _check_financial_quality() -> pd.DataFrame:
+def _check_financial_quality(sample_size: int = 100) -> tuple[pd.DataFrame, int]:
     if not RAW_FINANCIAL_PATH.exists():
-        return pd.DataFrame()
+        return pd.DataFrame(), 0
+    import random
+    all_files = sorted(RAW_FINANCIAL_PATH.glob("*.parquet"))
+    total = len(all_files)
+    if total > sample_size:
+        files = random.sample(all_files, sample_size)
+    else:
+        files = all_files
     rows = []
-    for f in sorted(RAW_FINANCIAL_PATH.glob("*.parquet")):
+    for f in files:
         try:
             df = pd.read_parquet(f)
             n_rows = len(df)
@@ -168,7 +175,7 @@ def _check_financial_quality() -> pd.DataFrame:
             "결측 상태": _status_badge(missing_ok),
             "종합": status,
         })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), total
 
 
 def _summary_metrics(df: pd.DataFrame, status_col: str = "종합") -> tuple[int, int, int]:
@@ -236,8 +243,10 @@ def main() -> None:
     st.markdown("---")
 
     with st.spinner("재무 품질 검사 중..."):
-        df_fin = _check_financial_quality()
+        df_fin, fin_total = _check_financial_quality()
     _render_section("재무 품질", df_fin, "fin_warn", "재무 데이터가 없습니다.")
+    if not df_fin.empty:
+        st.caption(f"전체 {fin_total}개 파일 중 {len(df_fin)}개 샘플 검사")
 
     st.markdown("---")
     st.caption(

@@ -55,7 +55,8 @@ def _load_sector_mapping() -> dict[str, str]:
                     data = json.load(f)
                 # 여러 형식 지원: {ticker: name} 또는 {ticker: {name: ..., ...}}
                 result: dict[str, str] = {}
-                for k, v in data.items():
+                ticker_data = data.get("tickers", data)
+                for k, v in ticker_data.items():
                     if isinstance(v, dict):
                         result[k] = v.get("name", v.get("company_name", k))
                     else:
@@ -580,7 +581,4 @@ def main() -> None:
                 st.dataframe(fund_df.tail(20))
 
 
-if __name__ == "__main__":
-    main()
-else:
-    main()
+main()

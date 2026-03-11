@@ -56,7 +56,8 @@ def _load_sector_mapping() -> dict[str, dict]:
         return {}
     try:
         with open(json_path, encoding="utf-8") as f:
-            return json.load(f)
+            raw = json.load(f)
+            return raw.get("tickers", raw)
     except Exception:
         return {}
 
@@ -117,10 +118,9 @@ def render_summary_cards() -> None:
         )
 
 
-def render_ticker_status_table() -> None:
-    """종목별 수집 상태 테이블을 렌더링합니다."""
-    st.subheader("종목별 수집 상태")
-
+@st.cache_data(ttl=600, show_spinner=False)
+def _build_ticker_status_data() -> tuple[pd.DataFrame, int]:
+    """종목별 상태 데이터를 집계합니다 (캐시 대상, UI 위젯 없음)."""
     sector_mapping = _load_sector_mapping()
 
     # OHLCV 파일 목록으로 ticker 집합 결정
@@ -138,14 +138,10 @@ def render_ticker_status_table() -> None:
 
     tickers = sorted(ohlcv_files.keys())
     if not tickers:
-        st.info("OHLCV 데이터가 없습니다. 먼저 파이프라인을 실행하세요.")
-        return
+        return pd.DataFrame(), 0
 
     rows = []
-    progress = st.progress(0, text="종목 상태 집계 중...")
-    total = len(tickers)
-
-    for i, ticker in enumerate(tickers):
+    for ticker in tickers:
         info = sector_mapping.get(ticker, {})
         name = info.get("name", "-") if isinstance(info, dict) else "-"
         sector = info.get("sector", "-") if isinstance(info, dict) else "-"
@@ -167,10 +163,19 @@ def render_ticker_status_table() -> None:
             "재무": "✅" if has_financial else "❌",
             "마지막 수집일": last_date,
         })
-        progress.progress((i + 1) / total, text=f"종목 상태 집계 중... {i+1}/{total}")
 
-    progress.empty()
-    df = pd.DataFrame(rows)
+    return pd.DataFrame(rows), len(tickers)
+
+
+def render_ticker_status_table() -> None:
+    """종목별 수집 상태 테이블을 렌더링합니다."""
+    st.subheader("종목별 수집 상태")
+
+    df, total_tickers = _build_ticker_status_data()
+
+    if df.empty:
+        st.info("OHLCV 데이터가 없습니다. 먼저 파이프라인을 실행하세요.")
+        return
 
     # 필터 UI
     col1, col2 = st.columns([2, 1])
@@ -179,15 +184,16 @@ def render_ticker_status_table() -> None:
     with col2:
         missing_only = st.checkbox("미수집 종목만 보기")
 
+    filtered = df
     if search:
-        mask = df["티커"].str.contains(search, case=False) | df["종목명"].str.contains(search, case=False, na=False)
-        df = df[mask]
+        mask = filtered["티커"].str.contains(search, case=False) | filtered["종목명"].str.contains(search, case=False, na=False)
+        filtered = filtered[mask]
     if missing_only:
-        mask = (df["OHLCV"] == "❌") | (df["수급"] == "❌") | (df["펀더멘털"] == "❌")
-        df = df[mask]
+        mask = (filtered["OHLCV"] == "❌") | (filtered["수급"] == "❌") | (filtered["펀더멘털"] == "❌")
+        filtered = filtered[mask]
 
-    st.dataframe(df, use_container_width=True, hide_index=True)
-    st.caption(f"총 {len(df):,}개 종목 표시 / 전체 {len(tickers):,}개 종목")
+    st.dataframe(filtered, use_container_width=True, hide_index=True)
+    st.caption(f"총 {len(filtered):,}개 종목 표시 / 전체 {total_tickers:,}개 종목")
 
 
 def render_macro_status() -> None:
