@@ -1,15 +1,13 @@
 package com.sallaemallae.backend.domain.policy.service;
 
+import com.sallaemallae.backend.domain.auth.enumtype.TermType;
+import com.sallaemallae.backend.domain.policy.dto.TermsResponse;
+import com.sallaemallae.backend.domain.policy.dto.TermsSummaryResponse;
 import java.util.List;
-import java.util.Map;
 
 public interface PolicyService {
 
-  List<Map<String, Object>> getTermsList();
+  List<TermsSummaryResponse> getTermsList();
 
-  Map<String, Object> getTerms();
-
-  Map<String, Object> getPrivacy();
-
-  Map<String, Object> getDisclaimer();
+  TermsResponse getByType(TermType termType);
 }

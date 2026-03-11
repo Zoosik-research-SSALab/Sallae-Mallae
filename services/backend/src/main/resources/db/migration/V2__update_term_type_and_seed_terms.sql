@@ -4,7 +4,12 @@
 -- 1. 기존 MARKETING 타입 데이터가 있으면 INVESTMENT_DISCLAIMER로 변경
 UPDATE terms SET term_type = 'INVESTMENT_DISCLAIMER' WHERE term_type = 'MARKETING';
 
--- 2. 서비스 이용약관 (SERVICE) - 필수
+-- 2. 기존 동일 타입의 is_active를 false로 변경 (충돌 방지)
+UPDATE terms SET is_active = false WHERE term_type = 'SERVICE' AND is_active = true;
+UPDATE terms SET is_active = false WHERE term_type = 'PRIVACY' AND is_active = true;
+UPDATE terms SET is_active = false WHERE term_type = 'INVESTMENT_DISCLAIMER' AND is_active = true;
+
+-- 3. 서비스 이용약관 (SERVICE) - 필수
 INSERT INTO terms (term_type, version, title, content, is_required, is_active, enforced_at, created_at)
 VALUES (
     'SERVICE',
@@ -66,14 +71,14 @@ VALUES (
 2. 협의가 이루어지지 않을 경우, 관할 법원은 민사소송법에 따른 법원으로 합니다.
 
 부칙
-본 약관은 2025년 3월 11일부터 시행합니다.',
+본 약관은 2026년 3월 11일부터 시행합니다.',
     true,
     true,
     NOW(),
     NOW()
 );
 
--- 3. 개인정보 처리방침 (PRIVACY) - 필수
+-- 4. 개인정보 처리방침 (PRIVACY) - 필수
 INSERT INTO terms (term_type, version, title, content, is_required, is_active, enforced_at, created_at)
 VALUES (
     'PRIVACY',
@@ -169,14 +174,14 @@ VALUES (
 본 방침은 시행일로부터 적용되며, 변경 시 공지사항을 통해 안내합니다.
 
 부칙
-본 방침은 2025년 3월 11일부터 시행합니다.',
+본 방침은 2026년 3월 11일부터 시행합니다.',
     true,
     true,
     NOW(),
     NOW()
 );
 
--- 4. 투자 면책 고지 (INVESTMENT_DISCLAIMER) - 필수
+-- 5. 투자 면책 고지 (INVESTMENT_DISCLAIMER) - 필수
 INSERT INTO terms (term_type, version, title, content, is_required, is_active, enforced_at, created_at)
 VALUES (
     'INVESTMENT_DISCLAIMER',
@@ -223,7 +228,7 @@ VALUES (
 본 서비스는 「자본시장과 금융투자업에 관한 법률」, 「금융소비자 보호에 관한 법률」 등 관계 법령을 준수합니다.
 
 부칙
-본 고지는 2025년 3월 11일부터 적용됩니다.',
+본 고지는 2026년 3월 11일부터 적용됩니다.',
     true,
     true,
     NOW(),
