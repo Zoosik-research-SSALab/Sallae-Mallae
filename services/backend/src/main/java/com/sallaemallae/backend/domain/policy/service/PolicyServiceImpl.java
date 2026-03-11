@@ -1,25 +1,36 @@
 package com.sallaemallae.backend.domain.policy.service;
 
-import java.util.Map;
+import com.sallaemallae.backend.domain.auth.entity.Terms;
+import com.sallaemallae.backend.domain.auth.enumtype.TermType;
+import com.sallaemallae.backend.domain.auth.repository.TermsRepository;
+import com.sallaemallae.backend.domain.policy.dto.TermsResponse;
+import com.sallaemallae.backend.domain.policy.dto.TermsSummaryResponse;
+import com.sallaemallae.backend.domain.policy.exception.PolicyErrorCode;
+import com.sallaemallae.backend.global.exception.BusinessException;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class PolicyServiceImpl implements PolicyService {
 
+  private final TermsRepository termsRepository;
+
   @Override
-  public Map<String, Object> getTerms() {
-    return Map.of("policyType", "TERMS", "version", "v1.0", "content", "terms boilerplate");
+  public List<TermsSummaryResponse> getTermsList() {
+    return termsRepository.findActiveTerms().stream()
+        .map(TermsSummaryResponse::from)
+        .toList();
   }
 
   @Override
-  public Map<String, Object> getPrivacy() {
-    return Map.of("policyType", "PRIVACY", "version", "v1.0", "content", "privacy boilerplate");
-  }
+  public TermsResponse getByType(TermType termType) {
+    Terms terms = termsRepository.findByTermTypeAndIsActiveTrue(termType)
+        .orElseThrow(() -> new BusinessException(PolicyErrorCode.POLICY_NOT_FOUND));
 
-  @Override
-  public Map<String, Object> getDisclaimer() {
-    return Map.of("policyType", "DISCLAIMER", "version", "v1.0", "content", "disclaimer boilerplate");
+    return TermsResponse.from(terms);
   }
 }
