@@ -5,6 +5,7 @@ import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.global.response.ApiResponse;
+import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -12,8 +13,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -28,11 +27,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
   private final UserService userService;
+  private final AuthenticatedUserProvider authenticatedUserProvider;
 
   @PatchMapping("/profile")
   public ApiResponse<Map<String, Object>> updateProfile(
       @Valid @RequestBody UserProfileUpdateRequest request) {
-    Long userId = getAuthenticatedUserId();
+    Long userId = authenticatedUserProvider.getCurrentUserId();
     return ApiResponse.success(userService.updateProfile(userId, request));
   }
 
@@ -45,25 +45,20 @@ public class UserController {
   @PutMapping("/profile/password")
   public ApiResponse<Map<String, Object>> updatePassword(
       @Valid @RequestBody UserPasswordUpdateRequest request) {
-    Long userId = getAuthenticatedUserId();
+    Long userId = authenticatedUserProvider.getCurrentUserId();
     return ApiResponse.success(userService.updatePassword(userId, request));
   }
 
   @PatchMapping("/profile/email-opt-in")
   public ApiResponse<Map<String, Object>> updateEmailOptIn(
       @Valid @RequestBody UserEmailOptInRequest request) {
-    Long userId = getAuthenticatedUserId();
+    Long userId = authenticatedUserProvider.getCurrentUserId();
     return ApiResponse.success(userService.updateEmailOptIn(userId, request));
   }
 
   @DeleteMapping("/profile")
   public ApiResponse<Map<String, Object>> deleteProfile() {
-    Long userId = getAuthenticatedUserId();
+    Long userId = authenticatedUserProvider.getCurrentUserId();
     return ApiResponse.success(userService.deleteProfile(userId));
-  }
-
-  private Long getAuthenticatedUserId() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    return (Long) authentication.getPrincipal();
   }
 }
