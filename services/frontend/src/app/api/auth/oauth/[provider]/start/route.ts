@@ -4,7 +4,6 @@ import type { AuthProvider, OAuthStartResponse } from "@/shared/types/auth";
 import {
   applyDeviceIdCookie,
   createErrorResponse,
-  getAuthApiBaseUrl,
   getOrCreateDeviceId,
   readUpstreamPayload,
   resolveAuthApiUrl,
@@ -56,19 +55,68 @@ function extractErrorMessage(value: unknown, fallback: string) {
   return fallback;
 }
 
-function resolveClientRedirect(request: NextRequest, redirect: string) {
-  if (/^https?:\/\//i.test(redirect)) {
-    const redirectUrl = new URL(redirect);
-    const backendOrigin = new URL(getAuthApiBaseUrl()).origin;
+function resolveOAuthClientId(provider: AuthProvider) {
+  switch (provider) {
+    case "google":
+      return process.env.OAUTH_GOOGLE_CLIENT_ID?.trim() || process.env.NEXT_PUBLIC_OAUTH_GOOGLE_CLIENT_ID?.trim() || null;
+    case "kakao":
+      return process.env.OAUTH_KAKAO_CLIENT_ID?.trim() || process.env.NEXT_PUBLIC_OAUTH_KAKAO_CLIENT_ID?.trim() || null;
+    case "naver":
+      return process.env.OAUTH_NAVER_CLIENT_ID?.trim() || process.env.NEXT_PUBLIC_OAUTH_NAVER_CLIENT_ID?.trim() || null;
+  }
+}
 
-    if (redirectUrl.origin === backendOrigin && redirectUrl.pathname.startsWith("/api/auth/")) {
-      return new URL(`${redirectUrl.pathname}${redirectUrl.search}`, request.nextUrl.origin).toString();
-    }
+function resolveOAuthRedirectUri(provider: AuthProvider, request: NextRequest) {
+  const fallback = new URL(`/api/auth/${provider}/callback`, request.nextUrl.origin).toString();
 
-    return redirect;
+  switch (provider) {
+    case "google":
+      return process.env.OAUTH_GOOGLE_REDIRECT_URI?.trim() || fallback;
+    case "kakao":
+      return process.env.OAUTH_KAKAO_REDIRECT_URI?.trim() || fallback;
+    case "naver":
+      return process.env.OAUTH_NAVER_REDIRECT_URI?.trim() || fallback;
+  }
+}
+
+function extractStateFromRedirect(redirect: string, request: NextRequest) {
+  const redirectUrl = /^https?:\/\//i.test(redirect)
+    ? new URL(redirect)
+    : new URL(redirect, request.nextUrl.origin);
+
+  return redirectUrl.searchParams.get("state");
+}
+
+function buildProviderAuthorizationUrl(provider: AuthProvider, state: string, request: NextRequest) {
+  const clientId = resolveOAuthClientId(provider);
+
+  if (!clientId) {
+    throw new Error(`${provider} OAuth client ID is not configured.`);
   }
 
-  return new URL(redirect, request.nextUrl.origin).toString();
+  const redirectUri = resolveOAuthRedirectUri(provider, request);
+  const authorizeUrl =
+    provider === "google"
+      ? "https://accounts.google.com/o/oauth2/v2/auth"
+      : provider === "kakao"
+        ? "https://kauth.kakao.com/oauth/authorize"
+        : "https://nid.naver.com/oauth2.0/authorize";
+
+  const url = new URL(authorizeUrl);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("state", state);
+
+  if (provider === "google") {
+    url.searchParams.set("scope", "openid email profile");
+  }
+
+  if (provider === "kakao") {
+    url.searchParams.set("scope", "profile_nickname,profile_image,account_email");
+  }
+
+  return url.toString();
 }
 
 function createStartErrorRedirect(
@@ -114,12 +162,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const payload = extractOAuthStartResponse(upstreamPayload);
 
-    if (!payload || typeof payload.redirect !== "string") {
-      return createErrorResponse("소셜 로그인 시작 URL을 확인하지 못했습니다.", 502, deviceIdState);
+    if (!payload?.redirect) {
+      return createStartErrorRedirect(request, provider, "소셜 로그인 시작 URL을 확인하지 못했습니다.", deviceIdState);
     }
 
-    const response = NextResponse.redirect(resolveClientRedirect(request, payload.redirect));
+    const state = extractStateFromRedirect(payload.redirect, request);
 
+    if (!state) {
+      return createStartErrorRedirect(request, provider, "OAuth state 값이 응답에 포함되지 않았습니다.", deviceIdState);
+    }
+
+    const response = NextResponse.redirect(buildProviderAuthorizationUrl(provider, state, request));
     applyDeviceIdCookie(response, deviceIdState);
     return response;
   } catch (error) {
