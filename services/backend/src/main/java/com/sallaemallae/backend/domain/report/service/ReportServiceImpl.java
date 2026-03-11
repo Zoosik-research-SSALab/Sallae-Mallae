@@ -56,9 +56,6 @@ public class ReportServiceImpl implements ReportService {
         normalizedOffset,
         normalizedLimit
     );
-    if (reports.isEmpty()) {
-      throw new BusinessException(ReportErrorCode.REPORT_NOT_FOUND);
-    }
 
     return reports.stream()
         .map(report -> new ReportHistoryItemResponse(
