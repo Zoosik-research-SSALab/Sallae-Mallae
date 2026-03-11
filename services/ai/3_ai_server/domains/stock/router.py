@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from domains.stock.schemas import StockInferRequest, StockInferResponse
 from domains.stock.service import infer_stock
-from shared_resources.core.db import get_session
+from core.config import get_session
 
 router = APIRouter()
 

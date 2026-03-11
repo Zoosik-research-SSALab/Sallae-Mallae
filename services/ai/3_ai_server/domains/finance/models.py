@@ -1,7 +1,7 @@
 from sqlalchemy import BigInteger, Integer, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
 
-from shared_resources.core.base import Base
+from core.config import Base
 
 
 class StockFinancial(Base):
