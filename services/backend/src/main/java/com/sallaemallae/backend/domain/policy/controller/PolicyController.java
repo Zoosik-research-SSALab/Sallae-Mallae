@@ -2,6 +2,7 @@ package com.sallaemallae.backend.domain.policy.controller;
 
 import com.sallaemallae.backend.domain.policy.service.PolicyService;
 import com.sallaemallae.backend.global.response.ApiResponse;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,11 +10,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/policy")
+@RequestMapping("/api/policy")
 @RequiredArgsConstructor
 public class PolicyController {
 
   private final PolicyService policyService;
+
+  @GetMapping("/list")
+  public ApiResponse<List<Map<String, Object>>> list() {
+    return ApiResponse.success(policyService.getTermsList());
+  }
 
   @GetMapping("/terms")
   public ApiResponse<Map<String, Object>> terms() {

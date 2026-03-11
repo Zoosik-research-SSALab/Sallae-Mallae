@@ -65,6 +65,9 @@ public class SecurityConfig {
             .requestMatchers("/api/auth/password/reset").permitAll()
             .requestMatchers("/api/auth/policy").permitAll()
             .requestMatchers("/api/auth/status").permitAll()
+
+            // Policy - 약관 조회 (인증 불필요)
+            .requestMatchers("/api/policy/**").permitAll()
             .requestMatchers("/api/auth/oauth/*/start").permitAll()
             .requestMatchers("/api/auth/google/callback").permitAll()
             .requestMatchers("/api/auth/naver/callback").permitAll()
