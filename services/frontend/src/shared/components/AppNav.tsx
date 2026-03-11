@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BiBarChartAlt2 } from "react-icons/bi";
 import { GoBook, GoListUnordered, GoSearch } from "react-icons/go";
@@ -26,11 +26,10 @@ type NavItem = {
   label: string;
   icon: IconType | null;
   highlightOnMatch?: boolean;
-  highlightOnMatch?: boolean;
 };
 
 const navItems: NavItem[] = [
-  { href: "/", label: "ABOUT", icon: GoBook, highlightOnMatch: false, highlightOnMatch: false },
+  { href: "/", label: "ABOUT", icon: GoBook, highlightOnMatch: false },
   { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2 },
   { href: "/stocks", label: "전체 종목", icon: GoListUnordered },
   { href: "/scraps", label: "관심 종목", icon: MdOutlineFavorite },
@@ -72,7 +71,6 @@ function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean
 export default function AppNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const pathname = usePathname();
   const { resolvedTheme } = useTheme();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -98,13 +96,11 @@ export default function AppNav() {
       return false;
     }
 
-    const { href } = item;
-
-    if (href === "/") {
+    if (item.href === "/") {
       return pathname === "/";
     }
 
-    return pathname === href || pathname.startsWith(`${href}/`);
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
   useEffect(() => {
@@ -191,18 +187,6 @@ export default function AppNav() {
     setIsDrawerOpen(false);
   };
 
-  const isActivePath = (item: NavItem) => {
-    if (item.highlightOnMatch === false) {
-      return false;
-    }
-
-    if (item.href === "/") {
-      return pathname === "/";
-    }
-
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
-  };
-
   const getNavItemTextClassName = (item: NavItem) => {
     return isActivePath(item) ? "!text-[color:var(--color-text-primary)]" : "!text-[color:var(--color-text-tertiary)]";
   };
@@ -225,9 +209,7 @@ export default function AppNav() {
                     key={item.href}
                     href={item.href}
                     aria-current={isActive ? "page" : undefined}
-                    className={`typo-heading-sm whitespace-nowrap transition-colors ${
-                      isActive ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-tertiary)]"
-                    }`}
+                    className={`typo-heading-sm whitespace-nowrap transition-colors hover:!text-[color:var(--color-text-interactive-primary)] ${getNavItemTextClassName(item)}`}
                   >
                     {item.label}
                   </Link>
@@ -368,11 +350,7 @@ export default function AppNav() {
                         >
                           <CategoryIcon Icon={item.icon} active={isActive} />
                           <span
-                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors ${
-                              isActive
-                                ? "text-[color:var(--color-text-interactive-primary)]"
-                                : "text-[color:var(--color-text-tertiary)]"
-                            }`}
+                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors hover:!text-[color:var(--color-text-interactive-primary)] ${getNavItemTextClassName(item)}`}
                           >
                             {item.label}
                           </span>

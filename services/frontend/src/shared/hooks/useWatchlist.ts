@@ -11,9 +11,10 @@ type UseWatchlistResult = WatchlistStatus & {
   toggle: () => Promise<boolean>;
 };
 
-export function useWatchlist(stockId: number, initialWatched?: boolean, initialWatched?: boolean): UseWatchlistResult {
+export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatchlistResult {
   const queryClient = useQueryClient();
   const statusQueryKey = watchlistQueryKeys.status(stockId);
+  const shouldFetchStatus = initialWatched === undefined;
   const initialStatus =
     initialWatched === undefined
       ? undefined
@@ -26,16 +27,8 @@ export function useWatchlist(stockId: number, initialWatched?: boolean, initialW
     queryKey: statusQueryKey,
     queryFn: () => getWatchlistStatus(stockId),
     enabled: shouldFetchStatus,
-    initialData: initialStatus,
-    enabled: initialWatched === undefined,
     staleTime: 30_000,
-    initialData:
-      initialWatched === undefined
-        ? undefined
-        : {
-            isWatched: initialWatched,
-            isNotifiedEnabled: false,
-          },
+    initialData: initialStatus,
   });
 
   const toggleMutation = useMutation({
@@ -76,13 +69,12 @@ export function useWatchlist(stockId: number, initialWatched?: boolean, initialW
     onSuccess: (nextStatus) => {
       queryClient.setQueryData(statusQueryKey, nextStatus);
     },
-    onSettled: (_data, _error, _variables, context) => {
+    onSettled: () => {
       if (shouldFetchStatus) {
-        if (initialWatched === undefined || context?.previousStatus === undefined) {
         queryClient.invalidateQueries({ queryKey: statusQueryKey });
       }
 
-      }
+      queryClient.invalidateQueries({ queryKey: watchlistQueryKeys.all });
     },
   });
 
