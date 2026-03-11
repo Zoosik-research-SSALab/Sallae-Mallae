@@ -18,12 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import com.sallaemallae.backend.global.security.ratelimit.RateLimitResult;
@@ -39,10 +39,10 @@ class NotificationControllerTest {
   @Autowired
   private JdbcTemplate jdbcTemplate;
 
-  @MockBean
+  @MockitoBean
   private JavaMailSender javaMailSender;
 
-  @MockBean
+  @MockitoBean
   private RateLimitService rateLimitService;
 
   @BeforeEach
@@ -75,6 +75,17 @@ class NotificationControllerTest {
         .andExpect(jsonPath("$.data.notifications[0].noti_type").value("SURGE"))
         .andExpect(jsonPath("$.data.notifications[0].stock_name").value("카카오"))
         .andExpect(jsonPath("$.data.notifications[0].stock_id").value(2));
+  }
+
+  @Test
+  void getNotificationsAcceptsLimitGreaterThanDefaultPageSize() throws Exception {
+    mockMvc.perform(get("/api/notifications/list")
+            .with(authenticatedUser(1L))
+            .param("tab", "ALL")
+            .param("offset", "0")
+            .param("limit", "10"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.notifications.length()").value(3));
   }
 
   @Test

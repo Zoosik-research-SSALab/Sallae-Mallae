@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
 
-  private static final int MAX_LIMIT = 6;
   private static final int RETENTION_DAYS = 30;
   private static final int MAX_UNREAD_BADGE_COUNT = 99;
 
@@ -100,7 +99,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private int normalizeLimit(int limit) {
-    if (limit <= 0 || limit > MAX_LIMIT) {
+    if (limit <= 0) {
       throw new BusinessException(NotificationErrorCode.INVALID_NOTIFICATION_LIMIT);
     }
     return limit;
