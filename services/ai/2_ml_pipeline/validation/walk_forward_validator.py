@@ -100,6 +100,9 @@ TREND_WINDOW: int = 3                  # 추세 기울기 계산 윈도우 수
 PROGRESSIVE_DA_THRESHOLD: float = 0.52   # 최소 방향 정확도 (랜덤 이상)
 PROGRESSIVE_MAX_FAILS: int = 2           # 연속 실패 허용 횟수
 
+# 신뢰도 기반 예측 보류 기준
+CONFIDENCE_THRESHOLD: float = 0.55     # 이 미만이면 예측 보류
+
 # 단순 가중 평균 가중치
 SIMPLE_AVG_WEIGHTS: dict[str, float] = {
     "lgbm": 0.4,
@@ -358,6 +361,41 @@ def _calc_direction_accuracy(predicted_up: pd.Series, fwd_return: pd.Series) -> 
     if valid.sum() == 0:
         return float("nan")
     return float((predicted_up[valid].astype(bool) == actual_up[valid]).mean())
+
+
+def _calc_direction_accuracy_filtered(
+    predicted_up: pd.Series,
+    fwd_return: pd.Series,
+    confidence: pd.Series,
+    threshold: float = CONFIDENCE_THRESHOLD,
+) -> tuple[float, float]:
+    """
+    신뢰도 기반 필터링 방향 예측 정확도.
+
+    Args:
+        predicted_up: 상승 예측 여부
+        fwd_return: 실제 선행 수익률
+        confidence: 예측 신뢰도 (0~1)
+        threshold: 최소 신뢰도 기준
+
+    Returns:
+        (filtered_da, coverage_ratio) 튜플
+        filtered_da: 신뢰도 기준 이상인 예측의 DA
+        coverage_ratio: 전체 중 신뢰도 기준 이상인 비율
+    """
+    conf_mask = confidence >= threshold
+    coverage = float(conf_mask.mean()) if len(conf_mask) > 0 else 0.0
+
+    if conf_mask.sum() < 5:
+        return float("nan"), coverage
+
+    actual_up = fwd_return > 0
+    valid = predicted_up.notna() & actual_up.notna() & conf_mask
+    if valid.sum() == 0:
+        return float("nan"), coverage
+
+    da = float((predicted_up[valid].astype(bool) == actual_up[valid]).mean())
+    return da, coverage
 
 
 def _calc_ic(signal: pd.Series, fwd_return: pd.Series) -> float:
@@ -680,6 +718,24 @@ def _validate_window(
                 result["sharpe_ratio"] = result["simple_avg"]["sharpe_ratio"]
                 result["max_drawdown"] = result["simple_avg"]["max_drawdown"]
 
+    # 신뢰도 기반 필터링 DA
+    if lgbm_df is not None and "confidence" in lgbm_df.columns:
+        lgbm_merged = pd.merge(
+            lgbm_df[["date", "ticker", "prob_up", "confidence"]],
+            fwd_df,
+            on=["date", "ticker"],
+            how="inner",
+        )
+        if len(lgbm_merged) >= 10:
+            lgbm_pred_up = lgbm_merged["prob_up"].astype(float) >= 0.5
+            lgbm_conf = lgbm_merged["confidence"].astype(float)
+            lgbm_fwd = lgbm_merged["fwd_return"].astype(float)
+            conf_da, coverage = _calc_direction_accuracy_filtered(
+                lgbm_pred_up, lgbm_fwd, lgbm_conf
+            )
+            result["confident_da"] = conf_da if not np.isnan(conf_da) else None
+            result["confident_coverage"] = coverage
+
     result["status"] = "ok" if result["direction_accuracy"] is not None else "partial"
     return result
 
@@ -698,7 +754,7 @@ def _aggregate_metrics(window_metrics: list[dict]) -> dict[str, Any]:
     Returns:
         집계 메트릭 딕셔너리
     """
-    keys = ["direction_accuracy", "ic", "sharpe_ratio", "max_drawdown"]
+    keys = ["direction_accuracy", "ic", "sharpe_ratio", "max_drawdown", "confident_da"]
     agg: dict[str, Any] = {}
 
     for key in keys:
@@ -856,13 +912,14 @@ def _display_summary(payload: dict) -> None:
     print(f"  Max Drawdown       : {md_str}  (목표 > {MAX_DD_TARGET * 100:.0f}%)")
 
     print("\n[윈도우별 메트릭 요약]")
-    header = f"  {'#':>3}  {'기간':<24} {'DA':>7} {'IC':>7} {'Sharpe':>8} {'MDD':>8}  {'모델상태'}"
+    header = f"  {'#':>3}  {'기간':<24} {'DA':>7} {'cDA':>7} {'IC':>7} {'Sharpe':>8} {'MDD':>8}  {'모델상태'}"
     print(header)
-    print("  " + "-" * 75)
+    print("  " + "-" * 83)
     for wm in per_window:
         idx = wm.get("window_idx", "?")
         period = f"{wm.get('start', '?')} ~ {wm.get('end', '?')}"
         da_w = wm.get("direction_accuracy")
+        cda_w = wm.get("confident_da")
         ic_w = wm.get("ic")
         sr_w = wm.get("sharpe_ratio")
         md_w = wm.get("max_drawdown")
@@ -874,10 +931,11 @@ def _display_summary(payload: dict) -> None:
             f"E={ms.get('ensemble','?')[0].upper()}"
         )
         da_s = f"{da_w:.4f}" if da_w is not None else "   N/A"
+        cda_s = f"{cda_w:.4f}" if cda_w is not None else "   N/A"
         ic_s = f"{ic_w:.4f}" if ic_w is not None else "   N/A"
         sr_s = f"{sr_w:.4f}" if sr_w is not None else "    N/A"
         md_s = f"{md_w:.4f}" if md_w is not None else "    N/A"
-        print(f"  {idx:>3}  {period:<24} {da_s:>7} {ic_s:>7} {sr_s:>8} {md_s:>8}  {model_str}")
+        print(f"  {idx:>3}  {period:<24} {da_s:>7} {cda_s:>7} {ic_s:>7} {sr_s:>8} {md_s:>8}  {model_str}")
 
     print("\n[앙상블 비교: 단순 가중 평균 vs 스태킹]")
     header2 = f"  {'메트릭':<22} {'단순 평균':>12} {'스태킹':>12}"

@@ -29,6 +29,7 @@ from config import (
     RAW_SUPPLY_PATH,
     RAW_UNIVERSE_PATH,
     PROCESSED_BASE_PATH,
+    PROCESSED_FUNDAMENTAL_PATH,
     PROCESSED_LGBM_PATH,
     TRAIN_END_DATE,
     TEST_START_DATE,
@@ -59,6 +60,9 @@ TECH_FEATURES: list[str] = [
     "volume_ratio_20d",
     "momentum_5d",
     "momentum_20d",
+    "momentum_accel",
+    "rsi_divergence",
+    "volume_climax",
 ]
 
 SUPPLY_FEATURES: list[str] = [
@@ -67,6 +71,8 @@ SUPPLY_FEATURES: list[str] = [
     "foreign_net_buy_20d",
     "institution_net_buy_1d",
     "institution_net_buy_5d",
+    "foreign_buy_ratio_1d",
+    "institution_buy_ratio_1d",
 ]
 
 MACRO_FEATURES: list[str] = [
@@ -90,13 +96,29 @@ REGIME_FEATURES: list[str] = [
     "volatility_regime",
 ]
 
+FUNDAMENTAL_FEATURES: list[str] = [
+    "per_zscore",
+    "pbr_zscore",
+    "roe_zscore",
+]
+
+CS_RANK_FEATURES: list[str] = [
+    "rsi_14_rank",
+    "close_to_ma5_rank", "close_to_ma20_rank", "close_to_ma60_rank",
+    "bb_percent_b_rank", "bb_width_rank",
+    "macd_norm_rank", "macd_hist_norm_rank",
+    "volume_ratio_5d_rank", "volume_ratio_20d_rank",
+    "momentum_5d_rank", "momentum_20d_rank",
+    "momentum_accel_rank",
+]
+
 META_FEATURES: list[str] = [
     "stock_id",
     "sector_id",
     "market_cap_rank",
 ]
 
-FEATURES: list[str] = TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + REGIME_FEATURES + META_FEATURES
+FEATURES: list[str] = TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + REGIME_FEATURES + FUNDAMENTAL_FEATURES + CS_RANK_FEATURES + META_FEATURES
 
 TARGET: str = "return_5d_class"
 
@@ -404,6 +426,154 @@ def _normalize_price_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# ---------------------------------------------------------------------------
+# 수급 피처 정규화 (거래량 대비 비율)
+# ---------------------------------------------------------------------------
+
+def _normalize_supply_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    수급 피처를 거래량 대비 비율로 정규화합니다.
+
+    raw 금액은 종목 간 스케일 차이가 커서 예측력이 약합니다.
+    거래량 대비 비율로 변환하면 종목 간 비교가 가능해집니다.
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame, volume + 수급 컬럼 필요
+
+    Returns:
+        정규화 수급 피처 컬럼이 추가된 DataFrame
+    """
+    df = df.copy()
+
+    logger.info("[SUPPLY-NORM] 수급 피처 정규화 시작")
+
+    if "volume" not in df.columns:
+        logger.warning("[SUPPLY-NORM] volume 컬럼 없음 — 정규화 건너뜀")
+        df["foreign_buy_ratio_1d"] = np.nan
+        df["institution_buy_ratio_1d"] = np.nan
+        return df
+
+    vol = df["volume"].astype(float).replace(0, np.nan)
+
+    if "foreign_net_buy_1d" in df.columns:
+        df["foreign_buy_ratio_1d"] = df["foreign_net_buy_1d"].astype(float) / vol
+    else:
+        df["foreign_buy_ratio_1d"] = np.nan
+
+    if "institution_net_buy_1d" in df.columns:
+        df["institution_buy_ratio_1d"] = df["institution_net_buy_1d"].astype(float) / vol
+    else:
+        df["institution_buy_ratio_1d"] = np.nan
+
+    logger.info("[SUPPLY-NORM] 수급 피처 정규화 완료 (2개 피처 추가)")
+    return df
+
+
+# ---------------------------------------------------------------------------
+# 크로스섹셔널 표준화 (날짜별 백분위 랭크)
+# ---------------------------------------------------------------------------
+
+def _cross_sectional_rank(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    주요 수치 피처를 날짜별 크로스섹셔널 백분위 랭크(0~1)로 변환합니다.
+
+    절대값 기반 피처는 시장 레짐에 따라 의미가 달라지지만,
+    날짜별 상대 순위는 레짐에 불변입니다.
+    예: RSI=72 → "오늘 시장에서 상위 5%" (레짐 무관하게 일관된 신호)
+
+    원본 피처를 유지하고, {피처}_rank 컬럼을 추가합니다.
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame
+
+    Returns:
+        rank 컬럼이 추가된 DataFrame
+    """
+    # 랭크로 변환할 피처 목록 (수치형, cross-sectional 의미 있는 것만)
+    rank_targets = [
+        "rsi_14",
+        "close_to_ma5", "close_to_ma20", "close_to_ma60",
+        "bb_percent_b", "bb_width",
+        "macd_norm", "macd_hist_norm",
+        "volume_ratio_5d", "volume_ratio_20d",
+        "momentum_5d", "momentum_20d",
+        "momentum_accel",
+    ]
+
+    available = [c for c in rank_targets if c in df.columns]
+    if not available:
+        logger.warning("[CS-RANK] 랭크 변환할 피처가 없습니다.")
+        return df
+
+    logger.info("[CS-RANK] 크로스섹셔널 랭크 변환 시작 (%d개 피처)", len(available))
+
+    for col in available:
+        rank_col = f"{col}_rank"
+        # 날짜별 백분위 랭크 (0~1, 높을수록 해당 피처 값이 높음)
+        df[rank_col] = df.groupby(level="date")[col].rank(pct=True, method="average")
+
+    logger.info("[CS-RANK] 크로스섹셔널 랭크 변환 완료 (%d개 _rank 컬럼 추가)", len(available))
+    return df
+
+
+# ---------------------------------------------------------------------------
+# 반전 감지 피처 (추세 전환 보완)
+# ---------------------------------------------------------------------------
+
+def _add_reversal_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    추세 전환 구간을 감지하기 위한 반전 신호 피처를 추가합니다.
+
+    피처:
+      momentum_accel: 모멘텀 가속도 (momentum_5d - momentum_20d)
+        양수 = 가속(추세 강화), 음수 = 감속(추세 약화/반전 임박)
+      rsi_divergence: RSI와 가격 모멘텀의 괴리
+        가격은 상승하는데 RSI는 하락 → 음수 (약세 다이버전스)
+      volume_climax: 거래량 급증 여부 (20일 평균 대비 2배 이상)
+        1 = 클라이맥스 (천장/바닥 신호)
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame
+
+    Returns:
+        반전 피처 컬럼이 추가된 DataFrame
+    """
+    df = df.copy()
+
+    logger.info("[REVERSAL] 반전 감지 피처 계산 시작")
+
+    # 모멘텀 가속도: 단기 모멘텀 - 장기 모멘텀
+    if "momentum_5d" in df.columns and "momentum_20d" in df.columns:
+        df["momentum_accel"] = df["momentum_5d"] - df["momentum_20d"]
+    else:
+        df["momentum_accel"] = np.nan
+
+    # RSI 다이버전스: RSI 변화 - 가격 모멘텀 변화 (부호 불일치 = 다이버전스)
+    if "rsi_14" in df.columns and "momentum_5d" in df.columns:
+        def _rsi_div_for_ticker(grp: pd.DataFrame) -> pd.DataFrame:
+            grp = grp.copy()
+            rsi_change = grp["rsi_14"].diff(5)  # RSI 5일 변화
+            price_mom = grp["momentum_5d"]
+            # 정규화: 둘 다 부호를 비교 (같은 방향이면 0에 가까움, 다이버전스면 음수)
+            rsi_norm = rsi_change / rsi_change.abs().rolling(20, min_periods=5).mean().replace(0, np.nan)
+            mom_norm = price_mom / price_mom.abs().rolling(20, min_periods=5).mean().replace(0, np.nan)
+            grp["rsi_divergence"] = rsi_norm * mom_norm  # 같은 부호면 양수, 다이버전스면 음수
+            return grp
+
+        df = df.groupby(level="ticker", group_keys=False).apply(_rsi_div_for_ticker)
+    else:
+        df["rsi_divergence"] = np.nan
+
+    # 거래량 클라이맥스: volume_ratio_20d > 2이면 1
+    if "volume_ratio_20d" in df.columns:
+        df["volume_climax"] = (df["volume_ratio_20d"] > 2.0).astype(float)
+    else:
+        df["volume_climax"] = np.nan
+
+    logger.info("[REVERSAL] 반전 감지 피처 계산 완료 (3개 피처)")
+    return df
+
+
 def _add_supply_features_from_raw(
     df: pd.DataFrame,
     tickers: list[str],
@@ -651,6 +821,69 @@ def _add_regime_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# 재무 팩터 통합 (PER/PBR/ROE z-score)
+# ---------------------------------------------------------------------------
+
+def _add_fundamental_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    build_fundamental_factors에서 생성된 재무 팩터 z-score를 통합합니다.
+
+    가장 최신 fundamental_factors 파일에서 ticker별 z-score를 로드하고
+    ticker 기준으로 join합니다 (날짜 무관, 최신 스냅샷).
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame
+
+    Returns:
+        재무 팩터 z-score 컬럼이 추가된 DataFrame
+    """
+    logger.info("[FUNDAMENTAL] 재무 팩터 통합 시작")
+
+    if not PROCESSED_FUNDAMENTAL_PATH.exists():
+        logger.warning("[FUNDAMENTAL] 경로 없음: %s — NaN으로 채웁니다.", PROCESSED_FUNDAMENTAL_PATH)
+        for col in FUNDAMENTAL_FEATURES:
+            df[col] = np.nan
+        return df
+
+    # 최신 통합 파일 로드
+    fund_files = sorted(PROCESSED_FUNDAMENTAL_PATH.glob("fundamental_factors_*.parquet"))
+    if not fund_files:
+        logger.warning("[FUNDAMENTAL] 재무 팩터 파일 없음 — NaN으로 채웁니다.")
+        for col in FUNDAMENTAL_FEATURES:
+            df[col] = np.nan
+        return df
+
+    try:
+        fund_df = pd.read_parquet(fund_files[-1])
+    except Exception as exc:
+        logger.warning("[FUNDAMENTAL] 파일 로드 실패: %s — NaN으로 채웁니다.", exc)
+        for col in FUNDAMENTAL_FEATURES:
+            df[col] = np.nan
+        return df
+
+    if "ticker" not in fund_df.columns:
+        logger.warning("[FUNDAMENTAL] ticker 컬럼 없음 — NaN으로 채웁니다.")
+        for col in FUNDAMENTAL_FEATURES:
+            df[col] = np.nan
+        return df
+
+    # ticker 기준으로 z-score 매핑
+    keep_cols = ["ticker"] + [c for c in FUNDAMENTAL_FEATURES if c in fund_df.columns]
+    fund_map = fund_df[keep_cols].drop_duplicates(subset=["ticker"], keep="last").set_index("ticker")
+
+    ticker_level = df.index.get_level_values("ticker")
+    for col in FUNDAMENTAL_FEATURES:
+        if col in fund_map.columns:
+            df[col] = fund_map[col].reindex(ticker_level).values
+        else:
+            df[col] = np.nan
+
+    matched = df[FUNDAMENTAL_FEATURES[0]].notna().sum()
+    logger.info("[FUNDAMENTAL] 재무 팩터 통합 완료 (%d/%d 행 매칭)", matched, len(df))
+    return df
+
+
+# ---------------------------------------------------------------------------
 # 타겟 계산 — 단면 분위수 기반 3클래스 (date별 cross-sectional quantile)
 # ---------------------------------------------------------------------------
 
@@ -716,6 +949,53 @@ def compute_target(df: pd.DataFrame) -> pd.DataFrame:
 
     valid_count = df[TARGET].notna().sum()
     logger.info("[TARGET] 타겟 생성 완료 (유효 행: %d / %d)", valid_count, len(df))
+    return df
+
+
+def compute_binary_target(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    5일 후 수익률을 기반으로 날짜별 단면 중앙값(median) 기준
+    2클래스 이진 타겟을 생성합니다.
+
+    횡보 클래스를 제거하여 상승/하락 분류를 단순화합니다.
+
+    클래스 정의 (날짜별 단면 중앙값):
+      1 (상승): 해당 날짜 상위 50% 수익률
+      0 (하락): 해당 날짜 하위 50% 수익률
+
+    Args:
+        df: MultiIndex (date, ticker) DataFrame, 'return_5d' 컬럼 필요
+
+    Returns:
+        'return_5d_binary' 컬럼이 추가된 DataFrame
+    """
+    if "return_5d" not in df.columns:
+        logger.warning("[TARGET-BIN] 'return_5d' 컬럼 없음 — 이진 타겟 생성 불가")
+        df["return_5d_binary"] = np.nan
+        return df
+
+    logger.info("[TARGET-BIN] 이진 타겟 생성 시작 (날짜별 중앙값 기준)")
+
+    def _binary_label_for_date(grp: pd.DataFrame) -> pd.DataFrame:
+        returns = grp["return_5d"]
+        valid_mask = returns.notna()
+
+        if valid_mask.sum() < 2:
+            grp["return_5d_binary"] = np.nan
+            return grp
+
+        median = returns[valid_mask].median()
+        labels = pd.Series(np.nan, index=grp.index)
+        labels[valid_mask & (returns >= median)] = 1  # 상위 50%
+        labels[valid_mask & (returns < median)] = 0   # 하위 50%
+
+        grp["return_5d_binary"] = labels
+        return grp
+
+    df = df.groupby(level="date", group_keys=False).apply(_binary_label_for_date)
+
+    valid_count = df["return_5d_binary"].notna().sum()
+    logger.info("[TARGET-BIN] 이진 타겟 생성 완료 (유효 행: %d / %d)", valid_count, len(df))
     return df
 
 
@@ -787,7 +1067,7 @@ def _fill_and_clean(df: pd.DataFrame) -> pd.DataFrame:
         결측치 처리된 DataFrame
     """
     numeric_feature_cols = [
-        c for c in TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + REGIME_FEATURES
+        c for c in TECH_FEATURES + SUPPLY_FEATURES + MACRO_FEATURES + REGIME_FEATURES + FUNDAMENTAL_FEATURES + CS_RANK_FEATURES
         if c in df.columns
     ]
 
@@ -851,17 +1131,32 @@ def build_lgbm_features() -> pd.DataFrame:
     # 2.5. 가격 정규화 피처
     df = _normalize_price_features(df)
 
+    # 2.7. 수급 피처 정규화
+    df = _normalize_supply_features(df)
+
     # 3. 수급 피처 보완
     df = _add_supply_features_from_raw(df, tickers)
 
     # 4. 매크로 피처 보완
     df = _add_macro_features_from_raw(df)
 
+    # 4.2. 반전 감지 피처
+    df = _add_reversal_features(df)
+
+    # 4.3. 크로스섹셔널 랭크 표준화
+    df = _cross_sectional_rank(df)
+
     # 4.5. 시장 레짐 피처
     df = _add_regime_features(df)
 
+    # 4.7. 재무 팩터 통합
+    df = _add_fundamental_features(df)
+
     # 5. 타겟 생성
     df = compute_target(df)
+
+    # 5.5. 이진 타겟 생성 (2-class)
+    df = compute_binary_target(df)
 
     # 6. 메타 피처
     sector_map = _get_wics_sector_map(tickers)
