@@ -1,19 +1,38 @@
-﻿import { apiFetch } from "@/shared/lib/apiClient";
+import type { StocksQueryParams, StocksResponse } from "../types/stocks";
+import { ALL_SECTOR } from "../utils/stocksFilters";
+import { apiFetch } from "@/shared/lib/apiClient";
 
-export type StockSummary = {
-  id: number;
-  ticker: string;
-  name: string;
-  marketType: string;
-};
+function buildStocksQueryString(params: StocksQueryParams) {
+  const searchParams = new URLSearchParams({
+    offset: String(params.offset),
+    limit: String(params.limit),
+  });
 
-type ApiResponse<T> = {
-  success: boolean;
-  data: T;
-  message: string | null;
-};
+  if (params.signal !== "ALL") {
+    searchParams.set("signal", params.signal);
+  }
 
-export async function getStocks(): Promise<StockSummary[]> {
-  const payload = await apiFetch<ApiResponse<StockSummary[]>>("/api/v1/stocks", { cache: "no-store" });
-  return payload.data ?? [];
+  if (params.sector && params.sector !== ALL_SECTOR) {
+    searchParams.set("sector", params.sector);
+  }
+
+  if (params.marketCap !== "ALL") {
+    searchParams.set("market_cap", params.marketCap);
+  }
+
+  if (params.sort) {
+    searchParams.set("sort", params.sort);
+  }
+
+  if (params.keyword.trim()) {
+    searchParams.set("keyword", params.keyword.trim());
+  }
+
+  return searchParams.toString();
+}
+
+export function getStocks(params: StocksQueryParams) {
+  return apiFetch<StocksResponse>(`/api/stocks?${buildStocksQueryString(params)}`, {
+    cache: "no-store",
+  });
 }
