@@ -11,14 +11,23 @@ type UseWatchlistResult = WatchlistStatus & {
   toggle: () => Promise<void>;
 };
 
-export function useWatchlist(stockId: number): UseWatchlistResult {
+export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatchlistResult {
   const queryClient = useQueryClient();
   const statusQueryKey = watchlistQueryKeys.status(stockId);
+  const shouldFetchStatus = initialWatched === undefined;
 
   const statusQuery = useQuery({
     queryKey: statusQueryKey,
     queryFn: () => getWatchlistStatus(stockId),
+    enabled: shouldFetchStatus,
     staleTime: 30_000,
+    initialData:
+      initialWatched === undefined
+        ? undefined
+        : {
+            isWatched: initialWatched,
+            isNotifiedEnabled: false,
+          },
   });
 
   const toggleMutation = useMutation({
@@ -31,14 +40,10 @@ export function useWatchlist(stockId: number): UseWatchlistResult {
         await removeWatchlist(stockId);
       }
 
-      try {
-        return await getWatchlistStatus(stockId);
-      } catch {
-        return {
-          isWatched: nextWatched,
-          isNotifiedEnabled: currentStatus?.isNotifiedEnabled ?? false,
-        };
-      }
+      return {
+        isWatched: nextWatched,
+        isNotifiedEnabled: currentStatus?.isNotifiedEnabled ?? false,
+      };
     },
     onMutate: async (currentStatus) => {
       await queryClient.cancelQueries({ queryKey: statusQueryKey });
@@ -64,7 +69,10 @@ export function useWatchlist(stockId: number): UseWatchlistResult {
       queryClient.setQueryData(statusQueryKey, nextStatus);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusQueryKey });
+      if (shouldFetchStatus) {
+        queryClient.invalidateQueries({ queryKey: statusQueryKey });
+      }
+
       queryClient.invalidateQueries({ queryKey: watchlistQueryKeys.all });
     },
   });
