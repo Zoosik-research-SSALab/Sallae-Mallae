@@ -18,3 +18,22 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+# --- DB 설정 (기존 shared_resources/core/db.py + base.py) ---
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+engine = create_engine(settings.AI_DB_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+Base = declarative_base()
+
+
+def get_session():
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()

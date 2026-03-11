@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from domains.news.schemas import NewsInferRequest, NewsInferResponse
 from domains.news.service import infer_news
-from shared_resources.core.db import get_session
+from core.config import get_session
 
 router = APIRouter()
 
