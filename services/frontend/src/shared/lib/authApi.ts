@@ -1,14 +1,13 @@
 import { extractAuthTokens, extractMeResponse, isTermsAgreementRequiredResponse } from "@/shared/lib/auth";
 import { apiFetch } from "@/shared/lib/apiClient";
 import type {
+  AuthProvider,
   EmailLoginRequest,
   LoginSuccessResponse,
   MeResponse,
-  OAuthStartResponse,
   RefreshResponse,
   SocialCallbackRequest,
   SocialLoginResponse,
-  AuthProvider,
 } from "@/shared/types/auth";
 
 export async function loginWithEmail(body: EmailLoginRequest) {
@@ -20,12 +19,8 @@ export async function loginWithEmail(body: EmailLoginRequest) {
   });
 }
 
-export async function startSocialLogin(provider: AuthProvider) {
-  return apiFetch<OAuthStartResponse>(`/api/auth/oauth/${provider}/start`, {
-    method: "GET",
-    useBaseUrl: false,
-    credentials: "include",
-  });
+export function getSocialLoginStartPath(provider: AuthProvider) {
+  return `/api/auth/oauth/${provider}/start`;
 }
 
 export async function completeSocialLogin(provider: AuthProvider, body: SocialCallbackRequest) {

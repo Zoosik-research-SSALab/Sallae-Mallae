@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { completeSocialLogin, isSocialSignupPending } from "@/shared/lib/authApi";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { useAuthStore } from "@/shared/lib/authStore";
@@ -21,6 +21,7 @@ const providerLabels: Record<AuthProvider, string> = {
 export default function AuthCallbackClient({ provider }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hasSubmittedRef = useRef(false);
 
   const providerLabel = providerLabels[provider];
 
@@ -41,6 +42,12 @@ export default function AuthCallbackClient({ provider }: Props) {
       router.replace("/");
       return;
     }
+
+    if (hasSubmittedRef.current) {
+      return;
+    }
+
+    hasSubmittedRef.current = true;
 
     let isCancelled = false;
 

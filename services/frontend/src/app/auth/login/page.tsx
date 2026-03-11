@@ -7,7 +7,7 @@ import { useEffect, useState, type ComponentType, type FormEvent } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { SiNaver } from "react-icons/si";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
-import { loginWithEmail, startSocialLogin } from "@/shared/lib/authApi";
+import { getSocialLoginStartPath, loginWithEmail } from "@/shared/lib/authApi";
 import { useAuthStore } from "@/shared/lib/authStore";
 import Button from "@/shared/ui/Button";
 import Input from "@/shared/ui/Input";
@@ -99,20 +99,13 @@ function LoginCard({ showCloseButton = false, onClose, onAuthenticated }: LoginC
     }
   };
 
-  const handleProviderLogin = async (provider: AuthProvider) => {
+  const handleProviderLogin = (provider: AuthProvider) => {
     if (activeAction) {
       return;
     }
 
     setActiveAction(provider);
-
-    try {
-      const response = await startSocialLogin(provider);
-      window.location.assign(response.redirect);
-    } catch (error) {
-      setActiveAction(null);
-      window.alert(getAuthErrorMessage(error, "소셜 로그인 시작에 실패했습니다."));
-    }
+    window.location.assign(getSocialLoginStartPath(provider));
   };
 
   const isEmailSubmitting = activeAction === "email";
@@ -124,7 +117,7 @@ function LoginCard({ showCloseButton = false, onClose, onAuthenticated }: LoginC
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--color-text-tertiary)] transition-colors hover:bg-[color:var(--color-bg-tertiary)] hover:text-[color:var(--color-text-primary)]"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[color:var(--color-text-tertiary)] transition-colors hover:bg-[color:var(--color-bg-tertiary)] hover:text-[color:var(--color-text-primary)]"
             aria-label="닫기"
           >
             <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden>
@@ -212,7 +205,7 @@ function LoginCard({ showCloseButton = false, onClose, onAuthenticated }: LoginC
             <button
               type="button"
               onClick={() => window.alert("비밀번호 찾기 기능은 아직 준비 중입니다.")}
-              className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-primary)]"
+              className="typo-body-sm cursor-pointer font-semibold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-primary)]"
             >
               비밀번호 찾기
             </button>
@@ -246,7 +239,7 @@ function LoginCard({ showCloseButton = false, onClose, onAuthenticated }: LoginC
                     disabled={Boolean(activeAction)}
                     onClick={() => handleProviderLogin(provider)}
                     className={cn(
-                      "inline-flex h-14 w-14 items-center justify-center rounded-full transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60",
+                      "inline-flex h-14 w-14 cursor-pointer items-center justify-center rounded-full transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60",
                       className,
                     )}
                     aria-label={`${label}로 로그인하기`}
@@ -308,7 +301,12 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-3 py-6 sm:px-4">
-      <button type="button" aria-label="로그인 모달 닫기" onClick={onClose} className="absolute inset-0 bg-black/56 backdrop-blur-[2px]" />
+      <button
+        type="button"
+        aria-label="로그인 모달 닫기"
+        onClick={onClose}
+        className="absolute inset-0 cursor-pointer bg-black/56 backdrop-blur-[2px]"
+      />
       <div className="relative z-[1]">
         <LoginCard showCloseButton onClose={onClose} onAuthenticated={onClose} />
       </div>

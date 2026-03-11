@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthProvider } from "@/shared/lib/auth";
-import type { OAuthStartResponse } from "@/shared/types/auth";
+import type { AuthProvider, OAuthStartResponse } from "@/shared/types/auth";
 import {
   applyDeviceIdCookie,
   createErrorResponse,
@@ -40,6 +40,22 @@ function extractOAuthStartResponse(value: unknown): OAuthStartResponse | null {
   };
 }
 
+function extractErrorMessage(value: unknown, fallback: string) {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  if (typeof value.message === "string") {
+    return value.message;
+  }
+
+  if (isRecord(value.error) && typeof value.error.message === "string") {
+    return value.error.message;
+  }
+
+  return fallback;
+}
+
 function resolveClientRedirect(request: NextRequest, redirect: string) {
   if (/^https?:\/\//i.test(redirect)) {
     const redirectUrl = new URL(redirect);
@@ -53,6 +69,21 @@ function resolveClientRedirect(request: NextRequest, redirect: string) {
   }
 
   return new URL(redirect, request.nextUrl.origin).toString();
+}
+
+function createStartErrorRedirect(
+  request: NextRequest,
+  provider: AuthProvider,
+  message: string,
+  deviceIdState: ReturnType<typeof getOrCreateDeviceId>,
+) {
+  const errorUrl = new URL(`/auth/callback/${provider}`, request.url);
+  errorUrl.searchParams.set("error", "oauth_start_failed");
+  errorUrl.searchParams.set("error_description", message);
+
+  const response = NextResponse.redirect(errorUrl);
+  applyDeviceIdCookie(response, deviceIdState);
+  return response;
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -73,13 +104,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const upstreamPayload = await readUpstreamPayload(upstreamResponse);
 
     if (!upstreamResponse.ok) {
-      const response =
-        upstreamPayload !== null && typeof upstreamPayload !== "string"
-          ? NextResponse.json(upstreamPayload, { status: upstreamResponse.status })
-          : createErrorResponse("소셜 로그인 시작 요청에 실패했습니다.", upstreamResponse.status, deviceIdState);
-
-      applyDeviceIdCookie(response, deviceIdState);
-      return response;
+      return createStartErrorRedirect(
+        request,
+        provider,
+        extractErrorMessage(upstreamPayload, "소셜 로그인 시작 요청에 실패했습니다."),
+        deviceIdState,
+      );
     }
 
     const payload = extractOAuthStartResponse(upstreamPayload);
@@ -88,20 +118,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return createErrorResponse("소셜 로그인 시작 URL을 확인하지 못했습니다.", 502, deviceIdState);
     }
 
-    const response = NextResponse.json(
-      {
-        ...payload,
-        redirect: resolveClientRedirect(request, payload.redirect),
-      },
-      {
-        status: upstreamResponse.status,
-      },
-    );
+    const response = NextResponse.redirect(resolveClientRedirect(request, payload.redirect));
 
     applyDeviceIdCookie(response, deviceIdState);
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "소셜 로그인 시작 요청에 실패했습니다.";
-    return createErrorResponse(message, 502, deviceIdState);
+    return createStartErrorRedirect(request, provider, message, deviceIdState);
   }
 }
