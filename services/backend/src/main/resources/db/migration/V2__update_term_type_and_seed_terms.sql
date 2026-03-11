@@ -1,6 +1,9 @@
 -- V2: TermType 업데이트 및 초기 약관 데이터 추가
 -- MARKETING -> INVESTMENT_DISCLAIMER 변경 및 3개 약관 데이터 INSERT
 
+-- 0. term_type 컬럼 길이 확장 (INVESTMENT_DISCLAIMER = 23자, 기존 VARCHAR(20) 초과)
+ALTER TABLE terms ALTER COLUMN term_type TYPE VARCHAR(30);
+
 -- 1. 기존 MARKETING 타입 데이터가 있으면 INVESTMENT_DISCLAIMER로 변경
 UPDATE terms SET term_type = 'INVESTMENT_DISCLAIMER' WHERE term_type = 'MARKETING';
 
