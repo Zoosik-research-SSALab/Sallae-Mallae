@@ -11,7 +11,7 @@ export default function PortfolioPage() {
   return (
     <main className="stack">
       <section className="card stack">
-        <h1>전체 의장 포트폴리오</h1>
+        <h1 className="heading-reset">전체 의장 포트폴리오</h1>
         <p className="muted">기능 명세 반영 페이지. 실제 집계 API 연결 전까지 fallback 데이터로 표시됩니다.</p>
       </section>
 

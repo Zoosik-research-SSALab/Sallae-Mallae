@@ -6,9 +6,9 @@ type Props = {
   isLoading: boolean;
 };
 
-function NewsSkeletonItem({ index }: { index: number }) {
+function NewsSkeletonItem() {
   return (
-    <div key={`watchlist-news-skeleton-${index}`} className="rounded-2xl border-b-2 border-[color:var(--color-border-secondary)] px-2 py-6">
+    <div className="rounded-2xl border-b-2 border-[color:var(--color-border-secondary)] px-2 py-6">
       <div className="h-4 w-28 rounded bg-[color:var(--color-bg-secondary)]" />
       <div className="mt-4 h-6 w-full rounded bg-[color:var(--color-bg-secondary)]" />
       <div className="mt-3 h-16 w-full rounded bg-[color:var(--color-bg-secondary)]" />
@@ -28,7 +28,7 @@ export default function WatchlistNewsSection({ items, isLoading }: Props) {
 
       <div className="flex flex-col">
         {isLoading ? (
-          Array.from({ length: 3 }).map((_, index) => <NewsSkeletonItem key={index} index={index} />)
+          Array.from({ length: 3 }).map((_, index) => <NewsSkeletonItem key={index} />)
         ) : visibleItems.length > 0 ? (
           visibleItems.map((item, index) => {
             const className = `flex flex-col gap-3 px-2 py-6 transition-colors ${

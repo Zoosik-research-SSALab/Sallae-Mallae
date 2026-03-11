@@ -9,7 +9,7 @@ export default function ReportSummaryCard({ report }: Props) {
   return (
     <section className="card stack">
       <div className="row-between">
-        <h2>{report.ticker} 최신 리포트</h2>
+        <h2 className="heading-reset">{report.ticker} 최신 리포트</h2>
         <SignalBadge signal={report.mlSignal} />
       </div>
 

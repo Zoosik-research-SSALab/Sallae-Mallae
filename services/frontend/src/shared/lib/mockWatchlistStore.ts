@@ -259,12 +259,6 @@ const watchlistCatalog = new Map<number, MockWatchlistSeed>([
 const watchlistStore = new Map<number, WatchlistEntry>([
   [1, { isNotifiedEnabled: true }],
   [4, { isNotifiedEnabled: true }],
-  [9, { isNotifiedEnabled: false }],
-  [16, { isNotifiedEnabled: false }],
-  [24, { isNotifiedEnabled: true }],
-  [31, { isNotifiedEnabled: false }],
-  [47, { isNotifiedEnabled: false }],
-  [55, { isNotifiedEnabled: true }],
   [5, { isNotifiedEnabled: false }],
   [10, { isNotifiedEnabled: false }],
   [102, { isNotifiedEnabled: false }],
@@ -272,7 +266,9 @@ const watchlistStore = new Map<number, WatchlistEntry>([
   [203, { isNotifiedEnabled: true }],
   [301, { isNotifiedEnabled: true }],
   [302, { isNotifiedEnabled: false }],
+  [303, { isNotifiedEnabled: false }],
   [304, { isNotifiedEnabled: true }],
+  [305, { isNotifiedEnabled: true }],
   [308, { isNotifiedEnabled: true }],
 ]);
 

@@ -11,6 +11,7 @@ import {
   getRateTextClassName,
 } from "../utils/watchlistDisplay";
 import WatchlistSignalBadge from "./WatchlistSignalBadge";
+import WatchlistStockAvatar from "./WatchlistStockAvatar";
 
 type Props = {
   items: WatchlistStockItem[];
@@ -22,17 +23,9 @@ type Props = {
   onToggleSuccess: (stockId: number, nextIsWatched: boolean) => void;
 };
 
-function StockAvatar({ name }: { name: string }) {
+function DesktopSkeletonRow() {
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--color-bg-interactive-primary)] text-[10px] font-semibold text-[color:var(--color-text-base)] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
-      {name.slice(0, 2)}
-    </div>
-  );
-}
-
-function DesktopSkeletonRow({ index }: { index: number }) {
-  return (
-    <div key={`watchlist-desktop-skeleton-${index}`} className="border-b border-[color:var(--color-border-secondary)] px-4 py-4">
+    <div className="border-b border-[color:var(--color-border-secondary)] px-4 py-4">
       <div className="h-16 rounded-2xl bg-[color:var(--color-bg-secondary)]" />
     </div>
   );
@@ -47,6 +40,9 @@ export default function WatchlistDesktopTable({
   onPageChange,
   onToggleSuccess,
 }: Props) {
+  const showEmptyState = !isLoading && items.length === 0 && totalPages === 0;
+  const showPagination = totalPages > 1;
+
   return (
     <section className="hidden w-full flex-col gap-0 lg:flex">
       <div className="border-b border-[color:var(--color-border-base)] px-4 py-4">
@@ -65,13 +61,13 @@ export default function WatchlistDesktopTable({
 
       <div className="flex flex-col">
         {isLoading ? (
-          Array.from({ length: pageSize }).map((_, index) => <DesktopSkeletonRow key={index} index={index} />)
+          Array.from({ length: pageSize }).map((_, index) => <DesktopSkeletonRow key={index} />)
         ) : items.length > 0 ? (
           items.map((item) => (
             <article key={item.stockId} className="border-b border-[color:var(--color-border-secondary)] px-4 py-4">
               <div className="flex items-center justify-between gap-6">
                 <div className="flex min-w-0 flex-1 items-center gap-4">
-                  <StockAvatar name={item.name} />
+                  <WatchlistStockAvatar name={item.name} />
                   <div className="min-w-0">
                     <Link
                       href={`/stocks/${item.ticker}`}
@@ -119,14 +115,14 @@ export default function WatchlistDesktopTable({
               </div>
             </article>
           ))
-        ) : (
+        ) : showEmptyState ? (
           <div className="px-4 py-16 text-center">
             <p className="typo-body-md text-[color:var(--color-text-secondary)]">아직 추가된 관심 종목이 없습니다.</p>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {items.length > 0 ? (
+      {showPagination ? (
         <div className="border-t border-[color:var(--color-border-secondary)] p-4">
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
         </div>

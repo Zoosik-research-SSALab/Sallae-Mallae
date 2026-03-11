@@ -11,7 +11,7 @@ export default function LoginPage() {
   return (
     <main className="stack">
       <section className="card stack">
-        <h1>로그인</h1>
+        <h1 className="heading-reset">로그인</h1>
         <p className="muted">Redis refresh token / 블랙리스트 정책을 연결할 화면 뼈대입니다.</p>
       </section>
 

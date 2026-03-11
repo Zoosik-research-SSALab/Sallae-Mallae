@@ -8,7 +8,7 @@ type Props = {
 export default function PerformanceList({ items }: Props) {
   return (
     <section className="card stack">
-      <h3>일별 성과</h3>
+      <h3 className="heading-reset">일별 성과</h3>
       <div className="list">
         {items.map((entry) => (
           <article key={entry.recordDate} className="list-item row-between">

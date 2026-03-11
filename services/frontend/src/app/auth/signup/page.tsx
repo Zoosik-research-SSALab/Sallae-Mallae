@@ -11,7 +11,7 @@ export default function SignupPage() {
   return (
     <main className="stack">
       <section className="card stack">
-        <h1>회원가입</h1>
+        <h1 className="heading-reset">회원가입</h1>
         <p className="muted">users + terms + user_agreements ERD 기준 입력/동의 구조 보일러플레이트</p>
       </section>
 

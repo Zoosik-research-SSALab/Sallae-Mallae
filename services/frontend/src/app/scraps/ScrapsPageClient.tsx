@@ -37,13 +37,16 @@ export default function ScrapsPageClient({ initialPage }: Props) {
   const [hiddenItems, setHiddenItems] = useState<WatchlistStockItem[]>([]);
   const hideTimeoutIdsRef = useRef<number[]>([]);
 
-  useEffect(() => {
-    const timeoutIds = hideTimeoutIdsRef.current;
-
-    return () => {
-      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
-    };
+  const clearHideTimeouts = useCallback(() => {
+    hideTimeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    hideTimeoutIdsRef.current = [];
   }, []);
+
+  useEffect(() => {
+    return () => {
+      clearHideTimeouts();
+    };
+  }, [clearHideTimeouts]);
 
   const hiddenStockIds = useMemo(() => new Set(hiddenItems.map((item) => item.stockId)), [hiddenItems]);
   const displayedItems = useMemo(
@@ -52,6 +55,7 @@ export default function ScrapsPageClient({ initialPage }: Props) {
   );
   const totalPages = useMemo(() => getWatchlistTotalPages(streamData, WATCHLIST_PAGE_SIZE), [streamData]);
   const summary = useMemo(() => formatWatchlistSummary(streamData, hiddenItems), [hiddenItems, streamData]);
+  const hasVisibleWatchlist = isStreamLoading || summary.totalCount > 0;
 
   const replacePage = useCallback(
     (page: number) => {
@@ -78,6 +82,8 @@ export default function ScrapsPageClient({ initialPage }: Props) {
       return;
     }
 
+    clearHideTimeouts();
+    setHiddenItems([]);
     replacePage(nextPage);
   };
 
@@ -99,6 +105,7 @@ export default function ScrapsPageClient({ initialPage }: Props) {
     if (!nextIsWatched && targetItem) {
       const timeoutId = window.setTimeout(() => {
         setHiddenItems((current) => current.filter((item) => item.stockId !== stockId));
+        hideTimeoutIdsRef.current = hideTimeoutIdsRef.current.filter((currentTimeoutId) => currentTimeoutId !== timeoutId);
       }, 6000);
 
       hideTimeoutIdsRef.current.push(timeoutId);
@@ -138,25 +145,29 @@ export default function ScrapsPageClient({ initialPage }: Props) {
               </Link>
             </div>
 
-            <WatchlistMobileList
-              items={displayedItems}
-              pageSize={WATCHLIST_PAGE_SIZE}
-              isLoading={isStreamLoading}
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              onToggleSuccess={handleToggleSuccess}
-            />
+            {hasVisibleWatchlist ? (
+              <>
+                <WatchlistMobileList
+                  items={displayedItems}
+                  pageSize={WATCHLIST_PAGE_SIZE}
+                  isLoading={isStreamLoading}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  onToggleSuccess={handleToggleSuccess}
+                />
 
-            <WatchlistDesktopTable
-              items={displayedItems}
-              pageSize={WATCHLIST_PAGE_SIZE}
-              isLoading={isStreamLoading}
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              onToggleSuccess={handleToggleSuccess}
-            />
+                <WatchlistDesktopTable
+                  items={displayedItems}
+                  pageSize={WATCHLIST_PAGE_SIZE}
+                  isLoading={isStreamLoading}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  onToggleSuccess={handleToggleSuccess}
+                />
+              </>
+            ) : null}
 
             {!isStreamLoading && summary.totalCount === 0 ? (
               <div className="rounded-2xl border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-6 py-10 text-center">

@@ -22,7 +22,7 @@ export default function NotificationsPage() {
   return (
     <main className="stack">
       <section className="card stack">
-        <h1>알림함</h1>
+        <h1 className="heading-reset">알림함</h1>
         <p className="muted">기본 페이지네이션 크기 6개, 타입 필터(BUY/SELL/급등락/공시) 반영 구조</p>
       </section>
 
