@@ -1,6 +1,7 @@
 # Progress Log
 
 ## Current Focus
+- [x] (2026-03-10) Stocks page rebuild: responsive all-stocks board with token-based ranking UI, mock `/api/stocks`, and layout reordering animation
 - [x] (2026-03-11) Watchlist page rebuild: responsive `/scraps` dashboard with SSE feed, news panel, and shared watchlist reuse
 - [x] (2026-03-10) API base routing: centralize mock/real base URL switching in `apiClient` and align local env files
 - [x] (2026-03-09) Signals page rebuild: responsive market-signal board with shared category filters, infinite pagination, and mock `/api/signals`
@@ -21,44 +22,6 @@
 - [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
 
 ## Changes
-### (2026-03-11) Watchlist page rebuild
-- Scope:
-  - Replaced the placeholder `scraps` page with a responsive watchlist dashboard for desktop and mobile/tablet layouts
-  - Added SSE-backed watchlist feed consumption and a separate watchlist-news query flow under the route-local `api/hooks/types/utils` structure
-  - Expanded the existing mock watchlist store so toggles from shared heart buttons and the new `/scraps` page read from the same source of truth
-  - Restored header active-state styling so the current navigation item is highlighted while inactive categories stay tertiary
-  - Replaced incremental "더보기" loading with numbered pagination synced to the `/scraps?page=` URL and mock SSE query params
-- Files:
-  - ~ PROGRESS.md
-  - ~ src/shared/components/AppNav.tsx
-  - ~ src/shared/components/WatchlistHeartButton.tsx
-  - ~ src/shared/hooks/useWatchlist.ts
-  - ~ src/shared/lib/mockWatchlistStore.ts
-  - ~ src/app/api/users/watchlist/route.ts
-  - + src/app/api/users/watchlist/news/route.ts
-  - + src/app/scraps/ScrapsPageClient.tsx
-  - + src/app/scraps/api/{connectWatchlistStream,getWatchlistNews}.ts
-  - + src/app/scraps/hooks/{useWatchlistStream,useWatchlistNewsQuery}.ts
-  - + src/app/scraps/types/scraps.ts
-  - + src/app/scraps/utils/watchlistDisplay.ts
-  - + src/app/scraps/components/{WatchlistDesktopTable,WatchlistMobileList,WatchlistNewsSection,WatchlistSignalBadge,WatchlistSummaryStats}.tsx
-  - ~ src/app/scraps/page.tsx
-  - - src/app/scraps/api/getScraps.ts
-  - - src/app/scraps/components/ScrapList.tsx
-  - - src/app/scraps/hooks/useScraps.ts
-- Decisions:
-  - Kept the shared header component and shared watchlist heart button, but extended the heart flow with `initialWatched` and toggle callbacks so the watchlist page can avoid unnecessary per-row status fetches.
-  - Used SSE only for the live watchlist feed and React Query for the news list because those two data sources have different update behavior.
-  - Matched tablet to the mobile composition as requested and reserved the full table layout for `lg` desktop breakpoints.
-  - Moved watchlist page-index ownership to route query (`page`, `limit`) so pagination state is shareable and directly compatible with backend query-based paging.
-- Notes / Issues:
-  - The supplied watchlist-news API shape did not include article fields required by the design, so the frontend mock currently assumes `news: [{ id, title, summary, source, published_at, related_stocks[] }]`.
-  - The watchlist row subtitle uses optional `sector`; if backend omits it, the UI falls back to ticker only.
-  - `pnpm lint` and `pnpm build` passed.
-- Next:
-  - [ ] Align the real `/api/users/watchlist/news` contract with the frontend news-card fields.
-  - [ ] If backend wants instant server-acknowledged removal instead of optimistic hide, emit watchlist SSE updates immediately after add/remove mutations.
-
 ### (2026-03-10) API base routing
 - Scope:
   - Added central mock/real base URL resolution to the shared API client so browser-side HTTP/SSE calls can switch through env without editing each feature module
