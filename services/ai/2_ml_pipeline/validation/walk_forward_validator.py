@@ -690,6 +690,7 @@ def _validate_window(
             result["max_drawdown"] = result["stacking_ensemble"]["max_drawdown"]
 
     # --- 단순 가중 평균 메트릭 ---
+    sa_merged = None
     simple_df = _build_simple_avg_signal(lgbm_df, lstm_df, garch_df)
     if simple_df is not None:
         sa_merged = pd.merge(simple_df, fwd_df, on=["date", "ticker"], how="inner")
@@ -718,23 +719,39 @@ def _validate_window(
                 result["sharpe_ratio"] = result["simple_avg"]["sharpe_ratio"]
                 result["max_drawdown"] = result["simple_avg"]["max_drawdown"]
 
-    # 신뢰도 기반 필터링 DA
-    if lgbm_df is not None and "confidence" in lgbm_df.columns:
-        lgbm_merged = pd.merge(
-            lgbm_df[["date", "ticker", "prob_up", "confidence"]],
-            fwd_df,
-            on=["date", "ticker"],
-            how="inner",
-        )
-        if len(lgbm_merged) >= 10:
-            lgbm_pred_up = lgbm_merged["prob_up"].astype(float) >= 0.5
-            lgbm_conf = lgbm_merged["confidence"].astype(float)
-            lgbm_fwd = lgbm_merged["fwd_return"].astype(float)
-            conf_da, coverage = _calc_direction_accuracy_filtered(
-                lgbm_pred_up, lgbm_fwd, lgbm_conf
+    # 신뢰도 기반 필터링 DA (LightGBM confidence 기반)
+    if lgbm_df is not None and "confidence" in lgbm_df.columns and not fwd_df.empty:
+        # sa_merged에서 이미 merge된 결과가 있으면 재사용
+        if sa_merged is not None and len(sa_merged) >= 10:
+            # lgbm_df의 confidence를 sa_merged에 join
+            conf_map = lgbm_df.set_index(["date", "ticker"])["confidence"]
+            sa_conf = sa_merged.set_index(["date", "ticker"]).join(conf_map, how="left").reset_index()
+            if "confidence" in sa_conf.columns and sa_conf["confidence"].notna().sum() >= 10:
+                lgbm_pred_up = sa_conf["simple_avg_signal"].astype(float) >= 0.5
+                lgbm_conf = sa_conf["confidence"].astype(float)
+                lgbm_fwd = sa_conf["fwd_return"].astype(float)
+                conf_da, coverage = _calc_direction_accuracy_filtered(
+                    lgbm_pred_up, lgbm_fwd, lgbm_conf
+                )
+                result["confident_da"] = conf_da if not np.isnan(conf_da) else None
+                result["confident_coverage"] = coverage
+        else:
+            # sa_merged가 없으면 직접 merge (fallback)
+            lgbm_merged = pd.merge(
+                lgbm_df[["date", "ticker", "prob_up", "confidence"]],
+                fwd_df,
+                on=["date", "ticker"],
+                how="inner",
             )
-            result["confident_da"] = conf_da if not np.isnan(conf_da) else None
-            result["confident_coverage"] = coverage
+            if len(lgbm_merged) >= 10:
+                lgbm_pred_up = lgbm_merged["prob_up"].astype(float) >= 0.5
+                lgbm_conf = lgbm_merged["confidence"].astype(float)
+                lgbm_fwd = lgbm_merged["fwd_return"].astype(float)
+                conf_da, coverage = _calc_direction_accuracy_filtered(
+                    lgbm_pred_up, lgbm_fwd, lgbm_conf
+                )
+                result["confident_da"] = conf_da if not np.isnan(conf_da) else None
+                result["confident_coverage"] = coverage
 
     result["status"] = "ok" if result["direction_accuracy"] is not None else "partial"
     return result

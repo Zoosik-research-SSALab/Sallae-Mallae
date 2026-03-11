@@ -390,6 +390,11 @@ def evaluate_predictions(
 # ---------------------------------------------------------------------------
 # Walk-Forward 예측 (단일 윈도우)
 # ---------------------------------------------------------------------------
+
+# Walk-Forward 피처 캐시 (세션 내 1회 로드)
+_wf_features_cache: pd.DataFrame | None = None
+
+
 def train_and_predict_window(
     train_end_date: str,
     predict_start: str,
@@ -413,7 +418,11 @@ def train_and_predict_window(
         logger.warning("[LGBM-WF] 피처 파일 없음: %s", features_path)
         return None
 
-    full_df = pd.read_parquet(features_path)
+    global _wf_features_cache
+    if _wf_features_cache is None:
+        _wf_features_cache = pd.read_parquet(features_path)
+        logger.info("[LGBM-WF] 피처 캐시 로드: %d행", len(_wf_features_cache))
+    full_df = _wf_features_cache
 
     # MultiIndex (date, ticker) 처리
     if isinstance(full_df.index, pd.MultiIndex):
