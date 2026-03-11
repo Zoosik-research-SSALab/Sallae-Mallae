@@ -9,6 +9,14 @@ variables:
   DEPLOY_INFRA_REF: "infra-common"
   INFRA_TMP_DIR: "$CI_PROJECT_DIR/.deploy-infra"
 
+.notify_deploy_after_script: &notify_deploy_after_script
+  - |
+    if [ -f "$INFRA_TMP_DIR/infra/scripts/send-mattermost-deploy-notification.sh" ]; then
+      bash "$INFRA_TMP_DIR/infra/scripts/send-mattermost-deploy-notification.sh" || true
+    else
+      echo "Mattermost notification script not found; skipping."
+    fi
+
 deploy_base_manual:
   stage: deploy
   when: manual
@@ -22,6 +30,7 @@ deploy_base_manual:
     - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
     - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" base
     - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-base.sh"
+  after_script: *notify_deploy_after_script
 
 deploy_dev_frontend:
   stage: deploy
@@ -34,6 +43,7 @@ deploy_dev_frontend:
     - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
     - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" dev-frontend
     - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-dev-frontend.sh"
+  after_script: *notify_deploy_after_script
 
 deploy_dev_backend:
   stage: deploy
@@ -46,6 +56,7 @@ deploy_dev_backend:
     - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
     - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" dev-backend
     - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-dev-backend.sh"
+  after_script: *notify_deploy_after_script
 
 deploy_dev_ai:
   stage: deploy
@@ -58,6 +69,7 @@ deploy_dev_ai:
     - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
     - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" dev-ai
     - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-dev-ai.sh"
+  after_script: *notify_deploy_after_script
 
 deploy_develop:
   stage: deploy
@@ -70,6 +82,7 @@ deploy_develop:
     - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
     - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" develop
     - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-develop.sh"
+  after_script: *notify_deploy_after_script
 
 deploy_monitoring_manual:
   stage: deploy
@@ -85,3 +98,4 @@ deploy_monitoring_manual:
     - mkdir -p /srv/sallaemallae/env
     - if [ ! -f /srv/sallaemallae/env/monitoring.env ]; then cp "$INFRA_TMP_DIR/infra/env/monitoring.env.example" /srv/sallaemallae/env/monitoring.env; fi
     - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-monitoring.sh"
+  after_script: *notify_deploy_after_script
