@@ -17,6 +17,32 @@ type RouteContext = {
   }>;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function extractSocialCallbackRequest(value: unknown): SocialCallbackRequest | null {
+  if (!isRecord(value) || typeof value.state !== "string") {
+    return null;
+  }
+
+  const authorizationCode =
+    typeof value.authorizationCode === "string"
+      ? value.authorizationCode
+      : typeof value.authorization_code === "string"
+        ? value.authorization_code
+        : null;
+
+  if (!authorizationCode) {
+    return null;
+  }
+
+  return {
+    authorizationCode,
+    state: value.state,
+  };
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const { provider } = await context.params;
 
@@ -120,7 +146,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return createErrorResponse("지원하지 않는 소셜 로그인 제공자입니다.", 400);
   }
 
-  const body = await readJsonSafely<SocialCallbackRequest>(request);
+  const payload = await readJsonSafely<unknown>(request);
+  const body = extractSocialCallbackRequest(payload);
 
   if (!body?.authorizationCode || !body.state) {
     return createErrorResponse("소셜 로그인 승인 정보가 올바르지 않습니다.", 400);

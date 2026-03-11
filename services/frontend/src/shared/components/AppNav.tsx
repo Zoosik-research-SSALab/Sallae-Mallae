@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
 ];
 
 const loginButtonClassName =
-  "typo-body-md inline-flex items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
+  "typo-body-md inline-flex cursor-pointer items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
 const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
 
@@ -198,7 +198,7 @@ export default function AppNav() {
               <button
                 type="button"
                 onClick={goToSearch}
-                className={`absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
+                className={`absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
                 aria-label="검색"
               >
                 <GoSearch className="h-4 w-4" />
@@ -244,7 +244,7 @@ export default function AppNav() {
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className={`inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName} lg:hidden`}
+            className={`inline-flex h-10 w-10 cursor-pointer items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName} lg:hidden`}
             aria-label="메뉴 열기"
           >
             <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none">
@@ -259,7 +259,7 @@ export default function AppNav() {
           <button
             type="button"
             onClick={() => setIsDrawerOpen(false)}
-            className="absolute inset-0 bg-black/45"
+            className="absolute inset-0 cursor-pointer bg-black/45"
             aria-label="메뉴 닫기"
           />
 
@@ -271,7 +271,7 @@ export default function AppNav() {
                 <button
                   type="button"
                   onClick={() => setIsDrawerOpen(false)}
-                  className="inline-flex h-6 w-6 items-center justify-center text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-secondary)]"
+                  className="inline-flex h-6 w-6 cursor-pointer items-center justify-center text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-secondary)]"
                   aria-label="닫기"
                 >
                   <IoCloseOutline className="h-5 w-5" />
@@ -285,7 +285,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={() => goToPath("/notifications")}
-                    className={`typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
+                    className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <HiOutlineBell className="h-5 w-5 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">알림함</span>
@@ -294,7 +294,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={goToSearch}
-                    className={`typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
+                    className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">검색하기</span>
@@ -341,19 +341,19 @@ export default function AppNav() {
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
+                        className={`typo-body-md w-full cursor-pointer whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                       >
                         로그아웃
                       </button>
                       <button
                         type="button"
-                        className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
+                        className={`typo-body-md w-full cursor-pointer whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                       >
                         비밀번호 변경
                       </button>
                       <button
                         type="button"
-                        className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
+                        className={`typo-body-md w-full cursor-pointer whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                       >
                         내 정보 수정
                       </button>

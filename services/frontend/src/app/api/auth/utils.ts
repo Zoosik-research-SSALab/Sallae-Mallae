@@ -175,6 +175,14 @@ export async function proxyAuthRequest({
       cache: "no-store",
     });
 
+    if (upstreamResponse.status === 204) {
+      const response = new NextResponse(null, { status: 204 });
+      applyDeviceIdCookie(response, deviceIdState);
+      appendSetCookieHeader(response, upstreamResponse);
+
+      return response;
+    }
+
     const upstreamPayload = await readUpstreamPayload(upstreamResponse);
     const response =
       upstreamPayload !== null && typeof upstreamPayload !== "string"
