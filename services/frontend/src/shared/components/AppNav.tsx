@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BiBarChartAlt2 } from "react-icons/bi";
 import { GoBook, GoListUnordered, GoSearch } from "react-icons/go";
@@ -25,10 +25,11 @@ type NavItem = {
   href: string;
   label: string;
   icon: IconType | null;
+  highlightOnMatch?: boolean;
 };
 
 const navItems: NavItem[] = [
-  { href: "/", label: "ABOUT", icon: GoBook },
+  { href: "/", label: "ABOUT", icon: GoBook, highlightOnMatch: false },
   { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2 },
   { href: "/stocks", label: "전체 종목", icon: GoListUnordered },
   { href: "/scraps", label: "관심 종목", icon: MdOutlineFavorite },
@@ -69,6 +70,7 @@ function CategoryIcon({ Icon }: { Icon: IconType | null }) {
 
 export default function AppNav() {
   const router = useRouter();
+  const pathname = usePathname();
   const { resolvedTheme } = useTheme();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -173,6 +175,18 @@ export default function AppNav() {
     setIsDrawerOpen(false);
   };
 
+  const isActivePath = (item: NavItem) => {
+    if (item.highlightOnMatch === false) {
+      return false;
+    }
+
+    if (item.href === "/") {
+      return pathname === "/";
+    }
+
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  };
+
   return (
     <>
       <header className="flex w-full flex-col items-center border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] backdrop-blur-[6px]">
@@ -183,15 +197,22 @@ export default function AppNav() {
             </Link>
 
             <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const isActive = isActivePath(item);
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`typo-heading-sm whitespace-nowrap transition-colors hover:text-[color:var(--color-text-interactive-primary)] ${
+                      isActive ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-tertiary)]"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
             </nav>
           </div>
 
@@ -314,19 +335,28 @@ export default function AppNav() {
               <div className="w-full p-6">
                 <div className="flex flex-col gap-6">
                   <nav className="flex flex-col gap-4">
-                    {navItems.map((item) => (
-                      <Link
-                        key={`drawer-${item.href}`}
-                        href={item.href}
-                        onClick={() => setIsDrawerOpen(false)}
-                        className="inline-flex w-full items-center gap-2"
-                      >
-                        <CategoryIcon Icon={item.icon} />
-                        <span className="typo-body-md whitespace-nowrap font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]">
-                          {item.label}
-                        </span>
-                      </Link>
-                    ))}
+                    {navItems.map((item) => {
+                      const isActive = isActivePath(item);
+
+                      return (
+                        <Link
+                          key={`drawer-${item.href}`}
+                          href={item.href}
+                          onClick={() => setIsDrawerOpen(false)}
+                          aria-current={isActive ? "page" : undefined}
+                          className="inline-flex w-full items-center gap-2"
+                        >
+                          <CategoryIcon Icon={item.icon} />
+                          <span
+                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors hover:text-[color:var(--color-text-interactive-primary)] ${
+                              isActive ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-tertiary)]"
+                            }`}
+                          >
+                            {item.label}
+                          </span>
+                        </Link>
+                      );
+                    })}
                   </nav>
                   <div className="w-full border-t border-[color:var(--color-border-secondary)]" />
                 </div>

@@ -7,10 +7,12 @@ import { cn } from "@/shared/utils/cn";
 type Props = {
   stockId: number;
   stockName: string;
+  initialWatched?: boolean;
   size?: "sm" | "md";
   surface?: "default" | "muted";
   inactiveIconStyle?: "filled" | "outline";
   className?: string;
+  onToggleSuccess?: (nextIsWatched: boolean) => void;
 };
 
 const sizeClassNames = {
@@ -27,17 +29,20 @@ const sizeClassNames = {
 export default function WatchlistHeartButton({
   stockId,
   stockName,
+  initialWatched,
   size = "sm",
   surface = "default",
   inactiveIconStyle = "filled",
   className,
+  onToggleSuccess,
 }: Props) {
-  const { isWatched, isPending, toggle } = useWatchlist(stockId);
+  const { isWatched, isPending, toggle } = useWatchlist(stockId, initialWatched);
   const Icon = isWatched ? IoHeart : inactiveIconStyle === "outline" ? IoHeartOutline : IoHeart;
 
   const handleClick = async () => {
     try {
-      await toggle();
+      const nextIsWatched = await toggle();
+      onToggleSuccess?.(nextIsWatched);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Watchlist request failed.";
       window.alert(message);

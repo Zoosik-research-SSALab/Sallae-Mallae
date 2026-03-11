@@ -8,16 +8,25 @@ import type { WatchlistStatus } from "@/shared/types/watchlist";
 type UseWatchlistResult = WatchlistStatus & {
   isLoading: boolean;
   isPending: boolean;
-  toggle: () => Promise<void>;
+  toggle: () => Promise<boolean>;
 };
 
-export function useWatchlist(stockId: number): UseWatchlistResult {
+export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatchlistResult {
   const queryClient = useQueryClient();
   const statusQueryKey = watchlistQueryKeys.status(stockId);
+  const initialStatus =
+    initialWatched === undefined
+      ? undefined
+      : {
+          isWatched: initialWatched,
+          isNotifiedEnabled: false,
+        };
 
   const statusQuery = useQuery({
     queryKey: statusQueryKey,
     queryFn: () => getWatchlistStatus(stockId),
+    initialData: initialStatus,
+    enabled: initialWatched === undefined,
     staleTime: 30_000,
   });
 
@@ -31,14 +40,10 @@ export function useWatchlist(stockId: number): UseWatchlistResult {
         await removeWatchlist(stockId);
       }
 
-      try {
-        return await getWatchlistStatus(stockId);
-      } catch {
-        return {
-          isWatched: nextWatched,
-          isNotifiedEnabled: currentStatus?.isNotifiedEnabled ?? false,
-        };
-      }
+      return {
+        isWatched: nextWatched,
+        isNotifiedEnabled: currentStatus?.isNotifiedEnabled ?? false,
+      };
     },
     onMutate: async (currentStatus) => {
       await queryClient.cancelQueries({ queryKey: statusQueryKey });
@@ -63,14 +68,16 @@ export function useWatchlist(stockId: number): UseWatchlistResult {
     onSuccess: (nextStatus) => {
       queryClient.setQueryData(statusQueryKey, nextStatus);
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusQueryKey });
-      queryClient.invalidateQueries({ queryKey: watchlistQueryKeys.all });
+    onSettled: (_data, _error, _variables, context) => {
+      if (initialWatched === undefined || context?.previousStatus === undefined) {
+        queryClient.invalidateQueries({ queryKey: statusQueryKey });
+      }
     },
   });
 
   const toggle = useCallback(async () => {
-    await toggleMutation.mutateAsync(statusQuery.data);
+    const nextStatus = await toggleMutation.mutateAsync(statusQuery.data);
+    return nextStatus.isWatched;
   }, [statusQuery.data, toggleMutation]);
 
   return {

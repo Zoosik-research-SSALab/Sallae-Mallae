@@ -10,6 +10,7 @@ type Props = {
   marketCap: SignalMarketCapFilter;
   keyword: string;
   sort?: SignalQuerySort;
+  className?: string;
   onToggleCategory: (value: SignalSectorName) => void;
   onResetCategories: () => void;
   onMarketCapChange: (value: SignalMarketCapFilter) => void;
@@ -103,6 +104,7 @@ export default function SignalsFilterPanel({
   onKeywordChange,
   onSortChange,
   compact = false,
+  className,
 }: Props) {
   const sectionTitleClassName = compact ? "typo-body-md font-extrabold" : "typo-heading-sm";
   const searchTextClassName = compact ? "typo-body-xs" : "typo-body-sm";
@@ -112,6 +114,7 @@ export default function SignalsFilterPanel({
       className={cn(
         "w-full rounded-2xl bg-[color:var(--color-bg-secondary)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]",
         compact ? "p-6 shadow-[0px_2px_4px_0px_rgba(0,0,0,0.12)]" : "p-8 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12)]",
+        className,
       )}
     >
       <div className="flex flex-col gap-8">
