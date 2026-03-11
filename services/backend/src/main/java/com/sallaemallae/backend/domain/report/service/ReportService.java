@@ -9,9 +9,9 @@ import java.util.List;
 
 public interface ReportService {
 
-  List<ReportHistoryItemResponse> getReportHistory(Long stockId);
+  List<ReportHistoryItemResponse> getReportHistory(Long stockId, int offset, int limit);
 
   PerformanceResponse getPerformance(Long stockId);
 
-  PerformanceTradesResponse getPerformanceTrades(Long stockId);
+  PerformanceTradesResponse getPerformanceTrades(Long stockId, int offset, int limit);
 }

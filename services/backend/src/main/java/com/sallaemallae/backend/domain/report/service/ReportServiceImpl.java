@@ -24,7 +24,6 @@ import com.sallaemallae.backend.domain.signal.repository.AiPortfolioHoldingRepos
 import com.sallaemallae.backend.domain.signal.repository.AiPortfolioRepository;
 import com.sallaemallae.backend.domain.signal.repository.AiTradingHistoryRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -47,9 +46,16 @@ public class ReportServiceImpl implements ReportService {
   private final AiDailyPerformanceRepository aiDailyPerformanceRepository;
   private final AiTradingHistoryRepository aiTradingHistoryRepository;
 
+  // REPORT-001: 종목별 의장 분석 + 토론 기록 이력 조회 (페이지네이션)
   @Override
-  public List<ReportHistoryItemResponse> getReportHistory(Long stockId) {
-    List<AiDebateReport> reports = aiDebateReportRepository.findByStockIdOrderByReportDateDescCreatedAtDesc(stockId);
+  public List<ReportHistoryItemResponse> getReportHistory(Long stockId, int offset, int limit) {
+    int normalizedOffset = Math.max(offset, 0);
+    int normalizedLimit = normalizeLimit(limit, 30, 365);
+    List<AiDebateReport> reports = aiDebateReportRepository.findByStockIdOrderByReportDateDescCreatedAtDesc(
+        stockId,
+        normalizedOffset,
+        normalizedLimit
+    );
     if (reports.isEmpty()) {
       throw new BusinessException(ReportErrorCode.REPORT_NOT_FOUND);
     }
@@ -63,6 +69,7 @@ public class ReportServiceImpl implements ReportService {
         .toList();
   }
 
+  // REPORT-003: 전역 AI 포트폴리오 기준 성과 요약 및 차트 조회
   @Override
   public PerformanceResponse getPerformance(Long stockId) {
     AiPortfolio portfolio = getLatestPortfolio();
@@ -74,15 +81,9 @@ public class ReportServiceImpl implements ReportService {
         portfolio.getId(),
         stockId
     );
-    LocalDate latestRecordDate = aiDailyPerformanceRepository.findTopByPortfolioIdOrderByRecordDateDesc(portfolio.getId())
-        .map(AiDailyPerformance::getRecordDate)
-        .orElse(null);
-    List<AiDailyPerformance> dailyPerformances = latestRecordDate == null
-        ? List.of()
-        : aiDailyPerformanceRepository.findByPortfolioIdAndRecordDateGreaterThanEqualOrderByRecordDateAsc(
-            portfolio.getId(),
-            latestRecordDate.minusYears(3)
-        );
+    List<AiDailyPerformance> dailyPerformances = aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(
+        portfolio.getId()
+    );
 
     Map<java.time.LocalDate, String> tradeMarkers = buildTradeMarkers(trades);
     List<ChartPoint> chart = dailyPerformances.stream()
@@ -101,12 +102,17 @@ public class ReportServiceImpl implements ReportService {
     return new PerformanceResponse(cumulativeReturn, winRate, recentReturn, chart);
   }
 
+  // REPORT-004: 종목별 AI 매매 내역 조회 (페이지네이션)
   @Override
-  public PerformanceTradesResponse getPerformanceTrades(Long stockId) {
+  public PerformanceTradesResponse getPerformanceTrades(Long stockId, int offset, int limit) {
     AiPortfolio portfolio = getLatestPortfolio();
+    int normalizedOffset = Math.max(offset, 0);
+    int normalizedLimit = normalizeLimit(limit, 30, 100);
     List<AiTradingHistory> trades = aiTradingHistoryRepository.findByPortfolioIdAndStockIdOrderByTradeTimeDesc(
         portfolio.getId(),
-        stockId
+        stockId,
+        normalizedOffset,
+        normalizedLimit
     );
 
     List<TradeItem> items = trades.stream()
@@ -272,6 +278,11 @@ public class ReportServiceImpl implements ReportService {
         .filter(trade -> trade.getReturnRate() != null && trade.getReturnRate() > 0)
         .count();
     return (float) winningCount * 100 / sellCount;
+  }
+
+  // limit 기본값/최댓값 방어 처리
+  private int normalizeLimit(int limit, int defaultLimit, int maxLimit) {
+    return limit <= 0 ? defaultLimit : Math.min(limit, maxLimit);
   }
 
   private String signalValue(Enum<?> signal) {
