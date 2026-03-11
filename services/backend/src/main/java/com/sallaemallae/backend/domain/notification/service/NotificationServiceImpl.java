@@ -30,7 +30,8 @@ public class NotificationServiceImpl implements NotificationService {
   @Override
   @Transactional(readOnly = true)
   public NotificationUnreadCountResponse getUnreadCount(Long userId) {
-    long unreadCount = notificationQueryRepository.countUnreadNotifications(userId, retentionCutoff());
+    OffsetDateTime cutoff = createRetentionCutoff();
+    long unreadCount = notificationQueryRepository.countUnreadNotifications(userId, cutoff);
     return new NotificationUnreadCountResponse(formatUnreadCount(unreadCount));
   }
 
@@ -39,6 +40,7 @@ public class NotificationServiceImpl implements NotificationService {
   @Transactional(readOnly = true)
   public NotificationListResponse getNotifications(Long userId, String tab, int offset, int limit) {
     NotificationTab notificationTab = NotificationTab.from(tab);
+    OffsetDateTime cutoff = createRetentionCutoff();
 
     return new NotificationListResponse(
         notificationQueryRepository.findNotifications(
@@ -46,7 +48,7 @@ public class NotificationServiceImpl implements NotificationService {
             notificationTab,
             normalizeOffset(offset),
             normalizeLimit(limit),
-            retentionCutoff()
+            cutoff
         )
     );
   }
@@ -55,7 +57,7 @@ public class NotificationServiceImpl implements NotificationService {
   @Override
   @Transactional
   public NotificationActionResponse markAsRead(Long userId, Long notificationId) {
-    UserNotification userNotification = getUserNotification(userId, notificationId);
+    UserNotification userNotification = getUserNotification(userId, notificationId, createRetentionCutoff());
     userNotification.markAsRead();
     return new NotificationActionResponse("읽음 처리 완료");
   }
@@ -64,7 +66,8 @@ public class NotificationServiceImpl implements NotificationService {
   @Override
   @Transactional
   public NotificationBulkActionResponse markAllAsRead(Long userId, String tab) {
-    long count = notificationQueryRepository.markAllAsRead(userId, NotificationTab.from(tab), retentionCutoff());
+    OffsetDateTime cutoff = createRetentionCutoff();
+    long count = notificationQueryRepository.markAllAsRead(userId, NotificationTab.from(tab), cutoff);
     return new NotificationBulkActionResponse("전체 읽음 처리 완료", count);
   }
 
@@ -72,7 +75,7 @@ public class NotificationServiceImpl implements NotificationService {
   @Override
   @Transactional
   public NotificationActionResponse deleteNotification(Long userId, Long notificationId) {
-    UserNotification userNotification = getUserNotification(userId, notificationId);
+    UserNotification userNotification = getUserNotification(userId, notificationId, createRetentionCutoff());
     userNotificationRepository.delete(userNotification);
     return new NotificationActionResponse("삭제 완료");
   }
@@ -81,15 +84,16 @@ public class NotificationServiceImpl implements NotificationService {
   @Override
   @Transactional
   public NotificationBulkActionResponse deleteNotifications(Long userId, String tab) {
-    long count = notificationQueryRepository.deleteAll(userId, NotificationTab.from(tab), retentionCutoff());
+    OffsetDateTime cutoff = createRetentionCutoff();
+    long count = notificationQueryRepository.deleteAll(userId, NotificationTab.from(tab), cutoff);
     return new NotificationBulkActionResponse("일괄 삭제 완료", count);
   }
 
-  private UserNotification getUserNotification(Long userId, Long notificationId) {
+  private UserNotification getUserNotification(Long userId, Long notificationId, OffsetDateTime cutoff) {
     UserNotification userNotification = userNotificationRepository.findByIdAndUserId(notificationId, userId)
         .orElseThrow(() -> new BusinessException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
 
-    if (userNotification.getCreatedAt() == null || userNotification.getCreatedAt().isBefore(retentionCutoff())) {
+    if (userNotification.getCreatedAt() == null || userNotification.getCreatedAt().isBefore(cutoff)) {
       throw new BusinessException(NotificationErrorCode.NOTIFICATION_NOT_FOUND);
     }
     return userNotification;
@@ -116,7 +120,7 @@ public class NotificationServiceImpl implements NotificationService {
     return String.valueOf(unreadCount);
   }
 
-  private OffsetDateTime retentionCutoff() {
+  private OffsetDateTime createRetentionCutoff() {
     return OffsetDateTime.now().minusDays(RETENTION_DAYS);
   }
 }

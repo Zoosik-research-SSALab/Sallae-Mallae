@@ -5,16 +5,13 @@ import com.sallaemallae.backend.domain.notification.dto.NotificationBulkActionRe
 import com.sallaemallae.backend.domain.notification.dto.NotificationListResponse;
 import com.sallaemallae.backend.domain.notification.dto.NotificationTabRequest;
 import com.sallaemallae.backend.domain.notification.dto.NotificationUnreadCountResponse;
-import com.sallaemallae.backend.domain.notification.exception.NotificationErrorCode;
 import com.sallaemallae.backend.domain.notification.service.NotificationService;
-import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.global.response.ApiResponse;
+import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,12 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationController {
 
   private final NotificationService notificationService;
+  private final AuthenticatedUserProvider authenticatedUserProvider;
 
   /** FS-NOTI-001: 미확인 알림 수 조회 */
   @Operation(summary = "미확인 알림 수 조회", description = "헤더 배지에 표시할 미확인 알림 수를 조회합니다.")
   @GetMapping("/unread-count")
   public ApiResponse<NotificationUnreadCountResponse> getUnreadCount() {
-    return ApiResponse.success(notificationService.getUnreadCount(getAuthenticatedUserId()));
+    return ApiResponse.success(notificationService.getUnreadCount(authenticatedUserProvider.getCurrentUserId()));
   }
 
   /** FS-NOTI-002: 알림 내역 조회 */
@@ -51,7 +49,7 @@ public class NotificationController {
       @RequestParam(defaultValue = "6") int limit
   ) {
     return ApiResponse.success(
-        notificationService.getNotifications(getAuthenticatedUserId(), tab, offset, limit)
+        notificationService.getNotifications(authenticatedUserProvider.getCurrentUserId(), tab, offset, limit)
     );
   }
 
@@ -63,7 +61,7 @@ public class NotificationController {
       @PathVariable Long notificationId
   ) {
     return ApiResponse.success(
-        notificationService.markAsRead(getAuthenticatedUserId(), notificationId)
+        notificationService.markAsRead(authenticatedUserProvider.getCurrentUserId(), notificationId)
     );
   }
 
@@ -74,7 +72,7 @@ public class NotificationController {
       @RequestBody NotificationTabRequest request
   ) {
     return ApiResponse.success(
-        notificationService.markAllAsRead(getAuthenticatedUserId(), request.tab())
+        notificationService.markAllAsRead(authenticatedUserProvider.getCurrentUserId(), request.tab())
     );
   }
 
@@ -86,7 +84,7 @@ public class NotificationController {
       @PathVariable Long notificationId
   ) {
     return ApiResponse.success(
-        notificationService.deleteNotification(getAuthenticatedUserId(), notificationId)
+        notificationService.deleteNotification(authenticatedUserProvider.getCurrentUserId(), notificationId)
     );
   }
 
@@ -94,18 +92,11 @@ public class NotificationController {
   @Operation(summary = "알림 일괄 삭제", description = "현재 탭 범위의 알림을 일괄 삭제합니다.")
   @DeleteMapping
   public ApiResponse<NotificationBulkActionResponse> deleteNotifications(
-      @RequestBody NotificationTabRequest request
+      @Parameter(description = "알림 탭", example = "ALL")
+      @RequestParam(defaultValue = "ALL") String tab
   ) {
     return ApiResponse.success(
-        notificationService.deleteNotifications(getAuthenticatedUserId(), request.tab())
+        notificationService.deleteNotifications(authenticatedUserProvider.getCurrentUserId(), tab)
     );
-  }
-
-  private Long getAuthenticatedUserId() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !(authentication.getPrincipal() instanceof Long userId) || userId <= 0) {
-      throw new BusinessException(NotificationErrorCode.NOTIFICATION_AUTH_REQUIRED);
-    }
-    return userId;
   }
 }

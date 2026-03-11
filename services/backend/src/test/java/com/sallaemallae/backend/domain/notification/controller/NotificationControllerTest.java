@@ -49,7 +49,8 @@ class NotificationControllerTest {
   void setUp() {
     given(rateLimitService.checkIpLimit(anyString(), any()))
         .willReturn(RateLimitResult.allowed(100, 99, 60));
-    recreateTables();
+    createTablesIfNeeded();
+    clearTables();
     seedData();
   }
 
@@ -130,10 +131,7 @@ class NotificationControllerTest {
   void deleteNotificationsDeletesNotificationsInRequestedTab() throws Exception {
     mockMvc.perform(delete("/api/notifications")
             .with(authenticatedUser(1L))
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
-                {"tab":"SURGE"}
-                """))
+            .param("tab", "SURGE"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.message").value("일괄 삭제 완료"))
         .andExpect(jsonPath("$.data.count").value(1));
@@ -166,13 +164,9 @@ class NotificationControllerTest {
     );
   }
 
-  private void recreateTables() {
-    jdbcTemplate.execute("DROP TABLE IF EXISTS user_notifications");
-    jdbcTemplate.execute("DROP TABLE IF EXISTS stock_notifications");
-    jdbcTemplate.execute("DROP TABLE IF EXISTS stocks");
-
+  private void createTablesIfNeeded() {
     jdbcTemplate.execute("""
-        CREATE TABLE stocks (
+        CREATE TABLE IF NOT EXISTS stocks (
             id BIGINT PRIMARY KEY,
             ticker VARCHAR(6) NOT NULL,
             name VARCHAR(100) NOT NULL,
@@ -187,7 +181,7 @@ class NotificationControllerTest {
         """);
 
     jdbcTemplate.execute("""
-        CREATE TABLE stock_notifications (
+        CREATE TABLE IF NOT EXISTS stock_notifications (
             id BIGINT PRIMARY KEY,
             stock_id BIGINT NOT NULL,
             noti_type VARCHAR(30) NOT NULL,
@@ -199,7 +193,7 @@ class NotificationControllerTest {
         """);
 
     jdbcTemplate.execute("""
-        CREATE TABLE user_notifications (
+        CREATE TABLE IF NOT EXISTS user_notifications (
             id BIGINT PRIMARY KEY,
             user_id BIGINT NOT NULL,
             notification_id BIGINT NOT NULL,
@@ -207,6 +201,12 @@ class NotificationControllerTest {
             created_at TIMESTAMP WITH TIME ZONE
         )
         """);
+  }
+
+  private void clearTables() {
+    jdbcTemplate.execute("DELETE FROM user_notifications");
+    jdbcTemplate.execute("DELETE FROM stock_notifications");
+    jdbcTemplate.execute("DELETE FROM stocks");
   }
 
   private void seedData() {

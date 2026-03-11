@@ -41,7 +41,7 @@ public class NotificationQueryRepository {
       int limit,
       OffsetDateTime cutoff
   ) {
-    StringBuilder query = new StringBuilder("""
+    String query = """
         SELECT un.id,
                sn.noti_type,
                s.name,
@@ -54,25 +54,15 @@ public class NotificationQueryRepository {
                  JOIN stocks s ON s.id = sn.stock_id
         WHERE un.user_id = :userId
           AND un.created_at >= :cutoff
-        """);
-
-    if (tab != NotificationTab.ALL) {
-      query.append("""
-            AND sn.noti_type = :notiType
-          """);
-    }
-
-    query.append("""
+        """
+        + buildNotificationTypeCondition(tab, "sn")
+        + """
         ORDER BY un.created_at DESC, un.id DESC
-        """);
+        """;
 
-    var nativeQuery = entityManager.createNativeQuery(query.toString())
-        .setParameter("userId", userId)
-        .setParameter("cutoff", cutoff);
-
-    if (tab != NotificationTab.ALL) {
-      nativeQuery.setParameter("notiType", toDatabaseType(tab));
-    }
+    var nativeQuery = entityManager.createNativeQuery(query);
+    bindCommonParameters(nativeQuery, userId, cutoff);
+    bindNotificationTypeParameter(nativeQuery, tab);
 
     @SuppressWarnings("unchecked")
     List<Object[]> rows = nativeQuery
@@ -86,61 +76,66 @@ public class NotificationQueryRepository {
   }
 
   public long markAllAsRead(Long userId, NotificationTab tab, OffsetDateTime cutoff) {
-    StringBuilder query = new StringBuilder("""
+    String query = """
         UPDATE user_notifications un
         SET is_read = true
         WHERE un.user_id = :userId
           AND un.is_read = false
           AND un.created_at >= :cutoff
-        """);
+        """
+        + buildNotificationIdFilter(tab);
 
-    if (tab != NotificationTab.ALL) {
-      query.append("""
-          AND un.notification_id IN (
-            SELECT sn.id
-            FROM stock_notifications sn
-            WHERE sn.noti_type = :notiType
-          )
-          """);
-    }
-
-    var nativeQuery = entityManager.createNativeQuery(query.toString())
-        .setParameter("userId", userId)
-        .setParameter("cutoff", cutoff);
-
-    if (tab != NotificationTab.ALL) {
-      nativeQuery.setParameter("notiType", toDatabaseType(tab));
-    }
+    var nativeQuery = entityManager.createNativeQuery(query);
+    bindCommonParameters(nativeQuery, userId, cutoff);
+    bindNotificationTypeParameter(nativeQuery, tab);
 
     return nativeQuery.executeUpdate();
   }
 
   public long deleteAll(Long userId, NotificationTab tab, OffsetDateTime cutoff) {
-    StringBuilder query = new StringBuilder("""
+    String query = """
         DELETE FROM user_notifications un
         WHERE un.user_id = :userId
           AND un.created_at >= :cutoff
-        """);
+        """
+        + buildNotificationIdFilter(tab);
 
-    if (tab != NotificationTab.ALL) {
-      query.append("""
+    var nativeQuery = entityManager.createNativeQuery(query);
+    bindCommonParameters(nativeQuery, userId, cutoff);
+    bindNotificationTypeParameter(nativeQuery, tab);
+
+    return nativeQuery.executeUpdate();
+  }
+
+  private String buildNotificationTypeCondition(NotificationTab tab, String alias) {
+    if (tab == NotificationTab.ALL) {
+      return "";
+    }
+    return " AND " + alias + ".noti_type = :notiType\n";
+  }
+
+  private String buildNotificationIdFilter(NotificationTab tab) {
+    if (tab == NotificationTab.ALL) {
+      return "";
+    }
+    return """
           AND un.notification_id IN (
             SELECT sn.id
             FROM stock_notifications sn
             WHERE sn.noti_type = :notiType
           )
-          """);
-    }
+        """;
+  }
 
-    var nativeQuery = entityManager.createNativeQuery(query.toString())
-        .setParameter("userId", userId)
-        .setParameter("cutoff", cutoff);
+  private void bindCommonParameters(jakarta.persistence.Query query, Long userId, OffsetDateTime cutoff) {
+    query.setParameter("userId", userId);
+    query.setParameter("cutoff", cutoff);
+  }
 
+  private void bindNotificationTypeParameter(jakarta.persistence.Query query, NotificationTab tab) {
     if (tab != NotificationTab.ALL) {
-      nativeQuery.setParameter("notiType", toDatabaseType(tab));
+      query.setParameter("notiType", toDatabaseType(tab));
     }
-
-    return nativeQuery.executeUpdate();
   }
 
   private NotificationItemResponse toNotificationItem(Object[] row) {
