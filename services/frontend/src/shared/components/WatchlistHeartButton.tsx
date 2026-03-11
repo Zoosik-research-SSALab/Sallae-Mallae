@@ -12,6 +12,7 @@ type Props = {
   surface?: "default" | "muted";
   inactiveIconStyle?: "filled" | "outline";
   className?: string;
+  onToggleSuccess?: (nextIsWatched: boolean) => void;
 };
 
 const sizeClassNames = {
@@ -33,13 +34,15 @@ export default function WatchlistHeartButton({
   surface = "default",
   inactiveIconStyle = "filled",
   className,
+  onToggleSuccess,
 }: Props) {
   const { isWatched, isPending, toggle } = useWatchlist(stockId, initialWatched);
   const Icon = isWatched ? IoHeart : inactiveIconStyle === "outline" ? IoHeartOutline : IoHeart;
 
   const handleClick = async () => {
     try {
-      await toggle();
+      const nextIsWatched = await toggle();
+      onToggleSuccess?.(nextIsWatched);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Watchlist request failed.";
       window.alert(message);

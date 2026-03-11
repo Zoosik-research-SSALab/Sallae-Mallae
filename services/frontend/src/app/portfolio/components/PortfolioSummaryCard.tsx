@@ -11,7 +11,7 @@ export default function PortfolioSummaryCard({ item }: Props) {
   return (
     <section className="card stack">
       <div className="row-between">
-        <h2>{item.name}</h2>
+        <h2 className="heading-reset">{item.name}</h2>
         <Badge>출처: {item.source}</Badge>
       </div>
 

@@ -56,13 +56,12 @@ svg {
   max-width: 100%;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+:where(h1, h2, h3, h4, h5, h6) {
   font: inherit;
+}
+
+.heading-reset {
+  margin: 0;
 }
 
 p {
@@ -303,6 +302,33 @@ pre {
 .value-change-flash {
   animation: value-change-flash 1.2s ease-out;
   will-change: background-color;
+}
+
+.signals-filter-modal-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-primary) transparent;
+}
+
+.signals-filter-modal-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.signals-filter-modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.signals-filter-modal-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: var(--color-border-primary);
+  background-clip: padding-box;
+}
+
+.signals-filter-modal-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @keyframes value-change-flash {

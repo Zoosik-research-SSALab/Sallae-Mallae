@@ -122,28 +122,33 @@ export default function SignalsPageClient() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 lg:hidden">
           <button type="button" aria-label="필터 닫기" className="absolute inset-0" onClick={() => setIsFilterOpen(false)} />
 
-          <div className="relative z-10 max-h-[calc(100vh-2rem)] w-full max-w-[22rem] overflow-y-auto">
-            <button
-              type="button"
-              onClick={() => setIsFilterOpen(false)}
-              className="absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-primary)]"
-              aria-label="필터 닫기"
-            >
-              <IoCloseOutline className="h-6 w-6" />
-            </button>
+          <div className="relative z-10 w-full max-w-[22rem]">
+            <div className="relative overflow-hidden rounded-2xl bg-[color:var(--color-bg-secondary)] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.12)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
+              <div className="signals-filter-modal-scroll max-h-[calc(100vh-2rem)] overflow-y-auto">
+                <SignalsFilterPanel
+                  compact
+                  className="rounded-none bg-transparent px-6 pb-6 pt-16 shadow-none outline-none"
+                  selectedCategories={selectedCategories}
+                  marketCap={marketCap}
+                  keyword={keyword}
+                  sort={sort}
+                  onSortChange={setSort}
+                  onToggleCategory={toggleCategory}
+                  onResetCategories={() => setSelectedCategories([])}
+                  onMarketCapChange={setMarketCap}
+                  onKeywordChange={setKeyword}
+                />
+              </div>
 
-            <SignalsFilterPanel
-              compact
-              selectedCategories={selectedCategories}
-              marketCap={marketCap}
-              keyword={keyword}
-              sort={sort}
-              onSortChange={setSort}
-              onToggleCategory={toggleCategory}
-              onResetCategories={() => setSelectedCategories([])}
-              onMarketCapChange={setMarketCap}
-              onKeywordChange={setKeyword}
-            />
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen(false)}
+                className="absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--color-bg-secondary)]/90 text-[color:var(--color-text-primary)] backdrop-blur-sm"
+                aria-label="필터 닫기"
+              >
+                <IoCloseOutline className="h-6 w-6" />
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

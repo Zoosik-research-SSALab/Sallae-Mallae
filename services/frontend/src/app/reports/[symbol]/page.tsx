@@ -15,7 +15,7 @@ export default function ReportDetailPage() {
   return (
     <main className="stack">
       <div className="row-between">
-        <h1>리포트 상세</h1>
+        <h1 className="heading-reset">리포트 상세</h1>
         <div className="row">
           <Link href="/reports" className="link">
             목록

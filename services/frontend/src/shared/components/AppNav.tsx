@@ -38,6 +38,8 @@ const navItems: NavItem[] = [
 
 const loginButtonClassName =
   "typo-body-md inline-flex items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
+const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
+const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
 
 async function requestQuickLogin() {
   const payload = await apiFetch<unknown, { email: string; password: string }>("/api/auth/login", {
@@ -96,13 +98,11 @@ export default function AppNav() {
       return false;
     }
 
-    const { href } = item;
-
-    if (href === "/") {
+    if (item.href === "/") {
       return pathname === "/";
     }
 
-    return pathname === href || pathname.startsWith(`${href}/`);
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
   useEffect(() => {
@@ -189,13 +189,17 @@ export default function AppNav() {
     setIsDrawerOpen(false);
   };
 
+  const getNavItemTextClassName = (item: NavItem) => {
+    return isActivePath(item) ? "!text-[color:var(--color-text-primary)]" : "!text-[color:var(--color-text-tertiary)]";
+  };
+
   return (
     <>
       <header className="flex w-full flex-col items-center border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] backdrop-blur-[6px]">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-4 py-3 md:px-6 md:py-4 lg:px-8 xl:px-12">
           <div className="flex items-center gap-8 xl:gap-10">
-            <Link href="/" className="inline-flex h-[24px] items-center md:h-[28px] lg:h-[32px]">
-              <Image src={logoSrc} alt="살래말래위원회" width={392} height={78} priority className="h-full w-auto max-w-none" />
+            <Link href="/" className="inline-flex w-[136px] items-center md:w-[160px] lg:w-[192px]">
+              <Image src={logoSrc} alt="살래말래위원회" width={392} height={78} priority className="h-auto w-full max-w-none" />
             </Link>
 
             <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
@@ -203,16 +207,14 @@ export default function AppNav() {
                 const isActive = isActivePath(item);
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`typo-heading-sm whitespace-nowrap transition-colors ${
-                      isActive ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-tertiary)]"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`typo-heading-sm whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
+                    >
+                      {item.label}
+                    </Link>
                 );
               })}
             </nav>
@@ -233,13 +235,13 @@ export default function AppNav() {
                 placeholder="종목명 또는 코드 검색"
                 className="typo-body-sm w-full rounded-xl bg-[color:var(--color-bg-secondary)] py-2.5 pl-9 pr-4 text-[color:var(--color-text-tertiary)] outline outline-1 outline-[color:var(--color-border-secondary)] placeholder:text-[color:var(--color-text-tertiary)] transition-colors focus:text-[color:var(--color-text-primary)]"
               />
-              <button
-                type="button"
-                onClick={goToSearch}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
-                aria-label="검색"
-              >
-                <GoSearch className="h-4 w-4" />
+                <button
+                  type="button"
+                  onClick={goToSearch}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
+                  aria-label="검색"
+                >
+                  <GoSearch className="h-4 w-4" />
               </button>
             </div>
 
@@ -248,7 +250,7 @@ export default function AppNav() {
                 <div className="flex items-center gap-3">
                   <Link
                     href="/notifications"
-                    className="relative inline-flex h-9 w-9 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                    className={`relative inline-flex h-9 w-9 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
                     aria-label="알림"
                   >
                     <HiOutlineBell className="h-6 w-6" />
@@ -276,7 +278,7 @@ export default function AppNav() {
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)] lg:hidden"
+            className={`inline-flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName} lg:hidden`}
             aria-label="메뉴 열기"
           >
             <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none">
@@ -298,7 +300,7 @@ export default function AppNav() {
           <aside className="absolute right-0 top-0 inline-flex h-full w-[min(23.5rem,calc(100vw-12px))] max-w-full flex-col items-center justify-start overflow-hidden bg-[color:var(--color-bg-primary)] sm:w-[min(24rem,calc(100vw-16px))] md:w-[min(24.5rem,calc(100vw-20px))]">
             <div className="flex w-full flex-col items-start border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-6 py-4 backdrop-blur-[6px]">
               <div className="inline-flex w-full items-center justify-between">
-                <Image src={logoSrc} alt="살래말래위원회" width={196} height={39} className="h-6 w-auto" />
+                <Image src={logoSrc} alt="살래말래위원회" width={196} height={39} className="h-auto w-[136px] md:w-[160px]" />
                 <div className="h-6 flex-1 px-6" />
                 <button
                   type="button"
@@ -317,7 +319,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={() => goToPath("/notifications")}
-                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                    className={`typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <HiOutlineBell className="h-5 w-5 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">알림함</span>
@@ -326,7 +328,7 @@ export default function AppNav() {
                   <button
                     type="button"
                     onClick={goToSearch}
-                    className="typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                    className={`typo-body-md flex h-12 min-w-0 flex-1 items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" />
                     <span className="whitespace-nowrap">검색하기</span>
@@ -350,11 +352,7 @@ export default function AppNav() {
                         >
                           <CategoryIcon Icon={item.icon} active={isActive} />
                           <span
-                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors ${
-                              isActive
-                                ? "text-[color:var(--color-text-interactive-primary)]"
-                                : "text-[color:var(--color-text-tertiary)]"
-                            }`}
+                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
                           >
                             {item.label}
                           </span>
@@ -376,19 +374,19 @@ export default function AppNav() {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                     >
                       로그아웃
                     </button>
                     <button
                       type="button"
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                     >
                       비밀번호 변경
                     </button>
                     <button
                       type="button"
-                      className="typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                     >
                       내 정보 수정
                     </button>

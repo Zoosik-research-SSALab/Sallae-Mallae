@@ -14,7 +14,7 @@ export default function AlertSettingCard({ ticker }: Props) {
   return (
     <section className="card stack">
       <div className="row-between">
-        <h3>개별 종목 알림 설정</h3>
+        <h3 className="heading-reset">개별 종목 알림 설정</h3>
         <Badge tone={isAlarmOn ? "ok" : "warn"}>
           {isAlarmOn ? "ON" : "OFF"}
         </Badge>

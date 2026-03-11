@@ -8,26 +8,27 @@ import type { WatchlistStatus } from "@/shared/types/watchlist";
 type UseWatchlistResult = WatchlistStatus & {
   isLoading: boolean;
   isPending: boolean;
-  toggle: () => Promise<void>;
+  toggle: () => Promise<boolean>;
 };
 
 export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatchlistResult {
   const queryClient = useQueryClient();
   const statusQueryKey = watchlistQueryKeys.status(stockId);
   const shouldFetchStatus = initialWatched === undefined;
+  const initialStatus =
+    initialWatched === undefined
+      ? undefined
+      : {
+          isWatched: initialWatched,
+          isNotifiedEnabled: false,
+        };
 
   const statusQuery = useQuery({
     queryKey: statusQueryKey,
     queryFn: () => getWatchlistStatus(stockId),
     enabled: shouldFetchStatus,
     staleTime: 30_000,
-    initialData:
-      initialWatched === undefined
-        ? undefined
-        : {
-            isWatched: initialWatched,
-            isNotifiedEnabled: false,
-          },
+    initialData: initialStatus,
   });
 
   const toggleMutation = useMutation({
@@ -78,7 +79,8 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
   });
 
   const toggle = useCallback(async () => {
-    await toggleMutation.mutateAsync(statusQuery.data);
+    const nextStatus = await toggleMutation.mutateAsync(statusQuery.data);
+    return nextStatus.isWatched;
   }, [statusQuery.data, toggleMutation]);
 
   return {

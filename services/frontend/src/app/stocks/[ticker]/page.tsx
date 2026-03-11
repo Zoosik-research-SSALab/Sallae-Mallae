@@ -15,7 +15,7 @@ export default function StockDetailPage() {
   return (
     <main className="stack">
       <div className="row-between">
-        <h1>종목 상세</h1>
+        <h1 className="heading-reset">종목 상세</h1>
         <div className="row">
           <Link href="/stocks" className="link">
             목록

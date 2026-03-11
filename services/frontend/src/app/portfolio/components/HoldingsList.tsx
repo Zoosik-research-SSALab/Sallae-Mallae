@@ -8,7 +8,7 @@ type Props = {
 export default function HoldingsList({ items }: Props) {
   return (
     <section className="card stack">
-      <h3>현재 보유 종목</h3>
+      <h3 className="heading-reset">현재 보유 종목</h3>
       <div className="list">
         {items.map((holding) => (
           <article key={holding.stockId} className="list-item row-between">

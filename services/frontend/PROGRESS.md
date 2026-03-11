@@ -2,6 +2,7 @@
 
 ## Current Focus
 - [x] (2026-03-10) Stocks page rebuild: responsive all-stocks board with token-based ranking UI, mock `/api/stocks`, and layout reordering animation
+- [x] (2026-03-11) Watchlist page rebuild: responsive `/scraps` dashboard with SSE feed, news panel, and shared watchlist reuse
 - [x] (2026-03-10) API base routing: centralize mock/real base URL switching in `apiClient` and align local env files
 - [x] (2026-03-09) Signals page rebuild: responsive market-signal board with shared category filters, infinite pagination, and mock `/api/signals`
 - [x] (2026-03-09) Design token sync: align theme semantics with Figma token export for header and main page
@@ -21,39 +22,6 @@
 - [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
 
 ## Changes
-### (2026-03-10) Stocks page rebuild
-- Scope:
-  - Replaced the placeholder `stocks` route with a responsive all-stocks page based on the provided desktop/mobile layouts
-  - Added route-local type/api/hook/component/utils structure, a mock `/api/stocks` GET handler, and 50-item pagination for frontend verification
-  - Applied `motion/react` layout animation so rank rows move naturally when the server response order changes on refetch
-- Files:
-  - ~ PROGRESS.md
-  - ~ package.json
-  - ~ pnpm-lock.yaml
-  - ~ src/shared/components/AppNav.tsx
-  - ~ src/shared/components/WatchlistHeartButton.tsx
-  - ~ src/shared/hooks/useWatchlist.ts
-  - ~ src/shared/lib/mockWatchlistStore.ts
-  - ~ src/app/stocks/page.tsx
-  - + src/app/stocks/StocksPageClient.tsx
-  - + src/app/stocks/hooks/useStocksInfiniteQuery.ts
-  - + src/app/stocks/types/stocks.ts
-  - + src/app/stocks/utils/{stocksFilters,stockMetrics,mockStocksData}.ts
-  - + src/app/stocks/components/{StocksSidebar,StocksSortTabs,StocksDesktopTable,StocksMobileList}.tsx
-  - + src/app/api/stocks/route.ts
-  - ~ src/app/stocks/api/getStocks.ts
-  - - src/app/stocks/components/StockList.tsx
-  - - src/app/stocks/hooks/useStocks.ts
-- Decisions:
-  - Kept the shared global header from `AppNav` and only implemented the page body, while adding active-route styling in the header to match the design intent.
-  - Used `useInfiniteQuery` with `refetchInterval` to support both the “50개 종목 더보기” interaction and motion-based row reordering on live refresh.
-  - Kept the network contract aligned to the provided `/api/stocks` query shape and handled unsupported ranking tabs (`거래량`, `배당`) as frontend-first UI, to be finalized with backend later.
-- Notes / Issues:
-  - The current mock route includes extra ranking fields (`trading_value`, `trading_volume`, `dividend_yield`, `market_cap`) because the provided response body is not sufficient to render the supplied screen.
-  - `WatchlistHeartButton` now accepts an optional initial watched state so list rows can reflect API response immediately before shared watchlist queries settle.
-- Next:
-  - [ ] Confirm the final backend contract for ranking metric selection and extra display fields before switching `/api/stocks` off the local mock.
-
 ### (2026-03-10) API base routing
 - Scope:
   - Added central mock/real base URL resolution to the shared API client so browser-side HTTP/SSE calls can switch through env without editing each feature module

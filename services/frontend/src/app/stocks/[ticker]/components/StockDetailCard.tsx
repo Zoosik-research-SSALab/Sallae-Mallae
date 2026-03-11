@@ -9,7 +9,7 @@ export default function StockDetailCard({ item }: Props) {
   return (
     <section className="card stack">
       <div className="row-between">
-        <h2>
+        <h2 className="heading-reset">
           {item.name} <span className="muted">({item.ticker})</span>
         </h2>
         <Badge>{item.marketType}</Badge>
