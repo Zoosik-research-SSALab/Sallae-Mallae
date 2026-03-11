@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -10,16 +10,12 @@ import { HiOutlineBell } from "react-icons/hi";
 import { IoCloseOutline } from "react-icons/io5";
 import type { IconType } from "react-icons";
 import { MdOutlineFavorite } from "react-icons/md";
+import { LoginModal } from "@/app/auth/login/page";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
 import { useTheme } from "@/shared/hooks/useTheme";
-import { apiFetch } from "@/shared/lib/apiClient";
-import {
-  clearSessionUser,
-  extractSessionUser,
-  readSessionUser,
-  writeSessionUser,
-  type SessionUser,
-} from "@/shared/lib/authSession";
+import { getAuthErrorMessage } from "@/shared/lib/auth";
+import { logoutFromApp } from "@/shared/lib/authApi";
+import { useAuthStore } from "@/shared/lib/authStore";
 
 type NavItem = {
   href: string;
@@ -37,27 +33,9 @@ const navItems: NavItem[] = [
 ];
 
 const loginButtonClassName =
-  "typo-body-md inline-flex items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
+  "typo-body-md inline-flex items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
 const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
-
-async function requestQuickLogin() {
-  const payload = await apiFetch<unknown, { email: string; password: string }>("/api/auth/login", {
-    method: "POST",
-    useBaseUrl: false,
-    body: {
-      email: "demo@sallaemallae.ai",
-      password: "demo1234",
-    },
-  });
-
-  const user = extractSessionUser(payload);
-  if (!user) {
-    throw new Error("로그인 응답에 사용자 정보가 없습니다.");
-  }
-
-  return user;
-}
 
 function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean }) {
   return (
@@ -73,21 +51,20 @@ function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean
 export default function AppNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const { resolvedTheme } = useTheme();
+  const { resolvedTheme, isHydrated } = useTheme();
+  const authStatus = useAuthStore((state) => state.status);
+  const currentUser = useAuthStore((state) => state.user);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isThemeReady, setIsThemeReady] = useState(false);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
 
-  const logoSrc = isThemeReady && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
+  const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
+  const isAuthReady = authStatus !== "restoring";
   const isLoggedIn = Boolean(currentUser);
-  const profileImage =
-    currentUser?.profile_image_url && currentUser.profile_image_url.startsWith("/")
-      ? currentUser.profile_image_url
-      : "/images/profile-placeholder.svg";
+  const profileImageUrl = currentUser?.profileImageUrl ?? "/images/profile-placeholder.svg";
+  const isLocalProfileImage = profileImageUrl.startsWith("/");
 
   const { data: notificationCount } = useNotificationCountQuery(isAuthReady && isLoggedIn);
   const unreadCount = isLoggedIn && typeof notificationCount === "number" ? notificationCount : 0;
@@ -104,15 +81,6 @@ export default function AppNav() {
 
     return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
-
-  useEffect(() => {
-    setIsThemeReady(true);
-  }, []);
-
-  useEffect(() => {
-    setCurrentUser(readSessionUser());
-    setIsAuthReady(true);
-  }, []);
 
   useEffect(() => {
     if (!isDrawerOpen) {
@@ -164,28 +132,20 @@ export default function AppNav() {
     setIsDrawerOpen(false);
   };
 
-  const handleLogin = async () => {
-    if (isLoggingIn) {
+  const openLoginModal = () => {
+    setIsDrawerOpen(false);
+    setIsLoginModalOpen(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutFromApp();
+    } catch (error) {
+      window.alert(getAuthErrorMessage(error, "로그아웃에 실패했습니다."));
       return;
     }
 
-    setIsLoggingIn(true);
-    try {
-      const user = await requestQuickLogin();
-      writeSessionUser(user);
-      setCurrentUser(user);
-      setIsDrawerOpen(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "로그인 요청에 실패했습니다.";
-      window.alert(message);
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  const handleLogout = () => {
-    clearSessionUser();
-    setCurrentUser(null);
+    clearAuth();
     setIsDrawerOpen(false);
   };
 
@@ -207,14 +167,14 @@ export default function AppNav() {
                 const isActive = isActivePath(item);
 
                 return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      aria-current={isActive ? "page" : undefined}
-                      className={`typo-heading-sm whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
-                    >
-                      {item.label}
-                    </Link>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`typo-heading-sm whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
+                  >
+                    {item.label}
+                  </Link>
                 );
               })}
             </nav>
@@ -235,13 +195,13 @@ export default function AppNav() {
                 placeholder="종목명 또는 코드 검색"
                 className="typo-body-sm w-full rounded-xl bg-[color:var(--color-bg-secondary)] py-2.5 pl-9 pr-4 text-[color:var(--color-text-tertiary)] outline outline-1 outline-[color:var(--color-border-secondary)] placeholder:text-[color:var(--color-text-tertiary)] transition-colors focus:text-[color:var(--color-text-primary)]"
               />
-                <button
-                  type="button"
-                  onClick={goToSearch}
-                  className={`absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
-                  aria-label="검색"
-                >
-                  <GoSearch className="h-4 w-4" />
+              <button
+                type="button"
+                onClick={goToSearch}
+                className={`absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
+                aria-label="검색"
+              >
+                <GoSearch className="h-4 w-4" />
               </button>
             </div>
 
@@ -262,12 +222,18 @@ export default function AppNav() {
                   </Link>
 
                   <span className="inline-flex" aria-label="프로필">
-                    <Image src={profileImage} alt="프로필" width={36} height={36} className="h-9 w-9 rounded-full object-cover" />
+                    {isLocalProfileImage ? (
+                      <Image src={profileImageUrl} alt={currentUser?.nickname ?? "프로필"} width={36} height={36} className="h-9 w-9 rounded-full object-cover" />
+                    ) : (
+                      // Using a native img here avoids Next/Image remote host allowlist maintenance for arbitrary profile URLs.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={profileImageUrl} alt={currentUser?.nickname ?? "프로필"} className="h-9 w-9 rounded-full object-cover" />
+                    )}
                   </span>
                 </div>
               ) : (
-                <button type="button" disabled={isLoggingIn} onClick={handleLogin} className={loginButtonClassName}>
-                  {isLoggingIn ? "로그인 중.." : "로그인"}
+                <button type="button" onClick={openLoginModal} className={loginButtonClassName}>
+                  로그인
                 </button>
               )
             ) : (
@@ -369,43 +335,44 @@ export default function AppNav() {
                   <div className="typo-body-sm flex-1 font-semibold text-[color:var(--color-text-tertiary)]">마이페이지</div>
                 </div>
 
-                {isLoggedIn ? (
-                  <div className="flex w-full flex-col gap-4">
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
-                    >
-                      로그아웃
+                {isAuthReady ? (
+                  isLoggedIn ? (
+                    <div className="flex w-full flex-col gap-4">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
+                      >
+                        로그아웃
+                      </button>
+                      <button
+                        type="button"
+                        className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
+                      >
+                        비밀번호 변경
+                      </button>
+                      <button
+                        type="button"
+                        className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
+                      >
+                        내 정보 수정
+                      </button>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={openLoginModal} className={`${loginButtonClassName} w-full justify-center`}>
+                      로그인
                     </button>
-                    <button
-                      type="button"
-                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
-                    >
-                      비밀번호 변경
-                    </button>
-                    <button
-                      type="button"
-                      className={`typo-body-md w-full whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
-                    >
-                      내 정보 수정
-                    </button>
-                  </div>
+                  )
                 ) : (
-                  <button
-                    type="button"
-                    disabled={isLoggingIn}
-                    onClick={handleLogin}
-                    className={`${loginButtonClassName} w-full justify-center`}
-                  >
-                    {isLoggingIn ? "로그인 중.." : "로그인"}
-                  </button>
+                  <div className="h-10 w-full" />
                 )}
               </div>
             </div>
           </aside>
         </div>
       ) : null}
+
+      <LoginModal open={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </>
   );
 }

@@ -1,8 +1,10 @@
 import { camelizeKeys, snakelizeKeys } from "@/shared/utils/case";
+import { readAccessToken } from "@/shared/lib/authStore";
 
 type ApiRequestOptions<TBody> = Omit<RequestInit, "body"> & {
   body?: TBody;
   useBaseUrl?: boolean;
+  withAuth?: boolean;
 };
 
 type ApiMockingMode = "enabled" | "disabled";
@@ -72,10 +74,41 @@ function createRequestBody(body: unknown) {
   return JSON.stringify(snakelizeKeys(body));
 }
 
+async function readErrorPayload(response: Response) {
+  const contentType = response.headers.get("content-type");
+
+  if (isJsonContentType(contentType)) {
+    const payload = (await response.json()) as unknown;
+    return camelizeKeys(payload);
+  }
+
+  const text = await response.text();
+  return text || null;
+}
+
+export class ApiError extends Error {
+  status: number;
+  payload: unknown;
+
+  constructor(message: string, status: number, payload: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 export async function apiFetch<TResponse, TBody = unknown>(url: string, options: ApiRequestOptions<TBody> = {}) {
-  const { body, useBaseUrl = true, ...requestInit } = options;
+  const { body, useBaseUrl = true, withAuth = false, ...requestInit } = options;
   const headers = new Headers(options.headers);
   const requestBody = createRequestBody(body);
+
+  if (withAuth) {
+    const accessToken = readAccessToken();
+    if (accessToken && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+  }
 
   if (requestBody && !(requestBody instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -88,7 +121,16 @@ export async function apiFetch<TResponse, TBody = unknown>(url: string, options:
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    const payload = await readErrorPayload(response);
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "message" in payload &&
+      typeof payload.message === "string"
+        ? payload.message
+        : `API request failed: ${response.status} ${response.statusText}`;
+
+    throw new ApiError(message, response.status, payload);
   }
 
   if (response.status === 204) {
