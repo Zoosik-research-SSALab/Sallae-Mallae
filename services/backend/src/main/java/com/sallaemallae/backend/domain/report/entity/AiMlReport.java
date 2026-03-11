@@ -1,5 +1,6 @@
 package com.sallaemallae.backend.domain.report.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.sallaemallae.backend.domain.report.enumtype.AiSignal;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,7 +13,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.Map;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -62,7 +62,7 @@ public class AiMlReport {
   // AI 서버 패킷 전체 JSON (상세 모델 결과)
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "report_data", columnDefinition = "jsonb")
-  private Map<String, Object> reportData;
+  private JsonNode reportData;
 
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;

@@ -1,5 +1,6 @@
 package com.sallaemallae.backend.domain.report.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.sallaemallae.backend.domain.report.enumtype.AiSignal;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,7 +12,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.Map;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -46,15 +46,15 @@ public class AiDebateReport {
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "debate_summary", columnDefinition = "jsonb")
-  private Map<String, Object> debateSummary;
+  private JsonNode debateSummary;
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "final_stances", columnDefinition = "jsonb")
-  private Map<String, Object> finalStances;
+  private JsonNode finalStances;
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "debate_full_log", columnDefinition = "jsonb")
-  private Map<String, Object> debateFullLog;
+  private JsonNode debateFullLog;
 
   @Column(name = "chairman_report", columnDefinition = "text")
   private String chairmanReport;
