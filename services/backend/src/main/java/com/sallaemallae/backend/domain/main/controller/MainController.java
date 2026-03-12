@@ -12,6 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+/**
+ * 메인 페이지 API 컨트롤러.
+ * - SSE 엔드포인트: raw DTO를 event stream으로 전송 (ApiResponse 미사용)
+ * - REST 엔드포인트: ApiResponse로 래핑하여 반환
+ */
 @Tag(name = "메인", description = "메인 페이지 API")
 @RestController
 @RequestMapping("/api/main")
