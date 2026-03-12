@@ -35,11 +35,12 @@
   - + .env.local
 - Decisions:
   - Used `NEXT_PUBLIC_API_MOCKING`, `NEXT_PUBLIC_API_BASE_URL`, and `NEXT_PUBLIC_MOCK_BASE_URL` for browser-side route selection.
-  - Kept `AUTH_USE_MOCK` and `AUTH_API_BASE_URL` as server-side login settings because `/api/auth/login` already has its own proxy/mock logic.
+  - Kept `AUTH_API_BASE_URL` as the server-side auth proxy target because `/api/auth/login` already has its own frontend route handler.
   - Implemented `/api` prefix de-duplication in the API client so both host-only and `/api`-suffixed base URLs can be tolerated.
 - Notes / Issues:
   - `NEXT_PUBLIC_*` values are injected at build time, so deployment changes require rebuild/redeploy.
-  - When `NEXT_PUBLIC_API_MOCKING=disabled`, data APIs resolve against `NEXT_PUBLIC_API_BASE_URL`; when enabled, they resolve against `NEXT_PUBLIC_MOCK_BASE_URL`.
+  - `NEXT_PUBLIC_API_MOCKING` now accepts `true/false` as the primary format, and still tolerates legacy `enabled/disabled` values for compatibility.
+  - When `NEXT_PUBLIC_API_MOCKING=false`, data APIs resolve against `NEXT_PUBLIC_API_BASE_URL`; when `true`, they resolve against `NEXT_PUBLIC_MOCK_BASE_URL`.
   - `AppNav` login intentionally uses `useBaseUrl: false` so it continues to hit the frontend route handler at `/api/auth/login`.
 - Next:
   - [ ] If deployment still bypasses frontend mocks, verify nginx routes for `/api/*` and SSE buffering separately from env configuration.

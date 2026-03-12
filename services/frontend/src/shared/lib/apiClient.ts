@@ -38,7 +38,16 @@ function joinApiUrl(baseUrl: string, path: string) {
 
 function getApiMockingMode(): ApiMockingMode {
   const raw = process.env.NEXT_PUBLIC_API_MOCKING?.trim().toLowerCase();
-  return raw === "disabled" ? "disabled" : "enabled";
+
+  if (raw === "false" || raw === "disabled") {
+    return "disabled";
+  }
+
+  if (raw === "true" || raw === "enabled") {
+    return "enabled";
+  }
+
+  return "enabled";
 }
 
 function getResolvedBaseUrl() {
