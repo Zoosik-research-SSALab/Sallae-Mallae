@@ -7,3 +7,7 @@ export type WatchlistToggleResponse = {
   message: string;
   count: number;
 };
+
+export type WatchlistNotificationResponse = {
+  isNotifiedEnabled: boolean;
+};

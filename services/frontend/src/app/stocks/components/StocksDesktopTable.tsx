@@ -1,6 +1,7 @@
 "use client";
 
 import { LayoutGroup, motion } from "motion/react";
+import Link from "next/link";
 import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import { formatPrice } from "@/shared/lib/stockFormatters";
@@ -45,7 +46,8 @@ export default function StocksDesktopTable({
     <div className="hidden w-full flex-col gap-6 lg:flex">
       <div className="overflow-hidden rounded-xl bg-[color:var(--color-bg-primary)]">
         <StocksSortTabs value={activeMetric} onChange={onMetricChange} />
-        <div className="h-6"/>
+        <div className="h-6" />
+
         <div className="flex items-start justify-between gap-6 bg-[color:var(--color-bg-secondary)] px-4 py-4">
           <div className="flex flex-1 items-center gap-6">
             <div className="typo-body-sm min-w-6 font-semibold text-[color:var(--color-text-secondary)]">순위</div>
@@ -73,54 +75,59 @@ export default function StocksDesktopTable({
                   className="border-b border-[color:var(--color-border-secondary)] px-4 py-4"
                 >
                   <div className="flex items-center justify-between gap-6">
-                    <div className="flex min-w-0 flex-1 items-center gap-6 px-2">
-                      <div className="typo-body-md min-w-6 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>
+                    <Link
+                      href={`/stocks/${item.ticker}`}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-6 rounded-xl px-2 py-1 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-6">
+                        <div className="typo-body-md min-w-6 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>
 
-                      <div className="flex min-w-0 items-center gap-4">
-                        <StockLogo label={item.name.slice(0, 2)} />
+                        <div className="flex min-w-0 items-center gap-4">
+                          <StockLogo label={item.name.slice(0, 2)} />
 
-                        <div className="min-w-0">
-                          <div className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>
-                          <div className="typo-body-xs mt-1 truncate font-semibold text-[color:var(--color-text-tertiary)]">
-                            {item.ticker} · {item.gicsSector}
+                          <div className="min-w-0">
+                            <div className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>
+                            <div className="typo-body-xs mt-1 truncate font-semibold text-[color:var(--color-text-tertiary)]">
+                              {item.ticker} · {item.gicsSector}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex flex-1 items-center justify-between gap-4">
-                      <div className="flex w-28 flex-col items-end">
-                        <div className="typo-body-md text-right font-extrabold text-[color:var(--color-text-primary)]">
-                          {formatPrice(item.price)}
+                      <div className="flex flex-1 items-center justify-between gap-4">
+                        <div className="flex w-28 flex-col items-end">
+                          <div className="typo-body-md text-right font-extrabold text-[color:var(--color-text-primary)]">
+                            {formatPrice(item.price)}
+                          </div>
+                          <ValueChangeRateText
+                            value={item.fluctuationRate}
+                            padding="x-none"
+                            className={`typo-body-sm justify-end font-semibold ${getRateClassName(item.fluctuationRate)}`}
+                          >
+                            {formatMetricValue(item, "RETURN")}
+                          </ValueChangeRateText>
                         </div>
-                        <ValueChangeRateText
-                          value={item.fluctuationRate}
-                          padding="x-none"
-                          className={`typo-body-sm justify-end font-semibold ${getRateClassName(item.fluctuationRate)}`}
-                        >
-                          {formatMetricValue(item, "RETURN")}
-                        </ValueChangeRateText>
-                      </div>
 
-                      <div className="flex w-28 justify-center">
-                        <ValueChangeRateText
-                          value={getMetricValue(item, activeMetric)}
-                          className="typo-body-md font-black text-[color:var(--color-text-primary)]"
-                        >
-                          <span className={activeMetric === "RETURN" ? getRateClassName(item.fluctuationRate) : ""}>
-                            {formatMetricValue(item, activeMetric)}
-                          </span>
-                        </ValueChangeRateText>
+                        <div className="flex w-28 justify-center">
+                          <ValueChangeRateText
+                            value={getMetricValue(item, activeMetric)}
+                            className="typo-body-md font-black text-[color:var(--color-text-primary)]"
+                          >
+                            <span className={activeMetric === "RETURN" ? getRateClassName(item.fluctuationRate) : ""}>
+                              {formatMetricValue(item, activeMetric)}
+                            </span>
+                          </ValueChangeRateText>
+                        </div>
                       </div>
+                    </Link>
 
-                      <div className="flex w-16 justify-end">
-                        <WatchlistHeartButton
-                          stockId={item.id}
-                          stockName={item.name}
-                          initialWatched={item.isWatchlisted}
-                          inactiveIconStyle="outline"
-                        />
-                      </div>
+                    <div className="flex w-16 justify-end">
+                      <WatchlistHeartButton
+                        stockId={item.id}
+                        stockName={item.name}
+                        initialWatched={item.isWatchlisted}
+                        inactiveIconStyle="outline"
+                      />
                     </div>
                   </div>
                 </motion.article>
@@ -145,7 +152,7 @@ export default function StocksDesktopTable({
             </button>
           ) : (
             <div className="typo-body-md inline-flex w-full justify-center py-5 font-semibold text-[color:var(--color-text-tertiary)]">
-              마지막 종목입니다
+              마지막 종목입니다.
             </div>
           )}
         </div>

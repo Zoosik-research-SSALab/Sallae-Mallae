@@ -1,6 +1,7 @@
 # Progress Log
 
 ## Current Focus
+- [x] (2026-03-12) Stock detail page rebuild: responsive `/stocks/[ticker]` with ECharts price chart, mock detail APIs, and watchlist notification toggle
 - [x] (2026-03-10) Stocks page rebuild: responsive all-stocks board with token-based ranking UI, mock `/api/stocks`, and layout reordering animation
 - [x] (2026-03-11) Watchlist page rebuild: responsive `/scraps` dashboard with SSE feed, news panel, and shared watchlist reuse
 - [x] (2026-03-10) API base routing: centralize mock/real base URL switching in `apiClient` and align local env files
@@ -22,6 +23,48 @@
 - [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
 
 ## Changes
+### (2026-03-12) Stock detail page rebuild
+- Scope:
+  - Replaced the placeholder `stocks/[ticker]` screen with a responsive stock detail page using shared layout/header rules and route-local query hooks
+  - Added mock stock detail APIs for overview, SSE price stream, indicators, financials, keywords/news, and announcements
+  - Extended shared watchlist status handling with notification toggle support so detail actions can reuse the same cache contract
+- Files:
+  - ~ PROGRESS.md
+  - ~ package.json
+  - ~ pnpm-lock.yaml
+  - ~ src/app/stocks/[ticker]/page.tsx
+  - + src/app/stocks/[ticker]/StockDetailPageClient.tsx
+  - + src/app/stocks/[ticker]/api/{connectStockPriceStream,getStockAnnouncements,getStockFinancials,getStockIndicators,getStockKeywords,getStockOverview}.ts
+  - + src/app/stocks/[ticker]/hooks/{useStockAnnouncementsQuery,useStockFinancialsQuery,useStockIndicatorsQuery,useStockKeywordsQuery,useStockOverviewQuery,useStockPriceStream}.ts
+  - + src/app/stocks/[ticker]/components/{StockActionButtons,StockAnnouncementsSection,StockDetailTopBar,StockFinancialChart,StockFinancialSection,StockIndicatorsSection,StockKeywordsNewsSection,StockOverviewSection,StockPriceChart}.tsx
+  - + src/app/stocks/[ticker]/utils/stockDetailFormatters.ts
+  - + src/app/stocks/types/stockDetail.ts
+  - + src/app/stocks/utils/mockStockDetailData.ts
+  - + src/app/api/stocks/[stockId]/{route,prices/route,indicators/route,financials/route,keywords/route,announcements/route,announcements/[announcementId]/route}.ts
+  - + src/shared/hooks/{useSseState,useWatchlistNotification}.ts
+  - ~ src/shared/lib/{mockWatchlistStore,watchlistApi}.ts
+  - ~ src/shared/types/watchlist.ts
+  - ~ src/app/api/users/watchlist/[stockId]/route.ts
+  - ~ src/app/home/hooks/{useCategories,useMarketIndex,useTopStocks}.ts
+  - ~ src/app/scraps/hooks/useWatchlistStream.ts
+  - - src/app/home/hooks/useSseState.ts
+  - - src/app/stocks/[ticker]/api/getStockDetail.ts
+  - - src/app/stocks/[ticker]/hooks/useStockDetail.ts
+  - - src/app/stocks/[ticker]/components/{AlertSettingCard,StockDetailCard}.tsx
+- Decisions:
+  - Used `echarts` directly rather than adding a React wrapper so the price/financial charts stay lightweight and close to the desired securities-style layout.
+  - Kept the detail route as `/stocks/[ticker]` while letting mock API routes resolve either ticker-like or id-like path values through one stock seed source.
+  - Started the two-column sidebar layout only at `xl` so tablet follows the stacked mobile information architecture instead of a cramped desktop split.
+  - Reused the shared watchlist status query key for both heart and notification actions so GET status and optimistic cache updates stay aligned.
+- Notes / Issues:
+  - Price data is streamed through local SSE mocks at `/api/stocks/[stockId]/prices?period=...`; the period tabs are plain React UI controls and not chart-library internals.
+  - Financial charts use `매출` and `영업이익` series because the provided backend contract does not include separate forecast/actual values.
+  - Announcement detail mock route is added for the later modal step, but the modal UI itself is intentionally not implemented yet.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] Link stock list rows into `/stocks/[ticker]` once the navigation behavior for the list screens is finalized.
+  - [ ] Replace mock detail routes with the real backend contracts and wire announcement detail modal when that UI is requested.
+
 ### (2026-03-10) API base routing
 - Scope:
   - Added central mock/real base URL resolution to the shared API client so browser-side HTTP/SSE calls can switch through env without editing each feature module

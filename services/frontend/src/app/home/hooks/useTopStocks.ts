@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { subscribeTopStocks } from "../api/main";
-import { useSseState } from "./useSseState";
+import { useSseState } from "@/shared/hooks/useSseState";
 import type { TopStocksPayload } from "../types/main";
 
 const initialData: TopStocksPayload = { stocks: [] };

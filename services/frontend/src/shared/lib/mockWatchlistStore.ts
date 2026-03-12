@@ -1,4 +1,8 @@
-import type { WatchlistStatus, WatchlistToggleResponse } from "@/shared/types/watchlist";
+import type {
+  WatchlistNotificationResponse,
+  WatchlistStatus,
+  WatchlistToggleResponse,
+} from "@/shared/types/watchlist";
 
 type WatchlistEntry = {
   isNotifiedEnabled: boolean;
@@ -366,6 +370,23 @@ export function removeMockWatchlist(stockId: number): WatchlistToggleResponse {
   return {
     message: "관심종목 삭제 완료",
     count: watchlistStore.size,
+  };
+}
+
+export function toggleMockWatchlistNotification(stockId: number): WatchlistNotificationResponse {
+  const entry = watchlistStore.get(stockId);
+
+  if (!entry) {
+    throw new Error("Watchlist entry not found");
+  }
+
+  const nextValue = !entry.isNotifiedEnabled;
+  watchlistStore.set(stockId, {
+    isNotifiedEnabled: nextValue,
+  });
+
+  return {
+    isNotifiedEnabled: nextValue,
   };
 }
 

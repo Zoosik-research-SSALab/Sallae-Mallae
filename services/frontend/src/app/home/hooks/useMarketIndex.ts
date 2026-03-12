@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { subscribeMarketIndex } from "../api/main";
-import { useSseState } from "./useSseState";
+import { useSseState } from "@/shared/hooks/useSseState";
 import type { MarketIndexPayload } from "../types/main";
 
 const initialData: MarketIndexPayload = {

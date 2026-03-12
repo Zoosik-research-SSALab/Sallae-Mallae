@@ -1,9 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { type ReactNode, useState } from "react";
 import AuthBootstrap from "@/shared/components/AuthBootstrap";
+
+const ReactQueryDevtools = dynamic(
+  () => import("@tanstack/react-query-devtools").then((module) => module.ReactQueryDevtools),
+  { ssr: false },
+);
 
 type AppProvidersProps = {
   children: ReactNode;

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -10,7 +11,6 @@ import { HiOutlineBell } from "react-icons/hi";
 import { IoCloseOutline } from "react-icons/io5";
 import type { IconType } from "react-icons";
 import { MdOutlineFavorite } from "react-icons/md";
-import { LoginModal } from "@/app/auth/login/page";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
@@ -36,6 +36,9 @@ const loginButtonClassName =
   "typo-body-md inline-flex cursor-pointer items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
 const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
+const LoginModal = dynamic(() => import("@/app/auth/login/components/LoginCard").then((module) => module.LoginModal), {
+  ssr: false,
+});
 
 function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean }) {
   return (
@@ -52,7 +55,6 @@ export default function AppNav() {
   const router = useRouter();
   const pathname = usePathname();
   const { resolvedTheme, isHydrated } = useTheme();
-  const authStatus = useAuthStore((state) => state.status);
   const currentUser = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
@@ -61,12 +63,11 @@ export default function AppNav() {
   const [searchKeyword, setSearchKeyword] = useState("");
 
   const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
-  const isAuthReady = authStatus !== "restoring";
   const isLoggedIn = Boolean(currentUser);
   const profileImageUrl = currentUser?.profileImageUrl ?? "/images/profile-placeholder.svg";
   const isLocalProfileImage = profileImageUrl.startsWith("/");
 
-  const { data: notificationCount } = useNotificationCountQuery(isAuthReady && isLoggedIn);
+  const { data: notificationCount } = useNotificationCountQuery(isLoggedIn);
   const unreadCount = isLoggedIn && typeof notificationCount === "number" ? notificationCount : 0;
   const displayCount = unreadCount > 99 ? "99+" : String(unreadCount);
 
@@ -205,8 +206,7 @@ export default function AppNav() {
               </button>
             </div>
 
-            {isAuthReady ? (
-              isLoggedIn ? (
+            {isLoggedIn ? (
                 <div className="flex items-center gap-3">
                   <Link
                     href="/notifications"
@@ -235,9 +235,6 @@ export default function AppNav() {
                 <button type="button" onClick={openLoginModal} className={loginButtonClassName}>
                   로그인
                 </button>
-              )
-            ) : (
-              <div className="h-10 w-[84px]" />
             )}
           </div>
 
@@ -335,8 +332,7 @@ export default function AppNav() {
                   <div className="typo-body-sm flex-1 font-semibold text-[color:var(--color-text-tertiary)]">마이페이지</div>
                 </div>
 
-                {isAuthReady ? (
-                  isLoggedIn ? (
+                {isLoggedIn ? (
                     <div className="flex w-full flex-col gap-4">
                       <button
                         type="button"
@@ -362,9 +358,6 @@ export default function AppNav() {
                     <button type="button" onClick={openLoginModal} className={`${loginButtonClassName} w-full justify-center`}>
                       로그인
                     </button>
-                  )
-                ) : (
-                  <div className="h-10 w-full" />
                 )}
               </div>
             </div>
@@ -372,7 +365,7 @@ export default function AppNav() {
         </div>
       ) : null}
 
-      <LoginModal open={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      {isLoginModalOpen ? <LoginModal open={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} /> : null}
     </>
   );
 }

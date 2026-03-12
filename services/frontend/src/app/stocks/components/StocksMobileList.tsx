@@ -1,6 +1,7 @@
 "use client";
 
 import { LayoutGroup, motion } from "motion/react";
+import Link from "next/link";
 import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import { formatPrice } from "@/shared/lib/stockFormatters";
@@ -58,7 +59,10 @@ export default function StocksMobileList({
                   className="border-b border-[color:var(--color-border-secondary)] px-4 py-3"
                 >
                   <div className="flex items-center justify-between gap-4">
-                    <div className="flex min-w-0 flex-1 items-center gap-4 px-2">
+                    <Link
+                      href={`/stocks/${item.ticker}`}
+                      className="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-2 py-1 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
+                    >
                       <div className="typo-body-md min-w-4 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>
 
                       <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -78,7 +82,7 @@ export default function StocksMobileList({
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </Link>
 
                     <div className="flex items-center">
                       <WatchlistHeartButton
@@ -111,7 +115,7 @@ export default function StocksMobileList({
             </button>
           ) : (
             <div className="typo-body-sm inline-flex w-full justify-center py-5 font-semibold text-[color:var(--color-text-tertiary)]">
-              마지막 종목입니다
+              마지막 종목입니다.
             </div>
           )}
         </div>
