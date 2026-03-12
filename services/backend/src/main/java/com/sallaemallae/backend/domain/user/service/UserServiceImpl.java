@@ -6,18 +6,31 @@ import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.domain.auth.repository.PasswordHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import com.sallaemallae.backend.domain.auth.service.PasswordValidator;
-import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import com.sallaemallae.backend.domain.stock.entity.Stock;
+import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
 import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistItemResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
+import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
+import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
+import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
+import com.sallaemallae.backend.domain.user.exception.UserErrorCode;
+import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.global.exception.GlobalErrorCode;
+import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +43,42 @@ public class UserServiceImpl implements UserService {
   private final PasswordValidator passwordValidator;
   private final PasswordEncoder passwordEncoder;
   private final RedisTokenService redisTokenService;
+  private final WatchlistRepository watchlistRepository;
+  private final StockRepository stockRepository;
+
+  private static final int WATCHLIST_MAX_SIZE = 50;
 
   @Override
   @Transactional(readOnly = true)
-  public List<Map<String, Object>> getWatchlist(Long userId) {
-    return List.of(Map.of("userId", userId, "message", "watchlist boilerplate"));
+  public WatchlistListResponse getWatchlist(Long userId) {
+    List<UserWatchlist> watchlistItems = watchlistRepository.findAllByIdUserId(userId);
+
+    if (watchlistItems.isEmpty()) {
+      return new WatchlistListResponse(0, List.of());
+    }
+
+    List<Long> stockIds = watchlistItems.stream()
+        .map(item -> item.getId().getStockId())
+        .toList();
+
+    Map<Long, Stock> stockMap = stockRepository.findAllById(stockIds).stream()
+        .collect(Collectors.toMap(Stock::getId, Function.identity()));
+
+    List<WatchlistItemResponse> items = watchlistItems.stream()
+        .filter(item -> stockMap.containsKey(item.getId().getStockId()))
+        .map(item -> {
+          Stock stock = stockMap.get(item.getId().getStockId());
+          return new WatchlistItemResponse(
+              item.getId().getStockId(),
+              stock.getTicker(),
+              stock.getName(),
+              item.isNotiEnabled(),
+              item.getCreatedAt()
+          );
+        })
+        .toList();
+
+    return new WatchlistListResponse(items.size(), items);
   }
 
   @Override
@@ -45,14 +89,35 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-  public Map<String, Object> addWatchlist(Long userId, WatchlistCreateRequest request) {
-    return Map.of("userId", userId, "stockId", request.stockId(), "message", "watchlist add boilerplate");
+  public WatchlistAddResponse addWatchlist(Long userId, WatchlistCreateRequest request) {
+    stockRepository.findById(request.stockId())
+        .orElseThrow(() -> new BusinessException(StockErrorCode.STOCK_NOT_FOUND));
+
+    long currentCount = watchlistRepository.countByIdUserId(userId);
+    if (currentCount >= WATCHLIST_MAX_SIZE) {
+      throw new BusinessException(UserErrorCode.WATCHLIST_LIMIT_EXCEEDED);
+    }
+
+    try {
+      watchlistRepository.save(UserWatchlist.create(userId, request.stockId()));
+    } catch (org.springframework.dao.DataIntegrityViolationException e) {
+      throw new BusinessException(UserErrorCode.WATCHLIST_ALREADY_EXISTS);
+    }
+
+    return new WatchlistAddResponse("관심종목 추가 완료", currentCount + 1);
   }
 
   @Override
   @Transactional
-  public Map<String, Object> removeWatchlist(Long userId, Long stockId) {
-    return Map.of("userId", userId, "stockId", stockId, "message", "watchlist remove boilerplate");
+  public WatchlistRemoveResponse removeWatchlist(Long userId, Long stockId) {
+    UserWatchlistId watchlistId = new UserWatchlistId(userId, stockId);
+    if (!watchlistRepository.existsById(watchlistId)) {
+      throw new BusinessException(UserErrorCode.WATCHLIST_NOT_FOUND);
+    }
+
+    watchlistRepository.deleteById(watchlistId);
+
+    return new WatchlistRemoveResponse("관심종목 제거 완료");
   }
 
   @Override

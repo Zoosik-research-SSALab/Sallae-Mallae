@@ -23,4 +23,16 @@ public class UserWatchlist {
 
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;
+
+  public static UserWatchlist create(Long userId, Long stockId) {
+    UserWatchlist watchlist = new UserWatchlist();
+    watchlist.id = new UserWatchlistId(userId, stockId);
+    watchlist.isNotiEnabled = true;
+    watchlist.createdAt = OffsetDateTime.now();
+    return watchlist;
+  }
+
+  public void toggleNoti(boolean enabled) {
+    this.isNotiEnabled = enabled;
+  }
 }

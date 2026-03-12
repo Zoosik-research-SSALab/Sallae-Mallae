@@ -3,20 +3,23 @@ package com.sallaemallae.backend.domain.user.service;
 import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
 import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
 import java.util.List;
 import java.util.Map;
 
 public interface UserService {
 
-  List<Map<String, Object>> getWatchlist(Long userId);
+  WatchlistListResponse getWatchlist(Long userId);
 
   Map<String, Object> getWatchlistStatus(Long userId, Long stockId);
 
-  Map<String, Object> addWatchlist(Long userId, WatchlistCreateRequest request);
+  WatchlistAddResponse addWatchlist(Long userId, WatchlistCreateRequest request);
 
-  Map<String, Object> removeWatchlist(Long userId, Long stockId);
+  WatchlistRemoveResponse removeWatchlist(Long userId, Long stockId);
 
   Map<String, Object> toggleWatchlistAlert(Long userId, Long stockId, WatchlistAlertToggleRequest request);
 

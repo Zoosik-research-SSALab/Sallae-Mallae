@@ -9,6 +9,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface WatchlistRepository extends JpaRepository<UserWatchlist, UserWatchlistId> {
 
+  List<UserWatchlist> findAllByIdUserId(Long userId);
+
+  long countByIdUserId(Long userId);
+
   // FS-WATCH-006: 관심종목 보유 종목의 최신 뉴스 조회
   @Query(value = """
       SELECT DISTINCT sn.id, sn.title, sn.snippet, sn.url, sn.publisher, sn.published_at
