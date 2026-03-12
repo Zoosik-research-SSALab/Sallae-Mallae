@@ -77,6 +77,9 @@ public class SecurityConfig {
             .requestMatchers("/api/auth/logout").authenticated()
             .requestMatchers("/api/auth/logout/all").authenticated()
 
+            // Main - 메인 페이지 (인증 불필요)
+            .requestMatchers("/api/main/**").permitAll()
+
             // Swagger / API docs (개발용)
             .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
