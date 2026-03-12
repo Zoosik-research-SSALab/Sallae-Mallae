@@ -13,6 +13,12 @@ fi
 app_db_name="app"
 app_db_user="app_user"
 app_db_password="${APP_DB_PASSWORD:-}"
+minio_root_user="${ENV_BASE_MINIO_ROOT_USER:-minioadmin}"
+minio_root_password="${ENV_BASE_MINIO_ROOT_PASSWORD:-$app_db_password}"
+minio_public_bucket="${ENV_BASE_MINIO_PUBLIC_BUCKET:-assets}"
+minio_private_bucket="${ENV_BASE_MINIO_PRIVATE_BUCKET:-private}"
+minio_api_port="${ENV_BASE_MINIO_API_PORT:-9000}"
+minio_console_port="${ENV_BASE_MINIO_CONSOLE_PORT:-9001}"
 
 if [[ -z "$app_db_password" ]]; then
   echo "APP_DB_PASSWORD is required" >&2
@@ -90,7 +96,7 @@ base_file="$ROOT_DIR/env/base.env"
 append_prefixed_env \
   "ENV_BASE_" \
   "$base_file" \
-  "POSTGRES_SUPERUSER,POSTGRES_SUPERPASSWORD,APP_DB_NAME,APP_DB_USER,APP_DB_PASSWORD"
+  "POSTGRES_SUPERUSER,POSTGRES_SUPERPASSWORD,APP_DB_NAME,APP_DB_USER,APP_DB_PASSWORD,MINIO_ROOT_USER,MINIO_ROOT_PASSWORD,MINIO_PUBLIC_BUCKET,MINIO_PRIVATE_BUCKET,MINIO_API_PORT,MINIO_CONSOLE_PORT"
 
 cat >> "$base_file" <<EOF
 POSTGRES_SUPERUSER=postgres
@@ -98,6 +104,12 @@ POSTGRES_SUPERPASSWORD=${POSTGRES_SUPERPASSWORD}
 APP_DB_NAME=${app_db_name}
 APP_DB_USER=${app_db_user}
 APP_DB_PASSWORD=${app_db_password}
+MINIO_ROOT_USER=${minio_root_user}
+MINIO_ROOT_PASSWORD=${minio_root_password}
+MINIO_PUBLIC_BUCKET=${minio_public_bucket}
+MINIO_PRIVATE_BUCKET=${minio_private_bucket}
+MINIO_API_PORT=${minio_api_port}
+MINIO_CONSOLE_PORT=${minio_console_port}
 EOF
 
 if [[ "$TARGET" == "base" ]]; then
