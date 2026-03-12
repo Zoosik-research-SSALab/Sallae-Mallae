@@ -4,34 +4,34 @@
 ======================================================================
 
 [1] 데이터 규모 (train)
-  cluster1:   50,311 samples
-  cluster2:   78,793 samples
-  cluster3:  254,134 samples
-          합계:  383,238 samples
+  cluster1:   62,059 samples
+  cluster2:  102,680 samples
+  cluster3:  322,558 samples
+          합계:  487,297 samples
 
 [2] 타겟 분포 (train)
-  상승(y=1):  180,466 (47.1%)
-  하락(y=0):  202,772 (52.9%)
+  상승(y=1):  232,653 (47.7%)
+  하락(y=0):  254,644 (52.3%)
 
 [3] 피처별 예측력 (KS Statistic)
   피처                                   KS      p-value       판정
   --------------------------------------------------------------
-  daily_return                     0.0127     7.81e-14       없음
-  volume_change_ratio              0.0065     6.41e-04       없음
-  high_low_range                   0.0172     4.16e-25       없음
-  foreign_net_buy_change           0.0024     6.50e-01       없음
-  relative_return                  0.0190     2.72e-30       없음
+  daily_return                     0.0117     8.05e-15       없음
+  log_volume_change                0.0055     1.18e-03       없음
+  high_low_range                   0.0145     1.72e-22       없음
+  inst_net_buy_change              0.0017     8.58e-01       없음
+  relative_return                  0.0164     7.95e-29       없음
 
 [4] 피처별 NaN 비율 (정규화 전)
   daily_return                      0.0%
-  volume_change_ratio               0.1%
+  log_volume_change                 0.1%
   high_low_range                    0.0%
-  foreign_net_buy_change            0.1%
-  relative_return                  11.6% *** 주의
+  inst_net_buy_change               0.1%
+  relative_return                   0.0%
 
 [5] 결론 및 권장사항
-  - 가장 예측력 높은 피처: relative_return (KS=0.0190)
-  - 가장 예측력 낮은 피처: foreign_net_buy_change (KS=0.0024)
-    -> foreign_net_buy_change 피처 제거 또는 대체 검토 권장
+  - 가장 예측력 높은 피처: relative_return (KS=0.0164)
+  - 가장 예측력 낮은 피처: inst_net_buy_change (KS=0.0017)
+    -> inst_net_buy_change 피처 제거 또는 대체 검토 권장
 
 ======================================================================

@@ -45,17 +45,17 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 FEATURE_NAMES = [
     "daily_return",
-    "volume_change_ratio",
+    "log_volume_change",
     "high_low_range",
-    "foreign_net_buy_change",
+    "inst_net_buy_change",
     "relative_return",
 ]
 
 FEATURE_LABELS_KR = [
     "일별 수익률 (%)",
-    "거래량 변화율",
+    "거래량 변화율 (로그)",
     "고저 변동폭 (%)",
-    "외인 순매수 변화율",
+    "기관 순매수 변화율",
     "KOSPI200 대비 상대수익률",
 ]
 

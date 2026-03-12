@@ -52,9 +52,9 @@ logger = setup_logger(__name__)
 # ---------------------------------------------------------------------------
 FEATURES: list[str] = [
     "daily_return",            # 일별 수익률 (%) = close.pct_change(1) * 100
-    "volume_change_ratio",     # 거래량 변화율 = volume.pct_change(1)
+    "log_volume_change",       # 거래량 변화율 (로그 변환) = sign * log(1 + |pct_change|)
     "high_low_range",          # 고저 변동폭 (%) = (high-low) / close.shift(1) * 100
-    "foreign_net_buy_change",  # 외인 순매수 변화율 = foreign_net_buy.pct_change(1)
+    "inst_net_buy_change",     # 기관 순매수 변화율 (외인 대체)
     "relative_return",         # KOSPI200 대비 상대 수익률 = daily_return/100 - kospi200_return
 ]
 
@@ -148,34 +148,34 @@ def compute_features(
     # 1. 일별 수익률 (%)
     df["daily_return"] = df["close"].pct_change(1) * 100
 
-    # 2. 거래량 변화율 (volume=0 → pct_change=inf 방지)
-    df["volume_change_ratio"] = df["volume"].pct_change(1)
-    df["volume_change_ratio"] = df["volume_change_ratio"].replace([np.inf, -np.inf], np.nan)
+    # 2. 거래량 변화율 — 로그 변환 (우측 꼬리 완화, 정보 보존 개선)
+    vol_pct = df["volume"].pct_change(1)
+    vol_pct = vol_pct.replace([np.inf, -np.inf], np.nan)
+    df["log_volume_change"] = np.sign(vol_pct) * np.log1p(vol_pct.abs())
 
     # 3. 고저 변동폭 (%)
     df["high_low_range"] = ((df["high"] - df["low"]) / df["close"].shift(1)) * 100
 
-    # 4. 외인 순매수 변화율 (diff 기반 — pct_change는 0 나눗셈으로 inf/NaN 폭발)
-    if not supply_df.empty and "foreign_net_buy" in supply_df.columns:
-        supply = supply_df["foreign_net_buy"].copy()
+    # 4. 기관 순매수 변화율 (외인 대체 — 외인은 KS=0.0024 무신호)
+    if not supply_df.empty and "institution_net_buy" in supply_df.columns:
+        supply = supply_df["institution_net_buy"].copy()
         supply.index = pd.to_datetime(supply.index)
         supply = supply.reindex(df.index)
-        # diff를 20일 이동평균 절대값으로 나누어 상대적 변화율 계산
         diff = supply.diff(1)
         rolling_abs_mean = supply.abs().rolling(window=20, min_periods=1).mean()
         rolling_abs_mean = rolling_abs_mean.replace(0, np.nan)
-        df["foreign_net_buy_change"] = diff / rolling_abs_mean
-        # inf 제거
-        df["foreign_net_buy_change"] = df["foreign_net_buy_change"].replace([np.inf, -np.inf], np.nan)
+        df["inst_net_buy_change"] = diff / rolling_abs_mean
+        df["inst_net_buy_change"] = df["inst_net_buy_change"].replace([np.inf, -np.inf], np.nan)
     else:
-        df["foreign_net_buy_change"] = np.nan
+        df["inst_net_buy_change"] = np.nan
 
-    # 5. 코스피200 대비 상대 수익률
+    # 5. 코스피200 대비 상대 수익률 (NaN → 0: 시장 평균과 동일 의미)
     if kospi200_series is not None:
         kospi_ret = kospi200_series.pct_change(1).reindex(df.index)
         df["relative_return"] = df["daily_return"] / 100 - kospi_ret
+        df["relative_return"] = df["relative_return"].fillna(0.0)
     else:
-        df["relative_return"] = np.nan
+        df["relative_return"] = 0.0
 
     # 타겟: TARGET_HORIZON일 후 상승 여부 (0/1)
     future_close = df["close"].shift(-TARGET_HORIZON)
