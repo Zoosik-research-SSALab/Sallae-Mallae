@@ -37,6 +37,15 @@ function joinApiUrl(baseUrl: string, path: string) {
 }
 
 function getApiMockingMode(): ApiMockingMode {
+  const explicit = process.env.NEXT_PUBLIC_USE_API_MOCK?.trim().toLowerCase();
+  if (explicit === "true") {
+    return "enabled";
+  }
+
+  if (explicit === "false") {
+    return "disabled";
+  }
+
   const raw = process.env.NEXT_PUBLIC_API_MOCKING?.trim().toLowerCase();
 
   if (raw === "false" || raw === "disabled") {
@@ -160,10 +169,11 @@ type ConnectSseOptions<TPayload> = {
   onMessage: (payload: TPayload) => void;
   onError?: (error: Event) => void;
   onOpen?: () => void;
+  useBaseUrl?: boolean;
 };
 
 export function connectSse<TPayload>(url: string, options: ConnectSseOptions<TPayload>) {
-  const source = new EventSource(resolveApiUrl(url));
+  const source = new EventSource(resolveApiUrl(url, options.useBaseUrl));
 
   source.onopen = () => {
     options.onOpen?.();

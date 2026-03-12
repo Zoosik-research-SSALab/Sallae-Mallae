@@ -1,6 +1,7 @@
 "use client";
 
 import { HiOutlineBell } from "react-icons/hi";
+import { IoMdNotifications } from "react-icons/io";
 import { IoHeart, IoHeartOutline } from "react-icons/io5";
 import { useWatchlist } from "@/shared/hooks/useWatchlist";
 import { useWatchlistNotification } from "@/shared/hooks/useWatchlistNotification";
@@ -48,7 +49,7 @@ function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stoc
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex shrink-0 items-center justify-end gap-3">
       <button
         type="button"
         onClick={handleWatchlistClick}
@@ -62,13 +63,13 @@ function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stoc
         )}
       >
         {isWatched ? <IoHeart className="h-4 w-4" /> : <IoHeartOutline className="h-4 w-4" />}
-        <span>{isWatched ? "관심종목" : "관심추가"}</span>
+        <span>관심종목</span>
       </button>
 
       <button
         type="button"
         onClick={handleNotificationClick}
-        disabled={isNotificationPending}
+        disabled={isNotificationPending || !isWatched}
         aria-label={`${stockName} 알림 설정`}
         className={cn(
           "inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
@@ -78,7 +79,7 @@ function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stoc
           !isWatched && "opacity-60",
         )}
       >
-        <HiOutlineBell className="h-4 w-4" />
+        {isNotifiedEnabled ? <IoMdNotifications className="h-4 w-4" /> : <HiOutlineBell className="h-4 w-4" />}
         <span>{isNotifiedEnabled ? "알림 켜짐" : "알림 설정"}</span>
       </button>
     </div>
@@ -88,7 +89,7 @@ function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stoc
 export default function StockActionButtons({ stockId, stockName }: Props) {
   if (!stockId) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-3">
         <ActionButtonSkeleton />
         <ActionButtonSkeleton />
       </div>

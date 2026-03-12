@@ -23,19 +23,35 @@ export type StockPricesPayload = {
   prices: StockPricePoint[];
 };
 
-export type StockIndicatorsMetricSet = {
+export type StockValuationIndicators = {
   per: number;
+  psr: number;
   pbr: number;
-  roe: number;
-  debtRatio: number;
 };
 
-export type StockIndicators = StockIndicatorsMetricSet & {
-  sectorAvg: StockIndicatorsMetricSet;
-  prevQuarterDiff: StockIndicatorsMetricSet;
+export type StockEarningsIndicators = {
+  eps: number;
+  bps: number;
+  roe: number;
+};
+
+export type StockDividendIndicators = {
+  periodLabel: string;
+  paymentCount: number;
+  paymentMonths: string;
+  annualDividendPerShare: number;
+  dividendYield: number;
+};
+
+export type StockIndicators = {
+  valuation: StockValuationIndicators;
+  earnings: StockEarningsIndicators;
+  dividend: StockDividendIndicators;
 };
 
 export type StockFinancialType = "YEARLY" | "QUARTERLY";
+
+export type StockPriceChartMode = "line" | "candlestick";
 
 export type StockFinancialItem = {
   year: number;
@@ -51,6 +67,7 @@ export type StockFinancialsPayload = {
 export type StockKeyword = {
   id: number;
   name: string;
+  news: StockKeywordNewsItem[];
 };
 
 export type StockKeywordNewsItem = {
@@ -63,7 +80,7 @@ export type StockKeywordNewsItem = {
 
 export type StockKeywordsPayload = {
   keywords: StockKeyword[];
-  news: StockKeywordNewsItem[];
+  totalNewsCount: number;
 };
 
 export type StockAnnouncementItem = {

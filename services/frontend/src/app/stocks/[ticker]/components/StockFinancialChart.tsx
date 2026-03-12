@@ -2,14 +2,20 @@
 
 import type { EChartsType } from "echarts";
 import { useEffect, useRef } from "react";
-import type { StockFinancialItem } from "@/app/stocks/types/stockDetail";
-import { formatFinancialLabel } from "../utils/stockDetailFormatters";
+import type { StockFinancialItem, StockFinancialType } from "@/app/stocks/types/stockDetail";
+import {
+  formatFinancialLabel,
+  formatFinancialQuarterLabel,
+  formatFinancialYearMarker,
+  getVisibleFinancials,
+} from "../utils/stockDetailFormatters";
 
 type Props = {
   financials: StockFinancialItem[];
+  type: StockFinancialType;
 };
 
-export default function StockFinancialChart({ financials }: Props) {
+export default function StockFinancialChart({ financials, type }: Props) {
   const chartRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -20,6 +26,9 @@ export default function StockFinancialChart({ financials }: Props) {
     let chart: EChartsType | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let disposed = false;
+
+    const visibleFinancials = getVisibleFinancials(financials, type);
+    const isQuarterly = type === "QUARTERLY";
 
     const draw = async () => {
       const echarts = await import("echarts");
@@ -45,20 +54,9 @@ export default function StockFinancialChart({ financials }: Props) {
         grid: {
           left: 12,
           right: 8,
-          top: 24,
-          bottom: 16,
+          top: 12,
+          bottom: isQuarterly ? 44 : 16,
           containLabel: true,
-        },
-        legend: {
-          top: 0,
-          right: 0,
-          textStyle: {
-            color: textSecondary,
-            fontFamily: "var(--font-family-base)",
-          },
-          itemWidth: 12,
-          itemHeight: 12,
-          data: ["매출", "영업이익"],
         },
         tooltip: {
           trigger: "axis",
@@ -72,7 +70,9 @@ export default function StockFinancialChart({ financials }: Props) {
         },
         xAxis: {
           type: "category",
-          data: financials.map(formatFinancialLabel),
+          data: visibleFinancials.map((item) =>
+            isQuarterly ? formatFinancialQuarterLabel(item) : formatFinancialLabel(item),
+          ),
           axisTick: {
             show: false,
           },
@@ -81,6 +81,35 @@ export default function StockFinancialChart({ financials }: Props) {
           },
           axisLabel: {
             color: textSecondary,
+            margin: isQuarterly ? 20 : 12,
+            formatter: (value: string, index: number) => {
+              if (!isQuarterly) {
+                return value;
+              }
+
+              const item = visibleFinancials[index];
+              const previousItem = visibleFinancials[index - 1];
+              const showYear = index === 0 || previousItem?.year !== item?.year;
+              const yearLabel = item && showYear ? formatFinancialYearMarker(item) : " ";
+
+              return `{value|${value}}\n{year|${yearLabel}}`;
+            },
+            rich: isQuarterly
+              ? {
+                  value: {
+                    color: textPrimary,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    lineHeight: 20,
+                  },
+                  year: {
+                    color: textSecondary,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    lineHeight: 16,
+                  },
+                }
+              : undefined,
           },
         },
         yAxis: {
@@ -104,8 +133,8 @@ export default function StockFinancialChart({ financials }: Props) {
           {
             name: "매출",
             type: "bar",
-            data: financials.map((item) => item.revenue),
-            barWidth: 18,
+            data: visibleFinancials.map((item) => item.revenue),
+            barWidth: isQuarterly ? 22 : 18,
             itemStyle: {
               color: mutedBar,
               borderRadius: [4, 4, 0, 0],
@@ -114,8 +143,8 @@ export default function StockFinancialChart({ financials }: Props) {
           {
             name: "영업이익",
             type: "bar",
-            data: financials.map((item) => item.operatingProfit),
-            barWidth: 18,
+            data: visibleFinancials.map((item) => item.operatingProfit),
+            barWidth: isQuarterly ? 22 : 18,
             itemStyle: {
               color: accentBar,
               borderRadius: [4, 4, 0, 0],
@@ -137,7 +166,7 @@ export default function StockFinancialChart({ financials }: Props) {
       resizeObserver?.disconnect();
       chart?.dispose();
     };
-  }, [financials]);
+  }, [financials, type]);
 
   return <div ref={chartRef} className="h-72 w-full" />;
 }

@@ -1,4 +1,10 @@
-import type { StockChartPeriod, StockFinancialItem, StockPricePoint } from "@/app/stocks/types/stockDetail";
+import type {
+  StockChartPeriod,
+  StockFinancialItem,
+  StockFinancialType,
+  StockPriceChartMode,
+  StockPricePoint,
+} from "@/app/stocks/types/stockDetail";
 
 export const stockChartPeriods: Array<{
   value: StockChartPeriod;
@@ -22,7 +28,7 @@ export function formatWon(value: number) {
 }
 
 export function formatSignedPercent(value: number, digits = 2) {
-  const sign = value > 0 ? "+" : value < 0 ? "" : "";
+  const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(digits)}%`;
 }
 
@@ -109,7 +115,7 @@ export function getDisplayChartPrices(prices: StockPricePoint[], period: StockCh
   return prices;
 }
 
-export function getChartPriceRange(prices: StockPricePoint[]) {
+export function getChartPriceRange(prices: StockPricePoint[], mode: StockPriceChartMode = "line") {
   if (prices.length === 0) {
     return {
       min: 0,
@@ -118,7 +124,10 @@ export function getChartPriceRange(prices: StockPricePoint[]) {
     };
   }
 
-  const values = prices.map((item) => item.close);
+  const values =
+    mode === "candlestick"
+      ? prices.flatMap((item) => [item.low, item.high])
+      : prices.map((item) => item.close);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
   const referencePrice = prices.at(-1)?.close ?? maxValue;
@@ -230,4 +239,20 @@ export function formatFinancialLabel(item: StockFinancialItem) {
   }
 
   return `${item.year}`;
+}
+
+export function getVisibleFinancials(financials: StockFinancialItem[], type: StockFinancialType) {
+  return type === "QUARTERLY" ? financials.slice(-4) : financials;
+}
+
+export function formatFinancialQuarterLabel(item: StockFinancialItem) {
+  if (typeof item.quarter === "number") {
+    return `${item.quarter}분기`;
+  }
+
+  return formatFinancialLabel(item);
+}
+
+export function formatFinancialYearMarker(item: StockFinancialItem) {
+  return `${item.year}년`;
 }

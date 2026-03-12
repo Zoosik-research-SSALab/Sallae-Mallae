@@ -44,10 +44,10 @@ export default function StockDetailPageClient({ ticker }: Props) {
 
   return (
     <main className="flex w-full justify-center bg-[color:var(--color-bg-primary)] pb-16">
-      <div className="flex w-full flex-col">
+      <div className="flex w-full flex-col items-center">
         <StockDetailTopBar stockId={overviewQuery.data?.id} stockName={overviewQuery.data?.name ?? ticker} />
 
-        <div className="mx-auto flex w-full max-w-[1152px] flex-col gap-10 px-4 py-6 md:px-6 md:py-8 xl:px-8 xl:py-10">
+        <div className="mx-auto flex w-full flex-col gap-12 px-4 py-6 md:px-6 md:py-8 xl:w-[88%] xl:max-w-[1152px] xl:px-0 xl:py-10">
           {errorMessage ? <Badge tone="danger">{errorMessage}</Badge> : null}
 
           {overviewQuery.isLoading || !overviewQuery.data ? (
@@ -61,7 +61,7 @@ export default function StockDetailPageClient({ ticker }: Props) {
               </div>
             </div>
           ) : (
-            <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
+            <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start xl:gap-20">
               <section className="min-w-0">
                 <StockOverviewSection
                   overview={overviewQuery.data}
@@ -84,10 +84,9 @@ export default function StockDetailPageClient({ ticker }: Props) {
                 />
               </section>
 
-              <aside className="flex min-w-0 flex-col gap-12">
+              <aside className="flex min-w-0 flex-col gap-12 xl:pt-2">
                 <StockKeywordsNewsSection
                   keywords={keywordsQuery.data?.keywords ?? []}
-                  news={keywordsQuery.data?.news ?? []}
                   isLoading={keywordsQuery.isLoading}
                 />
                 <StockAnnouncementsSection

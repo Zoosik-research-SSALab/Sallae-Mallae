@@ -8,7 +8,7 @@ type Props = {
   stockId: number;
   stockName: string;
   initialWatched?: boolean;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
   surface?: "default" | "muted";
   inactiveIconStyle?: "filled" | "outline";
   className?: string;
@@ -23,6 +23,10 @@ const sizeClassNames = {
   md: {
     button: "h-11 w-11",
     icon: "h-5 w-6",
+  },
+  lg: {
+    button: "h-12 w-12",
+    icon: "h-6 w-7",
   },
 } as const;
 

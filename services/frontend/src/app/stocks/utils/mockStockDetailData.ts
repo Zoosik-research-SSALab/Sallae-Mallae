@@ -7,10 +7,21 @@ import type {
   StockFinancialType,
   StockFinancialsPayload,
   StockIndicators,
-  StockIndicatorsMetricSet,
   StockKeywordsPayload,
   StockPricesPayload,
 } from "@/app/stocks/types/stockDetail";
+
+type LegacyStockIndicatorsMetricSet = {
+  per: number;
+  pbr: number;
+  roe: number;
+  debtRatio: number;
+};
+
+type LegacyStockIndicators = LegacyStockIndicatorsMetricSet & {
+  sectorAvg: LegacyStockIndicatorsMetricSet;
+  prevQuarterDiff: LegacyStockIndicatorsMetricSet;
+};
 
 type StockSeed = {
   id: number;
@@ -20,7 +31,7 @@ type StockSeed = {
   gicsSector: string;
   category: string;
   basePrice: number;
-  indicators: StockIndicators;
+  indicators: LegacyStockIndicators;
   yearlyFinancials: StockFinancialItem[];
   quarterlyFinancials: StockFinancialItem[];
   keywords: string[];
@@ -41,7 +52,7 @@ const stockSeeds: StockSeed[] = [
     name: "삼성전자",
     marketType: "KOSPI",
     gicsSector: "반도체",
-    category: "KOSPI 50",
+    category: "KOSPI 200",
     basePrice: 74300,
     indicators: {
       per: 26.1,
@@ -427,6 +438,85 @@ const stockSeeds: StockSeed[] = [
 const seedByTicker = new Map(stockSeeds.map((seed) => [seed.ticker, seed] as const));
 const seedById = new Map(stockSeeds.map((seed) => [String(seed.id), seed] as const));
 
+const detailedIndicatorByTicker: Record<string, StockIndicators> = {
+  "005930": {
+    valuation: {
+      per: 26.1,
+      psr: 3.5,
+      pbr: 2.7,
+    },
+    earnings: {
+      eps: 6563,
+      bps: 63997,
+      roe: 10.8,
+    },
+    dividend: {
+      periodLabel: "최근 12개월",
+      paymentCount: 4,
+      paymentMonths: "3월, 6월, 9월, 12월",
+      annualDividendPerShare: 1668,
+      dividendYield: 0.96,
+    },
+  },
+  "035420": {
+    valuation: {
+      per: 18.4,
+      psr: 3.2,
+      pbr: 1.6,
+    },
+    earnings: {
+      eps: 10082,
+      bps: 116428,
+      roe: 8.6,
+    },
+    dividend: {
+      periodLabel: "최근 12개월",
+      paymentCount: 1,
+      paymentMonths: "4월",
+      annualDividendPerShare: 1220,
+      dividendYield: 0.66,
+    },
+  },
+  "035720": {
+    valuation: {
+      per: 15.2,
+      psr: 1.9,
+      pbr: 1.1,
+    },
+    earnings: {
+      eps: 2774,
+      bps: 38324,
+      roe: 6.4,
+    },
+    dividend: {
+      periodLabel: "최근 12개월",
+      paymentCount: 1,
+      paymentMonths: "4월",
+      annualDividendPerShare: 61,
+      dividendYield: 0.14,
+    },
+  },
+  "068270": {
+    valuation: {
+      per: 32.8,
+      psr: 5.1,
+      pbr: 3.1,
+    },
+    earnings: {
+      eps: 5520,
+      bps: 57774,
+      roe: 9.1,
+    },
+    dividend: {
+      periodLabel: "최근 12개월",
+      paymentCount: 1,
+      paymentMonths: "12월",
+      annualDividendPerShare: 750,
+      dividendYield: 0.41,
+    },
+  },
+};
+
 const periodConfig: Record<
   StockChartPeriod,
   {
@@ -457,12 +547,12 @@ function roundPrice(value: number) {
   return Math.round(value);
 }
 
-function buildFallbackIndicators(basePrice: number): StockIndicators {
+function buildFallbackIndicators(basePrice: number): LegacyStockIndicators {
   const per = Number((basePrice / 4200).toFixed(1));
   const pbr = Number((basePrice / 27500).toFixed(1));
   const roe = Number((7 + (basePrice % 8)).toFixed(1));
   const debtRatio = Number((25 + (basePrice % 17)).toFixed(1));
-  const sectorAvg: StockIndicatorsMetricSet = {
+  const sectorAvg: LegacyStockIndicatorsMetricSet = {
     per: Number((per * 0.92).toFixed(1)),
     pbr: Number((pbr * 0.9).toFixed(1)),
     roe: Number((roe * 0.95).toFixed(1)),
@@ -480,6 +570,40 @@ function buildFallbackIndicators(basePrice: number): StockIndicators {
       pbr: 0.1,
       roe: 0.3,
       debtRatio: -0.4,
+    },
+  };
+}
+
+function buildDetailedFallbackIndicators(seed: StockSeed): StockIndicators {
+  const valuationPer = seed.indicators.per;
+  const valuationPbr = seed.indicators.pbr;
+  const earningsRoe = seed.indicators.roe;
+  const valuationPsr = Number(Math.max(0.5, valuationPbr * 1.3).toFixed(1));
+  const earningsEps = Math.round(seed.basePrice / Math.max(valuationPer, 1));
+  const earningsBps = Math.round(seed.basePrice / Math.max(valuationPbr, 0.2));
+  const dividendYield = Number(Math.max(0.2, Math.min(4.8, earningsRoe / 8)).toFixed(2));
+  const annualDividendPerShare = Math.max(
+    10,
+    Math.round(((seed.basePrice * dividendYield) / 100) / 10) * 10,
+  );
+
+  return {
+    valuation: {
+      per: valuationPer,
+      psr: valuationPsr,
+      pbr: valuationPbr,
+    },
+    earnings: {
+      eps: earningsEps,
+      bps: earningsBps,
+      roe: earningsRoe,
+    },
+    dividend: {
+      periodLabel: "최근 12개월",
+      paymentCount: 2,
+      paymentMonths: "6월, 12월",
+      annualDividendPerShare,
+      dividendYield,
     },
   };
 }
@@ -595,7 +719,9 @@ export function getMockStockPrices(stockKey: string, period: StockChartPeriod): 
 }
 
 export function getMockStockIndicators(stockKey: string): StockIndicators {
-  return resolveStockSeed(stockKey).indicators;
+  const seed = resolveStockSeed(stockKey);
+
+  return detailedIndicatorByTicker[seed.ticker] ?? buildDetailedFallbackIndicators(seed);
 }
 
 export function getMockStockFinancials(stockKey: string, type: StockFinancialType): StockFinancialsPayload {
@@ -606,7 +732,8 @@ export function getMockStockFinancials(stockKey: string, type: StockFinancialTyp
   };
 }
 
-export function getMockStockKeywords(stockKey: string): StockKeywordsPayload {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getMockStockKeywordsLegacy(stockKey: string) {
   const seed = resolveStockSeed(stockKey);
 
   return {
@@ -626,6 +753,31 @@ export function getMockStockKeywords(stockKey: string): StockKeywordsPayload {
         url: baseItem.url,
       };
     }),
+  };
+}
+
+export function getMockStockKeywords(stockKey: string): StockKeywordsPayload {
+  const seed = resolveStockSeed(stockKey);
+  const keywordSeeds = seed.keywords.slice(0, 3);
+
+  return {
+    totalNewsCount: keywordSeeds.length * 3,
+    keywords: keywordSeeds.map((name, keywordIndex) => ({
+      id: keywordIndex + 1,
+      name,
+      news: Array.from({ length: 3 }, (_, newsIndex) => {
+        const baseItem = seed.news[(keywordIndex + newsIndex) % seed.news.length];
+        const offsetMinutes = keywordIndex * 54 + newsIndex * 29;
+
+        return {
+          id: baseItem.id * 10 + keywordIndex * 3 + newsIndex,
+          title: `${baseItem.title} · ${name}`,
+          publisher: baseItem.publisher,
+          publishedAt: new Date(Date.now() - (baseItem.minutesAgo + offsetMinutes) * 60_000).toISOString(),
+          url: baseItem.url,
+        };
+      }),
+    })),
   };
 }
 

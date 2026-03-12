@@ -152,6 +152,21 @@
   --typo-body-md-font-size: 16px;
   --typo-body-md-line-height: 24px;
 
+  --typo-body-lg-font-family: var(--font-family-base);
+  --typo-body-lg-font-weight: 600;
+  --typo-body-lg-font-size: 18px;
+  --typo-body-lg-line-height: 28px;
+  --typo-body-lg-letter-spacing: -0.02em;
+
+  --typo-news-tag-font-family: var(--font-family-base);
+  --typo-news-tag-font-weight: 700;
+  --typo-news-tag-font-size: 13px;
+  --typo-news-tag-line-height: 19.5px;
+  --typo-news-tag-letter-spacing: -0.32px;
+  --typo-news-tag-compact-font-size: 11px;
+  --typo-news-tag-compact-line-height: 16px;
+  --typo-news-tag-compact-letter-spacing: -0.24px;
+
   /* label */
   --typo-label-font-family: var(--font-family-label);
   --typo-label-font-size: 14px;
@@ -190,6 +205,7 @@
   --color-border-interactive-primary-pressed: var(--color-blue-700);
   --color-border-interactive-secondary: var(--color-neutral-400);
   --color-text-base: var(--color-white);
+  --color-text-base-reversed: var(--color-neutral-900);
   --color-text-primary: var(--color-neutral-900);
   --color-text-secondary: var(--color-neutral-500);
   --color-text-tertiary: var(--color-neutral-400);
@@ -242,6 +258,7 @@
   --color-border-interactive-primary-pressed: var(--color-blue-300);
   --color-border-interactive-secondary: var(--color-neutral-500);
   --color-text-base: var(--color-neutral-900);
+  --color-text-base-reversed: var(--color-white);
   --color-text-primary: var(--color-neutral-50);
   --color-text-secondary: var(--color-neutral-300);
   --color-text-tertiary: var(--color-neutral-400);
@@ -295,6 +312,7 @@
     --color-border-interactive-primary-pressed: var(--color-blue-300);
     --color-border-interactive-secondary: var(--color-neutral-500);
     --color-text-base: var(--color-neutral-900);
+    --color-text-base-reversed: var(--color-white);
     --color-text-primary: var(--color-neutral-50);
     --color-text-secondary: var(--color-neutral-300);
     --color-text-tertiary: var(--color-neutral-400);

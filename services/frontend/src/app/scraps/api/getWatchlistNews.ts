@@ -4,5 +4,6 @@ import type { WatchlistNewsPayload } from "../types/scraps";
 export function getWatchlistNews() {
   return apiFetch<WatchlistNewsPayload>("/api/users/watchlist/news", {
     cache: "no-store",
+    useBaseUrl: false,
   });
 }

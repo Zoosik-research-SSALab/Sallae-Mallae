@@ -63,9 +63,7 @@ export function useWatchlistNotification(stockId: number, enabled = true): UseWa
       };
     },
     onError: (_error, _variables, context) => {
-      if (context?.previousStatus) {
-        queryClient.setQueryData(statusQueryKey, context.previousStatus);
-      }
+      queryClient.setQueryData(statusQueryKey, context?.previousStatus ?? { isWatched: false, isNotifiedEnabled: false });
     },
     onSuccess: (nextStatus) => {
       queryClient.setQueryData(statusQueryKey, nextStatus);

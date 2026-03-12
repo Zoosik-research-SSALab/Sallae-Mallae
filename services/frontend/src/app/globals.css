@@ -34,7 +34,22 @@ button,
 input,
 textarea,
 select {
-  font: inherit;
+  /* font: inherit; */
+}
+
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+[role="button"],
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 ul,
@@ -57,7 +72,7 @@ svg {
 }
 
 :where(h1, h2, h3, h4, h5, h6) {
-  font: inherit;
+  /* font: inherit; */
 }
 
 .heading-reset {
@@ -155,10 +170,48 @@ pre {
   line-height: var(--typo-body-md-line-height);
 }
 
+.typo-body-lg {
+  font-family: var(--typo-body-lg-font-family);
+  font-weight: var(--typo-body-lg-font-weight);
+  font-size: var(--typo-body-lg-font-size);
+  line-height: var(--typo-body-lg-line-height);
+  letter-spacing: var(--typo-body-lg-letter-spacing);
+}
+
+.typo-news-tag {
+  font-family: var(--typo-news-tag-font-family);
+  font-weight: var(--typo-news-tag-font-weight);
+  font-size: var(--typo-news-tag-compact-font-size);
+  line-height: var(--typo-news-tag-compact-line-height);
+  letter-spacing: var(--typo-news-tag-compact-letter-spacing);
+}
+
+@media (min-width: 768px) {
+  .typo-news-tag {
+    font-size: var(--typo-news-tag-font-size);
+    line-height: var(--typo-news-tag-line-height);
+    letter-spacing: var(--typo-news-tag-letter-spacing);
+  }
+}
+
 .typo-label {
   font-family: var(--typo-label-font-family);
   font-size: var(--typo-label-font-size);
   line-height: var(--typo-label-line-height);
+}
+
+.ai-report-link-text {
+  color: var(--color-white) !important;
+}
+
+:root[data-theme="dark"] .ai-report-link-text {
+  color: var(--color-neutral-900) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .ai-report-link-text {
+    color: var(--color-neutral-900) !important;
+  }
 }
 
 /* ------------------------ */
@@ -338,6 +391,28 @@ pre {
 
   100% {
     background-color: transparent;
+  }
+}
+
+@keyframes stock-detail-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes stock-detail-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

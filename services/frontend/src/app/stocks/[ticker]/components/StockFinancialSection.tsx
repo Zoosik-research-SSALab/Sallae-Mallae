@@ -1,10 +1,5 @@
 import type { StockAnnouncementItem, StockFinancialItem, StockFinancialType } from "@/app/stocks/types/stockDetail";
-import {
-  financialTypeOptions,
-  formatAnnouncementDate,
-  formatFinancialLabel,
-  formatFinancialValue,
-} from "../utils/stockDetailFormatters";
+import { financialTypeOptions, formatFinancialLabel, formatFinancialValue, getVisibleFinancials } from "../utils/stockDetailFormatters";
 import StockFinancialChart from "./StockFinancialChart";
 
 type Props = {
@@ -22,13 +17,15 @@ export default function StockFinancialSection({
   latestAnnouncement,
   isLoading,
 }: Props) {
-  const visibleFinancials = financials.slice(-2);
+  const visibleFinancials = type === "QUARTERLY" ? getVisibleFinancials(financials, type) : financials.slice(-2);
 
   return (
-    <section className="border-t border-[color:var(--color-border-primary)] py-10 md:py-12">
+    <section className="py-10 md:py-12">
       <div className="flex flex-col gap-8">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="typo-heading-md text-[color:var(--color-text-primary)]">연간/분기 실적 분석</h2>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <h2 className="text-lg font-extrabold leading-6 text-[color:var(--color-text-primary)] md:text-2xl md:leading-7">
+            연간/분기 실적 분석
+          </h2>
 
           <div className="flex items-center gap-4">
             {financialTypeOptions.map((item) => {
@@ -52,19 +49,29 @@ export default function StockFinancialSection({
           </div>
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)] xl:items-start">
-          <div className="rounded-2xl bg-[color:var(--color-bg-primary)]">
+        <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.92fr)] xl:items-start xl:gap-16">
+          <div className="overflow-hidden bg-[color:var(--color-bg-primary)] xl:rounded-[24px] xl:p-4">
+            <div className="mb-4 flex items-center justify-end gap-4">
+              <div className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-[color:var(--color-icon-disabled)]" />
+                <span className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">매출</span>
+              </div>
+              <div className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-[color:var(--color-icon-interactive-primary)]" />
+                <span className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">영업이익</span>
+              </div>
+            </div>
             {isLoading ? (
-              <div className="h-72 animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)]" />
+              <div className="h-64 animate-pulse rounded-[20px] bg-[color:var(--color-bg-secondary)] md:h-72" />
             ) : (
-              <StockFinancialChart financials={financials} />
+              <StockFinancialChart financials={financials} type={type} />
             )}
           </div>
 
           <div className="flex flex-col gap-4">
-            <div className="overflow-hidden rounded-2xl border border-[color:var(--color-border-primary)]">
-              <div className="grid grid-cols-3 bg-[color:var(--color-bg-primary)] px-4 py-3 text-sm font-semibold text-[color:var(--color-text-primary)]">
-                <span>기준</span>
+            <div className="bg-[color:var(--color-bg-primary)]">
+              <div className="grid grid-cols-3 border-b border-[color:var(--color-border-base)] bg-[color:var(--color-bg-primary)] px-[1px] py-3.5 text-xs font-semibold text-[color:var(--color-text-primary)] md:text-sm">
+                <span>{type === "YEARLY" ? "연간" : "분기"}</span>
                 <span className="text-right">매출 (조)</span>
                 <span className="text-right">영업익 (조)</span>
               </div>
@@ -74,7 +81,7 @@ export default function StockFinancialSection({
                   ? Array.from({ length: 2 }).map((_, index) => (
                       <div
                         key={index}
-                        className="grid grid-cols-3 gap-4 border-t border-[color:var(--color-border-secondary)] px-4 py-4"
+                        className="grid grid-cols-3 gap-4 border-t border-[color:var(--color-border-secondary)] px-[1px] py-4"
                       >
                         <div className="h-5 animate-pulse rounded bg-[color:var(--color-bg-secondary)]" />
                         <div className="h-5 animate-pulse rounded bg-[color:var(--color-bg-secondary)]" />
@@ -84,15 +91,17 @@ export default function StockFinancialSection({
                   : visibleFinancials.map((item, index) => (
                       <div
                         key={`${item.year}-${item.quarter ?? "Y"}`}
-                        className={`grid grid-cols-3 gap-4 border-t border-[color:var(--color-border-secondary)] px-4 py-4 ${
+                        className={`grid grid-cols-3 gap-4 border-b border-[color:var(--color-border-secondary)] px-[1px] py-4 ${
                           index === visibleFinancials.length - 1 ? "bg-[color:var(--color-bg-secondary)]" : ""
                         }`}
                       >
-                        <span className="typo-body-md text-[color:var(--color-text-secondary)]">{formatFinancialLabel(item)}</span>
-                        <span className="typo-body-md text-right font-extrabold text-[color:var(--color-text-primary)]">
+                        <span className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">
+                          {formatFinancialLabel(item)}
+                        </span>
+                        <span className="text-right text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
                           {formatFinancialValue(item.revenue)}
                         </span>
-                        <span className="typo-body-md text-right font-extrabold text-[color:var(--color-text-primary)]">
+                        <span className="text-right text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
                           {formatFinancialValue(item.operatingProfit)}
                         </span>
                       </div>
@@ -101,18 +110,21 @@ export default function StockFinancialSection({
             </div>
 
             {latestAnnouncement ? (
-              <div className="rounded-2xl bg-[color:var(--color-bg-tertiary)] p-4">
-                <div className="typo-body-sm mb-3 font-semibold text-[color:var(--color-text-secondary)]">실적 관련 최신 공시</div>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)]">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center">
+                  <div className="text-sm font-semibold leading-5 text-[color:var(--color-text-secondary)]">
+                    실적 관련 최신 공시
+                  </div>
+                </div>
+                <div className="inline-flex items-center justify-between gap-4 rounded-lg bg-[color:var(--color-bg-tertiary)] p-4">
+                  <div className="min-w-0 overflow-hidden">
+                    <div className="truncate text-sm font-semibold leading-5 text-[color:var(--color-text-primary)]">
                       {latestAnnouncement.title}
                     </div>
-                    <div className="typo-body-xs mt-1 text-[color:var(--color-text-tertiary)]">
-                      {formatAnnouncementDate(latestAnnouncement.announcedAt)}
-                    </div>
                   </div>
-                  <span className="typo-body-sm shrink-0 text-[color:var(--color-text-tertiary)]">원문보기</span>
+                  <span className="shrink-0 text-sm font-medium leading-5 text-[color:var(--color-text-tertiary)]">
+                    원문보기
+                  </span>
                 </div>
               </div>
             ) : null}
