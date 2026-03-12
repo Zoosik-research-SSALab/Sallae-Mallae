@@ -5,6 +5,7 @@ import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
@@ -22,7 +23,7 @@ public interface UserService {
 
   WatchlistRemoveResponse removeWatchlist(Long userId, Long stockId);
 
-  Map<String, Object> toggleWatchlistAlert(Long userId, Long stockId, WatchlistAlertToggleRequest request);
+  WatchlistAlertToggleResponse toggleWatchlistAlert(Long userId, Long stockId, WatchlistAlertToggleRequest request);
 
   List<Map<String, Object>> getWatchlistNews(Long userId);
 

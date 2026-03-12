@@ -13,6 +13,7 @@ import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistItemResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
@@ -125,8 +126,13 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-  public Map<String, Object> toggleWatchlistAlert(Long userId, Long stockId, WatchlistAlertToggleRequest request) {
-    return Map.of("userId", userId, "stockId", stockId, "alarmOn", request.alarmOn());
+  public WatchlistAlertToggleResponse toggleWatchlistAlert(Long userId, Long stockId, WatchlistAlertToggleRequest request) {
+    UserWatchlist watchlist = watchlistRepository.findById(new UserWatchlistId(userId, stockId))
+        .orElseThrow(() -> new BusinessException(UserErrorCode.WATCHLIST_NOT_FOUND));
+
+    watchlist.toggleNoti(request.alarmOn());
+
+    return new WatchlistAlertToggleResponse(watchlist.isNotiEnabled());
   }
 
   @Override
