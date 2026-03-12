@@ -577,13 +577,31 @@ def train_and_predict_window(
         X_train = np.nan_to_num(X_train, nan=0.0)
         X_test = np.nan_to_num(X_test, nan=0.0)
 
-        # 학습 (Walk-Forward에서는 CPU 사용 — CUDA 메모리 안정성)
-        trainer = SectorLSTMTrainer(sector_id=sector_id)
-        trainer.train(X_train, y_train, epochs=30)
+        # 학습 (클러스터별 하이퍼파라미터 적용)
+        hp = CLUSTER_HPARAMS.get(sector_id, _DEFAULT_HPARAMS)
+        trainer = SectorLSTMTrainer(
+            sector_id=sector_id,
+            hidden_size=hp["hidden_size"],
+            num_layers=hp["num_layers"],
+            dropout=hp["dropout"],
+            use_attention=hp["use_attention"],
+        )
+        trainer.train(
+            X_train, y_train,
+            epochs=hp["epochs"],
+            batch_size=hp["batch_size"],
+            patience=hp["patience"],
+            lr=hp["lr"],
+        )
 
         # 예측
         probs, preds = trainer.predict(X_test)
         sectors_trained += 1
+
+        # GPU 메모리 해제 (Walk-Forward 반복 학습 시 OOM 방지)
+        del trainer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # 결과 수집
         test_tickers = tickers_all[test_mask] if tickers_all is not None else [None] * len(X_test)
