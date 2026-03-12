@@ -3,13 +3,13 @@ package com.sallaemallae.backend.domain.user.controller;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
 import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -33,7 +33,7 @@ public class WatchlistController {
   private final UserService userService;
 
   @GetMapping
-  public ApiResponse<List<Map<String, Object>>> getWatchlist() {
+  public ApiResponse<WatchlistListResponse> getWatchlist() {
     return ApiResponse.success(userService.getWatchlist(getAuthenticatedUserId()));
   }
 

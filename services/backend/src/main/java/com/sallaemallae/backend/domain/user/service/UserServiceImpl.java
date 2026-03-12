@@ -6,6 +6,7 @@ import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.domain.auth.repository.PasswordHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import com.sallaemallae.backend.domain.auth.service.PasswordValidator;
+import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
 import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
@@ -13,6 +14,8 @@ import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistItemResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
@@ -23,6 +26,8 @@ import com.sallaemallae.backend.global.exception.GlobalErrorCode;
 import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -44,8 +49,34 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<Map<String, Object>> getWatchlist(Long userId) {
-    return List.of(Map.of("userId", userId, "message", "watchlist boilerplate"));
+  public WatchlistListResponse getWatchlist(Long userId) {
+    List<UserWatchlist> watchlistItems = watchlistRepository.findAllByIdUserId(userId);
+
+    if (watchlistItems.isEmpty()) {
+      return new WatchlistListResponse(0, List.of());
+    }
+
+    List<Long> stockIds = watchlistItems.stream()
+        .map(item -> item.getId().getStockId())
+        .toList();
+
+    Map<Long, Stock> stockMap = stockRepository.findAllById(stockIds).stream()
+        .collect(Collectors.toMap(Stock::getId, Function.identity()));
+
+    List<WatchlistItemResponse> items = watchlistItems.stream()
+        .map(item -> {
+          Stock stock = stockMap.get(item.getId().getStockId());
+          return new WatchlistItemResponse(
+              item.getId().getStockId(),
+              stock != null ? stock.getTicker() : null,
+              stock != null ? stock.getName() : null,
+              item.isNotiEnabled(),
+              item.getCreatedAt()
+          );
+        })
+        .toList();
+
+    return new WatchlistListResponse(items.size(), items);
   }
 
   @Override

@@ -6,13 +6,14 @@ import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
 import java.util.List;
 import java.util.Map;
 
 public interface UserService {
 
-  List<Map<String, Object>> getWatchlist(Long userId);
+  WatchlistListResponse getWatchlist(Long userId);
 
   Map<String, Object> getWatchlistStatus(Long userId, Long stockId);
 
