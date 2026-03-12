@@ -20,7 +20,7 @@
   log_volume_change                0.0055     1.18e-03       없음
   high_low_range                   0.0145     1.72e-22       없음
   inst_net_buy_change              0.0017     8.58e-01       없음
-  relative_return                  0.0164     7.95e-29       없음
+  relative_return                  0.0161     5.80e-28       없음
 
 [4] 피처별 NaN 비율 (정규화 전)
   daily_return                      0.0%
@@ -30,7 +30,7 @@
   relative_return                   0.0%
 
 [5] 결론 및 권장사항
-  - 가장 예측력 높은 피처: relative_return (KS=0.0164)
+  - 가장 예측력 높은 피처: relative_return (KS=0.0161)
   - 가장 예측력 낮은 피처: inst_net_buy_change (KS=0.0017)
     -> inst_net_buy_change 피처 제거 또는 대체 검토 권장
 

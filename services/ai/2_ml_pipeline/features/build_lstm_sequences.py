@@ -169,11 +169,11 @@ def compute_features(
     else:
         df["inst_net_buy_change"] = np.nan
 
-    # 5. 코스피200 대비 상대 수익률 (NaN → 0: 시장 평균과 동일 의미)
+    # 5. 코스피200 대비 상대 수익률 (NaN → forward fill → 0)
     if kospi200_series is not None:
         kospi_ret = kospi200_series.pct_change(1).reindex(df.index)
         df["relative_return"] = df["daily_return"] / 100 - kospi_ret
-        df["relative_return"] = df["relative_return"].fillna(0.0)
+        df["relative_return"] = df["relative_return"].ffill().fillna(0.0)
     else:
         df["relative_return"] = 0.0
 
