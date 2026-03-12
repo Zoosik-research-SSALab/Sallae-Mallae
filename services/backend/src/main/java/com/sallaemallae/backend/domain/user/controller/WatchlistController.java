@@ -6,6 +6,7 @@ import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistStatusResponse;
 import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.response.ApiResponse;
@@ -38,7 +39,7 @@ public class WatchlistController {
   }
 
   @GetMapping("/{stockId}")
-  public ApiResponse<Map<String, Object>> getWatchlistStatus(
+  public ApiResponse<WatchlistStatusResponse> getWatchlistStatus(
       @PathVariable Long stockId) {
     return ApiResponse.success(userService.getWatchlistStatus(getAuthenticatedUserId(), stockId));
   }

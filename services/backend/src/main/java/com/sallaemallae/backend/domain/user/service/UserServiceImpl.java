@@ -17,6 +17,7 @@ import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistItemResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistStatusResponse;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
@@ -83,8 +84,10 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional(readOnly = true)
-  public Map<String, Object> getWatchlistStatus(Long userId, Long stockId) {
-    return Map.of("userId", userId, "stockId", stockId, "scraped", false, "alarmOn", true);
+  public WatchlistStatusResponse getWatchlistStatus(Long userId, Long stockId) {
+    return watchlistRepository.findById(new UserWatchlistId(userId, stockId))
+        .map(watchlist -> new WatchlistStatusResponse(true, watchlist.isNotiEnabled()))
+        .orElse(new WatchlistStatusResponse(false, false));
   }
 
   @Override
