@@ -193,6 +193,8 @@
   --color-bg-danger-bold: var(--color-red-700);
   --color-bg-danger-subtle: var(--color-red-50);
   --color-bg-info-subtle: var(--color-blue-50);
+  --color-bg-success-subtle: var(--color-green-50);
+  --color-bg-warning-subtle: var(--color-yellow-50);
   --color-bg-disabled: var(--color-neutral-200);
   --color-bg-interactive-primary: var(--color-blue-600);
   --color-bg-interactive-secondary-hovered: var(--color-neutral-100);
@@ -212,6 +214,8 @@
   --color-text-danger: var(--color-red-400);
   --color-text-danger-bold: var(--color-red-400);
   --color-text-info: var(--color-blue-600);
+  --color-text-success: var(--color-green-700);
+  --color-text-warning: var(--color-yellow-700);
   --color-text-interactive-primary: var(--color-blue-600);
   --color-text-interactive-inverse: var(--color-white);
   --color-icon-primary: var(--color-neutral-900);
@@ -246,6 +250,8 @@
   --color-bg-danger-bold: var(--color-red-400);
   --color-bg-danger-subtle: var(--color-red-800);
   --color-bg-info-subtle: var(--color-blue-800);
+  --color-bg-success-subtle: var(--color-green-950);
+  --color-bg-warning-subtle: var(--color-yellow-950);
   --color-bg-disabled: var(--color-neutral-700);
   --color-bg-interactive-primary: var(--color-blue-400);
   --color-bg-interactive-secondary-hovered: var(--color-neutral-700);
@@ -265,6 +271,8 @@
   --color-text-danger: var(--color-red-400);
   --color-text-danger-bold: var(--color-red-400);
   --color-text-info: var(--color-blue-200);
+  --color-text-success: var(--color-green-300);
+  --color-text-warning: var(--color-yellow-200);
   --color-text-interactive-primary: var(--color-blue-400);
   --color-text-interactive-inverse: var(--color-neutral-900);
   --color-icon-primary: var(--color-neutral-50);
@@ -300,6 +308,8 @@
     --color-bg-danger-bold: var(--color-red-400);
     --color-bg-danger-subtle: var(--color-red-800);
     --color-bg-info-subtle: var(--color-blue-800);
+    --color-bg-success-subtle: var(--color-green-950);
+    --color-bg-warning-subtle: var(--color-yellow-950);
     --color-bg-disabled: var(--color-neutral-700);
     --color-bg-interactive-primary: var(--color-blue-400);
     --color-bg-interactive-secondary-hovered: var(--color-neutral-700);
@@ -319,6 +329,8 @@
     --color-text-danger: var(--color-red-400);
     --color-text-danger-bold: var(--color-red-400);
     --color-text-info: var(--color-blue-200);
+    --color-text-success: var(--color-green-300);
+    --color-text-warning: var(--color-yellow-200);
     --color-text-interactive-primary: var(--color-blue-400);
     --color-text-interactive-inverse: var(--color-neutral-900);
     --color-icon-primary: var(--color-neutral-50);

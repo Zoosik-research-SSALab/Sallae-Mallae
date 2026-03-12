@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BiBarChartAlt2 } from "react-icons/bi";
-import { GoBook, GoListUnordered, GoSearch } from "react-icons/go";
+import { GoBook, GoBriefcase, GoListUnordered, GoSearch } from "react-icons/go";
 import { HiOutlineBell } from "react-icons/hi";
 import { IoCloseOutline } from "react-icons/io5";
 import type { IconType } from "react-icons";
@@ -27,6 +27,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/", label: "ABOUT", icon: GoBook, highlightOnMatch: false },
+  { href: "/portfolio", label: "포트폴리오", icon: GoBriefcase },
   { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2 },
   { href: "/stocks", label: "전체 종목", icon: GoListUnordered },
   { href: "/scraps", label: "관심 종목", icon: MdOutlineFavorite },
@@ -366,7 +367,7 @@ export default function AppNav() {
                         type="button"
                         className={`typo-body-md w-full cursor-pointer whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                       >
-                        내 정보 수정
+                        회원정보 수정
                       </button>
                     </div>
                   ) : (
