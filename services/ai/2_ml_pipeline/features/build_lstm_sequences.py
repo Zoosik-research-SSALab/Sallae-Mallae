@@ -297,8 +297,11 @@ def build_sector_sequences(
     elif split == "test":
         start_date = TEST_START_DATE
         end_date = TEST_END_DATE
+    elif split == "all":
+        start_date = None
+        end_date = None
     else:
-        raise ValueError(f"split 은 'train' 또는 'test' 이어야 합니다: {split!r}")
+        raise ValueError(f"split 은 'train', 'test', 'all' 이어야 합니다: {split!r}")
 
     all_X: list[np.ndarray] = []
     all_y: list[np.ndarray] = []
@@ -455,10 +458,12 @@ def main(group_by: str = "cluster") -> None:
 
     train_dir = PROCESSED_LSTM_PATH / "train"
     test_dir = PROCESSED_LSTM_PATH / "test"
+    all_dir = PROCESSED_LSTM_PATH / "all"
     scalers_dir = PROCESSED_LSTM_PATH / "scalers"
 
     total_train_samples = 0
     total_test_samples = 0
+    total_all_samples = 0
 
     for sector_id, sector_tickers in sector_groups.items():
         logger.info("[LSTM] 섹터 '%s' 처리 중 (%d 종목)", sector_id, len(sector_tickers))
@@ -492,10 +497,21 @@ def main(group_by: str = "cluster") -> None:
         _save_sector_npz(test_dir, sector_id, X_test, y_test, test_tickers, test_dates)
         total_test_samples += X_test.shape[0]
 
+        # --- 전체 기간 시퀀스 (Walk-Forward용) ---
+        all_result = build_sector_sequences(
+            sector_id, sector_tickers, kospi200_series, split="all"
+        )
+        if all_result is not None:
+            X_all_raw, y_all, all_tickers_list, all_dates_list = all_result
+            X_all = _apply_scaler(X_all_raw, clip_mean, clip_std, scaler)
+            _save_sector_npz(all_dir, sector_id, X_all, y_all, all_tickers_list, all_dates_list)
+            total_all_samples += X_all.shape[0]
+
     logger.info("=== LSTM 시퀀스 생성 파이프라인 완료 ===")
     logger.info("학습 샘플 합계: %d", total_train_samples)
     logger.info("테스트 샘플 합계: %d", total_test_samples)
-    print(f"\n[완료] 학습 샘플: {total_train_samples:,}  /  테스트 샘플: {total_test_samples:,}")
+    logger.info("전체 샘플 합계: %d", total_all_samples)
+    print(f"\n[완료] 학습 샘플: {total_train_samples:,}  /  테스트 샘플: {total_test_samples:,}  /  전체: {total_all_samples:,}")
 
 
 if __name__ == "__main__":

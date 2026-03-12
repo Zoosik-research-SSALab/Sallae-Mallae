@@ -398,12 +398,19 @@ def train_and_predict_window(
     train_dir = PROCESSED_LSTM_PATH / "train"
     test_dir = PROCESSED_LSTM_PATH / "test"
 
-    # 모든 NPZ 파일 수집 (train + test)
-    all_npz: list[Path] = []
-    if train_dir.exists():
-        all_npz.extend(sorted(train_dir.glob("sector_*.npz")))
-    if test_dir.exists():
-        all_npz.extend(sorted(test_dir.glob("sector_*.npz")))
+    # Walk-Forward용 전체 기간 시퀀스 우선 사용
+    all_dir = PROCESSED_LSTM_PATH / "all"
+    if all_dir.exists() and any(all_dir.glob("sector_*.npz")):
+        all_npz = sorted(all_dir.glob("sector_*.npz"))
+        logger.info("[LSTM-WF] 전체 기간 시퀀스 사용: %s (%d files)", all_dir, len(all_npz))
+    else:
+        # Fallback: train + test 합산
+        all_npz: list[Path] = []
+        if train_dir.exists():
+            all_npz.extend(sorted(train_dir.glob("sector_*.npz")))
+        if test_dir.exists():
+            all_npz.extend(sorted(test_dir.glob("sector_*.npz")))
+        logger.info("[LSTM-WF] train+test 합산 사용: %d files", len(all_npz))
 
     if not all_npz:
         logger.warning("[LSTM-WF] NPZ 파일 없음")
@@ -459,9 +466,9 @@ def train_and_predict_window(
         X_train = np.nan_to_num(X_train, nan=0.0)
         X_test = np.nan_to_num(X_test, nan=0.0)
 
-        # 학습
-        trainer = SectorLSTMTrainer(sector_id=sector_id)
-        trainer.train(X_train, y_train)
+        # 학습 (Walk-Forward에서는 CPU 사용 — CUDA 메모리 안정성)
+        trainer = SectorLSTMTrainer(sector_id=sector_id, device="cpu")
+        trainer.train(X_train, y_train, epochs=30)
 
         # 예측
         probs, preds = trainer.predict(X_test)
