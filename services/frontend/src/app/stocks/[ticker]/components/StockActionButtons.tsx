@@ -87,7 +87,7 @@ function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stoc
 }
 
 export default function StockActionButtons({ stockId, stockName }: Props) {
-  if (!stockId) {
+  if (stockId == null) {
     return (
       <div className="flex shrink-0 items-center gap-3">
         <ActionButtonSkeleton />

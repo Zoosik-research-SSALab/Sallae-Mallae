@@ -15,6 +15,7 @@ import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQu
 import { useTheme } from "@/shared/hooks/useTheme";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
+import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { useAuthStore } from "@/shared/lib/authStore";
 
 type NavItem = {
@@ -55,6 +56,7 @@ export default function AppNav() {
   const router = useRouter();
   const pathname = usePathname();
   const { resolvedTheme, isHydrated } = useTheme();
+  const authStatus = useAuthStore((state) => state.status);
   const currentUser = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
@@ -63,11 +65,12 @@ export default function AppNav() {
   const [searchKeyword, setSearchKeyword] = useState("");
 
   const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
+  const isAuthReady = authStatus !== "restoring";
   const isLoggedIn = Boolean(currentUser);
   const profileImageUrl = currentUser?.profileImageUrl ?? "/images/profile-placeholder.svg";
   const isLocalProfileImage = profileImageUrl.startsWith("/");
 
-  const { data: notificationCount } = useNotificationCountQuery(isLoggedIn);
+  const { data: notificationCount } = useNotificationCountQuery(isAuthReady && isLoggedIn);
   const unreadCount = isLoggedIn && typeof notificationCount === "number" ? notificationCount : 0;
   const displayCount = unreadCount > 99 ? "99+" : String(unreadCount);
 
@@ -147,6 +150,7 @@ export default function AppNav() {
     }
 
     clearAuth();
+    clearAuthPersistenceMode();
     setIsDrawerOpen(false);
   };
 
@@ -206,7 +210,8 @@ export default function AppNav() {
               </button>
             </div>
 
-            {isLoggedIn ? (
+            {isAuthReady ? (
+              isLoggedIn ? (
                 <div className="flex items-center gap-3">
                   <Link
                     href="/notifications"
@@ -223,7 +228,13 @@ export default function AppNav() {
 
                   <span className="inline-flex" aria-label="프로필">
                     {isLocalProfileImage ? (
-                      <Image src={profileImageUrl} alt={currentUser?.nickname ?? "프로필"} width={36} height={36} className="h-9 w-9 rounded-full object-cover" />
+                      <Image
+                        src={profileImageUrl}
+                        alt={currentUser?.nickname ?? "프로필"}
+                        width={36}
+                        height={36}
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
                     ) : (
                       // Using a native img here avoids Next/Image remote host allowlist maintenance for arbitrary profile URLs.
                       // eslint-disable-next-line @next/next/no-img-element
@@ -235,6 +246,9 @@ export default function AppNav() {
                 <button type="button" onClick={openLoginModal} className={loginButtonClassName}>
                   로그인
                 </button>
+              )
+            ) : (
+              <div className="h-10 w-[84px]" />
             )}
           </div>
 
@@ -332,7 +346,8 @@ export default function AppNav() {
                   <div className="typo-body-sm flex-1 font-semibold text-[color:var(--color-text-tertiary)]">마이페이지</div>
                 </div>
 
-                {isLoggedIn ? (
+                {isAuthReady ? (
+                  isLoggedIn ? (
                     <div className="flex w-full flex-col gap-4">
                       <button
                         type="button"
@@ -358,6 +373,9 @@ export default function AppNav() {
                     <button type="button" onClick={openLoginModal} className={`${loginButtonClassName} w-full justify-center`}>
                       로그인
                     </button>
+                  )
+                ) : (
+                  <div className="h-10 w-full" />
                 )}
               </div>
             </div>

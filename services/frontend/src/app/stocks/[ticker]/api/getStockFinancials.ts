@@ -8,5 +8,6 @@ export function getStockFinancials(ticker: string, type: StockFinancialType) {
 
   return apiFetch<StockFinancialsPayload>(`/api/stocks/${ticker}/financials?${query.toString()}`, {
     cache: "no-store",
+    useBaseUrl: false,
   });
 }

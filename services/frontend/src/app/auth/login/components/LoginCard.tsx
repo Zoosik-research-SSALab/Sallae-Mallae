@@ -7,6 +7,7 @@ import { FcGoogle } from "react-icons/fc";
 import { SiNaver } from "react-icons/si";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { getSocialLoginStartPath, loginWithEmail } from "@/shared/lib/authApi";
+import { writeAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { useAuthStore } from "@/shared/lib/authStore";
 import Button from "@/shared/ui/Button";
 import Input from "@/shared/ui/Input";
@@ -89,6 +90,7 @@ export function LoginCard({ showCloseButton = false, onClose, onAuthenticated }:
         password,
       });
 
+      writeAuthPersistenceMode(keepSignedIn);
       useAuthStore.getState().applyAuthSession(response);
       setPassword("");
       onAuthenticated?.();

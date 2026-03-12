@@ -9,5 +9,6 @@ export function getStockAnnouncements(ticker: string, limit = 4, offset = 0) {
 
   return apiFetch<StockAnnouncementsPayload>(`/api/stocks/${ticker}/announcements?${query.toString()}`, {
     cache: "no-store",
+    useBaseUrl: false,
   });
 }

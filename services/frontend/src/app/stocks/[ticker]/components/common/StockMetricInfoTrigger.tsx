@@ -95,8 +95,28 @@ export default function StockMetricInfoTrigger({
   variant = "surface",
 }: Props) {
   const info = stockMetricInfoMap[metricKey];
+  const [isDesktop, setIsDesktop] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
+    const syncViewport = (matches: boolean) => {
+      setIsDesktop(matches);
+    };
+
+    syncViewport(mediaQuery.matches);
+
+    const handleMediaChange = (event: MediaQueryListEvent) => {
+      syncViewport(event.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleMediaChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleMediaChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSheetOpen) {
@@ -138,8 +158,6 @@ export default function StockMetricInfoTrigger({
       mediaQuery.removeEventListener("change", handleMediaChange);
     };
   }, [isSheetOpen]);
-
-  const isDesktop = typeof window !== "undefined" && window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
 
   if (variant === "icon") {
     return (

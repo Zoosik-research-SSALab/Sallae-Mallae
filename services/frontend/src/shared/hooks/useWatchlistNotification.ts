@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getWatchlistStatus,
@@ -20,6 +20,7 @@ type UseWatchlistNotificationResult = {
 export function useWatchlistNotification(stockId: number, enabled = true): UseWatchlistNotificationResult {
   const queryClient = useQueryClient();
   const statusQueryKey = watchlistQueryKeys.status(stockId);
+  const latestStatusRef = useRef<WatchlistStatus | undefined>(undefined);
 
   const statusQuery = useQuery({
     queryKey: statusQueryKey,
@@ -28,7 +29,11 @@ export function useWatchlistNotification(stockId: number, enabled = true): UseWa
     staleTime: 30_000,
   });
 
-  const toggleMutation = useMutation({
+  useEffect(() => {
+    latestStatusRef.current = statusQuery.data;
+  }, [statusQuery.data]);
+
+  const { mutateAsync, isPending } = useMutation({
     mutationFn: async (currentStatus: WatchlistStatus | undefined) => {
       if (!currentStatus?.isWatched) {
         throw new Error("관심종목에 추가한 뒤 알림을 설정할 수 있습니다.");
@@ -75,15 +80,15 @@ export function useWatchlistNotification(stockId: number, enabled = true): UseWa
   });
 
   const toggle = useCallback(async () => {
-    const nextStatus = await toggleMutation.mutateAsync(statusQuery.data);
+    const nextStatus = await mutateAsync(latestStatusRef.current);
     return nextStatus.isNotifiedEnabled;
-  }, [statusQuery.data, toggleMutation]);
+  }, [mutateAsync]);
 
   return {
     isWatched: statusQuery.data?.isWatched ?? false,
     isNotifiedEnabled: statusQuery.data?.isNotifiedEnabled ?? false,
     isLoading: statusQuery.isLoading,
-    isPending: toggleMutation.isPending,
+    isPending,
     toggle,
   };
 }

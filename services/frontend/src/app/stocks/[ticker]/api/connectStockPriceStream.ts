@@ -11,5 +11,8 @@ export function connectStockPriceStream(ticker: string, period: StockChartPeriod
     period,
   });
 
-  return connectSse<StockPricesPayload>(`/api/stocks/${ticker}/prices?${query.toString()}`, handlers);
+  return connectSse<StockPricesPayload>(`/api/stocks/${ticker}/prices?${query.toString()}`, {
+    ...handlers,
+    useBaseUrl: false,
+  });
 }

@@ -134,6 +134,7 @@ export default function StockOverviewSection({
               <ToggleSwitch
                 enabled={isCandlestick}
                 onToggle={() => setChartMode((prev) => (prev === "candlestick" ? "line" : "candlestick"))}
+                aria-label="캔들 차트 표시 전환"
               />
             </div>
           </div>

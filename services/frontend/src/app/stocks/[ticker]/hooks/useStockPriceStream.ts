@@ -10,11 +10,15 @@ const initialPayload: StockPricesPayload = {
 };
 
 export function useStockPriceStream(ticker: string, period: StockChartPeriod) {
+  const subscriptionKey = `${ticker}:${period}`;
   const subscribe = useCallback(
     (handlers: { onMessage: (payload: StockPricesPayload) => void; onError?: (error: Event) => void }) =>
       connectStockPriceStream(ticker, period, handlers),
     [period, ticker],
   );
 
-  return useSseState(subscribe, initialPayload);
+  return useSseState(subscribe, initialPayload, {
+    resetOnSubscribeChange: true,
+    subscriptionKey,
+  });
 }
