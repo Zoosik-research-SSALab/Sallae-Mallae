@@ -148,8 +148,9 @@ def compute_features(
     # 1. 일별 수익률 (%)
     df["daily_return"] = df["close"].pct_change(1) * 100
 
-    # 2. 거래량 변화율
+    # 2. 거래량 변화율 (volume=0 → pct_change=inf 방지)
     df["volume_change_ratio"] = df["volume"].pct_change(1)
+    df["volume_change_ratio"] = df["volume_change_ratio"].replace([np.inf, -np.inf], np.nan)
 
     # 3. 고저 변동폭 (%)
     df["high_low_range"] = ((df["high"] - df["low"]) / df["close"].shift(1)) * 100
@@ -247,6 +248,7 @@ def create_sequences_with_metadata(
 def _fit_scaler(X_train: np.ndarray) -> tuple[np.ndarray, np.ndarray, MinMaxScaler]:
     """학습 데이터에서 클리핑 + MinMaxScaler를 학습합니다."""
     flat = X_train.reshape(-1, N_FEATURES)
+    flat = np.where(np.isinf(flat), np.nan, flat)  # inf 방어
 
     clip_mean = np.nanmean(flat, axis=0)
     clip_std = np.nanstd(flat, axis=0)
