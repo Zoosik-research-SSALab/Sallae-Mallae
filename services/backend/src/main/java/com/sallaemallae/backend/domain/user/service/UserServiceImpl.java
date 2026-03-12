@@ -19,6 +19,7 @@ import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
+import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.user.exception.UserErrorCode;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
@@ -64,12 +65,13 @@ public class UserServiceImpl implements UserService {
         .collect(Collectors.toMap(Stock::getId, Function.identity()));
 
     List<WatchlistItemResponse> items = watchlistItems.stream()
+        .filter(item -> stockMap.containsKey(item.getId().getStockId()))
         .map(item -> {
           Stock stock = stockMap.get(item.getId().getStockId());
           return new WatchlistItemResponse(
               item.getId().getStockId(),
-              stock != null ? stock.getTicker() : null,
-              stock != null ? stock.getName() : null,
+              stock.getTicker(),
+              stock.getName(),
               item.isNotiEnabled(),
               item.getCreatedAt()
           );
@@ -89,19 +91,18 @@ public class UserServiceImpl implements UserService {
   @Transactional
   public WatchlistAddResponse addWatchlist(Long userId, WatchlistCreateRequest request) {
     stockRepository.findById(request.stockId())
-        .orElseThrow(() -> new BusinessException(UserErrorCode.STOCK_NOT_FOUND));
-
-    UserWatchlistId watchlistId = new UserWatchlistId(userId, request.stockId());
-    if (watchlistRepository.existsById(watchlistId)) {
-      throw new BusinessException(UserErrorCode.WATCHLIST_ALREADY_EXISTS);
-    }
+        .orElseThrow(() -> new BusinessException(StockErrorCode.STOCK_NOT_FOUND));
 
     long currentCount = watchlistRepository.countByIdUserId(userId);
     if (currentCount >= WATCHLIST_MAX_SIZE) {
       throw new BusinessException(UserErrorCode.WATCHLIST_LIMIT_EXCEEDED);
     }
 
-    watchlistRepository.save(UserWatchlist.create(userId, request.stockId()));
+    try {
+      watchlistRepository.save(UserWatchlist.create(userId, request.stockId()));
+    } catch (org.springframework.dao.DataIntegrityViolationException e) {
+      throw new BusinessException(UserErrorCode.WATCHLIST_ALREADY_EXISTS);
+    }
 
     return new WatchlistAddResponse("관심종목 추가 완료", currentCount + 1);
   }
