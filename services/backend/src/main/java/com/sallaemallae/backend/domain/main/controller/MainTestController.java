@@ -12,12 +12,15 @@ import com.sallaemallae.backend.domain.main.dto.TopStocksResponse;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * 프론트엔드 연동 테스트용 더미 데이터 컨트롤러
@@ -29,10 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/main/test")
 public class MainTestController {
 
-    /** 추천 종목 TOP10 더미 데이터 */
-    @Operation(summary = "[테스트] 추천 종목 TOP10")
-    @GetMapping("/top-stocks")
-    public ApiResponse<TopStocksResponse> getTopStocks() {
+    /** 추천 종목 TOP10 더미 데이터 (SSE) */
+    @Operation(summary = "[테스트] 추천 종목 TOP10 (SSE)")
+    @GetMapping(value = "/top-stocks", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamTopStocks() {
+        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         List<TopStockItemResponse> stocks = List.of(
             new TopStockItemResponse(1, 1L, "삼성전자", 72500, 2.1f, "BUY", 92),
             new TopStockItemResponse(2, 2L, "SK하이닉스", 185000, 3.5f, "BUY", 88),
@@ -45,10 +49,11 @@ public class MainTestController {
             new TopStockItemResponse(9, 9L, "기아", 125000, 2.7f, "BUY", 72),
             new TopStockItemResponse(10, 10L, "셀트리온", 178000, -1.5f, "SELL", 70)
         );
-        return ApiResponse.success(new TopStocksResponse(stocks));
+        sendAndComplete(emitter, new TopStocksResponse(stocks));
+        return emitter;
     }
 
-    /** 당일 매수/매도 신호 더미 데이터 */
+    /** 당일 매수/매도 신호 더미 데이터 (REST) */
     @Operation(summary = "[테스트] 당일 매수/매도 신호")
     @GetMapping("/new-signals")
     public ApiResponse<NewSignalsResponse> getNewSignals() {
@@ -65,10 +70,11 @@ public class MainTestController {
         return ApiResponse.success(new NewSignalsResponse(buy, sell));
     }
 
-    /** 시장 지수 더미 데이터 */
-    @Operation(summary = "[테스트] 시장 지수")
-    @GetMapping("/market-index")
-    public ApiResponse<MarketIndexResponse> getMarketIndex() {
+    /** 시장 지수 더미 데이터 (SSE) */
+    @Operation(summary = "[테스트] 시장 지수 (SSE)")
+    @GetMapping(value = "/market-index", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamMarketIndex() {
+        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         String baseTime = LocalDateTime.now()
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         MarketIndexResponse data = new MarketIndexResponse(
@@ -77,13 +83,15 @@ public class MainTestController {
             new MarketIndexItemResponse(1365.20f, 0.35f),
             baseTime
         );
-        return ApiResponse.success(data);
+        sendAndComplete(emitter, data);
+        return emitter;
     }
 
-    /** 카테고리별 대표 종목 더미 데이터 (21개 카테고리, 각 2종목) */
-    @Operation(summary = "[테스트] 카테고리별 대표 종목")
-    @GetMapping("/categories")
-    public ApiResponse<CategoryStocksResponse> getCategories() {
+    /** 카테고리별 대표 종목 더미 데이터 (SSE, 21개 카테고리, 각 2종목) */
+    @Operation(summary = "[테스트] 카테고리별 대표 종목 (SSE)")
+    @GetMapping(value = "/categories", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamCategories() {
+        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         List<CategoryItemResponse> categories = List.of(
             category("에너지",
                 stock("SK이노베이션", 125000, 3.2f), stock("S-Oil", 68500, -1.8f)),
@@ -128,7 +136,17 @@ public class MainTestController {
             category("기타",
                 stock("셀트리온", 178000, -1.5f), stock("한미약품", 285000, 2.2f))
         );
-        return ApiResponse.success(new CategoryStocksResponse(categories));
+        sendAndComplete(emitter, new CategoryStocksResponse(categories));
+        return emitter;
+    }
+
+    /** SSE로 더미 데이터 1회 전송 후 연결 유지 */
+    private void sendAndComplete(SseEmitter emitter, Object data) {
+        try {
+            emitter.send(SseEmitter.event().data(data));
+        } catch (IOException e) {
+            emitter.completeWithError(e);
+        }
     }
 
     private CategoryItemResponse category(String name, CategoryStockItemResponse... stocks) {
