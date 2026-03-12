@@ -43,7 +43,7 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
 
       return {
         isWatched: nextWatched,
-        isNotifiedEnabled: currentStatus?.isNotifiedEnabled ?? false,
+        isNotifiedEnabled: nextWatched ? (currentStatus?.isNotifiedEnabled ?? false) : false,
       };
     },
     onMutate: async (currentStatus) => {
@@ -52,7 +52,7 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
       const previousStatus = queryClient.getQueryData<WatchlistStatus>(statusQueryKey) ?? currentStatus;
       const nextStatus: WatchlistStatus = {
         isWatched: !(previousStatus?.isWatched ?? false),
-        isNotifiedEnabled: previousStatus?.isNotifiedEnabled ?? false,
+        isNotifiedEnabled: !(previousStatus?.isWatched ?? false) ? (previousStatus?.isNotifiedEnabled ?? false) : false,
       };
 
       queryClient.setQueryData(statusQueryKey, nextStatus);
@@ -62,9 +62,7 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
       };
     },
     onError: (_error, _variables, context) => {
-      if (context?.previousStatus) {
-        queryClient.setQueryData(statusQueryKey, context.previousStatus);
-      }
+      queryClient.setQueryData(statusQueryKey, context?.previousStatus ?? { isWatched: false, isNotifiedEnabled: false });
     },
     onSuccess: (nextStatus) => {
       queryClient.setQueryData(statusQueryKey, nextStatus);

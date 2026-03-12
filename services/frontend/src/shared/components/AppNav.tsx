@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -10,11 +11,11 @@ import { HiOutlineBell } from "react-icons/hi";
 import { IoCloseOutline } from "react-icons/io5";
 import type { IconType } from "react-icons";
 import { MdOutlineFavorite } from "react-icons/md";
-import { LoginModal } from "@/app/auth/login/page";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
+import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { useAuthStore } from "@/shared/lib/authStore";
 
 type NavItem = {
@@ -36,6 +37,9 @@ const loginButtonClassName =
   "typo-body-md inline-flex cursor-pointer items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
 const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
+const LoginModal = dynamic(() => import("@/app/auth/login/components/LoginCard").then((module) => module.LoginModal), {
+  ssr: false,
+});
 
 function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean }) {
   return (
@@ -146,6 +150,7 @@ export default function AppNav() {
     }
 
     clearAuth();
+    clearAuthPersistenceMode();
     setIsDrawerOpen(false);
   };
 
@@ -223,7 +228,13 @@ export default function AppNav() {
 
                   <span className="inline-flex" aria-label="프로필">
                     {isLocalProfileImage ? (
-                      <Image src={profileImageUrl} alt={currentUser?.nickname ?? "프로필"} width={36} height={36} className="h-9 w-9 rounded-full object-cover" />
+                      <Image
+                        src={profileImageUrl}
+                        alt={currentUser?.nickname ?? "프로필"}
+                        width={36}
+                        height={36}
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
                     ) : (
                       // Using a native img here avoids Next/Image remote host allowlist maintenance for arbitrary profile URLs.
                       // eslint-disable-next-line @next/next/no-img-element
@@ -372,7 +383,7 @@ export default function AppNav() {
         </div>
       ) : null}
 
-      <LoginModal open={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      {isLoginModalOpen ? <LoginModal open={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} /> : null}
     </>
   );
 }

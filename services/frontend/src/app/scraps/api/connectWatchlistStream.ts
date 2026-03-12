@@ -12,5 +12,8 @@ export function connectWatchlistStream(page: number, limit: number, handlers: Wa
     limit: String(limit),
   });
 
-  return connectSse<WatchlistStreamPayload>(`/api/users/watchlist?${query.toString()}`, handlers);
+  return connectSse<WatchlistStreamPayload>(`/api/users/watchlist?${query.toString()}`, {
+    ...handlers,
+    useBaseUrl: false,
+  });
 }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { completeSocialLogin, isSocialSignupPending } from "@/shared/lib/authApi";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
+import { writeAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { useAuthStore } from "@/shared/lib/authStore";
 import type { AuthProvider } from "@/shared/types/auth";
 
@@ -66,6 +67,7 @@ export default function AuthCallbackClient({ provider }: Props) {
           return;
         }
 
+        writeAuthPersistenceMode(true);
         useAuthStore.getState().applyAuthSession(payload);
         router.replace("/");
       })

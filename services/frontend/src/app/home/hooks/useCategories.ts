@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { subscribeCategories } from "../api/main";
-import { useSseState } from "./useSseState";
+import { useSseState } from "@/shared/hooks/useSseState";
 import type { CategoriesPayload } from "../types/main";
 
 const initialData: CategoriesPayload = { categories: [] };

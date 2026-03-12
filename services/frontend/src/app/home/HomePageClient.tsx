@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import CategoryStocksSection from "./components/CategoryStocksSection";
 import SidebarPanel from "./components/SidebarPanel";
 import SignalPointsSection from "./components/SignalPointsSection";
@@ -7,7 +8,6 @@ import TopStocksSection from "./components/TopStocksSection";
 import { useCategories } from "./hooks/useCategories";
 import { useMainNewSignalsQuery } from "./hooks/useMainNewSignalsQuery";
 import { useMarketIndex } from "./hooks/useMarketIndex";
-import { usePopularSearchesQuery } from "./hooks/usePopularSearchesQuery";
 import { useTopStocks } from "./hooks/useTopStocks";
 
 export default function HomePageClient() {
@@ -15,7 +15,14 @@ export default function HomePageClient() {
   const { data: marketIndexData, isLoading: marketIndexLoading } = useMarketIndex();
   const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
   const { data: newSignalsData, isLoading: newSignalsLoading } = useMainNewSignalsQuery();
-  const { data: popularSearchesData, isLoading: popularSearchesLoading } = usePopularSearchesQuery();
+  const popularSearches = useMemo(
+    () =>
+      topStocksData.stocks.slice(0, 5).map((item) => ({
+        rank: item.rank,
+        keyword: item.name,
+      })),
+    [topStocksData.stocks],
+  );
 
   return (
     <main className="flex w-full justify-center bg-[color:var(--color-bg-primary)] py-8">
@@ -30,8 +37,8 @@ export default function HomePageClient() {
           <SidebarPanel
             marketIndex={marketIndexData}
             marketLoading={marketIndexLoading}
-            searches={popularSearchesData?.keywords ?? []}
-            searchLoading={popularSearchesLoading}
+            searches={popularSearches}
+            searchLoading={topStocksLoading}
           />
         </div>
       </div>

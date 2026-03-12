@@ -1,5 +1,9 @@
 import { apiFetch } from "@/shared/lib/apiClient";
-import type { WatchlistStatus, WatchlistToggleResponse } from "@/shared/types/watchlist";
+import type {
+  WatchlistNotificationResponse,
+  WatchlistStatus,
+  WatchlistToggleResponse,
+} from "@/shared/types/watchlist";
 
 export const watchlistQueryKeys = {
   all: ["watchlist"] as const,
@@ -9,6 +13,7 @@ export const watchlistQueryKeys = {
 export function getWatchlistStatus(stockId: number) {
   return apiFetch<WatchlistStatus>(`/api/users/watchlist/${stockId}`, {
     cache: "no-store",
+    useBaseUrl: false,
   });
 }
 
@@ -16,11 +21,20 @@ export function addWatchlist(stockId: number) {
   return apiFetch<WatchlistToggleResponse, { stockId: number }>("/api/users/watchlist", {
     method: "POST",
     body: { stockId },
+    useBaseUrl: false,
   });
 }
 
 export function removeWatchlist(stockId: number) {
   return apiFetch<WatchlistToggleResponse>(`/api/users/watchlist/${stockId}`, {
     method: "DELETE",
+    useBaseUrl: false,
+  });
+}
+
+export function toggleWatchlistNotification(stockId: number) {
+  return apiFetch<WatchlistNotificationResponse>(`/api/users/watchlist/${stockId}`, {
+    method: "PATCH",
+    useBaseUrl: false,
   });
 }

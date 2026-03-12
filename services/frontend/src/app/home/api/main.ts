@@ -24,5 +24,12 @@ export async function getMainNewSignals() {
 }
 
 export async function getPopularSearches() {
-  return apiFetch<PopularSearchesPayload>("/api/main/popular-searches", { cache: "no-store" });
+  const payload = await apiFetch<TopStocksPayload>("/api/main/top-stocks", { cache: "no-store" });
+
+  return {
+    keywords: payload.stocks.slice(0, 5).map((item) => ({
+      rank: item.rank,
+      keyword: item.name,
+    })),
+  } satisfies PopularSearchesPayload;
 }

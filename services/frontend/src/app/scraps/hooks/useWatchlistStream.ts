@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { connectWatchlistStream } from "../api/connectWatchlistStream";
 import type { WatchlistStreamPayload } from "../types/scraps";
-import { useSseState } from "@/app/home/hooks/useSseState";
+import { useSseState } from "@/shared/hooks/useSseState";
 
 const initialWatchlistStreamPayload: WatchlistStreamPayload = {
   buyCount: 0,

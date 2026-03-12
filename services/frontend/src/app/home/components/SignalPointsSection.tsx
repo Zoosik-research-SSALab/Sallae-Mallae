@@ -20,11 +20,12 @@ function getRateClassName(value: number) {
 type SignalListCardProps = {
   title: string;
   description: string;
-  items: SignalPointItem[];
+  items?: SignalPointItem[];
   tone: "buy" | "sell";
 };
 
 function SignalListCard({ title, description, items, tone }: SignalListCardProps) {
+  const safeItems = Array.isArray(items) ? items : [];
   const iconToneClassName =
     tone === "buy"
       ? "bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-border-base)]"
@@ -45,7 +46,7 @@ function SignalListCard({ title, description, items, tone }: SignalListCardProps
       </div>
 
       <div className="mt-6 flex flex-col gap-2">
-        {items.map((item, index) => (
+        {safeItems.map((item, index) => (
           <div
             key={`${tone}-${item.stockId}`}
             className={`flex items-center justify-between gap-3 rounded-2xl px-1 py-3 ${index === 1 ? "bg-[color:var(--color-bg-tertiary)]" : "bg-[color:var(--color-bg-primary)]"}`}
@@ -74,6 +75,9 @@ type Props = {
 };
 
 export default function SignalPointsSection({ data, isLoading }: Props) {
+  const buyItems = Array.isArray(data?.buy) ? data.buy : [];
+  const sellItems = Array.isArray(data?.sell) ? data.sell : [];
+
   return (
     <section className="border-t border-[color:var(--color-border-secondary)] py-10">
       <div>
@@ -92,8 +96,8 @@ export default function SignalPointsSection({ data, isLoading }: Props) {
 
       {data ? (
         <div className="mt-8 grid gap-6 xl:grid-cols-2">
-          <SignalListCard title="매수 신호 포착" description="지금 주목할 종목" items={data.buy} tone="buy" />
-          <SignalListCard title="매도 신호 포착" description="조정 가능성 높은 종목" items={data.sell} tone="sell" />
+          <SignalListCard title="매수 신호 포착" description="지금 주목할 종목" items={buyItems} tone="buy" />
+          <SignalListCard title="매도 신호 포착" description="조정 가능성 높은 종목" items={sellItems} tone="sell" />
         </div>
       ) : null}
     </section>
