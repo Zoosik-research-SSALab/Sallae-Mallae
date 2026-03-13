@@ -43,6 +43,25 @@ services:
       - app-net
       - base-net
 
+  stock-scheduler:
+    build:
+      context: ../../services/ai/1_data_pipeline/stock
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    entrypoint: ["python", "scheduler.py"]
+    environment:
+      APP_ENV: ${SPRING_PROFILE}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${APP_DB_NAME}
+      DB_USER: ${APP_DB_USER}
+      DB_PASSWORD: ${APP_DB_PASSWORD}
+    networks:
+      - app-net
+      - base-net
+
 networks:
   app-net:
     name: ${APP_NETWORK_NAME}
