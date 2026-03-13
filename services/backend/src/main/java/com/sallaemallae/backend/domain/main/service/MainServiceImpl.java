@@ -15,6 +15,7 @@ import com.sallaemallae.backend.domain.main.repository.MainCacheRepository;
 import com.sallaemallae.backend.domain.main.repository.MainStockQueryRepository;
 import com.sallaemallae.backend.global.sse.SseManager;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
@@ -23,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,19 +34,11 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 public class MainServiceImpl implements MainService {
 
     private static final String CHANNEL_TOP_STOCKS = "top-stocks";
     private static final String CHANNEL_MARKET_INDEX = "market-index";
     private static final String CHANNEL_CATEGORIES = "categories";
-
-    private static final String NAVER_INDEX_URL =
-        "https://polling.finance.naver.com/api/realtime/domestic/stock/KOSPI";
-    private static final String NAVER_KOSDAQ_URL =
-        "https://polling.finance.naver.com/api/realtime/domestic/stock/KOSDAQ";
-    private static final String NAVER_FX_URL =
-        "https://m.stock.naver.com/api/exchange/FX_USDKRW/basic";
 
     private final MainStockQueryRepository queryRepository;
     private final MainCacheRepository cacheRepository;
@@ -51,45 +46,82 @@ public class MainServiceImpl implements MainService {
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
+    private final String naverKospiUrl;
+    private final String naverKosdaqUrl;
+    private final String naverFxUrl;
+
     public MainServiceImpl(
         MainStockQueryRepository queryRepository,
         MainCacheRepository cacheRepository,
         SseManager sseManager,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        @Value("${main.naver.kospi-url:}") String naverKospiUrl,
+        @Value("${main.naver.kosdaq-url:}") String naverKosdaqUrl,
+        @Value("${main.naver.fx-url:}") String naverFxUrl
     ) {
         this.queryRepository = queryRepository;
         this.cacheRepository = cacheRepository;
         this.sseManager = sseManager;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder().build();
+        this.naverKospiUrl = naverKospiUrl;
+        this.naverKosdaqUrl = naverKosdaqUrl;
+        this.naverFxUrl = naverFxUrl;
+
+        // 외부 API 호출 시 연결 5초, 읽기 5초 timeout 설정
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+        requestFactory.setReadTimeout(Duration.ofSeconds(5));
+        this.restClient = RestClient.builder()
+            .requestFactory(requestFactory)
+            .build();
     }
 
     // ── SSE 스트림 등록 메서드 ──
 
-    /** 추천 종목 TOP10 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
+    /** 추천 종목 TOP10 SSE 스트림 등록 및 현재 캐시 즉시 전송 (캐시 미스 시 DB 조회) */
     @Override
     public SseEmitter streamTopStocks() {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         sseManager.addEmitter(CHANNEL_TOP_STOCKS, emitter);
-        cacheRepository.getTopStocks().ifPresent(data -> sendInitial(emitter, CHANNEL_TOP_STOCKS, data));
+        TopStocksResponse data = cacheRepository.getTopStocks()
+            .orElseGet(() -> {
+                List<TopStockItemResponse> items = queryRepository.getTopTenStocksToday();
+                TopStocksResponse fresh = new TopStocksResponse(items);
+                cacheRepository.saveTopStocks(fresh);
+                return fresh;
+            });
+        sendInitial(emitter, CHANNEL_TOP_STOCKS, data);
         return emitter;
     }
 
-    /** 시장 지수 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
+    /** 시장 지수 SSE 스트림 등록 및 현재 캐시 즉시 전송 (캐시 미스 시 기본값 전송) */
     @Override
     public SseEmitter streamMarketIndex() {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         sseManager.addEmitter(CHANNEL_MARKET_INDEX, emitter);
-        cacheRepository.getMarketIndex().ifPresent(data -> sendInitial(emitter, CHANNEL_MARKET_INDEX, data));
+        MarketIndexResponse data = cacheRepository.getMarketIndex()
+            .orElse(new MarketIndexResponse(
+                new MarketIndexItemResponse(0f, 0f),
+                new MarketIndexItemResponse(0f, 0f),
+                new MarketIndexItemResponse(0f, 0f),
+                ""
+            ));
+        sendInitial(emitter, CHANNEL_MARKET_INDEX, data);
         return emitter;
     }
 
-    /** 카테고리별 종목 SSE 스트림 등록 및 현재 캐시 즉시 전송 */
+    /** 카테고리별 종목 SSE 스트림 등록 및 현재 캐시 즉시 전송 (캐시 미스 시 DB 조회) */
     @Override
     public SseEmitter streamCategories() {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         sseManager.addEmitter(CHANNEL_CATEGORIES, emitter);
-        cacheRepository.getCategories().ifPresent(data -> sendInitial(emitter, CHANNEL_CATEGORIES, data));
+        CategoryStocksResponse data = cacheRepository.getCategories()
+            .orElseGet(() -> {
+                CategoryStocksResponse fresh = buildCategories();
+                cacheRepository.saveCategories(fresh);
+                return fresh;
+            });
+        sendInitial(emitter, CHANNEL_CATEGORIES, data);
         return emitter;
     }
 
@@ -97,6 +129,7 @@ public class MainServiceImpl implements MainService {
 
     /** 당일 매수/매도 상위 3종목 조회 (캐시 우선, 미스 시 DB 조회) */
     @Override
+    @Transactional(readOnly = true)
     public NewSignalsResponse getNewSignals() {
         return cacheRepository.getNewSignals()
             .orElseGet(() -> {
@@ -209,10 +242,14 @@ public class MainServiceImpl implements MainService {
 
     // ── private: 네이버 금융 API 호출 ──
 
-    /** 네이버 금융 API 3건 호출, 하나라도 실패하면 null 반환 (이전 캐시 유지) */
+    /** 네이버 금융 API 3건 호출, URL 미설정 또는 실패 시 null 반환 (이전 캐시 유지) */
     private MarketIndexResponse fetchMarketIndex() {
-        MarketIndexItemResponse kospi = fetchNaverIndex(NAVER_INDEX_URL);
-        MarketIndexItemResponse kosdaq = fetchNaverIndex(NAVER_KOSDAQ_URL);
+        if (naverKospiUrl.isBlank() || naverKosdaqUrl.isBlank() || naverFxUrl.isBlank()) {
+            log.warn("네이버 금융 API URL 미설정 → 시장 지수 조회 생략");
+            return null;
+        }
+        MarketIndexItemResponse kospi = fetchNaverIndex(naverKospiUrl);
+        MarketIndexItemResponse kosdaq = fetchNaverIndex(naverKosdaqUrl);
         MarketIndexItemResponse usdKrw = fetchNaverFx();
 
         if (kospi == null || kosdaq == null || usdKrw == null) {
@@ -250,7 +287,7 @@ public class MainServiceImpl implements MainService {
     /** 네이버 환율 API 호출 (USD/KRW), 실패 시 null 반환 */
     private MarketIndexItemResponse fetchNaverFx() {
         try {
-            String body = restClient.get().uri(NAVER_FX_URL).retrieve().body(String.class);
+            String body = restClient.get().uri(naverFxUrl).retrieve().body(String.class);
             JsonNode root = objectMapper.readTree(body);
 
             float value = extractFloat(root, "closePrice", "basePrice", "now");
@@ -281,6 +318,7 @@ public class MainServiceImpl implements MainService {
         return 0f;
     }
 
+    /** SSE 초기 데이터 전송 (연결 직후 클라이언트에게 현재 데이터 전달) */
     private void sendInitial(SseEmitter emitter, String channel, Object data) {
         try {
             emitter.send(SseEmitter.event().data(data));

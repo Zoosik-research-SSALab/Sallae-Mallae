@@ -1,6 +1,8 @@
 package com.sallaemallae.backend.global.sse;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -30,20 +32,25 @@ public class SseManager {
         emitter.onError(e -> list.remove(emitter));
     }
 
-    /** 해당 채널의 모든 클라이언트에게 데이터 전송 */
+    /** 해당 채널의 모든 클라이언트에게 데이터 전송 (실패한 emitter는 일괄 제거) */
     public void broadcast(String channel, Object data) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.get(channel);
         if (list == null || list.isEmpty()) {
             return;
         }
 
+        List<SseEmitter> dead = new ArrayList<>();
         for (SseEmitter emitter : list) {
             try {
                 emitter.send(SseEmitter.event().data(data));
             } catch (IOException e) {
-                log.debug("SSE 전송 실패, emitter 제거: channel={}", channel);
-                list.remove(emitter);
+                dead.add(emitter);
             }
+        }
+
+        if (!dead.isEmpty()) {
+            list.removeAll(dead);
+            log.debug("SSE 전송 실패 emitter {}건 제거: channel={}", dead.size(), channel);
         }
     }
 }

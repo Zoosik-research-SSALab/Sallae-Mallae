@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -49,7 +50,7 @@ public class MainTestController {
             new TopStockItemResponse(9, 9L, "기아", 125000, 2.7f, "BUY", 72),
             new TopStockItemResponse(10, 10L, "셀트리온", 178000, -1.5f, "SELL", 70)
         );
-        sendAndComplete(emitter, new TopStocksResponse(stocks));
+        sendAsync(emitter, new TopStocksResponse(stocks));
         return emitter;
     }
 
@@ -83,7 +84,7 @@ public class MainTestController {
             new MarketIndexItemResponse(1365.20f, 0.35f),
             baseTime
         );
-        sendAndComplete(emitter, data);
+        sendAsync(emitter, data);
         return emitter;
     }
 
@@ -136,17 +137,20 @@ public class MainTestController {
             category("기타",
                 stock("셀트리온", 178000, -1.5f), stock("한미약품", 285000, 2.2f))
         );
-        sendAndComplete(emitter, new CategoryStocksResponse(categories));
+        sendAsync(emitter, new CategoryStocksResponse(categories));
         return emitter;
     }
 
-    /** SSE로 더미 데이터 1회 전송 후 연결 유지 */
-    private void sendAndComplete(SseEmitter emitter, Object data) {
-        try {
-            emitter.send(SseEmitter.event().data(data));
-        } catch (IOException e) {
-            emitter.completeWithError(e);
-        }
+    /** 비동기로 SSE 데이터 전송 (return emitter 이후 Spring async 시작된 뒤 전송) */
+    private void sendAsync(SseEmitter emitter, Object data) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(100);
+                emitter.send(SseEmitter.event().data(data));
+            } catch (IOException | InterruptedException e) {
+                emitter.completeWithError(e);
+            }
+        });
     }
 
     private CategoryItemResponse category(String name, CategoryStockItemResponse... stocks) {
