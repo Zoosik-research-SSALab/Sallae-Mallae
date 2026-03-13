@@ -8,15 +8,15 @@ import type {
 } from "../types/main";
 
 export function subscribeTopStocks(handlers: { onMessage: (payload: TopStocksPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<TopStocksPayload>("/api/main/top-stocks", handlers);
+  return connectSse<TopStocksPayload>("/api/stream/main/test/top-stocks", handlers);
 }
 
 export function subscribeMarketIndex(handlers: { onMessage: (payload: MarketIndexPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<MarketIndexPayload>("/api/main/market-index", handlers);
+  return connectSse<MarketIndexPayload>("/api/stream/main/test/market-index", handlers);
 }
 
 export function subscribeCategories(handlers: { onMessage: (payload: CategoriesPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<CategoriesPayload>("/api/main/categories", handlers);
+  return connectSse<CategoriesPayload>("/api/stream/main/test/categories", handlers);
 }
 
 export async function getMainNewSignals() {
