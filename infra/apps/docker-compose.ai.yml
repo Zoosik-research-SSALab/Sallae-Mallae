@@ -47,6 +47,7 @@ services:
       KRX_PASSWORD: ${KRX_PASSWORD:-}
       FRED_API_KEY: ${FRED_API_KEY:-}
     volumes:
+      - stock-data:/data
       - ${RCLONE_CONFIG:-/dev/null}:/root/.config/rclone/rclone.conf:ro
     networks:
       - app-net
@@ -58,3 +59,7 @@ networks:
   base-net:
     external: true
     name: sallae-base-net
+
+volumes:
+  stock-data:
+    name: stock-data
