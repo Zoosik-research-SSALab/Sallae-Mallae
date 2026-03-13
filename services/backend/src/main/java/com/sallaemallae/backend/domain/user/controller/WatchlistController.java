@@ -2,15 +2,16 @@ package com.sallaemallae.backend.domain.user.controller;
 
 import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistStatusResponse;
 import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -38,7 +39,7 @@ public class WatchlistController {
   }
 
   @GetMapping("/{stockId}")
-  public ApiResponse<Map<String, Object>> getWatchlistStatus(
+  public ApiResponse<WatchlistStatusResponse> getWatchlistStatus(
       @PathVariable Long stockId) {
     return ApiResponse.success(userService.getWatchlistStatus(getAuthenticatedUserId(), stockId));
   }
@@ -56,7 +57,7 @@ public class WatchlistController {
   }
 
   @PatchMapping("/{stockId}")
-  public ApiResponse<Map<String, Object>> toggleWatchlistAlert(
+  public ApiResponse<WatchlistAlertToggleResponse> toggleWatchlistAlert(
       @PathVariable Long stockId,
       @Valid @RequestBody WatchlistAlertToggleRequest request) {
     return ApiResponse.success(userService.toggleWatchlistAlert(getAuthenticatedUserId(), stockId, request));

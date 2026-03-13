@@ -13,10 +13,12 @@ import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
+import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
 import com.sallaemallae.backend.domain.user.dto.WatchlistItemResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
 import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
+import com.sallaemallae.backend.domain.user.dto.WatchlistStatusResponse;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
@@ -83,8 +85,10 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional(readOnly = true)
-  public Map<String, Object> getWatchlistStatus(Long userId, Long stockId) {
-    return Map.of("userId", userId, "stockId", stockId, "scraped", false, "alarmOn", true);
+  public WatchlistStatusResponse getWatchlistStatus(Long userId, Long stockId) {
+    return watchlistRepository.findById(new UserWatchlistId(userId, stockId))
+        .map(watchlist -> new WatchlistStatusResponse(true, watchlist.isNotiEnabled()))
+        .orElse(new WatchlistStatusResponse(false, false));
   }
 
   @Override
@@ -122,8 +126,13 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-  public Map<String, Object> toggleWatchlistAlert(Long userId, Long stockId, WatchlistAlertToggleRequest request) {
-    return Map.of("userId", userId, "stockId", stockId, "alarmOn", request.alarmOn());
+  public WatchlistAlertToggleResponse toggleWatchlistAlert(Long userId, Long stockId, WatchlistAlertToggleRequest request) {
+    UserWatchlist watchlist = watchlistRepository.findById(new UserWatchlistId(userId, stockId))
+        .orElseThrow(() -> new BusinessException(UserErrorCode.WATCHLIST_NOT_FOUND));
+
+    watchlist.toggleNoti(request.isNotiEnabled());
+
+    return new WatchlistAlertToggleResponse(watchlist.isNotiEnabled());
   }
 
   @Override
