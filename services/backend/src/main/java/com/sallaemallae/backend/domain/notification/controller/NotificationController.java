@@ -3,9 +3,12 @@ package com.sallaemallae.backend.domain.notification.controller;
 import com.sallaemallae.backend.domain.notification.dto.NotificationActionResponse;
 import com.sallaemallae.backend.domain.notification.dto.NotificationBulkActionResponse;
 import com.sallaemallae.backend.domain.notification.dto.NotificationListResponse;
+import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsResponse;
+import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsUpdateRequest;
 import com.sallaemallae.backend.domain.notification.dto.NotificationTabRequest;
 import com.sallaemallae.backend.domain.notification.dto.NotificationUnreadCountResponse;
 import com.sallaemallae.backend.domain.notification.service.NotificationService;
+import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationController {
 
   private final NotificationService notificationService;
+  private final UserService userService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
 
   /** FS-NOTI-001: 미확인 알림 수 조회 */
@@ -97,6 +101,25 @@ public class NotificationController {
   ) {
     return ApiResponse.success(
         notificationService.deleteNotifications(authenticatedUserProvider.getCurrentUserId(), tab)
+    );
+  }
+
+  /** 알림 설정 조회 */
+  @Operation(summary = "알림 설정 조회", description = "전체 알림 및 이메일 알림 ON/OFF 설정을 조회합니다.")
+  @GetMapping("/settings")
+  public ApiResponse<NotificationSettingsResponse> getNotificationSettings() {
+    return ApiResponse.success(
+        userService.getNotificationSettings(authenticatedUserProvider.getCurrentUserId())
+    );
+  }
+
+  /** 알림 설정 변경 */
+  @Operation(summary = "알림 설정 변경", description = "전체 알림 및 이메일 알림 ON/OFF 설정을 변경합니다.")
+  @PatchMapping("/settings")
+  public ApiResponse<NotificationSettingsResponse> updateNotificationSettings(
+      @RequestBody NotificationSettingsUpdateRequest request) {
+    return ApiResponse.success(
+        userService.updateNotificationSettings(authenticatedUserProvider.getCurrentUserId(), request)
     );
   }
 }
