@@ -16,8 +16,8 @@ import com.sallaemallae.backend.domain.main.repository.MainStockQueryRepository;
 import com.sallaemallae.backend.global.sse.SseManager;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
 import java.time.LocalDateTime;
+
 import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
 import java.util.Comparator;
@@ -91,7 +91,7 @@ public class MainServiceImpl implements MainService {
                 cacheRepository.saveTopStocks(fresh);
                 return fresh;
             });
-        sendInitial(emitter, CHANNEL_TOP_STOCKS, data);
+        sendInitial(emitter, data);
         return emitter;
     }
 
@@ -107,7 +107,7 @@ public class MainServiceImpl implements MainService {
                 new MarketIndexItemResponse(0f, 0f),
                 ""
             ));
-        sendInitial(emitter, CHANNEL_MARKET_INDEX, data);
+        sendInitial(emitter, data);
         return emitter;
     }
 
@@ -122,7 +122,7 @@ public class MainServiceImpl implements MainService {
                 cacheRepository.saveCategories(fresh);
                 return fresh;
             });
-        sendInitial(emitter, CHANNEL_CATEGORIES, data);
+        sendInitial(emitter, data);
         return emitter;
     }
 
@@ -319,18 +319,9 @@ public class MainServiceImpl implements MainService {
         return 0f;
     }
 
-    /** SSE 초기 데이터 비동기 전송 (return emitter 이후 Spring async 시작된 뒤 전송하여 즉시 flush 보장) */
-    private void sendInitial(SseEmitter emitter, String channel, Object data) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                Thread.sleep(100);
-                emitter.send(SseEmitter.event().data(data));
-                log.debug("SSE 초기 데이터 전송 성공: channel={}", channel);
-            } catch (IOException | InterruptedException e) {
-                log.warn("SSE 초기 데이터 전송 실패: channel={}", channel);
-                emitter.completeWithError(e);
-            }
-        });
+    /** SSE 초기 데이터 전송 (연결 즉시 현재 데이터 전달) */
+    private void sendInitial(SseEmitter emitter, Object data) {
+        sseManager.sendToEmitter(emitter, data);
     }
 
     private float toFloat(Object value) {

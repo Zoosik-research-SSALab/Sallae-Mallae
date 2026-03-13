@@ -24,6 +24,7 @@ public class SseBufferingFilter extends OncePerRequestFilter {
         String accept = request.getHeader("Accept");
         if (accept != null && accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE)) {
             response.setHeader("X-Accel-Buffering", "no");
+            response.setBufferSize(0); // Tomcat 응답 버퍼 비활성화 → 즉시 flush
         }
 
         filterChain.doFilter(request, response);
