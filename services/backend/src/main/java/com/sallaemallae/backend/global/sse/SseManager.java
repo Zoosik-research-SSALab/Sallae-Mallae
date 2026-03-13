@@ -32,6 +32,15 @@ public class SseManager {
         emitter.onError(e -> list.remove(emitter));
     }
 
+    /** 단일 emitter에 데이터 전송 (초기 데이터 전송용) */
+    public void sendToEmitter(SseEmitter emitter, Object data) {
+        try {
+            emitter.send(SseEmitter.event().data(data));
+        } catch (IOException e) {
+            log.debug("SSE 단일 emitter 전송 실패");
+        }
+    }
+
     /** 해당 채널의 모든 클라이언트에게 데이터 전송 (실패한 emitter는 일괄 제거) */
     public void broadcast(String channel, Object data) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.get(channel);
