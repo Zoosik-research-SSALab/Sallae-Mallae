@@ -83,7 +83,14 @@ public class SecurityConfig {
             .requestMatchers("/api/stream/main/**").permitAll()
 
             // Swagger / API docs (개발용)
-            .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+            .requestMatchers(
+                "/api/swagger-ui.html",
+                "/api/swagger-ui/**",
+                "/api/api-docs/**",
+                "/swagger-ui/**",
+                "/api-docs/**",
+                "/v3/api-docs/**"
+            ).permitAll()
 
             // 나머지는 인증 필요
             .anyRequest().authenticated()
