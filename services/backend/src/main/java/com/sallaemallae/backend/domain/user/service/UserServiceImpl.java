@@ -130,7 +130,7 @@ public class UserServiceImpl implements UserService {
     UserWatchlist watchlist = watchlistRepository.findById(new UserWatchlistId(userId, stockId))
         .orElseThrow(() -> new BusinessException(UserErrorCode.WATCHLIST_NOT_FOUND));
 
-    watchlist.toggleNoti(request.alarmOn());
+    watchlist.toggleNoti(request.isNotiEnabled());
 
     return new WatchlistAlertToggleResponse(watchlist.isNotiEnabled());
   }
