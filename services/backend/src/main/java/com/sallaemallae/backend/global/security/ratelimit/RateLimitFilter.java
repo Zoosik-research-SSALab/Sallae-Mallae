@@ -105,7 +105,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
   protected boolean shouldNotFilter(HttpServletRequest request) {
     String uri = request.getRequestURI();
     // health check, swagger는 제외
-    return uri.startsWith("/health") || uri.startsWith("/swagger-ui")
+    return uri.startsWith("/health")
+        || uri.startsWith("/api/swagger-ui")
+        || uri.startsWith("/api/api-docs")
+        || uri.startsWith("/swagger-ui")
+        || uri.startsWith("/api-docs")
         || uri.startsWith("/v3/api-docs");
   }
 }
