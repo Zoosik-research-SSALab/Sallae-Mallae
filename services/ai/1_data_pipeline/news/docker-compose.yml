@@ -1,0 +1,66 @@
+# 뉴스 데이터 파이프라인 Docker Compose (로컬 개발용)
+#
+# 사용법:
+#   docker compose run news-daily                                                  # 일일 크롤링
+#   docker compose run news-daily python -m crawlers.daily --codes 005930 000660   # 특정 종목
+#   docker compose run news-daily python -m crawlers.backfill --start-date 2025-01-01  # 백필
+#   docker compose run news-daily python -m processors.keyword_batch               # 키워드 추출
+#   docker compose run news-daily python -m loaders.csv_loader output/             # CSV→DB 적재
+#   docker compose up -d news-scheduler                                            # 스케줄러 데몬
+
+services:
+  news-daily:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news-daily
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${APP_DB_NAME:-app_dev}
+      DB_USER: ${APP_DB_USER:-app_dev_user}
+      DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_dev}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - news-output:/app/output
+      - news-data:/app/data
+    networks:
+      - app-net
+      - base-net
+    restart: "no"
+
+  news-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news-scheduler
+    restart: unless-stopped
+    entrypoint: ["python", "scheduler.py"]
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${APP_DB_NAME:-app_dev}
+      DB_USER: ${APP_DB_USER:-app_dev_user}
+      DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_dev}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - news-output:/app/output
+      - news-data:/app/data
+    networks:
+      - app-net
+      - base-net
+
+networks:
+  app-net:
+    name: app-net
+  base-net:
+    external: true
+    name: sallae-base-net
+
+volumes:
+  news-output:
+    name: news-output
+  news-data:
+    name: news-data
