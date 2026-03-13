@@ -111,6 +111,7 @@ services:
       context: ./postgres
     image: sallae/postgres-timescale-pgvector:pg16
     container_name: postgres
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
