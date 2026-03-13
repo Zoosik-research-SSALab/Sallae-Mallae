@@ -1,0 +1,22 @@
+# 크롤링
+aiohttp>=3.9.0
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+pandas>=2.1.0
+
+# DB
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+python-dotenv>=1.0.0
+
+# 후처리 (키워드 추출, 임베딩)
+numpy>=1.26.0
+torch>=2.1.0
+transformers>=4.36.0
+keybert>=0.8.0
+sentence-transformers>=2.2.0
+kiwipiepy>=0.18.0
+
+# NLP 백엔드 (키워드 추출용, 선택)
+google-generativeai>=0.3.0
+anthropic>=0.18.0
