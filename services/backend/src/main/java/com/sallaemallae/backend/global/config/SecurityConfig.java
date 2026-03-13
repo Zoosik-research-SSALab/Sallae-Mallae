@@ -83,9 +83,18 @@ public class SecurityConfig {
             .requestMatchers("/api/stocks").permitAll()
             .requestMatchers("/api/stocks/*").permitAll()
             .requestMatchers("/api/stream/stocks/*/prices").permitAll()
+            // SSE 스트림 엔드포인트 (인증 불필요)
+            .requestMatchers("/api/stream/main/**").permitAll()
 
             // Swagger / API docs (개발용)
-            .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+            .requestMatchers(
+                "/api/swagger-ui.html",
+                "/api/swagger-ui/**",
+                "/api/api-docs/**",
+                "/swagger-ui/**",
+                "/api-docs/**",
+                "/v3/api-docs/**"
+            ).permitAll()
 
             // 나머지는 인증 필요
             .anyRequest().authenticated()

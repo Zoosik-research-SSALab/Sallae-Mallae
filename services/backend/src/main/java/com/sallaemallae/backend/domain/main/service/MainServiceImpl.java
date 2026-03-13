@@ -17,6 +17,7 @@ import com.sallaemallae.backend.global.sse.SseManager;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+
 import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
 import java.util.Comparator;
@@ -90,7 +91,7 @@ public class MainServiceImpl implements MainService {
                 cacheRepository.saveTopStocks(fresh);
                 return fresh;
             });
-        sendInitial(emitter, CHANNEL_TOP_STOCKS, data);
+        sendInitial(emitter, data);
         return emitter;
     }
 
@@ -108,7 +109,7 @@ public class MainServiceImpl implements MainService {
                 }
                 return defaultMarketIndex();
             });
-        sendInitial(emitter, CHANNEL_MARKET_INDEX, data);
+        sendInitial(emitter, data);
         return emitter;
     }
 
@@ -123,7 +124,7 @@ public class MainServiceImpl implements MainService {
                 cacheRepository.saveCategories(fresh);
                 return fresh;
             });
-        sendInitial(emitter, CHANNEL_CATEGORIES, data);
+        sendInitial(emitter, data);
         return emitter;
     }
 
@@ -351,13 +352,9 @@ public class MainServiceImpl implements MainService {
         return null;
     }
 
-    /** SSE 초기 데이터 전송 (연결 직후 클라이언트에게 현재 데이터 전달) */
-    private void sendInitial(SseEmitter emitter, String channel, Object data) {
-        try {
-            emitter.send(SseEmitter.event().data(data));
-        } catch (IOException e) {
-            log.debug("SSE 초기 데이터 전송 실패: channel={}", channel);
-        }
+    /** SSE 초기 데이터 전송 (연결 즉시 현재 데이터 전달) */
+    private void sendInitial(SseEmitter emitter, Object data) {
+        sseManager.sendToEmitter(emitter, data);
     }
 
     private float toFloat(Object value) {
