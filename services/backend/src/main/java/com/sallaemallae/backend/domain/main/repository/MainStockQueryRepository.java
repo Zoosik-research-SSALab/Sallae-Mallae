@@ -105,7 +105,11 @@ public class MainStockQueryRepository {
                   AND trade_date = (SELECT MAX(trade_date) FROM stock_prices_daily WHERE trade_date <= CURRENT_DATE)
                 LIMIT 1
             ) sp ON true
-            WHERE h.trade_time >= CURRENT_DATE
+            WHERE DATE(h.trade_time) = (
+                SELECT MAX(DATE(trade_time))
+                FROM ai_trading_history
+                WHERE trade_time <= CURRENT_TIMESTAMP
+            )
               AND h.trade_type = :tradeType
             ORDER BY r.ml_confidence DESC NULLS LAST
             LIMIT 3

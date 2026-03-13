@@ -63,9 +63,9 @@ public class MainServiceImpl implements MainService {
         this.cacheRepository = cacheRepository;
         this.sseManager = sseManager;
         this.objectMapper = objectMapper;
-        this.naverKospiUrl = naverKospiUrl;
-        this.naverKosdaqUrl = naverKosdaqUrl;
-        this.naverFxUrl = naverFxUrl;
+        this.naverKospiUrl = defaultString(naverKospiUrl);
+        this.naverKosdaqUrl = defaultString(naverKosdaqUrl);
+        this.naverFxUrl = defaultString(naverFxUrl);
 
         // 외부 API 호출 시 연결 5초, 읽기 5초 timeout 설정
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
@@ -100,12 +100,14 @@ public class MainServiceImpl implements MainService {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         sseManager.addEmitter(CHANNEL_MARKET_INDEX, emitter);
         MarketIndexResponse data = cacheRepository.getMarketIndex()
-            .orElse(new MarketIndexResponse(
-                new MarketIndexItemResponse(0f, 0f),
-                new MarketIndexItemResponse(0f, 0f),
-                new MarketIndexItemResponse(0f, 0f),
-                ""
-            ));
+            .orElseGet(() -> {
+                MarketIndexResponse fresh = fetchMarketIndex();
+                if (fresh != null) {
+                    cacheRepository.saveMarketIndex(fresh);
+                    return fresh;
+                }
+                return defaultMarketIndex();
+            });
         sendInitial(emitter, CHANNEL_MARKET_INDEX, data);
         return emitter;
     }
@@ -271,11 +273,20 @@ public class MainServiceImpl implements MainService {
 
             // 네이버 polling API 응답 구조에서 현재가와 등락률 추출
             JsonNode datas = root.path("datas").path(0);
-            if (datas.isMissingNode()) {
-                datas = root;
+            if (datas.isMissingNode() || datas.isNull()) {
+                datas = root.path("result");
             }
-            float value = extractFloat(datas, "nv", "closePrice", "now");
-            float changeRate = extractFloat(datas, "cr", "fluctuationsRatio", "changeRate");
+            if (datas.isMissingNode() || datas.isNull() || datas.isEmpty()) {
+                log.warn("네이버 지수 API 응답에 시세 데이터가 없습니다. url={}", url);
+                return null;
+            }
+
+            Float value = extractNullableFloat(datas, "nv", "closePrice", "now");
+            Float changeRate = extractNullableFloat(datas, "cr", "fluctuationsRatio", "changeRate");
+            if (value == null || changeRate == null) {
+                log.warn("네이버 지수 API 응답 파싱 실패. url={}", url);
+                return null;
+            }
 
             return new MarketIndexItemResponse(value, changeRate);
         } catch (Exception e) {
@@ -290,8 +301,17 @@ public class MainServiceImpl implements MainService {
             String body = restClient.get().uri(naverFxUrl).retrieve().body(String.class);
             JsonNode root = objectMapper.readTree(body);
 
-            float value = extractFloat(root, "closePrice", "basePrice", "now");
-            float changeRate = extractFloat(root, "fluctuationsRatio", "changeRate", "cr");
+            JsonNode result = root.path("result");
+            if (result.isMissingNode() || result.isNull() || result.isEmpty()) {
+                result = root;
+            }
+
+            Float value = extractNullableFloat(result, "closePrice", "basePrice", "now");
+            Float changeRate = extractNullableFloat(result, "fluctuationsRatio", "changeRate", "cr");
+            if (value == null || changeRate == null) {
+                log.warn("네이버 환율 API 응답 파싱 실패");
+                return null;
+            }
 
             return new MarketIndexItemResponse(value, changeRate);
         } catch (Exception e) {
@@ -303,7 +323,20 @@ public class MainServiceImpl implements MainService {
     // ── private: 유틸리티 ──
 
     /** JSON 노드에서 여러 필드명을 시도하여 float 추출 */
-    private float extractFloat(JsonNode node, String... fieldNames) {
+    private MarketIndexResponse defaultMarketIndex() {
+        return new MarketIndexResponse(
+            new MarketIndexItemResponse(0f, 0f),
+            new MarketIndexItemResponse(0f, 0f),
+            new MarketIndexItemResponse(0f, 0f),
+            ""
+        );
+    }
+
+    private String defaultString(String value) {
+        return value == null ? "" : value;
+    }
+
+    private Float extractNullableFloat(JsonNode node, String... fieldNames) {
         for (String name : fieldNames) {
             JsonNode field = node.path(name);
             if (!field.isMissingNode() && !field.isNull()) {
@@ -315,7 +348,7 @@ public class MainServiceImpl implements MainService {
                 }
             }
         }
-        return 0f;
+        return null;
     }
 
     /** SSE 초기 데이터 전송 (연결 직후 클라이언트에게 현재 데이터 전달) */

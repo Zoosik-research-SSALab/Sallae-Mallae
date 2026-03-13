@@ -9,11 +9,10 @@ import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
 import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.response.ApiResponse;
+import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,6 +30,7 @@ public class WatchlistController {
 
   private final WatchlistService watchlistService;
   private final UserService userService;
+  private final AuthenticatedUserProvider authenticatedUserProvider;
 
   @GetMapping
   public ApiResponse<WatchlistListResponse> getWatchlist() {
@@ -70,7 +70,6 @@ public class WatchlistController {
   }
 
   private Long getAuthenticatedUserId() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    return (Long) authentication.getPrincipal();
+    return authenticatedUserProvider.getCurrentUserId();
   }
 }
