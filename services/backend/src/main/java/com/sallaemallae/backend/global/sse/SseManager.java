@@ -1,6 +1,5 @@
 package com.sallaemallae.backend.global.sse;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,7 @@ public class SseManager {
     public void sendToEmitter(SseEmitter emitter, Object data) {
         try {
             emitter.send(SseEmitter.event().data(data));
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.debug("SSE 단일 emitter 전송 실패");
         }
     }
@@ -52,7 +51,7 @@ public class SseManager {
         for (SseEmitter emitter : list) {
             try {
                 emitter.send(SseEmitter.event().data(data));
-            } catch (IOException e) {
+            } catch (Exception e) {
                 dead.add(emitter);
             }
         }
