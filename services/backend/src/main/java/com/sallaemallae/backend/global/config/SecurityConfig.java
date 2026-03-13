@@ -79,6 +79,8 @@ public class SecurityConfig {
 
             // Main - 메인 페이지 (인증 불필요)
             .requestMatchers("/api/main/**").permitAll()
+            // SSE 스트림 엔드포인트 (인증 불필요)
+            .requestMatchers("/api/stream/main/**").permitAll()
 
             // Swagger / API docs (개발용)
             .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()

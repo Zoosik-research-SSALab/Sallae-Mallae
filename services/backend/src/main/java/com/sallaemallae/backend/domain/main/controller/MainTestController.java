@@ -30,12 +30,12 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  */
 @Tag(name = "메인 (테스트)", description = "메인 페이지 더미 데이터 API")
 @RestController
-@RequestMapping("/api/main/test")
+@RequestMapping("/api")
 public class MainTestController {
 
     /** 추천 종목 TOP10 더미 데이터 (SSE) */
     @Operation(summary = "[테스트] 추천 종목 TOP10 (SSE)")
-    @GetMapping(value = "/top-stocks", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/stream/main/test/top-stocks", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamTopStocks() {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         List<TopStockItemResponse> stocks = List.of(
@@ -56,7 +56,7 @@ public class MainTestController {
 
     /** 당일 매수/매도 신호 더미 데이터 (REST) */
     @Operation(summary = "[테스트] 당일 매수/매도 신호")
-    @GetMapping("/new-signals")
+    @GetMapping("/main/test/new-signals")
     public ApiResponse<NewSignalsResponse> getNewSignals() {
         List<NewSignalItemResponse> buy = List.of(
             new NewSignalItemResponse(1L, "005930", "삼성전자", 92, 72500, 2.1f),
@@ -73,7 +73,7 @@ public class MainTestController {
 
     /** 시장 지수 더미 데이터 (SSE) */
     @Operation(summary = "[테스트] 시장 지수 (SSE)")
-    @GetMapping(value = "/market-index", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/stream/main/test/market-index", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamMarketIndex() {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         String baseTime = LocalDateTime.now()
@@ -90,7 +90,7 @@ public class MainTestController {
 
     /** 카테고리별 대표 종목 더미 데이터 (SSE, 21개 카테고리, 각 2종목) */
     @Operation(summary = "[테스트] 카테고리별 대표 종목 (SSE)")
-    @GetMapping(value = "/categories", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/stream/main/test/categories", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamCategories() {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         List<CategoryItemResponse> categories = List.of(
