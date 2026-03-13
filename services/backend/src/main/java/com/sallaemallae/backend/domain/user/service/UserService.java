@@ -1,7 +1,5 @@
 package com.sallaemallae.backend.domain.user.service;
 
-import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
 import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
@@ -36,8 +34,4 @@ public interface UserService {
   Map<String, Object> updateEmailOptIn(Long userId, UserEmailOptInRequest request);
 
   Map<String, Object> deleteProfile(Long userId);
-
-  NotificationSettingsResponse getNotificationSettings(Long userId);
-
-  NotificationSettingsResponse updateNotificationSettings(Long userId, NotificationSettingsUpdateRequest request);
 }

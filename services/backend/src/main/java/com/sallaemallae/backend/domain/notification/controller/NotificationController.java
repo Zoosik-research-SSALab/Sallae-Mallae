@@ -8,12 +8,12 @@ import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsUpda
 import com.sallaemallae.backend.domain.notification.dto.NotificationTabRequest;
 import com.sallaemallae.backend.domain.notification.dto.NotificationUnreadCountResponse;
 import com.sallaemallae.backend.domain.notification.service.NotificationService;
-import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationController {
 
   private final NotificationService notificationService;
-  private final UserService userService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
 
   /** FS-NOTI-001: 미확인 알림 수 조회 */
@@ -109,7 +108,7 @@ public class NotificationController {
   @GetMapping("/settings")
   public ApiResponse<NotificationSettingsResponse> getNotificationSettings() {
     return ApiResponse.success(
-        userService.getNotificationSettings(authenticatedUserProvider.getCurrentUserId())
+        notificationService.getNotificationSettings(authenticatedUserProvider.getCurrentUserId())
     );
   }
 
@@ -117,9 +116,9 @@ public class NotificationController {
   @Operation(summary = "알림 설정 변경", description = "전체 알림 및 이메일 알림 ON/OFF 설정을 변경합니다.")
   @PatchMapping("/settings")
   public ApiResponse<NotificationSettingsResponse> updateNotificationSettings(
-      @RequestBody NotificationSettingsUpdateRequest request) {
+      @Valid @RequestBody NotificationSettingsUpdateRequest request) {
     return ApiResponse.success(
-        userService.updateNotificationSettings(authenticatedUserProvider.getCurrentUserId(), request)
+        notificationService.updateNotificationSettings(authenticatedUserProvider.getCurrentUserId(), request)
     );
   }
 }

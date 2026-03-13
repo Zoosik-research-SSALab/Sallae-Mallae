@@ -8,8 +8,6 @@ import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import com.sallaemallae.backend.domain.auth.service.PasswordValidator;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
-import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
 import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
@@ -212,29 +210,4 @@ public class UserServiceImpl implements UserService {
     return Map.of("userId", userId, "message", "delete profile boilerplate");
   }
 
-  @Override
-  @Transactional(readOnly = true)
-  public NotificationSettingsResponse getNotificationSettings(Long userId) {
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new BusinessException(GlobalErrorCode.NOT_FOUND));
-
-    return new NotificationSettingsResponse(user.isNotiEnabled(), user.isEmailOptIn());
-  }
-
-  @Override
-  @Transactional
-  public NotificationSettingsResponse updateNotificationSettings(Long userId,
-      NotificationSettingsUpdateRequest request) {
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new BusinessException(GlobalErrorCode.NOT_FOUND));
-
-    if (request.isNotiEnabled() != null) {
-      user.updateNotiEnabled(request.isNotiEnabled());
-    }
-    if (request.isEmailNotiEnabled() != null) {
-      user.updateEmailOptIn(request.isEmailNotiEnabled());
-    }
-
-    return new NotificationSettingsResponse(user.isNotiEnabled(), user.isEmailOptIn());
-  }
 }
