@@ -225,15 +225,17 @@ def start_scheduler() -> None:
     """
     스케줄 작업을 등록하고 무한 루프를 시작합니다.
 
-    등록 작업:
-    - 매일 16:30 일일 증분 업데이트 (run_daily_update)
-      - 내부에서 거래일/비거래일 판별 후 실행 여부 결정
-      - 분기 시즌 첫 거래일이면 재무 데이터 추가 수집
+    실행 흐름:
+    1. 기동 시 즉시 증분 업데이트 1회 실행 (밀린 데이터 보충)
+    2. 매일 16:30 일일 증분 업데이트 (run_daily_update)
+       - 내부에서 거래일/비거래일 판별 후 실행 여부 결정
+       - 분기 시즌 첫 거래일이면 재무 데이터 추가 수집
 
     루프는 1분마다 pending 작업을 확인합니다.
     KeyboardInterrupt(Ctrl+C) 또는 SystemExit 시 정상 종료합니다.
     """
-    logger.info("스케줄러 등록 시작")
+    logger.info("스케줄러 시작 - 초기 데이터 동기화 실행")
+    run_daily_update()
 
     # 매일 16:30 일일 업데이트
     schedule.every().day.at("16:30").do(run_daily_update)
