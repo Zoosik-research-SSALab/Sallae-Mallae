@@ -16,6 +16,7 @@ import com.sallaemallae.backend.domain.main.repository.MainStockQueryRepository;
 import com.sallaemallae.backend.global.sse.SseManager;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
@@ -318,13 +319,18 @@ public class MainServiceImpl implements MainService {
         return 0f;
     }
 
-    /** SSE 초기 데이터 전송 (연결 직후 클라이언트에게 현재 데이터 전달) */
+    /** SSE 초기 데이터 비동기 전송 (return emitter 이후 Spring async 시작된 뒤 전송하여 즉시 flush 보장) */
     private void sendInitial(SseEmitter emitter, String channel, Object data) {
-        try {
-            emitter.send(SseEmitter.event().data(data));
-        } catch (IOException e) {
-            log.debug("SSE 초기 데이터 전송 실패: channel={}", channel);
-        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(100);
+                emitter.send(SseEmitter.event().data(data));
+                log.debug("SSE 초기 데이터 전송 성공: channel={}", channel);
+            } catch (IOException | InterruptedException e) {
+                log.warn("SSE 초기 데이터 전송 실패: channel={}", channel);
+                emitter.completeWithError(e);
+            }
+        });
     }
 
     private float toFloat(Object value) {
