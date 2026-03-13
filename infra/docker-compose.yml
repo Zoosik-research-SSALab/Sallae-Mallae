@@ -107,7 +107,9 @@ services:
       - app-net
 
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./postgres
+    image: sallae/postgres-timescale-pgvector:pg16
     container_name: postgres
     restart: unless-stopped
     environment:
