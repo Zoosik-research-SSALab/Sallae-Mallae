@@ -32,6 +32,10 @@ build/
 ### VS Code ###
 .vscode/
 
+### Environment ###
+.env
+!.env.example
+
 ### Claude Code ###
 .claude/
 .omc/
