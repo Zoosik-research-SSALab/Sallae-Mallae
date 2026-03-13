@@ -35,6 +35,9 @@ from config import (
     RAW_MACRO_PATH,
     RAW_OHLCV_PATH,
     RAW_SUPPLY_PATH,
+    RCLONE_AUTO_SYNC,
+    RCLONE_REMOTE,
+    RCLONE_SYNC_DIRS,
 )
 from utils.logger import setup_logger
 
@@ -334,6 +337,25 @@ def run_full_pipeline(
     step_results: dict[str, str] = {}
     fatal = False
 
+    # 0. rclone 다운로드 동기화 (Drive → 로컬, 대상 디렉토리만)
+    if RCLONE_AUTO_SYNC and RCLONE_REMOTE:
+        from utils.drive_utils import rclone_sync_down
+        failed = []
+        for subdir in RCLONE_SYNC_DIRS:
+            logger.info("rclone 다운로드: %s/%s → %s", RCLONE_REMOTE, subdir, BASE_PATH / subdir)
+            try:
+                if not rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir=subdir):
+                    failed.append(subdir)
+            except Exception as exc:
+                logger.error("rclone 다운로드 실패 (%s): %s", subdir, exc)
+                failed.append(subdir)
+        if failed:
+            step_results["rclone_down"] = f"PARTIAL (실패: {', '.join(failed)})"
+        else:
+            step_results["rclone_down"] = "OK"
+    else:
+        step_results["rclone_down"] = "SKIPPED"
+
     # 1. Drive 폴더 구조 확인
     try:
         _check_drive_structure()
@@ -378,7 +400,26 @@ def run_full_pipeline(
             logger.error("품질 검증 단계 예외: %s", exc)
             step_results["quality_check"] = f"FAIL: {exc}"
 
-    # 5. 완료 요약 로그
+    # 5. rclone 업로드 동기화 (로컬 → Drive, 대상 디렉토리만)
+    if RCLONE_AUTO_SYNC and RCLONE_REMOTE:
+        from utils.drive_utils import rclone_sync_up
+        failed = []
+        for subdir in RCLONE_SYNC_DIRS:
+            logger.info("rclone 업로드: %s → %s/%s", BASE_PATH / subdir, RCLONE_REMOTE, subdir)
+            try:
+                if not rclone_sync_up(BASE_PATH, RCLONE_REMOTE, subdir=subdir):
+                    failed.append(subdir)
+            except Exception as exc:
+                logger.error("rclone 업로드 실패 (%s): %s", subdir, exc)
+                failed.append(subdir)
+        if failed:
+            step_results["rclone_up"] = f"PARTIAL (실패: {', '.join(failed)})"
+        else:
+            step_results["rclone_up"] = "OK"
+    else:
+        step_results["rclone_up"] = "SKIPPED"
+
+    # 6. 완료 요약 로그
     elapsed = time.monotonic() - pipeline_start
     end_dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
