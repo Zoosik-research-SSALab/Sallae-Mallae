@@ -27,10 +27,18 @@ news/
 ├── processors/            # 후처리 모듈
 │   ├── clean_articles.py  # 기사 중복 제거 + 광고/노이즈 필터링
 │   ├── keyword_batch.py   # Gemini API 키워드 추출 + 임베딩 클러스터링
-│   └── nlp_processor.py   # NLP 백엔드 (Claude/Gemini/Ollama) ※ 수정 금지
+│   ├── embed_keywords.py  # 미임베딩 키워드 → keyword_embeddings (e5-small)
+│   ├── nlp_processor.py   # NLP 백엔드 (Claude/Gemini/Ollama) ※ 수정 금지
+│   └── sentiment_analyzer.py # 감성분석 모듈
 │
-└── loaders/               # DB 적재 모듈
-    └── csv_loader.py      # CSV → DB 벌크 적재 (네이버/SSAFY 형식 자동 감지)
+├── loaders/               # DB 적재 모듈
+│   ├── csv_loader.py      # CSV → DB 벌크 적재 (네이버/SSAFY 형식 자동 감지)
+│   └── backfill_loader.py # GPU 백필 CSV → DB 적재 (키워드+감성 포함)
+│
+├── gpu/                   # GPU 서버용 노트북
+│   └── backfill_keywords.ipynb  # 키워드 추출 + 감성분석 (vLLM + FinBERT)
+│
+└── pipeline.py            # 백필 파이프라인 오케스트레이터
 ```
 
 ## 크롤링
@@ -164,6 +172,78 @@ python -m processors.keyword_batch --days 7
 python -m processors.keyword_batch --batch-size 50 --delay 1.0
 ```
 
+## GPU 백필 파이프라인
+
+외부 GPU 서버에서 키워드 추출 + 감성분석을 처리하고, EC2에서 DB에 적재하는 흐름입니다.
+
+### 전체 흐름
+
+```
+GPU 서버 (JupyterHub)              EC2 (news-scheduler 컨테이너)
+─────────────────────              ─────────────────────────────
+1. zip 업로드 → 해제
+2. vLLM 서버 실행
+3. backfill_keywords.ipynb 실행
+   → 키워드 추출 (Qwen2.5-7B)
+   → 감성분석 (FinBERT + LLM)
+   → 하드 샘플 추출
+4. 결과 CSV zip 다운로드
+                                   5. zip 업로드 → 컨테이너에 복사
+                                   6. pipeline.py all 실행
+                                      → DB 적재 (뉴스+감성+키워드)
+                                      → 키워드 임베딩 생성 (e5-small)
+```
+
+### GPU 서버 (키워드 추출 + 감성분석)
+
+```bash
+# vLLM 서버 실행 (별도 터미널)
+vllm serve Qwen/Qwen2.5-7B-Instruct \
+  --dtype auto --max-model-len 4096 \
+  --gpu-memory-utilization 0.5 --disable-log-requests
+
+# JupyterHub에서 gpu/backfill_keywords.ipynb 실행
+# 입력:  data/news_backfill/{연도}/{종목코드}_{종목명}.csv
+# 출력:  output/backfill_processed/{연도}/{종목코드}_{종목명}.csv
+# 하드샘플: output/hard_samples/hard_samples_YYYYMMDD.jsonl
+```
+
+**입력 CSV 컬럼**: `title, article_url, source, date, code, name, body, full_body`
+
+**출력 CSV 추가 컬럼**: `keywords, sentiment_score, sentiment_label, llm_label, llm_score, finbert_label, finbert_score, is_hard_sample`
+
+### EC2 DB 적재
+
+```bash
+# 1. PC에서 EC2로 결과 zip 전송
+scp backfill_processed.zip ubuntu@EC2_IP:~/
+
+# 2. EC2에서 컨테이너에 복사
+unzip backfill_processed.zip -d ~/backfill_data
+docker cp ~/backfill_data/. news-scheduler:/app/output/backfill_processed/
+
+# 3. DB 적재 + 키워드 임베딩 생성
+docker exec -it news-scheduler python pipeline.py all \
+  --data-dir output/backfill_processed/ --resume
+```
+
+### pipeline.py 서브커맨드
+
+| 커맨드 | 설명 |
+|--------|------|
+| `backfill --data-dir PATH` | CSV → DB 적재만 (stock_news, stock_news_map, keywords, news_keyword_map) |
+| `embed` | 미임베딩 키워드 → keyword_embeddings 생성 (e5-small 384차원) |
+| `all --data-dir PATH` | 적재 + 임베딩 한번에 실행 |
+
+모든 커맨드에 `--resume` 추가 시 체크포인트 기반 이어서 적재 가능.
+
+### 하드 샘플 (파인튜닝용)
+
+GPU 노트북에서 FinBERT vs LLM 감성 불일치 기사를 자동 추출합니다.
+- **라벨 불일치**: finbert_label ≠ llm_label
+- **저신뢰**: finbert_score 또는 llm_score < 0.7
+- 출력: `output/hard_samples/hard_samples_YYYYMMDD.jsonl`
+
 ## 환경 변수
 
 | 변수 | 설명 | 기본값 |
@@ -171,7 +251,9 @@ python -m processors.keyword_batch --batch-size 50 --delay 1.0
 | `AI_DB_URL` | PostgreSQL 연결 URL | `postgresql+psycopg2://app_dev_user:change_me_dev@localhost:5432/app_dev` |
 | `GEMINI_API_KEY` | Gemini API 키 (키워드 추출) | - |
 | `ANTHROPIC_API_KEY` | Claude API 키 (키워드 추출, 대안) | - |
-| `GDRIVE_NEWS_FOLDER_ID` | Google Drive 뉴스 폴더 ID | `1XLqr6uAYkCsjYUXQfJHInmOtVILgy4mb` |
+| `GDRIVE_NEWS_FOLDER_ID` | Google Drive 뉴스 폴더 ID | - |
+| `GMS_API_URL` | GMS 프록시 URL (SSAFY Gemini) | `https://gms.ssafy.io/...` |
+| `GMS_API_KEY` | GMS API 키 | - |
 
 ## DB 테이블 (ERD)
 
@@ -200,7 +282,7 @@ Docker로 독립 컨테이너에서 실행할 수 있습니다.
 
 ```bash
 cd 1_data_pipeline/news/
-cp .env.example .env    # DB URL, API 키 입력
+cp base.env.example base.env    # DB URL, API 키 입력
 ```
 
 ### 서비스 구성
@@ -234,10 +316,26 @@ docker compose up -d news-scheduler
 
 ## 전체 실행 흐름 (권장 순서)
 
+### A. 백필 (과거 데이터 일괄 적재)
+
 ```
-1. 백필 크롤링    →  python -m crawlers.backfill --start-date 2024-01-01
-2. 기사 정제      →  python -m processors.clean_articles output/backfill_xxx/
-3. CSV → DB 적재  →  python -m loaders.csv_loader output/backfill_xxx/
+1. [GPU] 뉴스 CSV를 Google Drive에서 다운로드
+2. [GPU] backfill_keywords.ipynb 실행 (키워드 + 감성분석)
+3. [GPU] 결과 CSV zip 다운로드
+4. [EC2] zip 업로드 → news-scheduler 컨테이너에 복사
+5. [EC2] python pipeline.py all --data-dir output/backfill_processed/ --resume
+```
+
+### B. 일일 (매일 신규 기사)
+
+```
+1. 일일 크롤링    →  python -m crawlers.daily
+2. 기사 정제      →  python -m processors.clean_articles output/daily_xxx/
+3. CSV → DB 적재  →  python -m loaders.csv_loader output/filtered_xxx/
 4. 키워드 추출    →  python -m processors.keyword_batch
-5. (매일) 일일 크롤링 →  python -m crawlers.daily
+```
+
+또는 `scheduler.py`로 장마감 후 자동 실행:
+```bash
+docker exec -d news-scheduler python scheduler.py --time 16:30
 ```
