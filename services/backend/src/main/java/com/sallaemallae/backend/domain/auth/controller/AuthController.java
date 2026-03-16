@@ -2,6 +2,8 @@ package com.sallaemallae.backend.domain.auth.controller;
 
 import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
+import com.sallaemallae.backend.domain.auth.dto.DeviceSessionListResponse;
+import com.sallaemallae.backend.domain.auth.dto.LogoutAllResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
 import com.sallaemallae.backend.domain.auth.dto.OAuthCallbackRequest;
@@ -16,7 +18,10 @@ import com.sallaemallae.backend.domain.auth.dto.SignupRequest;
 import com.sallaemallae.backend.domain.auth.dto.SignupResponse;
 import com.sallaemallae.backend.domain.auth.dto.VerifyCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.VerifyCodeResponse;
+import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.domain.auth.service.AuthService;
+import com.sallaemallae.backend.domain.auth.service.DeviceSessionService;
+import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,9 +31,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,6 +52,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
   private final AuthService authService;
+  private final DeviceSessionService deviceSessionService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
 
   @Operation(summary = "현재 사용자 정보 조회", description = "JWT 인증된 사용자의 프로필 정보를 반환합니다. 페이지 새로고침 시 사용자 상태 복원에 사용됩니다.")
@@ -149,6 +157,22 @@ public class AuthController {
     return ApiResponse.success();
   }
 
+  @Operation(summary = "전체 디바이스 로그아웃", description = "모든 기기에서 로그아웃합니다. 모든 세션과 토큰이 무효화됩니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "전체 로그아웃 성공"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+  })
+  @PostMapping("/logout/all")
+  public ApiResponse<LogoutAllResponse> logoutAll(
+      @Parameter(description = "Bearer {accessToken}", required = true) @RequestHeader("Authorization") String authorization,
+      @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") @Size(max = 255) String deviceId,
+      HttpServletResponse response) {
+
+    String accessToken = extractAccessToken(authorization);
+    int invalidated = authService.logoutAll(accessToken, deviceId, response);
+    return ApiResponse.success(LogoutAllResponse.of(invalidated));
+  }
+
   @Operation(summary = "토큰 갱신", description = "Refresh Token(쿠키)을 사용하여 새로운 Access Token을 발급받습니다.")
   @ApiResponses({
       @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "토큰 갱신 성공"),
@@ -240,6 +264,36 @@ public class AuthController {
     LoginResponse loginResponse = authService.oauthTermsAgree(
         request, deviceId, userAgent, ipAddress, response);
     return ApiResponse.success(loginResponse);
+  }
+
+  @Operation(summary = "디바이스 세션 목록 조회", description = "현재 로그인된 모든 디바이스 세션을 조회합니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+  })
+  @GetMapping("/sessions")
+  public ApiResponse<DeviceSessionListResponse> getSessions(
+      @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") @Size(max = 255) String deviceId) {
+    Long userId = authenticatedUserProvider.getCurrentUserId();
+    return ApiResponse.success(deviceSessionService.getSessions(userId, deviceId));
+  }
+
+  @Operation(summary = "디바이스 세션 제거", description = "특정 디바이스의 세션을 원격으로 제거합니다. 현재 사용 중인 세션은 제거할 수 없습니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "세션 제거 성공"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "현재 세션은 제거 불가"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+  })
+  @DeleteMapping("/sessions/{targetDeviceId}")
+  public ApiResponse<Void> revokeSession(
+      @Parameter(description = "제거할 디바이스 ID", required = true) @PathVariable String targetDeviceId,
+      @Parameter(description = "현재 기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") @Size(max = 255) String deviceId) {
+    if (deviceId.equals(targetDeviceId)) {
+      throw new BusinessException(AuthErrorCode.SESSION_CANNOT_REVOKE_CURRENT);
+    }
+    Long userId = authenticatedUserProvider.getCurrentUserId();
+    deviceSessionService.revokeSession(userId, targetDeviceId);
+    return ApiResponse.success();
   }
 
   private String extractAccessToken(String authorization) {
