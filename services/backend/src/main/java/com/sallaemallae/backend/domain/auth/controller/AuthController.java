@@ -18,6 +18,7 @@ import com.sallaemallae.backend.domain.auth.dto.VerifyCodeRequest;
 import com.sallaemallae.backend.domain.auth.dto.VerifyCodeResponse;
 import com.sallaemallae.backend.domain.auth.service.AuthService;
 import com.sallaemallae.backend.global.response.ApiResponse;
+import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -44,6 +45,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
   private final AuthService authService;
+  private final AuthenticatedUserProvider authenticatedUserProvider;
+
+  @Operation(summary = "현재 사용자 정보 조회", description = "JWT 인증된 사용자의 프로필 정보를 반환합니다. 페이지 새로고침 시 사용자 상태 복원에 사용됩니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+  })
+  @GetMapping("/me")
+  public ApiResponse<LoginResponse.UserInfo> getCurrentUser() {
+    return ApiResponse.success(
+        authService.getCurrentUser(authenticatedUserProvider.getCurrentUserId()));
+  }
 
   @Operation(summary = "인증 상태 확인", description = "현재 인증 상태를 반환합니다.")
   @GetMapping("/status")
