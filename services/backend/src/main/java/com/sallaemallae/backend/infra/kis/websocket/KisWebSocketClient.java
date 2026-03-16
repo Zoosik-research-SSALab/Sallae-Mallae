@@ -175,11 +175,10 @@ public class KisWebSocketClient {
 
     scheduler.execute(() -> {
       try {
-        WebSocket socket = httpClient.newWebSocketBuilder()
+        httpClient.newWebSocketBuilder()
             .connectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
             .buildAsync(URI.create(properties.wsBaseUrl()), new KisListener())
             .join();
-        webSocket = socket;
       } catch (Exception e) {
         connected.set(false);
         webSocket = null;
@@ -225,6 +224,10 @@ public class KisWebSocketClient {
       ));
       current.sendText(payload, true);
     } catch (Exception e) {
+      CompletableFuture<KisWebSocketSubscriptionAck> pending = pendingAcknowledgements.remove(subscription);
+      if (pending != null && !pending.isDone()) {
+        pending.completeExceptionally(e);
+      }
       log.warn("Failed to send KIS websocket subscription. topic={}, ticker={}", subscription.topic(), subscription.ticker(), e);
     }
   }

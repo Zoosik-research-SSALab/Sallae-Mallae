@@ -250,7 +250,15 @@ public class KisDomesticStockClient {
 
   private void sleepBeforeRetry(int attempt) {
     long baseDelayMillis = Math.max(0L, properties.getRetryBackoffMillis());
-    long delay = baseDelayMillis * (1L << Math.max(0, attempt - 1));
+    int shift = Math.min(Math.max(0, attempt - 1), 20);
+    long multiplier = 1L << shift;
+    long delay;
+    try {
+      delay = Math.multiplyExact(baseDelayMillis, multiplier);
+    } catch (ArithmeticException e) {
+      delay = Long.MAX_VALUE;
+    }
+    delay = Math.min(delay, 30_000L);
     try {
       Thread.sleep(delay);
     } catch (InterruptedException e) {

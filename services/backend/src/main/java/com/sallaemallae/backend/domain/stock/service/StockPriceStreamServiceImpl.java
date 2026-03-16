@@ -30,7 +30,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -83,7 +82,7 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     this.kisProperties = kisProperties;
     this.kisWebSocketClient = kisWebSocketClient;
     this.candleAggregator = candleAggregator;
-    ScheduledThreadPoolExecutor executor = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(
+    ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
         Math.max(2, schedulerPoolSize)
     );
     executor.setRemoveOnCancelPolicy(true);
