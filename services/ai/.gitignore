@@ -9,3 +9,6 @@ artifacts/
 .claude/
 CLAUDE.md
 ipynb/
+
+# 환경변수
+.env

@@ -82,4 +82,8 @@ PARQUET_COMPRESSION: str = "snappy"   # Parquet 압축 방식
 # ---------------------------------------------------------------------------
 RCLONE_REMOTE: str | None = os.environ.get("RCLONE_REMOTE")  # 예: "gdrive:kospi200-project"
 RCLONE_AUTO_SYNC: bool = os.environ.get("RCLONE_AUTO_SYNC", "false").lower() == "true"
-RCLONE_SYNC_DIRS: list[str] = ["raw", "processed"]  # 동기화 대상 디렉토리
+RCLONE_SYNC_DIRS: list[str] = [
+    "raw/ohlcv", "raw/supply_demand", "raw/macro", "raw/financial",
+    "raw/universe", "raw/fundamental",
+    "processed/base_features",
+]  # rclone 동기화 대상 (subdir 단위, 다운로드·업로드 대칭)

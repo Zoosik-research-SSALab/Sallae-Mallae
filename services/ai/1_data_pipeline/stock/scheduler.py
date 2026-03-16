@@ -154,7 +154,8 @@ def run_daily_update() -> None:
     일일 증분 업데이트를 실행합니다.
 
     거래일 여부를 확인한 후:
-    - 거래일: 데이터 수집 + 피처 엔지니어링 실행
+    - 거래일: run_full_pipeline(incremental) 실행
+      (rclone 다운로드 → 수집 → 피처 → 품질검증 → rclone 업로드)
     - 비거래일: 스킵 로그 후 종료
 
     분기 시즌 첫 거래일에는 재무 데이터 수집도 추가 실행합니다.
@@ -170,20 +171,25 @@ def run_daily_update() -> None:
 
     try:
         import pipeline
-        pipeline.run_collection(mode="incremental")
+        pipeline.run_full_pipeline(mode="incremental")
+    except SystemExit:
+        logger.error("파이프라인 치명적 오류 발생 (계속 진행)")
     except Exception as exc:
-        logger.error("증분 수집 실패: %s", exc)
+        logger.error("파이프라인 실행 실패: %s", exc)
 
-    try:
-        import pipeline
-        pipeline.run_feature_engineering()
-    except Exception as exc:
-        logger.error("피처 엔지니어링 실패: %s", exc)
-
-    # 분기 시즌 첫 거래일이면 재무 데이터 추가 수집
+    # 분기 시즌 첫 거래일이면 재무 데이터 추가 수집 + Drive 업로드
     if is_quarter_month() and _is_first_trading_day_of_month():
         logger.info("분기 시즌 첫 거래일 감지 - 재무 데이터 추가 수집")
         run_quarterly_financial()
+        # 분기 재무 데이터를 Drive에 업로드
+        try:
+            from config import BASE_PATH, RCLONE_AUTO_SYNC, RCLONE_REMOTE
+            if RCLONE_AUTO_SYNC and RCLONE_REMOTE:
+                from utils.drive_utils import rclone_sync_up
+                rclone_sync_up(BASE_PATH, RCLONE_REMOTE, subdir="raw/financial")
+                logger.info("분기 재무 데이터 Drive 업로드 완료")
+        except Exception as exc:
+            logger.error("분기 재무 데이터 Drive 업로드 실패: %s", exc)
 
     logger.info("일일 업데이트 완료 | 날짜: %s", today.isoformat())
 
@@ -221,19 +227,45 @@ def run_quarterly_financial() -> None:
 # 스케줄러
 # ---------------------------------------------------------------------------
 
+def _startup_sync_down() -> None:
+    """
+    컨테이너 기동 시 Drive에서 데이터를 무조건 다운로드합니다.
+
+    거래일 여부와 무관하게 실행됩니다.
+    EC2는 영속 볼륨이 없으므로, 기동 시 항상 Drive에서 데이터를 받아야
+    get_last_date() 등이 정상 동작합니다.
+    """
+    try:
+        from config import BASE_PATH, RCLONE_AUTO_SYNC, RCLONE_REMOTE, RCLONE_SYNC_DIRS
+        if not (RCLONE_AUTO_SYNC and RCLONE_REMOTE):
+            logger.info("rclone 미설정 - 초기 동기화 건너뜀")
+            return
+
+        from utils.drive_utils import rclone_sync_down
+        for subdir in RCLONE_SYNC_DIRS:
+            logger.info("초기 동기화 다운로드: %s/%s", RCLONE_REMOTE, subdir)
+            rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir=subdir)
+        logger.info("초기 동기화 다운로드 완료")
+    except Exception as exc:
+        logger.error("초기 동기화 실패: %s", exc)
+
+
 def start_scheduler() -> None:
     """
     스케줄 작업을 등록하고 무한 루프를 시작합니다.
 
-    등록 작업:
-    - 매일 16:30 일일 증분 업데이트 (run_daily_update)
-      - 내부에서 거래일/비거래일 판별 후 실행 여부 결정
-      - 분기 시즌 첫 거래일이면 재무 데이터 추가 수집
+    실행 흐름:
+    1. 기동 시 Drive에서 데이터 다운로드 (거래일 무관)
+    2. 매일 16:30 일일 증분 업데이트 (run_daily_update)
+       - 내부에서 거래일/비거래일 판별 후 실행 여부 결정
+       - 분기 시즌 첫 거래일이면 재무 데이터 추가 수집
 
     루프는 1분마다 pending 작업을 확인합니다.
     KeyboardInterrupt(Ctrl+C) 또는 SystemExit 시 정상 종료합니다.
     """
-    logger.info("스케줄러 등록 시작")
+    # 기동 시 Drive 데이터 동기화 (거래일 무관)
+    logger.info("스케줄러 시작 - 초기 데이터 동기화")
+    _startup_sync_down()
 
     # 매일 16:30 일일 업데이트
     schedule.every().day.at("16:30").do(run_daily_update)

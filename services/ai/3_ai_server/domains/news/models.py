@@ -1,7 +1,7 @@
 from sqlalchemy import BigInteger, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from shared_resources.core.base import Base
+from core.config import Base
 
 
 class StockNews(Base):
