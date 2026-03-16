@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -56,20 +57,27 @@ public class KisRealtimeMinuteCandleAggregator {
     String aggregateKey = aggregateKey(tick.marketCode(), tick.ticker());
     touch(aggregateKey);
 
-    currentCandles.compute(aggregateKey, (ignored, current) -> {
-      KisRealtimeMinuteCandleData base = current != null
-          ? current
-          : cacheRepository.getCurrentMinuteCandle(tick.marketCode(), tick.ticker()).orElse(null);
-      KisRealtimeMinuteCandleData updated = merge(base, tick);
-      cacheRepository.saveLatestTick(tick.marketCode(), tick.ticker(), tick, ttlPolicy.realtimeTickTtl());
-      cacheRepository.saveCurrentMinuteCandle(
-          tick.marketCode(),
-          tick.ticker(),
-          updated,
-          ttlPolicy.realtimeMinuteCurrentTtl()
-      );
-      return updated;
+    KisRealtimeMinuteCandleData cachedCurrent = loadCurrentCandle(
+        aggregateKey,
+        tick.marketCode(),
+        tick.ticker()
+    );
+    AtomicReference<KisRealtimeMinuteCandleData> closedCandleRef = new AtomicReference<>();
+
+    KisRealtimeMinuteCandleData updated = currentCandles.compute(aggregateKey, (ignored, current) -> {
+      MergeResult result = merge(current != null ? current : cachedCurrent, tick);
+      closedCandleRef.set(result.closedCandle());
+      return result.currentCandle();
     });
+
+    persistClosedCandleIfPresent(closedCandleRef.get());
+    cacheRepository.saveLatestTick(tick.marketCode(), tick.ticker(), tick, ttlPolicy.realtimeTickTtl());
+    cacheRepository.saveCurrentMinuteCandle(
+        tick.marketCode(),
+        tick.ticker(),
+        updated,
+        ttlPolicy.realtimeMinuteCurrentTtl()
+    );
   }
 
   public Optional<KisRealtimeTradeTickData> getLatestTick(String marketCode, String ticker) {
@@ -81,12 +89,7 @@ public class KisRealtimeMinuteCandleAggregator {
     String aggregateKey = aggregateKey(marketCode, ticker);
     touch(aggregateKey);
 
-    KisRealtimeMinuteCandleData current = currentCandles.compute(aggregateKey, (ignored, existing) -> {
-      KisRealtimeMinuteCandleData base = existing != null
-          ? existing
-          : cacheRepository.getCurrentMinuteCandle(marketCode, ticker).orElse(null);
-      return rollCurrentCandleIfExpired(base);
-    });
+    KisRealtimeMinuteCandleData current = refreshCurrentCandle(aggregateKey, marketCode, ticker);
     return Optional.ofNullable(current);
   }
 
@@ -94,12 +97,7 @@ public class KisRealtimeMinuteCandleAggregator {
     String aggregateKey = aggregateKey(marketCode, ticker);
     touch(aggregateKey);
 
-    currentCandles.compute(aggregateKey, (ignored, existing) -> {
-      KisRealtimeMinuteCandleData base = existing != null
-          ? existing
-          : cacheRepository.getCurrentMinuteCandle(marketCode, ticker).orElse(null);
-      return rollCurrentCandleIfExpired(base);
-    });
+    refreshCurrentCandle(aggregateKey, marketCode, ticker);
     return cacheRepository.trimToLimit(cacheRepository.getRecentMinuteCandles(marketCode, ticker), limit);
   }
 
@@ -115,7 +113,7 @@ public class KisRealtimeMinuteCandleAggregator {
     }
   }
 
-  private KisRealtimeMinuteCandleData merge(KisRealtimeMinuteCandleData current, KisRealtimeTradeTickData tick) {
+  private MergeResult merge(KisRealtimeMinuteCandleData current, KisRealtimeTradeTickData tick) {
     OffsetDateTime bucketStart = tick.tradedAt()
         .atZoneSameInstant(ZONE_ID)
         .truncatedTo(ChronoUnit.MINUTES)
@@ -123,30 +121,32 @@ public class KisRealtimeMinuteCandleAggregator {
     OffsetDateTime bucketEnd = bucketStart.plusMinutes(1);
 
     if (current == null) {
-      return newCandle(bucketStart, bucketEnd, tick);
+      return new MergeResult(null, newCandle(bucketStart, bucketEnd, tick));
     }
 
     if (!current.bucketStart().equals(bucketStart)) {
-      persistClosedCandle(current);
-      return newCandle(bucketStart, bucketEnd, tick);
+      return new MergeResult(toClosedCandle(current), newCandle(bucketStart, bucketEnd, tick));
     }
 
-    return new KisRealtimeMinuteCandleData(
-        current.marketCode(),
-        current.ticker(),
-        current.bucketStart(),
-        current.bucketEnd(),
-        current.openPrice(),
-        max(current.highPrice(), tick.currentPrice()),
-        min(current.lowPrice(), tick.currentPrice()),
-        tick.currentPrice(),
-        current.minuteVolume() + safeLong(tick.tradeVolume()),
-        tick.accumulatedVolume(),
-        tick.changeRate(),
-        current.tickCount() + 1,
-        tick.tradedAt(),
-        false,
-        current.source()
+    return new MergeResult(
+        null,
+        new KisRealtimeMinuteCandleData(
+            current.marketCode(),
+            current.ticker(),
+            current.bucketStart(),
+            current.bucketEnd(),
+            current.openPrice(),
+            max(current.highPrice(), tick.currentPrice()),
+            min(current.lowPrice(), tick.currentPrice()),
+            tick.currentPrice(),
+            current.minuteVolume() + safeLong(tick.tradeVolume()),
+            tick.accumulatedVolume(),
+            tick.changeRate(),
+            current.tickCount() + 1,
+            tick.tradedAt(),
+            false,
+            current.source()
+        )
     );
   }
 
@@ -179,23 +179,7 @@ public class KisRealtimeMinuteCandleAggregator {
     List<KisRealtimeMinuteCandleData> existing = new ArrayList<>(
         cacheRepository.getRecentMinuteCandles(candle.marketCode(), candle.ticker())
     );
-    KisRealtimeMinuteCandleData closed = new KisRealtimeMinuteCandleData(
-        candle.marketCode(),
-        candle.ticker(),
-        candle.bucketStart(),
-        candle.bucketEnd(),
-        candle.openPrice(),
-        candle.highPrice(),
-        candle.lowPrice(),
-        candle.closePrice(),
-        candle.minuteVolume(),
-        candle.accumulatedVolume(),
-        candle.changeRate(),
-        candle.tickCount(),
-        candle.lastTradeAt(),
-        true,
-        candle.source()
-    );
+    KisRealtimeMinuteCandleData closed = toClosedCandle(candle);
 
     if (!existing.isEmpty() && existing.get(0).bucketStart().equals(closed.bucketStart())) {
       existing.set(0, closed);
@@ -213,19 +197,71 @@ public class KisRealtimeMinuteCandleAggregator {
     );
   }
 
-  private KisRealtimeMinuteCandleData rollCurrentCandleIfExpired(KisRealtimeMinuteCandleData current) {
+  private KisRealtimeMinuteCandleData refreshCurrentCandle(String aggregateKey, String marketCode, String ticker) {
+    KisRealtimeMinuteCandleData cachedCurrent = loadCurrentCandle(aggregateKey, marketCode, ticker);
+    AtomicReference<KisRealtimeMinuteCandleData> expiredCandleRef = new AtomicReference<>();
+
+    KisRealtimeMinuteCandleData current = currentCandles.compute(aggregateKey, (ignored, existing) -> {
+      KisRealtimeMinuteCandleData base = existing != null ? existing : cachedCurrent;
+      ExpiredCurrentResult result = splitExpiredCurrent(base);
+      expiredCandleRef.set(result.expiredCandle());
+      return result.activeCandle();
+    });
+
+    KisRealtimeMinuteCandleData expiredCandle = expiredCandleRef.get();
+    if (expiredCandle != null) {
+      persistClosedCandle(expiredCandle);
+      cacheRepository.deleteCurrentMinuteCandle(marketCode, ticker);
+    }
+
+    return current;
+  }
+
+  private KisRealtimeMinuteCandleData loadCurrentCandle(String aggregateKey, String marketCode, String ticker) {
+    KisRealtimeMinuteCandleData current = currentCandles.get(aggregateKey);
+    if (current != null) {
+      return current;
+    }
+    return cacheRepository.getCurrentMinuteCandle(marketCode, ticker).orElse(null);
+  }
+
+  private ExpiredCurrentResult splitExpiredCurrent(KisRealtimeMinuteCandleData current) {
     if (current == null) {
-      return null;
+      return new ExpiredCurrentResult(null, null);
     }
 
     OffsetDateTime now = OffsetDateTime.now(clock);
     if (now.isBefore(current.bucketEnd())) {
-      return current;
+      return new ExpiredCurrentResult(current, null);
     }
 
-    persistClosedCandle(current);
-    cacheRepository.deleteCurrentMinuteCandle(current.marketCode(), current.ticker());
-    return null;
+    return new ExpiredCurrentResult(null, toClosedCandle(current));
+  }
+
+  private void persistClosedCandleIfPresent(KisRealtimeMinuteCandleData candle) {
+    if (candle != null) {
+      persistClosedCandle(candle);
+    }
+  }
+
+  private KisRealtimeMinuteCandleData toClosedCandle(KisRealtimeMinuteCandleData candle) {
+    return new KisRealtimeMinuteCandleData(
+        candle.marketCode(),
+        candle.ticker(),
+        candle.bucketStart(),
+        candle.bucketEnd(),
+        candle.openPrice(),
+        candle.highPrice(),
+        candle.lowPrice(),
+        candle.closePrice(),
+        candle.minuteVolume(),
+        candle.accumulatedVolume(),
+        candle.changeRate(),
+        candle.tickCount(),
+        candle.lastTradeAt(),
+        true,
+        candle.source()
+    );
   }
 
   private void touch(String aggregateKey) {
@@ -246,5 +282,17 @@ public class KisRealtimeMinuteCandleAggregator {
 
   private long safeLong(Long value) {
     return value != null ? value : 0L;
+  }
+
+  private record MergeResult(
+      KisRealtimeMinuteCandleData closedCandle,
+      KisRealtimeMinuteCandleData currentCandle
+  ) {
+  }
+
+  private record ExpiredCurrentResult(
+      KisRealtimeMinuteCandleData activeCandle,
+      KisRealtimeMinuteCandleData expiredCandle
+  ) {
   }
 }

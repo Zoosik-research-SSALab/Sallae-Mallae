@@ -46,7 +46,6 @@ public class KisWebSocketClient {
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
   private final AtomicBoolean connecting = new AtomicBoolean(false);
   private final AtomicBoolean connected = new AtomicBoolean(false);
-  private final Set<Subscription> subscriptions = ConcurrentHashMap.newKeySet();
   private final Map<String, Subscription> subscriptionsByLookupKey = new ConcurrentHashMap<>();
   private final Map<Subscription, CompletableFuture<KisWebSocketSubscriptionAck>> pendingAcknowledgements =
       new ConcurrentHashMap<>();
@@ -79,7 +78,6 @@ public class KisWebSocketClient {
     Subscription requested = new Subscription(resolveTopic(marketCode), marketCode, ticker);
     String lookupKey = subscriptionLookupKey(requested.topic(), requested.ticker());
     Subscription subscription = subscriptionsByLookupKey.computeIfAbsent(lookupKey, ignored -> requested);
-    subscriptions.add(subscription);
     touchSubscription(subscription);
 
     KisWebSocketSubscriptionAck acknowledged = acknowledgedSubscriptions.get(subscription);
@@ -135,7 +133,7 @@ public class KisWebSocketClient {
     OffsetDateTime threshold = OffsetDateTime.now(ZONE_ID)
         .minusMinutes(Math.max(1, properties.getRealtimeSubscriptionTtlMinutes()));
 
-    for (Subscription subscription : List.copyOf(subscriptions)) {
+    for (Subscription subscription : List.copyOf(subscriptionsByLookupKey.values())) {
       OffsetDateTime lastTouched = subscriptionTouchedAt.get(subscription);
       if (lastTouched != null && lastTouched.isBefore(threshold)) {
         unsubscribeAndEvict(subscription, "실시간 시세 구독이 만료되었습니다.");
@@ -145,7 +143,7 @@ public class KisWebSocketClient {
 
   @PreDestroy
   public void shutdown() {
-    for (Subscription subscription : List.copyOf(subscriptions)) {
+    for (Subscription subscription : List.copyOf(subscriptionsByLookupKey.values())) {
       unsubscribeAndEvict(subscription, "애플리케이션이 종료되었습니다.");
     }
 
@@ -157,7 +155,7 @@ public class KisWebSocketClient {
   }
 
   private void connectIfNecessary() {
-    if (connected.get() || subscriptions.isEmpty() || !connecting.compareAndSet(false, true)) {
+    if (connected.get() || subscriptionsByLookupKey.isEmpty() || !connecting.compareAndSet(false, true)) {
       return;
     }
 
@@ -170,7 +168,7 @@ public class KisWebSocketClient {
         webSocket = socket;
         connected.set(true);
         resubscribeAll();
-        log.info("Connected to KIS websocket. url={}, subscriptions={}", properties.wsBaseUrl(), subscriptions.size());
+        log.info("Connected to KIS websocket. url={}, subscriptions={}", properties.wsBaseUrl(), subscriptionsByLookupKey.size());
       } catch (Exception e) {
         connected.set(false);
         webSocket = null;
@@ -183,7 +181,7 @@ public class KisWebSocketClient {
   }
 
   private void resubscribeAll() {
-    for (Subscription subscription : subscriptions) {
+    for (Subscription subscription : List.copyOf(subscriptionsByLookupKey.values())) {
       sendSubscriptionMessage(subscription, true);
     }
   }
@@ -312,7 +310,7 @@ public class KisWebSocketClient {
   }
 
   private void scheduleReconnect() {
-    if (subscriptions.isEmpty()) {
+    if (subscriptionsByLookupKey.isEmpty()) {
       return;
     }
     scheduler.schedule(this::connectIfNecessary, RECONNECT_DELAY_SECONDS, TimeUnit.SECONDS);
@@ -327,7 +325,6 @@ public class KisWebSocketClient {
       sendSubscriptionMessage(subscription, false);
     }
 
-    subscriptions.remove(subscription);
     subscriptionsByLookupKey.remove(subscriptionLookupKey(subscription.topic(), subscription.ticker()));
     subscriptionTouchedAt.remove(subscription);
     acknowledgedSubscriptions.remove(subscription);

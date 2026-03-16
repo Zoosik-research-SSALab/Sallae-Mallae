@@ -51,16 +51,16 @@ class StockTopListServiceImplTest {
             "J",
             OffsetDateTime.parse("2026-03-13T10:00:00+09:00"),
             List.of(
-                new KisTopInterestStockItem(1, "005930", "?쇱꽦?꾩옄", 70000, 1500, "2", 2.2f, 100000L, 7000000000L, 70000, 69900, 321),
+                new KisTopInterestStockItem(1, "005930", "삼성전자", 70000, 1500, "2", 2.2f, 100000L, 7000000000L, 70000, 69900, 321),
                 new KisTopInterestStockItem(2, "035420", "NAVER", 200000, 200, "3", 0.3f, 50000L, 10000000000L, 200100, 199900, 280),
-                new KisTopInterestStockItem(3, "000660", "SK?섏씠?됱뒪", 180000, -3600, "5", -2.0f, 70000L, 12600000000L, 180100, 179900, 250)
+                new KisTopInterestStockItem(3, "000660", "SK하이닉스", 180000, -3600, "5", -2.0f, 70000L, 12600000000L, 180100, 179900, 250)
             ),
             "KIS"
         )
     ));
-    Stock samsung = stock(1L, "005930", "?쇱꽦?꾩옄", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock samsung = stock(1L, "005930", "삼성전자", "Information Technology", "Semiconductor", 5_919_637_922L);
     Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
-    Stock hynix = stock(3L, "000660", "SK?섏씠?됱뒪", "Information Technology", "Semiconductor", 728_002_365L);
+    Stock hynix = stock(3L, "000660", "SK하이닉스", "Information Technology", "Semiconductor", 728_002_365L);
     given(stockRepository.findAllByTickerInAndIsActiveTrue(List.of("005930", "035420", "000660")))
         .willReturn(List.of(samsung, naver, hynix));
     given(watchlistService.getWatchlistedStockIds(99L)).willReturn(Set.of(1L));
@@ -92,15 +92,15 @@ class StockTopListServiceImplTest {
         new KisTopInterestStockData(
             "J",
             OffsetDateTime.parse("2026-03-13T10:00:00+09:00"),
-            List.of(new KisTopInterestStockItem(1, "005930", "?쇱꽦?꾩옄", 70000, 1500, "2", 2.2f, 100000L, 7000000000L, 70000, 69900, 321)),
+            List.of(new KisTopInterestStockItem(1, "005930", "삼성전자", 70000, 1500, "2", 2.2f, 100000L, 7000000000L, 70000, 69900, 321)),
             "KIS"
         )
     ));
-    Stock samsung = stock(1L, "005930", "?쇱꽦?꾩옄", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock samsung = stock(1L, "005930", "삼성전자", "Information Technology", "Semiconductor", 5_919_637_922L);
     given(stockRepository.findAllByTickerInAndIsActiveTrue(List.of("005930")))
         .willReturn(List.of(samsung));
 
-    StockListResponse response = service.getTopStocks(null, "BUY", "IT", "LARGE", "MARKET_CAP", "?쇱꽦", 0, 10);
+    StockListResponse response = service.getTopStocks(null, "BUY", "IT", "LARGE", "MARKET_CAP", "삼성", 0, 10);
 
     assertThat(response.filterCounts().buy()).isEqualTo(1);
     assertThat(response.stocks()).hasSize(1);
