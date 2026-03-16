@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BiBarChartAlt2 } from "react-icons/bi";
 import { GoBook, GoListUnordered, GoSearch } from "react-icons/go";
@@ -16,7 +16,16 @@ import { useTheme } from "@/shared/hooks/useTheme";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
 import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
+import {
+  clearRecentSearches,
+  deleteRecentSearch,
+  getRecentSearches,
+  getSearchAutocomplete,
+  saveRecentSearch,
+} from "@/shared/lib/searchApi";
 import { useAuthStore } from "@/shared/lib/authStore";
+import type { RecentSearchItem, SearchAutocompleteResponse, SearchStockItem } from "@/shared/types/search";
+import SearchModal from "@/shared/ui/SearchModal";
 
 type NavItem = {
   href: string;
@@ -53,7 +62,6 @@ function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean
 }
 
 export default function AppNav() {
-  const router = useRouter();
   const pathname = usePathname();
   const { resolvedTheme, isHydrated } = useTheme();
   const authStatus = useAuthStore((state) => state.status);
@@ -62,7 +70,11 @@ export default function AppNav() {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchAutocompleteResponse>({ stocks: [], news: [] });
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
 
   const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
   const isAuthReady = authStatus !== "restoring";
@@ -121,19 +133,144 @@ export default function AppNav() {
     return () => mediaQuery.removeEventListener("change", closeDrawerOnDesktop);
   }, []);
 
+  useEffect(() => {
+    if (!isSearchModalOpen) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadRecentSearches = async () => {
+      try {
+        const payload = await getRecentSearches();
+        if (isMounted) {
+          setRecentSearches(payload.recent);
+        }
+      } catch {
+        if (isMounted) {
+          setRecentSearches([]);
+        }
+      }
+    };
+
+    void loadRecentSearches();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isSearchModalOpen]);
+
+  useEffect(() => {
+    if (!isSearchModalOpen) {
+      return;
+    }
+
+    const trimmedKeyword = searchKeyword.trim();
+    if (!trimmedKeyword) {
+      setSearchResults({ stocks: [], news: [] });
+      setIsSearchLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    setIsSearchLoading(true);
+
+    const timer = window.setTimeout(() => {
+      void getSearchAutocomplete(trimmedKeyword)
+        .then((payload) => {
+          if (!isMounted) {
+            return;
+          }
+
+          setSearchResults(payload);
+        })
+        .catch(() => {
+          if (!isMounted) {
+            return;
+          }
+
+          setSearchResults({ stocks: [], news: [] });
+        })
+        .finally(() => {
+          if (isMounted) {
+            setIsSearchLoading(false);
+          }
+        });
+    }, 180);
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [isSearchModalOpen, searchKeyword]);
+
   const goToPath = (path: string) => {
-    router.push(path);
+    window.location.href = path;
     setIsDrawerOpen(false);
   };
 
-  const goToSearch = () => {
-    const keyword = searchKeyword.trim();
-    if (keyword) {
-      router.push(`/search?keyword=${encodeURIComponent(keyword)}`);
-    } else {
-      router.push("/search");
-    }
+  const openSearchModal = () => {
     setIsDrawerOpen(false);
+    setIsSearchModalOpen(true);
+  };
+
+  const closeSearchModal = () => {
+    setIsSearchModalOpen(false);
+    setSearchKeyword("");
+  };
+
+  const submitSearch = (keyword: string) => {
+    const trimmedKeyword = keyword.trim();
+    if (!trimmedKeyword) {
+      return;
+    }
+
+    setSearchKeyword(trimmedKeyword);
+  };
+
+  const handleStockSelect = async (stock: SearchStockItem) => {
+    setSearchKeyword(stock.name);
+
+    try {
+      await saveRecentSearch({
+        keyword: stock.name,
+        stockId: stock.id,
+      });
+
+      const payload = await getRecentSearches();
+      setRecentSearches(payload.recent);
+    } catch {
+      // Ignore recent-search save failures so search navigation still works.
+    }
+
+    submitSearch(stock.name);
+  };
+
+  const handleNewsSelect = () => {
+    // Keep the current search keyword when a news item is selected.
+  };
+
+  const handleRecentSearchClick = (item: RecentSearchItem) => {
+    submitSearch(item.keyword);
+  };
+
+  const handleRecentSearchRemove = async (keyword: string) => {
+    try {
+      await deleteRecentSearch(keyword);
+      const payload = await getRecentSearches();
+      setRecentSearches(payload.recent);
+    } catch {
+      setRecentSearches((currentSearches) => currentSearches.filter((item) => item.keyword !== keyword));
+    }
+  };
+
+  const handleRecentSearchesClear = async () => {
+    try {
+      await clearRecentSearches();
+    } finally {
+      setRecentSearches([]);
+    }
   };
 
   const openLoginModal = () => {
@@ -190,19 +327,21 @@ export default function AppNav() {
               <input
                 type="text"
                 value={searchKeyword}
-                onChange={(event) => setSearchKeyword(event.target.value)}
+                onFocus={openSearchModal}
+                onClick={openSearchModal}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    goToSearch();
+                    submitSearch(searchKeyword);
                   }
                 }}
                 placeholder="종목명 또는 코드 검색"
+                readOnly
                 className="typo-body-sm w-full rounded-xl bg-[color:var(--color-bg-secondary)] py-2.5 pl-9 pr-4 text-[color:var(--color-text-tertiary)] outline outline-1 outline-[color:var(--color-border-secondary)] placeholder:text-[color:var(--color-text-tertiary)] transition-colors focus:text-[color:var(--color-text-primary)]"
               />
               <button
                 type="button"
-                onClick={goToSearch}
+                onClick={openSearchModal}
                 className={`absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
                 aria-label="검색"
               >
@@ -304,7 +443,7 @@ export default function AppNav() {
                   <div className="h-5 w-px bg-[color:var(--color-border-primary)]" />
                   <button
                     type="button"
-                    onClick={goToSearch}
+                    onClick={openSearchModal}
                     className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" />
@@ -384,6 +523,21 @@ export default function AppNav() {
       ) : null}
 
       {isLoginModalOpen ? <LoginModal open={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} /> : null}
+      <SearchModal
+        open={isSearchModalOpen}
+        value={searchKeyword}
+        recentSearches={recentSearches}
+        searchResults={searchResults}
+        isSearching={isSearchLoading}
+        onClose={closeSearchModal}
+        onValueChange={setSearchKeyword}
+        onSubmit={submitSearch}
+        onRecentSearchClick={handleRecentSearchClick}
+        onRecentSearchRemove={handleRecentSearchRemove}
+        onRecentSearchesClear={handleRecentSearchesClear}
+        onStockSelect={handleStockSelect}
+        onNewsSelect={handleNewsSelect}
+      />
     </>
   );
 }
