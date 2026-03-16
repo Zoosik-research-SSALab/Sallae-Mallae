@@ -295,26 +295,26 @@ cd /home/ssafy/project
 ### 2-1. 환경 파일 준비
 
 ```bash
-cp infra/.env.example infra/.env
+cp infra/base.env.example infra/base.env
 ```
 
 ### 2-2. compose 유효성 확인
 
 ```bash
 cd infra
-docker compose --env-file .env -f docker-compose.yml config
+docker compose --env-file base.env -f docker-compose.yml config
 ```
 
 ### 2-3. 기본 스택 기동
 
 ```bash
-docker compose --env-file .env -f docker-compose.yml up -d --build
+docker compose --env-file base.env -f docker-compose.yml up -d --build
 ```
 
 ### 2-4. 상태 확인
 
 ```bash
-docker compose --env-file .env -f docker-compose.yml ps
+docker compose --env-file base.env -f docker-compose.yml ps
 ```
 
 ## 3) 선택 실행: FE/AI 포함 전체 스택
@@ -323,7 +323,7 @@ docker compose --env-file .env -f docker-compose.yml ps
 
 ```bash
 cd infra
-docker compose --profile fullstack --env-file .env -f docker-compose.yml up -d --build
+docker compose --profile fullstack --env-file base.env -f docker-compose.yml up -d --build
 ```
 
 또는 `.env`에 `COMPOSE_PROFILES=fullstack`을 넣고 기본 명령으로 실행할 수 있습니다.
@@ -387,7 +387,7 @@ APP_DB_PASSWORD=change_me_app
 
 ```bash
 cd infra
-docker compose --env-file .env -f docker-compose.yml up -d --build
+docker compose --env-file base.env -f docker-compose.yml up -d --build
 ```
 
 ### 5-3. 권한 검증
@@ -400,7 +400,7 @@ docker exec -it postgres psql -U app_user -d app -c "select current_database(), 
 
 ```bash
 cd infra
-docker compose --env-file .env -f docker-compose.yml down
+docker compose --env-file base.env -f docker-compose.yml down
 ```
 
 ## 7) Troubleshooting

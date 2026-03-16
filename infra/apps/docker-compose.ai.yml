@@ -53,6 +53,24 @@ services:
       - app-net
       - base-net
 
+  news-scheduler:
+    build:
+      context: ../../services/ai/1_data_pipeline/news
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["python", "scheduler.py"]
+    environment:
+      AI_DB_URL: postgresql+psycopg2://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres:5432/${APP_DB_NAME}
+      GMS_API_URL: ${GMS_API_URL:-}
+      GMS_API_KEY: ${GMS_API_KEY:-}
+      GMS_MODEL: ${GMS_MODEL:-gemini-2.5-flash-lite}
+    volumes:
+      - news-output:/app/output
+      - news-data:/app/data
+    networks:
+      - app-net
+      - base-net
+
 networks:
   app-net:
     name: ${APP_NETWORK_NAME}
@@ -63,3 +81,7 @@ networks:
 volumes:
   stock-data:
     name: stock-data
+  news-output:
+    name: news-output
+  news-data:
+    name: news-data
