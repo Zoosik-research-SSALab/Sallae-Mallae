@@ -209,4 +209,5 @@ public class UserServiceImpl implements UserService {
   public Map<String, Object> deleteProfile(Long userId) {
     return Map.of("userId", userId, "message", "delete profile boilerplate");
   }
+
 }

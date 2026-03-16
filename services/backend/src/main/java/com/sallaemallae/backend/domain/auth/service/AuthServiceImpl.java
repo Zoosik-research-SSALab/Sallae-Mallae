@@ -26,6 +26,7 @@ import com.sallaemallae.backend.domain.auth.entity.UserAgreement;
 import com.sallaemallae.backend.domain.auth.enumtype.AuthProvider;
 import com.sallaemallae.backend.domain.auth.enumtype.UserStatus;
 import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
+import com.sallaemallae.backend.global.exception.GlobalErrorCode;
 import com.sallaemallae.backend.domain.auth.oauth.OAuthProviderClient;
 import com.sallaemallae.backend.domain.auth.oauth.OAuthUserProfile;
 import com.sallaemallae.backend.domain.auth.repository.LoginHistoryRepository;
@@ -751,6 +752,19 @@ public class AuthServiceImpl implements AuthService {
         // OK - continue with login
       }
     }
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public LoginResponse.UserInfo getCurrentUser(Long userId) {
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new BusinessException(GlobalErrorCode.NOT_FOUND));
+
+    AuthProvider provider = determineProvider(user);
+    OffsetDateTime lastLoginAt = loginHistoryRepository.findLastLoginAt(user.getId())
+        .orElse(null);
+
+    return LoginResponse.UserInfo.from(user, provider, lastLoginAt);
   }
 
   private AuthProvider determineProvider(User user) {

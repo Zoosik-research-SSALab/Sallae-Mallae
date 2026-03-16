@@ -41,6 +41,9 @@ public class User extends BaseTimeEntity {
   @Column(name = "is_email_opt_in", nullable = false)
   private boolean isEmailOptIn;
 
+  @Column(name = "is_noti_enabled", nullable = false)
+  private boolean isNotiEnabled = true;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private UserStatus status;
@@ -133,5 +136,10 @@ public class User extends BaseTimeEntity {
   // 이메일 수신 동의 변경
   public void updateEmailOptIn(boolean isEmailOptIn) {
     this.isEmailOptIn = isEmailOptIn;
+  }
+
+  // 전체 알림 ON/OFF
+  public void updateNotiEnabled(boolean isNotiEnabled) {
+    this.isNotiEnabled = isNotiEnabled;
   }
 }

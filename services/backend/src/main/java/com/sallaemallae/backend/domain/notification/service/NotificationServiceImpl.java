@@ -1,14 +1,19 @@
 package com.sallaemallae.backend.domain.notification.service;
 
+import com.sallaemallae.backend.domain.auth.entity.User;
+import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import com.sallaemallae.backend.domain.notification.dto.NotificationActionResponse;
 import com.sallaemallae.backend.domain.notification.dto.NotificationBulkActionResponse;
 import com.sallaemallae.backend.domain.notification.dto.NotificationListResponse;
+import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsResponse;
+import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsUpdateRequest;
 import com.sallaemallae.backend.domain.notification.dto.NotificationUnreadCountResponse;
 import com.sallaemallae.backend.domain.notification.entity.UserNotification;
 import com.sallaemallae.backend.domain.notification.enumtype.NotificationTab;
 import com.sallaemallae.backend.domain.notification.exception.NotificationErrorCode;
 import com.sallaemallae.backend.domain.notification.repository.NotificationQueryRepository;
 import com.sallaemallae.backend.domain.notification.repository.UserNotificationRepository;
+import com.sallaemallae.backend.domain.user.exception.UserErrorCode;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +29,7 @@ public class NotificationServiceImpl implements NotificationService {
 
   private final NotificationQueryRepository notificationQueryRepository;
   private final UserNotificationRepository userNotificationRepository;
+  private final UserRepository userRepository;
 
   /** 미확인 알림 수를 배지 형식으로 반환합니다. */
   @Override
@@ -121,5 +127,31 @@ public class NotificationServiceImpl implements NotificationService {
 
   private OffsetDateTime createRetentionCutoff() {
     return OffsetDateTime.now().minusDays(RETENTION_DAYS);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public NotificationSettingsResponse getNotificationSettings(Long userId) {
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+    return new NotificationSettingsResponse(user.isNotiEnabled(), user.isEmailOptIn());
+  }
+
+  @Override
+  @Transactional
+  public NotificationSettingsResponse updateNotificationSettings(Long userId,
+      NotificationSettingsUpdateRequest request) {
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+    if (request.isNotiEnabled() != null) {
+      user.updateNotiEnabled(request.isNotiEnabled());
+    }
+    if (request.isEmailNotiEnabled() != null) {
+      user.updateEmailOptIn(request.isEmailNotiEnabled());
+    }
+
+    return new NotificationSettingsResponse(user.isNotiEnabled(), user.isEmailOptIn());
   }
 }

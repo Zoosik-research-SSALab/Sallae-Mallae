@@ -51,4 +51,6 @@ public interface AuthService {
   SendCodeResponse requestPasswordReset(PasswordResetRequestDto request);
 
   void resetPassword(PasswordResetConfirmRequest request, String ipAddress);
+
+  LoginResponse.UserInfo getCurrentUser(Long userId);
 }
