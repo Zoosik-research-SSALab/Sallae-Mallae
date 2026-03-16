@@ -76,6 +76,7 @@ public class SecurityConfig {
             // Auth - 인증 필요
             .requestMatchers("/api/auth/logout").authenticated()
             .requestMatchers("/api/auth/logout/all").authenticated()
+            .requestMatchers("/api/auth/sessions/**").authenticated()
 
             // Main - 메인 페이지 (인증 불필요)
             .requestMatchers("/api/main/**").permitAll()
