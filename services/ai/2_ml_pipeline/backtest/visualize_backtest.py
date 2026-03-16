@@ -25,20 +25,28 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from config import RAW_MACRO_PATH
+from config import RAW_MACRO_PATH, BACKTEST_PATH
 
 plt.rcParams["font.family"] = "Malgun Gothic"
 plt.rcParams["axes.unicode_minus"] = False
 
-BACKTEST_DIR = Path("G:/내 드라이브/kospi200-project/backtest")
+BACKTEST_DIR = BACKTEST_PATH
 INITIAL_CAPITAL = 100_000_000
 
 
 def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series]:
     """백테스트 결과 데이터 로드."""
-    eq_topn = pd.read_parquet(str(BACKTEST_DIR / "equity_curve_top_n_20260313.parquet"))
-    eq_thresh = pd.read_parquet(str(BACKTEST_DIR / "equity_curve_threshold_20260313.parquet"))
-    trades = pd.read_parquet(str(BACKTEST_DIR / "trade_log_top_n_20260313.parquet"))
+    # 최신 파일 자동 탐색 (날짜 하드코딩 방지)
+    eq_topn_files = sorted(BACKTEST_DIR.glob("equity_curve_top_n_*.parquet"))
+    eq_thresh_files = sorted(BACKTEST_DIR.glob("equity_curve_threshold_*.parquet"))
+    trade_files = sorted(BACKTEST_DIR.glob("trade_log_top_n_*.parquet"))
+
+    if not eq_topn_files or not eq_thresh_files or not trade_files:
+        raise FileNotFoundError(f"백테스트 결과 파일을 찾을 수 없습니다: {BACKTEST_DIR}")
+
+    eq_topn = pd.read_parquet(str(eq_topn_files[-1]))
+    eq_thresh = pd.read_parquet(str(eq_thresh_files[-1]))
+    trades = pd.read_parquet(str(trade_files[-1]))
 
     eq_topn["date"] = pd.to_datetime(eq_topn["date"])
     eq_thresh["date"] = pd.to_datetime(eq_thresh["date"])
@@ -115,7 +123,8 @@ def plot_drawdown(eq_topn: pd.DataFrame) -> None:
     ax2.set_ylabel("드로다운 (%)", fontsize=11)
     ax2.set_xlabel("날짜", fontsize=11)
     ax2.grid(alpha=0.3)
-    ax2.axhline(y=-17.75, color="red", linestyle="--", alpha=0.5, label="MDD -17.75%")
+    mdd = drawdown.min()
+    ax2.axhline(y=mdd, color="red", linestyle="--", alpha=0.5, label=f"MDD {mdd:.2f}%")
     ax2.legend(fontsize=9)
 
     for ax in [ax1, ax2]:
