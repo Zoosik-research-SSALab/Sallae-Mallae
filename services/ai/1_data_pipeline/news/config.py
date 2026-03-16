@@ -68,10 +68,7 @@ ANTHROPIC_API_KEY: str | None = os.environ.get("ANTHROPIC_API_KEY")
 # ---------------------------------------------------------------------------
 # Google Drive 설정 (CSV 다운로드용)
 # ---------------------------------------------------------------------------
-GDRIVE_FOLDER_ID: str = os.environ.get(
-    "GDRIVE_NEWS_FOLDER_ID",
-    "1XLqr6uAYkCsjYUXQfJHInmOtVILgy4mb",
-)
+GDRIVE_FOLDER_ID: str = os.environ.get("GDRIVE_NEWS_FOLDER_ID", "")
 
 # ---------------------------------------------------------------------------
 # 로컬 저장 경로
