@@ -80,11 +80,10 @@ def get_debate_inputs(
     lgbm_prediction = None
     lstm_prediction = None
     garch_prediction = None
-    if resolved_model_version:
-        ensemble_prediction = crud.get_ensemble_prediction(db, stock_id, report_date, resolved_model_version)
-        lgbm_prediction = crud.get_lgbm_prediction(db, stock_id, report_date, resolved_model_version)
-        lstm_prediction = crud.get_lstm_prediction(db, stock_id, report_date, resolved_model_version)
-        garch_prediction = crud.get_garch_prediction(db, stock_id, report_date, resolved_model_version)
+    ensemble_prediction = crud.get_ensemble_prediction(db, stock_id, report_date, resolved_model_version)
+    lgbm_prediction = crud.get_lgbm_prediction(db, stock_id, report_date, resolved_model_version)
+    lstm_prediction = crud.get_lstm_prediction(db, stock_id, report_date, resolved_model_version)
+    garch_prediction = crud.get_garch_prediction(db, stock_id, report_date, resolved_model_version)
 
     recent_news_rows = crud.get_recent_news(db, stock_id=stock_id, report_date=report_date, limit=news_limit)
 

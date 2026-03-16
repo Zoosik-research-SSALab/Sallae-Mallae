@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import signal
+import threading
 from datetime import date
-
-from dotenv import load_dotenv
 
 from core.config import settings
 from core.logger import logger
@@ -12,8 +12,6 @@ from worker.checkpoint_store import CheckpointStore
 from worker.debate_engine import DebateEngine
 from worker.llm_client import LocalLlmClient
 from worker.runner import DebateWorkerRunner, RunnerOptions
-
-load_dotenv()
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,6 +28,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    stop_event = threading.Event()
 
     llm_client = LocalLlmClient(
         provider=settings.LLM_PROVIDER,
@@ -41,7 +40,7 @@ def main() -> None:
     api_client = DebateApiClient(
         base_url=settings.AI_SERVER_BASE_URL,
         api_key=settings.INTERNAL_API_KEY,
-        timeout_seconds=settings.LLM_REQUEST_TIMEOUT_SECONDS,
+        timeout_seconds=settings.AI_SERVER_TIMEOUT_SECONDS,
     )
     checkpoint_store = CheckpointStore(settings.checkpoint_db_path)
     debate_engine = DebateEngine(llm_client=llm_client, max_rounds=settings.MAX_DEBATE_ROUNDS)
@@ -49,7 +48,15 @@ def main() -> None:
         api_client=api_client,
         debate_engine=debate_engine,
         checkpoint_store=checkpoint_store,
+        stop_event=stop_event,
     )
+
+    def handle_shutdown(signum: int, _frame) -> None:
+        logger.info("종료 시그널 수신 | signal=%s | 현재 작업 완료 후 종료합니다.", signum)
+        runner.request_shutdown()
+
+    signal.signal(signal.SIGINT, handle_shutdown)
+    signal.signal(signal.SIGTERM, handle_shutdown)
 
     options = RunnerOptions(
         report_date=args.report_date,

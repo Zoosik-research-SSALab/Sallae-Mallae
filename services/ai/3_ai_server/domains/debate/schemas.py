@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# NOTE:
+# 4_debate_worker/worker/schemas.py 와 동일한 API 계약 필드를 사용합니다.
+# 공통 패키지 분리 전까지는 두 파일을 함께 수정해야 합니다.
+
 from datetime import date, datetime
 from typing import Any
 

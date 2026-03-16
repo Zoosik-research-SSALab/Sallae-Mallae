@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Iterator
 
 from worker.schemas import DebateResultRequest, StoredJob, TargetItem
 
@@ -30,7 +31,7 @@ class CheckpointStore:
 
     def ensure_run(self, *, run_key: str, report_date: date, source: str, portfolio_id: int | None) -> None:
         now = self._now_iso()
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 INSERT INTO runs (run_key, report_date, source, portfolio_id, created_at, updated_at)
@@ -39,30 +40,34 @@ class CheckpointStore:
                 """,
                 (run_key, report_date.isoformat(), source, portfolio_id, now, now),
             )
-            conn.commit()
 
     def sync_targets(self, *, run_key: str, targets: list[TargetItem]) -> int:
         now = self._now_iso()
         inserted = 0
-        with self._connect() as conn:
+        with self._connection() as conn:
             for target in targets:
-                cursor = conn.execute(
+                inserted_row = conn.execute(
                     """
-                    INSERT INTO jobs (
+                    INSERT OR IGNORE INTO jobs (
                         run_key, stock_id, ticker, stock_name, status, attempts, result_payload_json,
                         last_error, next_retry_at, lease_expires_at, created_at, updated_at
                     )
                     VALUES (?, ?, ?, ?, 'pending', 0, NULL, NULL, NULL, NULL, ?, ?)
-                    ON CONFLICT(run_key, stock_id) DO UPDATE SET
-                        ticker=excluded.ticker,
-                        stock_name=excluded.stock_name,
-                        updated_at=excluded.updated_at
                     """,
                     (run_key, target.stock_id, target.ticker, target.stock_name, now, now),
                 )
-                if cursor.rowcount > 0:
+                if inserted_row.rowcount == 1:
                     inserted += 1
-            conn.commit()
+                conn.execute(
+                    """
+                    UPDATE jobs
+                    SET ticker = ?,
+                        stock_name = ?,
+                        updated_at = ?
+                    WHERE run_key = ? AND stock_id = ?
+                    """,
+                    (target.ticker, target.stock_name, now, run_key, target.stock_id),
+                )
         return inserted
 
     def claim_next_job(self, *, run_key: str, lease_seconds: int) -> StoredJob | None:
@@ -70,7 +75,8 @@ class CheckpointStore:
         now_iso = now.isoformat()
         lease_expires_at = (now + timedelta(seconds=lease_seconds)).isoformat()
 
-        with self._connect() as conn:
+        with self._connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 """
                 SELECT run_key, stock_id, ticker, stock_name, status, attempts, result_payload_json, last_error
@@ -96,7 +102,7 @@ class CheckpointStore:
             if row is None:
                 return None
 
-            conn.execute(
+            updated = conn.execute(
                 """
                 UPDATE jobs
                 SET status = 'running',
@@ -104,10 +110,16 @@ class CheckpointStore:
                     lease_expires_at = ?,
                     updated_at = ?
                 WHERE run_key = ? AND stock_id = ?
+                  AND (
+                    status IN ('pending', 'result_ready')
+                    OR (status = 'failed_retryable' AND (next_retry_at IS NULL OR next_retry_at <= ?))
+                    OR (status = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?)
+                  )
                 """,
-                (lease_expires_at, now_iso, run_key, row["stock_id"]),
+                (lease_expires_at, now_iso, run_key, row["stock_id"], now_iso, now_iso),
             )
-            conn.commit()
+            if updated.rowcount != 1:
+                return None
 
         payload = DebateResultRequest.model_validate_json(row["result_payload_json"]) if row["result_payload_json"] else None
         return StoredJob(
@@ -123,7 +135,7 @@ class CheckpointStore:
 
     def save_result_payload(self, *, run_key: str, stock_id: int, payload: DebateResultRequest) -> None:
         now = self._now_iso()
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 UPDATE jobs
@@ -135,11 +147,10 @@ class CheckpointStore:
                 """,
                 (payload.model_dump_json(), now, run_key, stock_id),
             )
-            conn.commit()
 
     def mark_succeeded(self, *, run_key: str, stock_id: int, status: str) -> None:
         now = self._now_iso()
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 UPDATE jobs
@@ -153,13 +164,12 @@ class CheckpointStore:
                 """,
                 (status, now, now, run_key, stock_id),
             )
-            conn.commit()
 
     def mark_failed(self, *, run_key: str, stock_id: int, retryable: bool, error_message: str, backoff_seconds: int) -> None:
         now = datetime.now(UTC)
         next_retry_at = (now + timedelta(seconds=backoff_seconds)).isoformat() if retryable else None
         status = "failed_retryable" if retryable else "failed_permanent"
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 UPDATE jobs
@@ -172,10 +182,9 @@ class CheckpointStore:
                 """,
                 (status, error_message[:1000], next_retry_at, now.isoformat(), run_key, stock_id),
             )
-            conn.commit()
 
     def get_counts(self, *, run_key: str) -> CheckpointCounts:
-        with self._connect() as conn:
+        with self._connection() as conn:
             discovered = conn.execute("SELECT COUNT(*) FROM jobs WHERE run_key = ?", (run_key,)).fetchone()[0]
             succeeded = conn.execute(
                 "SELECT COUNT(*) FROM jobs WHERE run_key = ? AND status = 'succeeded'",
@@ -202,7 +211,7 @@ class CheckpointStore:
         )
 
     def _initialize(self) -> None:
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS runs (
@@ -235,13 +244,19 @@ class CheckpointStore:
                 )
                 """
             )
-            conn.commit()
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def _now_iso(self) -> str:
         return datetime.now(UTC).isoformat()
-

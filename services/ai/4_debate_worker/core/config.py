@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     AI_SERVER_BASE_URL: str = "http://localhost:8000"
     INTERNAL_API_KEY: str = "change_me_ai_internal_key"
+    AI_SERVER_TIMEOUT_SECONDS: int = 30
 
     LLM_PROVIDER: str = "ollama"
     LLM_BASE_URL: str = "http://localhost:11434"
@@ -50,4 +51,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

@@ -101,12 +101,15 @@ class LocalLlmClient:
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1]
             cleaned = cleaned.rsplit("```", 1)[0]
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            raise LlmClientError("LLM 응답에서 JSON 객체를 찾을 수 없습니다.")
-        try:
-            return json.loads(cleaned[start : end + 1])
-        except json.JSONDecodeError as exc:
-            raise LlmClientError(f"LLM JSON 파싱 실패: {exc}") from exc
 
+        decoder = json.JSONDecoder()
+        for index, char in enumerate(cleaned):
+            if char != "{":
+                continue
+            try:
+                payload, _ = decoder.raw_decode(cleaned[index:])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                return payload
+        raise LlmClientError("LLM 응답에서 JSON 객체를 안정적으로 추출하지 못했습니다.")

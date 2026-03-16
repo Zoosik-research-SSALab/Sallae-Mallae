@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import time
+import threading
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
@@ -9,7 +9,7 @@ from worker.api_client import ApiClientError, DebateApiClient
 from worker.checkpoint_store import CheckpointStore
 from worker.debate_engine import DebateEngine
 from worker.llm_client import LlmClientError
-from worker.schemas import DebateResultRequest, RunSummary
+from worker.schemas import RunSummary
 
 
 @dataclass
@@ -36,17 +36,24 @@ class DebateWorkerRunner:
         api_client: DebateApiClient,
         debate_engine: DebateEngine,
         checkpoint_store: CheckpointStore,
+        stop_event: threading.Event | None = None,
     ):
         self.api_client = api_client
         self.debate_engine = debate_engine
         self.checkpoint_store = checkpoint_store
+        self.stop_event = stop_event or threading.Event()
+
+    def request_shutdown(self) -> None:
+        self.stop_event.set()
 
     def run(self, options: RunnerOptions) -> None:
         if options.continuous:
-            while True:
+            while not self.stop_event.is_set():
                 self.run_once(options)
+                if self.stop_event.is_set():
+                    break
                 logger.info("다음 작업 주기까지 %s초 대기합니다.", options.loop_interval_seconds)
-                time.sleep(options.loop_interval_seconds)
+                self.stop_event.wait(options.loop_interval_seconds)
         else:
             self.run_once(options)
 
@@ -71,10 +78,10 @@ class DebateWorkerRunner:
             portfolio_id=options.portfolio_id,
             limit=options.max_targets,
         )
-        inserted = self.checkpoint_store.sync_targets(run_key=run_key, targets=targets.targets)
-        logger.info("대상 동기화 완료 | run_key=%s | fetched=%s | synced=%s", run_key, targets.count, inserted)
+        new_targets = self.checkpoint_store.sync_targets(run_key=run_key, targets=targets.targets)
+        logger.info("대상 동기화 완료 | run_key=%s | fetched=%s | newly_added=%s", run_key, targets.count, new_targets)
 
-        while True:
+        while not self.stop_event.is_set():
             job = self.checkpoint_store.claim_next_job(run_key=run_key, lease_seconds=options.lease_seconds)
             if job is None:
                 break
@@ -145,4 +152,3 @@ class DebateWorkerRunner:
         )
         logger.info("배치 완료 | %s", summary.model_dump())
         return summary
-

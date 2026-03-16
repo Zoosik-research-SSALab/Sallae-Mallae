@@ -94,30 +94,33 @@ def get_ai_ml_report(db: Session, stock_id: int, report_date: date, model_versio
     return db.scalars(stmt.limit(1)).first()
 
 
-def _get_prediction_by_version(db: Session, model_cls: type, stock_id: int, report_date: date, model_version: str):
+def _get_prediction_by_version(db: Session, model_cls: type, stock_id: int, report_date: date, model_version: str | None):
     stmt = (
         select(model_cls)
         .where(model_cls.stock_id == stock_id)
         .where(model_cls.report_date == report_date)
-        .where(model_cls.model_version == model_version)
-        .limit(1)
     )
+    if model_version:
+        stmt = stmt.where(model_cls.model_version == model_version)
+    else:
+        stmt = stmt.order_by(desc(model_cls.created_at), desc(model_cls.model_version))
+    stmt = stmt.limit(1)
     return db.scalars(stmt).first()
 
 
-def get_ensemble_prediction(db: Session, stock_id: int, report_date: date, model_version: str):
+def get_ensemble_prediction(db: Session, stock_id: int, report_date: date, model_version: str | None):
     return _get_prediction_by_version(db, MlEnsemblePrediction, stock_id, report_date, model_version)
 
 
-def get_lgbm_prediction(db: Session, stock_id: int, report_date: date, model_version: str):
+def get_lgbm_prediction(db: Session, stock_id: int, report_date: date, model_version: str | None):
     return _get_prediction_by_version(db, MlLgbmPrediction, stock_id, report_date, model_version)
 
 
-def get_lstm_prediction(db: Session, stock_id: int, report_date: date, model_version: str):
+def get_lstm_prediction(db: Session, stock_id: int, report_date: date, model_version: str | None):
     return _get_prediction_by_version(db, MlLstmPrediction, stock_id, report_date, model_version)
 
 
-def get_garch_prediction(db: Session, stock_id: int, report_date: date, model_version: str):
+def get_garch_prediction(db: Session, stock_id: int, report_date: date, model_version: str | None):
     return _get_prediction_by_version(db, MlGarchPrediction, stock_id, report_date, model_version)
 
 

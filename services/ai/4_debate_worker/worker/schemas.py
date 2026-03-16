@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# NOTE:
+# 3_ai_server/domains/debate/schemas.py 와 동일한 API 계약 필드를 사용합니다.
+# 서버/워커를 같은 패키지로 묶기 전까지는 두 파일을 함께 수정해야 합니다.
+
 from datetime import date, datetime
 from typing import Any
 
@@ -183,4 +187,3 @@ class RunSummary(BaseModel):
     failed_retryable: int = 0
     failed_permanent: int = 0
     skipped: int = 0
-

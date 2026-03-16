@@ -10,6 +10,7 @@ from core.config import Base
 
 
 class DebateStock(Base):
+    # news/stock 도메인과 독립적으로 읽기 전용 query shape를 유지하기 위해 별도 매핑을 둔다.
     __tablename__ = "stocks"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
