@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     APP_TITLE: str = "sallaemallae AI Server"
     DEBUG: bool = False
 
+    # 내부 API 인증
+    INTERNAL_API_KEY: str = "change_me_ai_internal_key"
+
     # DB 설정
     AI_DB_URL: str = "postgresql+psycopg2://app_user:change_me_app@localhost:5432/app"
 
