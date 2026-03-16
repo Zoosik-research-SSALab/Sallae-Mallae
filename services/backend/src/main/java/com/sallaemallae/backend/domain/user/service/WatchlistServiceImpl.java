@@ -9,6 +9,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +42,19 @@ public class WatchlistServiceImpl implements WatchlistService {
         .toList();
 
     return new WatchlistNewsResponse(news);
+  }
+
+  @Override
+  public Set<Long> getWatchlistedStockIds(Long userId) {
+    if (userId == null) {
+      return Set.of();
+    }
+
+    return watchlistRepository.findAllByIdUserId(userId).stream()
+        .map(watchlist -> watchlist.getId())
+        .map(id -> id != null ? id.getStockId() : null)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toSet());
   }
 
   // 뉴스 ID 목록으로 관련 종목명을 일괄 조회하여 Map으로 반환 (N+1 방지)

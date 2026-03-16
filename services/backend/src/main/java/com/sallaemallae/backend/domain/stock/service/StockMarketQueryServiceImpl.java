@@ -5,6 +5,7 @@ import com.sallaemallae.backend.domain.stock.dto.StockPeriodPriceResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockQuoteResponse;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
+import com.sallaemallae.backend.domain.stock.support.StockRequestNormalizer;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.infra.kis.KisApiException;
 import com.sallaemallae.backend.infra.kis.cache.CachedResult;
@@ -14,7 +15,6 @@ import com.sallaemallae.backend.infra.kis.stock.KisQuoteData;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,8 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class StockMarketQueryServiceImpl implements StockMarketQueryService {
 
   private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
-  private static final Set<String> MARKET_CODES = Set.of("J", "NX", "UN");
-  private static final Set<String> PERIOD_CODES = Set.of("D", "W", "M", "Y");
 
   private final CachedKisDomesticStockGateway cachedGateway;
   private final StockDataPipelineMapper pipelineMapper;
@@ -36,8 +34,8 @@ public class StockMarketQueryServiceImpl implements StockMarketQueryService {
 
   @Override
   public StockQuoteResponse getQuote(String ticker, String marketCode) {
-    String normalizedTicker = normalizeTicker(ticker);
-    String normalizedMarket = normalizeMarket(marketCode);
+    String normalizedTicker = StockRequestNormalizer.normalizeTicker(ticker, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+    String normalizedMarket = StockRequestNormalizer.normalizeMarket(marketCode, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
 
     try {
       CachedResult<KisQuoteData> quote = cachedGateway.getQuote(normalizedMarket, normalizedTicker);
@@ -57,9 +55,9 @@ public class StockMarketQueryServiceImpl implements StockMarketQueryService {
       String endDate,
       boolean adjusted
   ) {
-    String normalizedTicker = normalizeTicker(ticker);
-    String normalizedMarket = normalizeMarket(marketCode);
-    String normalizedPeriod = normalizePeriod(periodCode);
+    String normalizedTicker = StockRequestNormalizer.normalizeTicker(ticker, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+    String normalizedMarket = StockRequestNormalizer.normalizeMarket(marketCode, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+    String normalizedPeriod = StockRequestNormalizer.normalizePeriod(periodCode, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
     LocalDate parsedStartDate = parseDate(startDate);
     LocalDate parsedEndDate = parseDate(endDate);
     validateDateRange(parsedStartDate, parsedEndDate);
@@ -96,9 +94,9 @@ public class StockMarketQueryServiceImpl implements StockMarketQueryService {
       String endDate,
       boolean adjusted
   ) {
-    String normalizedTicker = normalizeTicker(ticker);
-    String normalizedMarket = normalizeMarket(marketCode);
-    String normalizedPeriod = normalizePeriod(periodCode);
+    String normalizedTicker = StockRequestNormalizer.normalizeTicker(ticker, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+    String normalizedMarket = StockRequestNormalizer.normalizeMarket(marketCode, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+    String normalizedPeriod = StockRequestNormalizer.normalizePeriod(periodCode, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
     LocalDate parsedStartDate = parseDate(startDate);
     LocalDate parsedEndDate = parseDate(endDate);
     validateDateRange(parsedStartDate, parsedEndDate);
@@ -146,39 +144,6 @@ public class StockMarketQueryServiceImpl implements StockMarketQueryService {
       );
       throw new BusinessException(StockErrorCode.STOCK_MARKET_DATA_UNAVAILABLE);
     }
-  }
-
-  private String normalizeTicker(String ticker) {
-    if (ticker == null) {
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
-    }
-    String normalized = ticker.trim().toUpperCase();
-    if (!normalized.matches("^[0-9A-Z]{6}$")) {
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
-    }
-    return normalized;
-  }
-
-  private String normalizeMarket(String marketCode) {
-    if (marketCode == null) {
-      return "J";
-    }
-    String normalized = marketCode.trim().toUpperCase();
-    if (!MARKET_CODES.contains(normalized)) {
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
-    }
-    return normalized;
-  }
-
-  private String normalizePeriod(String periodCode) {
-    if (periodCode == null) {
-      return "D";
-    }
-    String normalized = periodCode.trim().toUpperCase();
-    if (!PERIOD_CODES.contains(normalized)) {
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
-    }
-    return normalized;
   }
 
   private LocalDate parseDate(String value) {

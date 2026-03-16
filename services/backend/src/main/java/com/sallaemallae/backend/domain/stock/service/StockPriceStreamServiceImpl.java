@@ -13,6 +13,7 @@ import com.sallaemallae.backend.domain.stock.repository.StockPriceMinuteReposito
 import com.sallaemallae.backend.domain.stock.repository.StockPriceMonthlyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceWeeklyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
+import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.infra.kis.KisProperties;
 import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleAggregator;
@@ -20,6 +21,7 @@ import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleData;
 import com.sallaemallae.backend.infra.kis.websocket.KisWebSocketClient;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -46,9 +48,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequiredArgsConstructor
 public class StockPriceStreamServiceImpl implements StockPriceStreamService {
 
-  private static final String DOMESTIC_MARKET_CODE = "J";
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
   private static final long STREAM_INTERVAL_MINUTES = 1L;
+  private static final long SSE_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
 
   private final StockRepository stockRepository;
   private final StockPriceMinuteRepository stockPriceMinuteRepository;
@@ -73,7 +75,7 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     ResolvedStock resolvedStock = resolveStock(stockId);
     PricePeriod pricePeriod = PricePeriod.from(period);
 
-    SseEmitter emitter = new SseEmitter(0L);
+    SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
     AtomicReference<ScheduledFuture<?>> futureRef = new AtomicReference<>();
 
     emitter.onCompletion(() -> cancel(futureRef.get()));
@@ -306,7 +308,7 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
   private ResolvedStock resolveStock(Long stockId) {
     Stock stock = stockRepository.findByIdAndIsActiveTrue(stockId)
         .orElseThrow(() -> new BusinessException(StockErrorCode.STOCK_NOT_FOUND));
-    return new ResolvedStock(stock.getId(), stock.getTicker(), DOMESTIC_MARKET_CODE);
+    return new ResolvedStock(stock.getId(), stock.getTicker(), StockMarketConstants.DOMESTIC_MARKET_CODE);
   }
 
   private void cancel(ScheduledFuture<?> future) {

@@ -16,6 +16,7 @@ public class KisProperties {
   private final int refreshMarginSeconds;
   private final int timeoutSeconds;
   private final int retryAttempts;
+  private final int realtimeSubscriptionTtlMinutes;
 
   public KisProperties(
       @Value("${KIS_MODE:paper}") String mode,
@@ -25,7 +26,8 @@ public class KisProperties {
       @Value("${KIS_ACCOUNT_PRODUCT_CODE:}") String accountProductCode,
       @Value("${KIS_REFRESH_MARGIN_SECONDS:120}") int refreshMarginSeconds,
       @Value("${KIS_TIMEOUT_SECONDS:8}") int timeoutSeconds,
-      @Value("${KIS_RETRY_ATTEMPTS:1}") int retryAttempts
+      @Value("${KIS_RETRY_ATTEMPTS:1}") int retryAttempts,
+      @Value("${KIS_REALTIME_SUBSCRIPTION_TTL_MINUTES:30}") int realtimeSubscriptionTtlMinutes
   ) {
     this.mode = mode;
     this.appKey = appKey;
@@ -35,6 +37,7 @@ public class KisProperties {
     this.refreshMarginSeconds = refreshMarginSeconds;
     this.timeoutSeconds = timeoutSeconds;
     this.retryAttempts = retryAttempts;
+    this.realtimeSubscriptionTtlMinutes = realtimeSubscriptionTtlMinutes;
   }
 
   public boolean isConfigured() {
@@ -43,7 +46,7 @@ public class KisProperties {
 
   public void validateConfigured() {
     if (!isConfigured()) {
-      throw new KisApiException(503, "KIS_CONFIG_MISSING", "KIS credentials are not configured.");
+      throw new KisApiException(503, "KIS_CONFIG_MISSING", "한국투자증권 인증 정보가 설정되지 않았습니다.");
     }
   }
 

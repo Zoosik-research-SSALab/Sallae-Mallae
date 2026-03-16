@@ -1,6 +1,7 @@
 package com.sallaemallae.backend.domain.health.service;
 
 import com.sallaemallae.backend.domain.health.dto.KisHealthResponse;
+import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.infra.kis.KisApiException;
 import com.sallaemallae.backend.infra.kis.KisApprovalKeyManager;
 import com.sallaemallae.backend.infra.kis.KisProperties;
@@ -37,14 +38,14 @@ public class KisHealthServiceImpl implements KisHealthService {
           false,
           null,
           "NOT_CONFIGURED",
-          "KIS credentials are not configured."
+          "한국투자증권 인증 정보가 설정되지 않았습니다."
       );
     }
 
     try {
       kisTokenManager.getAccessToken();
       kisApprovalKeyManager.getApprovalKey();
-      CachedResult<KisQuoteData> quote = cachedGateway.getQuote("J", normalizedTicker);
+      CachedResult<KisQuoteData> quote = cachedGateway.getQuote(StockMarketConstants.DOMESTIC_MARKET_CODE, normalizedTicker);
       return new KisHealthResponse(
           true,
           kisProperties.getMode(),

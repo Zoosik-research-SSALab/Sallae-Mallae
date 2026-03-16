@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sallaemallae.backend.infra.kis.KisApiException;
 import com.sallaemallae.backend.infra.kis.KisProperties;
+import com.sallaemallae.backend.infra.kis.KisRestClientFactory;
 import com.sallaemallae.backend.infra.kis.KisTokenManager;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -12,7 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -20,17 +21,32 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+@Slf4j
 @Component
-@RequiredArgsConstructor
 public class KisDomesticStockClient {
 
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
+  private static final String DEFAULT_MARKET_CODE = "J";
   private static final String TOP_INTEREST_SCREEN_CODE = "20180";
   private static final int MAX_TOP_INTEREST_PAGE = 10;
+  private static final long RETRY_BACKOFF_MILLIS = 250L;
 
   private final KisProperties properties;
   private final KisTokenManager kisTokenManager;
   private final ObjectMapper objectMapper;
+  private final RestClient restClient;
+
+  public KisDomesticStockClient(
+      KisProperties properties,
+      KisTokenManager kisTokenManager,
+      ObjectMapper objectMapper,
+      KisRestClientFactory restClientFactory
+  ) {
+    this.properties = properties;
+    this.kisTokenManager = kisTokenManager;
+    this.objectMapper = objectMapper;
+    this.restClient = restClientFactory.restClient();
+  }
 
   public KisQuoteData getQuote(String marketCode, String ticker) {
     JsonNode body = get(
@@ -59,7 +75,7 @@ public class KisDomesticStockClient {
 
   public KisTopInterestStockData getTopInterestStocks(String marketCode, int maxItems) {
     String normalizedMarketCode = marketCode == null || marketCode.isBlank()
-        ? "J"
+        ? DEFAULT_MARKET_CODE
         : marketCode.trim().toUpperCase();
     int targetSize = Math.max(1, Math.min(maxItems, 200));
     List<KisTopInterestStockItem> items = new ArrayList<>();
@@ -198,9 +214,6 @@ public class KisDomesticStockClient {
 
   private JsonNode get(String path, String trId, String query) {
     properties.validateConfigured();
-    RestClient restClient = RestClient.builder()
-        .baseUrl(properties.restBaseUrl())
-        .build();
 
     int attempts = Math.max(0, properties.getRetryAttempts()) + 1;
     KisApiException lastException = null;
@@ -220,17 +233,29 @@ public class KisDomesticStockClient {
         if (attempt >= attempts || e.getStatusCode().is4xxClientError()) {
           throw lastException;
         }
+        sleepBeforeRetry(attempt);
       } catch (ResourceAccessException e) {
-        lastException = new KisApiException(503, "KIS_TRANSPORT_ERROR", "KIS transport error.", e);
+        lastException = new KisApiException(503, "KIS_TRANSPORT_ERROR", "한국투자증권 시세 서버와 통신할 수 없습니다.", e);
         if (attempt >= attempts) {
           throw lastException;
         }
+        sleepBeforeRetry(attempt);
       }
     }
 
     throw lastException != null
         ? lastException
-        : new KisApiException(500, "KIS_REQUEST_FAILED", "KIS request failed.");
+        : new KisApiException(500, "KIS_REQUEST_FAILED", "한국투자증권 시세 요청에 실패했습니다.");
+  }
+
+  private void sleepBeforeRetry(int attempt) {
+    long delay = RETRY_BACKOFF_MILLIS * (1L << Math.max(0, attempt - 1));
+    try {
+      Thread.sleep(delay);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new KisApiException(503, "KIS_RETRY_INTERRUPTED", "한국투자증권 시세 재시도가 중단되었습니다.", e);
+    }
   }
 
   private void buildHeaders(HttpHeaders headers, String trId) {
@@ -247,8 +272,12 @@ public class KisDomesticStockClient {
     if (resultCode != null && !"0".equals(resultCode)) {
       throw new KisApiException(
           502,
-          nullableText(response, "msg_cd") != null ? nullableText(response, "msg_cd") : "KIS_RESPONSE_ERROR",
-          nullableText(response, "msg1") != null ? nullableText(response, "msg1") : "KIS request failed."
+          nullableText(response, "msg_cd", "error_code") != null
+              ? nullableText(response, "msg_cd", "error_code")
+              : "KIS_RESPONSE_ERROR",
+          nullableText(response, "msg1", "error_description", "message") != null
+              ? nullableText(response, "msg1", "error_description", "message")
+              : "한국투자증권 시세 요청이 실패했습니다."
       );
     }
   }
@@ -263,11 +292,12 @@ public class KisDomesticStockClient {
               : "KIS_HTTP_ERROR",
           nullableText(body, "msg1", "error_description", "message") != null
               ? nullableText(body, "msg1", "error_description", "message")
-              : "KIS HTTP request failed.",
+              : "한국투자증권 시세 HTTP 요청에 실패했습니다.",
           e
       );
     } catch (Exception parseError) {
-      return new KisApiException(e.getStatusCode().value(), "KIS_HTTP_ERROR", "KIS HTTP request failed.", e);
+      log.warn("한국투자증권 시세 오류 응답을 해석하지 못했습니다.", parseError);
+      return new KisApiException(e.getStatusCode().value(), "KIS_HTTP_ERROR", "한국투자증권 시세 HTTP 요청에 실패했습니다.", e);
     }
   }
 

@@ -7,6 +7,7 @@ import com.sallaemallae.backend.domain.stock.dto.StockRealtimeSubscriptionRespon
 import com.sallaemallae.backend.domain.stock.dto.StockStoragePreviewResponse;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
+import com.sallaemallae.backend.domain.stock.support.StockRequestNormalizer;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleAggregator;
 import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleData;
@@ -15,7 +16,6 @@ import com.sallaemallae.backend.infra.kis.websocket.KisWebSocketClient;
 import com.sallaemallae.backend.infra.kis.websocket.KisWebSocketSubscriptionAck;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class StockRealtimeMinuteServiceImpl implements StockRealtimeMinuteService {
 
-  private static final Set<String> REALTIME_MARKET_CODES = Set.of("J");
-
   private final KisWebSocketClient kisWebSocketClient;
   private final KisRealtimeMinuteCandleAggregator candleAggregator;
   private final StockDataPipelineMapper pipelineMapper;
@@ -38,8 +36,11 @@ public class StockRealtimeMinuteServiceImpl implements StockRealtimeMinuteServic
 
   @Override
   public StockRealtimeSubscriptionResponse subscribe(String ticker, String marketCode) {
-    String normalizedTicker = normalizeTicker(ticker);
-    String normalizedMarket = normalizeRealtimeMarket(marketCode);
+    String normalizedTicker = StockRequestNormalizer.normalizeTicker(ticker, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+    String normalizedMarket = StockRequestNormalizer.normalizeRealtimeMarket(
+        marketCode,
+        StockErrorCode.STOCK_MARKET_INPUT_INVALID
+    );
 
     try {
       KisWebSocketSubscriptionAck acknowledgement = kisWebSocketClient
@@ -71,8 +72,11 @@ public class StockRealtimeMinuteServiceImpl implements StockRealtimeMinuteServic
 
   @Override
   public StockRealtimeMinuteSnapshotResponse getSnapshot(String ticker, String marketCode, int limit) {
-    String normalizedTicker = normalizeTicker(ticker);
-    String normalizedMarket = normalizeRealtimeMarket(marketCode);
+    String normalizedTicker = StockRequestNormalizer.normalizeTicker(ticker, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+    String normalizedMarket = StockRequestNormalizer.normalizeRealtimeMarket(
+        marketCode,
+        StockErrorCode.STOCK_MARKET_INPUT_INVALID
+    );
     int normalizedLimit = normalizeLimit(limit);
     String topic = kisWebSocketClient.resolveTopic(normalizedMarket);
 
@@ -113,8 +117,11 @@ public class StockRealtimeMinuteServiceImpl implements StockRealtimeMinuteServic
       String marketCode,
       int limit
   ) {
-    String normalizedTicker = normalizeTicker(ticker);
-    String normalizedMarket = normalizeRealtimeMarket(marketCode);
+    String normalizedTicker = StockRequestNormalizer.normalizeTicker(ticker, StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+    String normalizedMarket = StockRequestNormalizer.normalizeRealtimeMarket(
+        marketCode,
+        StockErrorCode.STOCK_MARKET_INPUT_INVALID
+    );
     int normalizedLimit = normalizeLimit(limit);
     Long stockId = resolveStockId(normalizedTicker);
 
@@ -144,28 +151,6 @@ public class StockRealtimeMinuteServiceImpl implements StockRealtimeMinuteServic
         currentMinutePreview,
         closedMinutePreviews
     );
-  }
-
-  private String normalizeTicker(String ticker) {
-    if (ticker == null) {
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
-    }
-    String normalized = ticker.trim().toUpperCase();
-    if (!normalized.matches("^[0-9A-Z]{6}$")) {
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
-    }
-    return normalized;
-  }
-
-  private String normalizeRealtimeMarket(String marketCode) {
-    if (marketCode == null) {
-      return "J";
-    }
-    String normalized = marketCode.trim().toUpperCase();
-    if (!REALTIME_MARKET_CODES.contains(normalized)) {
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
-    }
-    return normalized;
   }
 
   private int normalizeLimit(int limit) {

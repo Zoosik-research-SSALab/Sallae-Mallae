@@ -4,6 +4,8 @@ import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
 import com.sallaemallae.backend.domain.stock.service.StockService;
 import com.sallaemallae.backend.domain.stock.service.StockTopListService;
+import com.sallaemallae.backend.global.response.ApiResponse;
+import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -24,13 +26,14 @@ public class StockApiController {
 
   private final StockService stockService;
   private final StockTopListService stockTopListService;
+  private final AuthenticatedUserProvider authenticatedUserProvider;
 
   @Operation(
       summary = "Get top stock list",
       description = "Returns a paginated Top200 list with live KIS ranking data and in-memory filters."
   )
   @GetMapping
-  public StockListResponse getTopStocks(
+  public ApiResponse<StockListResponse> getTopStocks(
       @Parameter(description = "Signal filter. Allowed values: BUY, SELL, HOLD", example = "BUY")
       @RequestParam(required = false) String signal,
       @Parameter(description = "Sector filter. Allowed values: IT, 금융, 자동차, 바이오, 2차전지", example = "IT")
@@ -46,15 +49,24 @@ public class StockApiController {
       @Parameter(description = "Page size", example = "6")
       @RequestParam(defaultValue = "6") Integer limit
   ) {
-    return stockTopListService.getTopStocks(signal, sector, marketCap, sort, keyword, offset, limit);
+    return ApiResponse.success(stockTopListService.getTopStocks(
+        authenticatedUserProvider.getCurrentUserIdOrNull(),
+        signal,
+        sector,
+        marketCap,
+        sort,
+        keyword,
+        offset,
+        limit
+    ));
   }
 
   @Operation(summary = "Get stock basic info", description = "Returns the basic stock info for the given stockId.")
   @GetMapping("/{stockId}")
-  public StockBasicInfoResponse getStockBasicInfo(
+  public ApiResponse<StockBasicInfoResponse> getStockBasicInfo(
       @Parameter(description = "Stock ID", example = "1")
       @PathVariable Long stockId
   ) {
-    return stockService.getStockBasicInfo(stockId);
+    return ApiResponse.success(stockService.getStockBasicInfo(stockId));
   }
 }

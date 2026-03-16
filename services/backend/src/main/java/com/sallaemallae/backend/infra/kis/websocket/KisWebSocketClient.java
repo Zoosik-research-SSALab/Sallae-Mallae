@@ -1,6 +1,8 @@
 package com.sallaemallae.backend.infra.kis.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
+import com.sallaemallae.backend.infra.kis.KisApiException;
 import com.sallaemallae.backend.infra.kis.KisApprovalKeyManager;
 import com.sallaemallae.backend.infra.kis.KisProperties;
 import jakarta.annotation.PreDestroy;
@@ -11,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -21,13 +24,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class KisWebSocketClient {
 
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
@@ -39,6 +41,7 @@ public class KisWebSocketClient {
   private final ObjectMapper objectMapper;
   private final KisWebSocketMessageParser messageParser;
   private final KisRealtimeMinuteCandleAggregator aggregator;
+  private final HttpClient httpClient;
 
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
   private final AtomicBoolean connecting = new AtomicBoolean(false);
@@ -48,14 +51,33 @@ public class KisWebSocketClient {
       new ConcurrentHashMap<>();
   private final Map<Subscription, KisWebSocketSubscriptionAck> acknowledgedSubscriptions = new ConcurrentHashMap<>();
   private final Set<Subscription> firstTickLoggedSubscriptions = ConcurrentHashMap.newKeySet();
+  private final Map<Subscription, OffsetDateTime> subscriptionTouchedAt = new ConcurrentHashMap<>();
 
   private volatile WebSocket webSocket;
   private volatile OffsetDateTime lastMessageAt;
   private volatile String lastMessagePreview;
 
+  public KisWebSocketClient(
+      KisProperties properties,
+      KisApprovalKeyManager approvalKeyManager,
+      ObjectMapper objectMapper,
+      KisWebSocketMessageParser messageParser,
+      KisRealtimeMinuteCandleAggregator aggregator
+  ) {
+    this.properties = properties;
+    this.approvalKeyManager = approvalKeyManager;
+    this.objectMapper = objectMapper;
+    this.messageParser = messageParser;
+    this.aggregator = aggregator;
+    this.httpClient = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
+        .build();
+  }
+
   public CompletableFuture<KisWebSocketSubscriptionAck> subscribeDomesticTrade(String marketCode, String ticker) {
     Subscription subscription = new Subscription(resolveTopic(marketCode), marketCode, ticker);
     subscriptions.add(subscription);
+    touchSubscription(subscription);
 
     KisWebSocketSubscriptionAck acknowledged = acknowledgedSubscriptions.get(subscription);
     if (acknowledged != null && connected.get()) {
@@ -87,7 +109,9 @@ public class KisWebSocketClient {
   }
 
   public Optional<KisWebSocketSubscriptionAck> getAcknowledgement(String marketCode, String ticker) {
-    return Optional.ofNullable(acknowledgedSubscriptions.get(new Subscription(resolveTopic(marketCode), marketCode, ticker)));
+    Subscription subscription = new Subscription(resolveTopic(marketCode), marketCode, ticker);
+    touchSubscription(subscription);
+    return Optional.ofNullable(acknowledgedSubscriptions.get(subscription));
   }
 
   public Optional<OffsetDateTime> getLastMessageAt() {
@@ -102,8 +126,25 @@ public class KisWebSocketClient {
     return DOMESTIC_TRADE_TOPIC;
   }
 
+  @Scheduled(fixedDelay = 300_000L)
+  void cleanupStaleSubscriptions() {
+    OffsetDateTime threshold = OffsetDateTime.now(ZONE_ID)
+        .minusMinutes(Math.max(1, properties.getRealtimeSubscriptionTtlMinutes()));
+
+    for (Subscription subscription : List.copyOf(subscriptions)) {
+      OffsetDateTime lastTouched = subscriptionTouchedAt.get(subscription);
+      if (lastTouched != null && lastTouched.isBefore(threshold)) {
+        unsubscribeAndEvict(subscription, "실시간 시세 구독이 만료되었습니다.");
+      }
+    }
+  }
+
   @PreDestroy
   public void shutdown() {
+    for (Subscription subscription : List.copyOf(subscriptions)) {
+      unsubscribeAndEvict(subscription, "애플리케이션이 종료되었습니다.");
+    }
+
     WebSocket current = webSocket;
     if (current != null) {
       current.sendClose(WebSocket.NORMAL_CLOSURE, "shutdown");
@@ -118,10 +159,7 @@ public class KisWebSocketClient {
 
     scheduler.execute(() -> {
       try {
-        HttpClient client = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
-            .build();
-        WebSocket socket = client.newWebSocketBuilder()
+        WebSocket socket = httpClient.newWebSocketBuilder()
             .connectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
             .buildAsync(URI.create(properties.wsBaseUrl()), new KisListener())
             .join();
@@ -191,23 +229,38 @@ public class KisWebSocketClient {
     }
 
     messageParser.parseSubscriptionAck(rawMessage).ifPresent(ack -> {
-      Subscription subscription = new Subscription(ack.topic(), "J", ack.ticker());
+      Subscription subscription = findSubscription(ack.topic(), ack.ticker())
+          .orElse(new Subscription(ack.topic(), StockMarketConstants.DOMESTIC_MARKET_CODE, ack.ticker()));
+      touchSubscription(subscription);
       acknowledgedSubscriptions.put(subscription, ack);
       CompletableFuture<KisWebSocketSubscriptionAck> pending = pendingAcknowledgements.remove(subscription);
       if (pending != null && !pending.isDone()) {
         pending.complete(ack);
       }
-      log.info("KIS websocket subscription acknowledged. topic={}, ticker={}, success={}, message={}", ack.topic(), ack.ticker(), ack.success(), ack.message());
+      log.info(
+          "KIS websocket subscription acknowledged. topic={}, market={}, ticker={}, success={}, message={}",
+          ack.topic(),
+          subscription.marketCode(),
+          ack.ticker(),
+          ack.success(),
+          ack.message()
+      );
     });
 
-    java.util.List<KisRealtimeTradeTickData> ticks = messageParser.parseDomesticTradeTicks(rawMessage, "J");
+    List<KisRealtimeTradeTickData> ticks = messageParser.parseDomesticTradeTicks(rawMessage, StockMarketConstants.DOMESTIC_MARKET_CODE)
+        .stream()
+        .map(this::applyResolvedMarketCode)
+        .toList();
+
     if (!ticks.isEmpty()) {
       KisRealtimeTradeTickData firstTick = ticks.getFirst();
       Subscription subscription = new Subscription(resolveTopic(firstTick.marketCode()), firstTick.marketCode(), firstTick.ticker());
+      touchSubscription(subscription);
       if (firstTickLoggedSubscriptions.add(subscription)) {
         log.info(
-            "Received first KIS realtime trade tick. ticker={}, price={}, tradedAt={}, tickCount={}",
+            "Received first KIS realtime trade tick. ticker={}, market={}, price={}, tradedAt={}, tickCount={}",
             firstTick.ticker(),
+            firstTick.marketCode(),
             firstTick.currentPrice(),
             firstTick.tradedAt(),
             ticks.size()
@@ -215,6 +268,36 @@ public class KisWebSocketClient {
       }
       aggregator.acceptTicks(ticks);
     }
+  }
+
+  private KisRealtimeTradeTickData applyResolvedMarketCode(KisRealtimeTradeTickData tick) {
+    String marketCode = findSubscription(DOMESTIC_TRADE_TOPIC, tick.ticker())
+        .map(Subscription::marketCode)
+        .orElse(tick.marketCode());
+
+    return new KisRealtimeTradeTickData(
+        marketCode,
+        tick.ticker(),
+        tick.tradedAt(),
+        tick.currentPrice(),
+        tick.openPrice(),
+        tick.highPrice(),
+        tick.lowPrice(),
+        tick.changePrice(),
+        tick.changeRate(),
+        tick.tradeVolume(),
+        tick.accumulatedVolume(),
+        tick.executionStrength(),
+        tick.marketOperationCode(),
+        tick.halted(),
+        tick.source()
+    );
+  }
+
+  private Optional<Subscription> findSubscription(String topic, String ticker) {
+    return subscriptions.stream()
+        .filter(subscription -> subscription.topic().equals(topic) && subscription.ticker().equals(ticker))
+        .findFirst();
   }
 
   private void handleDisconnect(Throwable throwable) {
@@ -231,6 +314,26 @@ public class KisWebSocketClient {
       return;
     }
     scheduler.schedule(this::connectIfNecessary, RECONNECT_DELAY_SECONDS, TimeUnit.SECONDS);
+  }
+
+  private void touchSubscription(Subscription subscription) {
+    subscriptionTouchedAt.put(subscription, OffsetDateTime.now(ZONE_ID));
+  }
+
+  private void unsubscribeAndEvict(Subscription subscription, String reason) {
+    if (connected.get()) {
+      sendSubscriptionMessage(subscription, false);
+    }
+
+    subscriptions.remove(subscription);
+    subscriptionTouchedAt.remove(subscription);
+    acknowledgedSubscriptions.remove(subscription);
+    firstTickLoggedSubscriptions.remove(subscription);
+
+    CompletableFuture<KisWebSocketSubscriptionAck> pending = pendingAcknowledgements.remove(subscription);
+    if (pending != null && !pending.isDone()) {
+      pending.completeExceptionally(new KisApiException(503, "KIS_WS_SUBSCRIPTION_EXPIRED", reason));
+    }
   }
 
   private final class KisListener implements WebSocket.Listener {

@@ -1,28 +1,27 @@
 package com.sallaemallae.backend.domain.stock.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
+import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
-import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
-import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
-import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
+import com.sallaemallae.backend.domain.user.service.WatchlistService;
+import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.infra.kis.stock.KisDomesticStockClient;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockData;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockItem;
 import java.time.OffsetDateTime;
 import java.util.List;
-import org.junit.jupiter.api.AfterEach;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 @ExtendWith(MockitoExtension.class)
 class StockTopListServiceImplTest {
@@ -34,19 +33,14 @@ class StockTopListServiceImplTest {
   private StockRepository stockRepository;
 
   @Mock
-  private WatchlistRepository watchlistRepository;
-
-  @AfterEach
-  void tearDown() {
-    SecurityContextHolder.clearContext();
-  }
+  private WatchlistService watchlistService;
 
   @Test
   void getTopStocks_returnsPaginatedListAndCounts() {
     StockTopListServiceImpl service = new StockTopListServiceImpl(
         kisDomesticStockClient,
         stockRepository,
-        watchlistRepository
+        watchlistService
     );
 
     given(kisDomesticStockClient.getTopInterestStocks("J", 200)).willReturn(new KisTopInterestStockData(
@@ -64,14 +58,9 @@ class StockTopListServiceImplTest {
     Stock hynix = stock(3L, "000660", "SK하이닉스", "Information Technology", "Semiconductor", 728_002_365L);
     given(stockRepository.findAllByTickerInAndIsActiveTrue(List.of("005930", "035420", "000660")))
         .willReturn(List.of(samsung, naver, hynix));
-    SecurityContextHolder.getContext().setAuthentication(
-        new UsernamePasswordAuthenticationToken(99L, null, List.of())
-    );
-    UserWatchlist samsungWatchlist = watchlist(99L, 1L);
-    given(watchlistRepository.findAllByIdUserId(99L))
-        .willReturn(List.of(samsungWatchlist));
+    given(watchlistService.getWatchlistedStockIds(99L)).willReturn(Set.of(1L));
 
-    StockListResponse response = service.getTopStocks(null, null, null, "CHANGE", null, 0, 2);
+    StockListResponse response = service.getTopStocks(99L, null, null, null, "CHANGE", null, 0, 2);
 
     assertThat(response.filterCounts().buy()).isEqualTo(1);
     assertThat(response.filterCounts().sell()).isEqualTo(1);
@@ -89,7 +78,7 @@ class StockTopListServiceImplTest {
     StockTopListServiceImpl service = new StockTopListServiceImpl(
         kisDomesticStockClient,
         stockRepository,
-        watchlistRepository
+        watchlistService
     );
 
     given(kisDomesticStockClient.getTopInterestStocks("J", 200)).willReturn(new KisTopInterestStockData(
@@ -102,12 +91,26 @@ class StockTopListServiceImplTest {
     given(stockRepository.findAllByTickerInAndIsActiveTrue(List.of("005930")))
         .willReturn(List.of(samsung));
 
-    StockListResponse response = service.getTopStocks("BUY", "IT", "LARGE", "MARKET_CAP", "삼성", 0, 10);
+    StockListResponse response = service.getTopStocks(null, "BUY", "IT", "LARGE", "MARKET_CAP", "삼성", 0, 10);
 
     assertThat(response.filterCounts().buy()).isEqualTo(1);
     assertThat(response.stocks()).hasSize(1);
     assertThat(response.stocks().get(0).isWatchlisted()).isFalse();
-    verifyNoInteractions(watchlistRepository);
+    verifyNoInteractions(watchlistService);
+  }
+
+  @Test
+  void getTopStocks_throwsBusinessExceptionWhenPaginationIsInvalid() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        kisDomesticStockClient,
+        stockRepository,
+        watchlistService
+    );
+
+    assertThatThrownBy(() -> service.getTopStocks(null, null, null, null, null, null, -1, 2))
+        .isInstanceOfSatisfying(BusinessException.class, exception ->
+            assertThat(exception.getErrorCode()).isEqualTo(StockErrorCode.STOCK_MARKET_INPUT_INVALID)
+        );
   }
 
   private Stock stock(
@@ -126,11 +129,5 @@ class StockTopListServiceImplTest {
     given(stock.getCategory()).willReturn(category);
     given(stock.getOutstandingShares()).willReturn(outstandingShares);
     return stock;
-  }
-
-  private UserWatchlist watchlist(Long userId, Long stockId) {
-    UserWatchlist watchlist = mock(UserWatchlist.class);
-    given(watchlist.getId()).willReturn(new UserWatchlistId(userId, stockId));
-    return watchlist;
   }
 }

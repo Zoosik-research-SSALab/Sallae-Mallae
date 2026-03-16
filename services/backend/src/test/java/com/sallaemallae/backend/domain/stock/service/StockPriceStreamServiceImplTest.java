@@ -2,247 +2,204 @@ package com.sallaemallae.backend.domain.stock.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.sallaemallae.backend.domain.stock.dto.StockPricesResponse;
-import com.sallaemallae.backend.domain.stock.entity.Stock;
-import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
-import com.sallaemallae.backend.domain.stock.entity.StockPriceMinute;
-import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
-import com.sallaemallae.backend.domain.stock.repository.StockPriceMinuteRepository;
-import com.sallaemallae.backend.domain.stock.repository.StockPriceMonthlyRepository;
-import com.sallaemallae.backend.domain.stock.repository.StockPriceWeeklyRepository;
-import com.sallaemallae.backend.domain.stock.repository.StockRepository;
-import com.sallaemallae.backend.infra.kis.KisProperties;
-import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleAggregator;
-import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleData;
-import com.sallaemallae.backend.infra.kis.websocket.KisWebSocketClient;
-import com.sallaemallae.backend.infra.kis.websocket.KisWebSocketSubscriptionAck;
+import com.sallaemallae.backend.global.security.ratelimit.RateLimitResult;
+import com.sallaemallae.backend.global.security.ratelimit.RateLimitService;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import org.junit.jupiter.api.AfterEach;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
 class StockPriceStreamServiceImplTest {
 
-  @Mock
-  private StockRepository stockRepository;
+  @Autowired
+  private StockPriceStreamService stockPriceStreamService;
 
-  @Mock
-  private StockPriceMinuteRepository stockPriceMinuteRepository;
+  @Autowired
+  private JdbcTemplate jdbcTemplate;
 
-  @Mock
-  private StockPriceDailyRepository stockPriceDailyRepository;
+  @MockitoBean
+  private JavaMailSender javaMailSender;
 
-  @Mock
-  private StockPriceWeeklyRepository stockPriceWeeklyRepository;
-
-  @Mock
-  private StockPriceMonthlyRepository stockPriceMonthlyRepository;
-
-  @Mock
-  private KisProperties kisProperties;
-
-  @Mock
-  private KisWebSocketClient kisWebSocketClient;
-
-  @Mock
-  private KisRealtimeMinuteCandleAggregator candleAggregator;
-
-  private StockPriceStreamServiceImpl service;
+  @MockitoBean
+  private RateLimitService rateLimitService;
 
   @BeforeEach
   void setUp() {
-    service = new StockPriceStreamServiceImpl(
-        stockRepository,
-        stockPriceMinuteRepository,
-        stockPriceDailyRepository,
-        stockPriceWeeklyRepository,
-        stockPriceMonthlyRepository,
-        kisProperties,
-        kisWebSocketClient,
-        candleAggregator
-    );
-  }
-
-  @AfterEach
-  void tearDown() {
-    service.shutdown();
+    given(rateLimitService.checkIpLimit(anyString(), any()))
+        .willReturn(RateLimitResult.allowed(100, 99, 60));
+    createTablesIfNeeded();
+    clearTables();
+    seedData();
   }
 
   @Test
-  void getLatestPrices_mergesRealtimeMinuteCandlesWhenConfigured() {
-    Stock stock = stock(1L, "005930");
-    OffsetDateTime minute0900 = OffsetDateTime.parse("2026-03-12T09:00:00+09:00");
-    OffsetDateTime minute0901 = OffsetDateTime.parse("2026-03-12T09:01:00+09:00");
-    OffsetDateTime minute0902 = OffsetDateTime.parse("2026-03-12T09:02:00+09:00");
+  void getLatestPrices_usesDailyWindowForOneWeek() {
+    StockPricesResponse response = stockPriceStreamService.getLatestPrices(1L, "1W");
 
-    given(stockRepository.findByIdAndIsActiveTrue(1L)).willReturn(Optional.of(stock));
-    given(kisProperties.isConfigured()).willReturn(true);
-    given(kisWebSocketClient.subscribeDomesticTrade("J", "005930"))
-        .willReturn(CompletableFuture.completedFuture(new KisWebSocketSubscriptionAck(
-            "H0STCNT0",
-            "005930",
-            true,
-            "OK",
-            OffsetDateTime.parse("2026-03-12T09:00:10+09:00")
-        )));
-    given(candleAggregator.getCurrentMinuteCandle("J", "005930"))
-        .willReturn(Optional.of(realtimeCandle(minute0902, 70150, 70350, 70100, 70300, 1500L, false)));
-    given(candleAggregator.getRecentClosedMinuteCandles("J", "005930", 60))
-        .willReturn(List.of(
-            realtimeCandle(minute0901, 70050, 70250, 70000, 70200, 1300L, true),
-            realtimeCandle(minute0900, 70000, 70120, 69980, 70080, 1100L, true)
-        ));
+    assertThat(response.prices()).hasSize(7);
+    assertThat(response.prices().getFirst().timestamp())
+        .isEqualTo(LocalDate.of(2026, 3, 2).atStartOfDay(ZoneOffset.ofHours(9)).toOffsetDateTime());
+    assertThat(response.prices().getLast().timestamp())
+        .isEqualTo(LocalDate.of(2026, 3, 8).atStartOfDay(ZoneOffset.ofHours(9)).toOffsetDateTime());
+  }
 
-    StockPricesResponse response = service.getLatestPrices(1L, "1MIN");
+  @Test
+  void getLatestPrices_usesMinuteWindowForOneDayPeriod() {
+    StockPricesResponse response = stockPriceStreamService.getLatestPrices(1L, "1D");
 
     assertThat(response.prices()).hasSize(3);
-    assertThat(response.prices().get(0).timestamp()).isEqualTo(minute0900);
-    assertThat(response.prices().get(1).timestamp()).isEqualTo(minute0901);
-    assertThat(response.prices().get(1).close()).isEqualTo(70200);
-    assertThat(response.prices().get(2).timestamp()).isEqualTo(minute0902);
-    assertThat(response.prices().get(2).close()).isEqualTo(70300);
-    verify(kisWebSocketClient).subscribeDomesticTrade("J", "005930");
-    verifyNoInteractions(stockPriceMinuteRepository);
+    assertThat(response.prices().getFirst().timestamp())
+        .isEqualTo(OffsetDateTime.parse("2026-03-12T09:00:00+09:00"));
+    assertThat(response.prices().getLast().close()).isEqualTo(70300);
   }
 
-  @Test
-  void getLatestPrices_mergesRealtimeMinuteCandlesIntoDailyWindowWhenConfigured() {
-    Stock stock = stock(1L, "005930");
-    OffsetDateTime minute0900 = OffsetDateTime.parse("2026-03-12T09:00:00+09:00");
-    OffsetDateTime minute0901 = OffsetDateTime.parse("2026-03-12T09:01:00+09:00");
-    OffsetDateTime minute0902 = OffsetDateTime.parse("2026-03-12T09:02:00+09:00");
-    StockPriceMinute dbMinute0901 = minutePrice(minute0901, 70050, 70200, 70000, 70150, 1200L);
-    StockPriceMinute dbMinute0900 = minutePrice(minute0900, 70000, 70100, 69900, 70050, 1000L);
+  private void createTablesIfNeeded() {
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stocks (
+            id BIGINT PRIMARY KEY,
+            ticker VARCHAR(6) NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            gics_sector VARCHAR(50),
+            category VARCHAR(50),
+            outstanding_shares BIGINT,
+            market_type VARCHAR(20),
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP WITH TIME ZONE,
+            updated_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
 
-    given(stockRepository.findByIdAndIsActiveTrue(1L)).willReturn(Optional.of(stock));
-    given(stockPriceMinuteRepository.findByStockIdOrderByTradeTimestampDesc(eq(1L), any()))
-        .willReturn(List.of(dbMinute0901, dbMinute0900));
-    given(kisProperties.isConfigured()).willReturn(true);
-    given(kisWebSocketClient.subscribeDomesticTrade("J", "005930"))
-        .willReturn(CompletableFuture.completedFuture(new KisWebSocketSubscriptionAck(
-            "H0STCNT0",
-            "005930",
-            true,
-            "OK",
-            OffsetDateTime.parse("2026-03-12T09:00:10+09:00")
-        )));
-    given(candleAggregator.getCurrentMinuteCandle("J", "005930"))
-        .willReturn(Optional.of(realtimeCandle(minute0902, 70150, 70350, 70100, 70300, 1500L, false)));
-    given(candleAggregator.getRecentClosedMinuteCandles("J", "005930", 390))
-        .willReturn(List.of(realtimeCandle(minute0901, 70050, 70250, 70000, 70200, 1300L, true)));
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_minute (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
 
-    StockPricesResponse response = service.getLatestPrices(1L, "1D");
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_daily (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_date DATE NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
 
-    assertThat(response.prices()).hasSize(3);
-    assertThat(response.prices().get(0).timestamp()).isEqualTo(minute0900);
-    assertThat(response.prices().get(1).timestamp()).isEqualTo(minute0901);
-    assertThat(response.prices().get(1).close()).isEqualTo(70200);
-    assertThat(response.prices().get(2).timestamp()).isEqualTo(minute0902);
-    assertThat(response.prices().get(2).close()).isEqualTo(70300);
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_weekly (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_week DATE NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
+
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_monthly (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_month DATE NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
   }
 
-  @Test
-  void getLatestPrices_doesNotTouchRealtimeForWeeklyPeriod() {
-    Stock stock = stock(1L, "005930");
-    StockPriceDaily daily1 = dailyPrice(LocalDate.of(2026, 3, 8), 70000, 70500, 69800, 70300, 100000L);
-    StockPriceDaily daily2 = dailyPrice(LocalDate.of(2026, 3, 9), 70300, 70700, 70200, 70600, 120000L);
-
-    given(stockRepository.findByIdAndIsActiveTrue(1L)).willReturn(Optional.of(stock));
-    given(stockPriceDailyRepository.findByStockIdOrderByTradeDateDesc(eq(1L), any()))
-        .willReturn(List.of(daily2, daily1));
-
-    StockPricesResponse response = service.getLatestPrices(1L, "1W");
-
-    assertThat(response.prices()).hasSize(2);
-    assertThat(response.prices().get(0).timestamp())
-        .isEqualTo(LocalDate.of(2026, 3, 8).atStartOfDay(java.time.ZoneOffset.ofHours(9)).toOffsetDateTime());
-    assertThat(response.prices().get(1).timestamp())
-        .isEqualTo(LocalDate.of(2026, 3, 9).atStartOfDay(java.time.ZoneOffset.ofHours(9)).toOffsetDateTime());
-    verifyNoInteractions(kisProperties, kisWebSocketClient, candleAggregator);
+  private void clearTables() {
+    jdbcTemplate.execute("DELETE FROM stock_prices_monthly");
+    jdbcTemplate.execute("DELETE FROM stock_prices_weekly");
+    jdbcTemplate.execute("DELETE FROM stock_prices_daily");
+    jdbcTemplate.execute("DELETE FROM stock_prices_minute");
+    jdbcTemplate.execute("DELETE FROM stocks");
   }
 
-  private Stock stock(Long id, String ticker) {
-    Stock stock = mock(Stock.class);
-    given(stock.getId()).willReturn(id);
-    given(stock.getTicker()).willReturn(ticker);
-    return stock;
-  }
+  private void seedData() {
+    OffsetDateTime now = OffsetDateTime.parse("2026-03-12T10:30:00+09:00");
 
-  private StockPriceMinute minutePrice(
-      OffsetDateTime tradeTimestamp,
-      Integer openPrice,
-      Integer highPrice,
-      Integer lowPrice,
-      Integer closePrice,
-      Long volume
-  ) {
-    StockPriceMinute price = mock(StockPriceMinute.class);
-    given(price.getTradeTimestamp()).willReturn(tradeTimestamp);
-    given(price.getOpenPrice()).willReturn(openPrice);
-    given(price.getHighPrice()).willReturn(highPrice);
-    given(price.getLowPrice()).willReturn(lowPrice);
-    given(price.getClosePrice()).willReturn(closePrice);
-    given(price.getVolume()).willReturn(volume);
-    return price;
-  }
-
-  private StockPriceDaily dailyPrice(
-      LocalDate tradeDate,
-      Integer openPrice,
-      Integer highPrice,
-      Integer lowPrice,
-      Integer closePrice,
-      Long volume
-  ) {
-    StockPriceDaily price = mock(StockPriceDaily.class);
-    given(price.getTradeDate()).willReturn(tradeDate);
-    given(price.getOpenPrice()).willReturn(openPrice);
-    given(price.getHighPrice()).willReturn(highPrice);
-    given(price.getLowPrice()).willReturn(lowPrice);
-    given(price.getClosePrice()).willReturn(closePrice);
-    given(price.getVolume()).willReturn(volume);
-    return price;
-  }
-
-  private KisRealtimeMinuteCandleData realtimeCandle(
-      OffsetDateTime bucketStart,
-      Integer openPrice,
-      Integer highPrice,
-      Integer lowPrice,
-      Integer closePrice,
-      Long minuteVolume,
-      boolean closed
-  ) {
-    return new KisRealtimeMinuteCandleData(
-        "J",
-        "005930",
-        bucketStart,
-        bucketStart.plusMinutes(1),
-        openPrice,
-        highPrice,
-        lowPrice,
-        closePrice,
-        minuteVolume,
-        minuteVolume,
-        0.15f,
-        3,
-        bucketStart.plusSeconds(30),
-        closed,
-        "KIS_WS"
+    jdbcTemplate.update(
+        """
+            INSERT INTO stocks (id, ticker, name, gics_sector, category, market_type, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+        1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", "KOSPI", true, now.minusDays(1), now
     );
+
+    jdbcTemplate.update(
+        """
+            INSERT INTO stock_prices_minute (id, stock_id, trade_timestamp, open_price, high_price, low_price, close_price, volume, fluctuation_rate, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+        1L, 1L, OffsetDateTime.parse("2026-03-12T09:00:00+09:00"), 70000, 70100, 69900, 70050, 1000L, 0.10f, now
+    );
+    jdbcTemplate.update(
+        """
+            INSERT INTO stock_prices_minute (id, stock_id, trade_timestamp, open_price, high_price, low_price, close_price, volume, fluctuation_rate, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+        2L, 1L, OffsetDateTime.parse("2026-03-12T09:01:00+09:00"), 70050, 70200, 70000, 70150, 1200L, 0.15f, now
+    );
+    jdbcTemplate.update(
+        """
+            INSERT INTO stock_prices_minute (id, stock_id, trade_timestamp, open_price, high_price, low_price, close_price, volume, fluctuation_rate, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+        3L, 1L, OffsetDateTime.parse("2026-03-12T09:02:00+09:00"), 70150, 70350, 70100, 70300, 1500L, 0.20f, now
+    );
+
+    for (int i = 0; i < 8; i++) {
+      LocalDate tradeDate = LocalDate.of(2026, 3, 1).plusDays(i);
+      jdbcTemplate.update(
+          """
+              INSERT INTO stock_prices_daily (id, stock_id, trade_date, open_price, high_price, low_price, close_price, volume, fluctuation_rate, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              """,
+          100L + i,
+          1L,
+          tradeDate,
+          70000 + i,
+          70500 + i,
+          69800 + i,
+          70200 + i,
+          100000L + i,
+          0.10f + i,
+          now
+      );
+    }
   }
 }

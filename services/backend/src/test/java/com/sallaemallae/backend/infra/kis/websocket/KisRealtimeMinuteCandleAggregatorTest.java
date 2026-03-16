@@ -8,11 +8,15 @@ import static org.mockito.Mockito.when;
 
 import com.sallaemallae.backend.infra.kis.cache.KisRealtimeCacheRepository;
 import com.sallaemallae.backend.infra.kis.cache.MarketCacheTtlPolicy;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,14 +27,22 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class KisRealtimeMinuteCandleAggregatorTest {
 
+  private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
+
   @Mock
   private KisRealtimeCacheRepository cacheRepository;
 
+  private Clock clock;
   private KisRealtimeMinuteCandleAggregator aggregator;
 
   @BeforeEach
   void setUp() {
-    aggregator = new KisRealtimeMinuteCandleAggregator(cacheRepository, new MarketCacheTtlPolicy());
+    clock = Clock.fixed(Instant.parse("2026-03-12T00:02:30Z"), ZONE_ID);
+    aggregator = new KisRealtimeMinuteCandleAggregator(
+        cacheRepository,
+        new MarketCacheTtlPolicy(clock, Set.<LocalDate>of()),
+        clock
+    );
   }
 
   @Test
@@ -61,13 +73,11 @@ class KisRealtimeMinuteCandleAggregatorTest {
   void getCurrentMinuteCandle_returnsAggregatedCurrentMinute() {
     when(cacheRepository.getCurrentMinuteCandle("J", "005930")).thenReturn(Optional.empty());
 
-    OffsetDateTime tradedAt = OffsetDateTime.now(ZoneOffset.ofHours(9))
-        .truncatedTo(ChronoUnit.MINUTES)
-        .plusSeconds(1);
+    OffsetDateTime tradedAt = OffsetDateTime.parse("2026-03-12T09:02:01+09:00");
     aggregator.acceptTick(tick(tradedAt.toString(), 70300, 7L, 200L));
 
     KisRealtimeMinuteCandleData current = aggregator.getCurrentMinuteCandle("J", "005930").orElseThrow();
-    assertThat(current.bucketStart()).isEqualTo(tradedAt.truncatedTo(ChronoUnit.MINUTES));
+    assertThat(current.bucketStart()).isEqualTo(OffsetDateTime.parse("2026-03-12T09:02:00+09:00"));
     assertThat(current.closePrice()).isEqualTo(70300);
     assertThat(current.minuteVolume()).isEqualTo(7L);
     assertThat(current.closed()).isFalse();
@@ -75,9 +85,7 @@ class KisRealtimeMinuteCandleAggregatorTest {
 
   @Test
   void getCurrentMinuteCandle_rollsExpiredCurrentIntoClosedList() {
-    OffsetDateTime bucketStart = OffsetDateTime.now(ZoneOffset.ofHours(9))
-        .minusMinutes(2)
-        .truncatedTo(ChronoUnit.MINUTES);
+    OffsetDateTime bucketStart = OffsetDateTime.parse("2026-03-12T09:00:00+09:00");
     KisRealtimeMinuteCandleData expired = new KisRealtimeMinuteCandleData(
         "J",
         "005930",

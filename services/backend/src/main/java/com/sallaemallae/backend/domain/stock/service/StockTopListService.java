@@ -5,6 +5,7 @@ import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
 public interface StockTopListService {
 
   StockListResponse getTopStocks(
+      Long userId,
       String signal,
       String sector,
       String marketCap,

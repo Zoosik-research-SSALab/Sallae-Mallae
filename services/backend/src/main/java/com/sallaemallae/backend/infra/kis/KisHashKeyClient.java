@@ -16,7 +16,7 @@ public class KisHashKeyClient {
     try {
       return kisAuthClient.issueHashKey(objectMapper.writeValueAsString(payload));
     } catch (JsonProcessingException e) {
-      throw new KisApiException(500, "KIS_HASH_PAYLOAD_INVALID", "Failed to serialize KIS hash payload.", e);
+      throw new KisApiException(500, "KIS_HASH_PAYLOAD_INVALID", "한국투자증권 해시키 요청 본문 직렬화에 실패했습니다.", e);
     }
   }
 }

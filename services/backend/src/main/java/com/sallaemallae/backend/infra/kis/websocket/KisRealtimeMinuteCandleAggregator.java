@@ -2,6 +2,7 @@ package com.sallaemallae.backend.infra.kis.websocket;
 
 import com.sallaemallae.backend.infra.kis.cache.KisRealtimeCacheRepository;
 import com.sallaemallae.backend.infra.kis.cache.MarketCacheTtlPolicy;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -10,11 +11,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
 public class KisRealtimeMinuteCandleAggregator {
 
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
@@ -22,9 +23,29 @@ public class KisRealtimeMinuteCandleAggregator {
 
   private final KisRealtimeCacheRepository cacheRepository;
   private final MarketCacheTtlPolicy ttlPolicy;
+  private final Clock clock;
 
   private final ConcurrentMap<String, KisRealtimeMinuteCandleData> currentCandles = new ConcurrentHashMap<>();
   private final ConcurrentMap<String, Object> locks = new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, OffsetDateTime> lastTouchedAt = new ConcurrentHashMap<>();
+
+  @Autowired
+  public KisRealtimeMinuteCandleAggregator(
+      KisRealtimeCacheRepository cacheRepository,
+      MarketCacheTtlPolicy ttlPolicy
+  ) {
+    this(cacheRepository, ttlPolicy, Clock.system(ZONE_ID));
+  }
+
+  KisRealtimeMinuteCandleAggregator(
+      KisRealtimeCacheRepository cacheRepository,
+      MarketCacheTtlPolicy ttlPolicy,
+      Clock clock
+  ) {
+    this.cacheRepository = cacheRepository;
+    this.ttlPolicy = ttlPolicy;
+    this.clock = clock;
+  }
 
   public void acceptTicks(List<KisRealtimeTradeTickData> ticks) {
     for (KisRealtimeTradeTickData tick : ticks) {
@@ -34,6 +55,8 @@ public class KisRealtimeMinuteCandleAggregator {
 
   public void acceptTick(KisRealtimeTradeTickData tick) {
     String aggregateKey = aggregateKey(tick.marketCode(), tick.ticker());
+    touch(aggregateKey);
+
     synchronized (locks.computeIfAbsent(aggregateKey, ignored -> new Object())) {
       KisRealtimeMinuteCandleData current = currentCandles.computeIfAbsent(
           aggregateKey,
@@ -52,11 +75,14 @@ public class KisRealtimeMinuteCandleAggregator {
   }
 
   public Optional<KisRealtimeTradeTickData> getLatestTick(String marketCode, String ticker) {
+    touch(aggregateKey(marketCode, ticker));
     return cacheRepository.getLatestTick(marketCode, ticker);
   }
 
   public Optional<KisRealtimeMinuteCandleData> getCurrentMinuteCandle(String marketCode, String ticker) {
     String aggregateKey = aggregateKey(marketCode, ticker);
+    touch(aggregateKey);
+
     synchronized (locks.computeIfAbsent(aggregateKey, ignored -> new Object())) {
       KisRealtimeMinuteCandleData current = currentCandles.get(aggregateKey);
       if (current == null) {
@@ -72,6 +98,8 @@ public class KisRealtimeMinuteCandleAggregator {
 
   public List<KisRealtimeMinuteCandleData> getRecentClosedMinuteCandles(String marketCode, String ticker, int limit) {
     String aggregateKey = aggregateKey(marketCode, ticker);
+    touch(aggregateKey);
+
     synchronized (locks.computeIfAbsent(aggregateKey, ignored -> new Object())) {
       KisRealtimeMinuteCandleData current = currentCandles.get(aggregateKey);
       if (current == null) {
@@ -83,6 +111,19 @@ public class KisRealtimeMinuteCandleAggregator {
       rollCurrentCandleIfExpired(aggregateKey, current);
     }
     return cacheRepository.trimToLimit(cacheRepository.getRecentMinuteCandles(marketCode, ticker), limit);
+  }
+
+  @Scheduled(fixedDelay = 600_000L)
+  void cleanupStaleState() {
+    OffsetDateTime threshold = OffsetDateTime.now(clock).minus(ttlPolicy.realtimeStateTtl());
+    for (String aggregateKey : List.copyOf(lastTouchedAt.keySet())) {
+      OffsetDateTime lastTouched = lastTouchedAt.get(aggregateKey);
+      if (lastTouched != null && lastTouched.isBefore(threshold)) {
+        currentCandles.remove(aggregateKey);
+        lastTouchedAt.remove(aggregateKey);
+        locks.remove(aggregateKey);
+      }
+    }
   }
 
   private KisRealtimeMinuteCandleData merge(KisRealtimeMinuteCandleData current, KisRealtimeTradeTickData tick) {
@@ -191,7 +232,7 @@ public class KisRealtimeMinuteCandleAggregator {
       return null;
     }
 
-    OffsetDateTime now = OffsetDateTime.now(ZONE_ID);
+    OffsetDateTime now = OffsetDateTime.now(clock);
     if (now.isBefore(current.bucketEnd())) {
       return current;
     }
@@ -200,6 +241,10 @@ public class KisRealtimeMinuteCandleAggregator {
     currentCandles.remove(aggregateKey);
     cacheRepository.deleteCurrentMinuteCandle(current.marketCode(), current.ticker());
     return null;
+  }
+
+  private void touch(String aggregateKey) {
+    lastTouchedAt.put(aggregateKey, OffsetDateTime.now(clock));
   }
 
   private String aggregateKey(String marketCode, String ticker) {

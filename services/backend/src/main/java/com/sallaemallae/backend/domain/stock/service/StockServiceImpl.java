@@ -6,6 +6,7 @@ import com.sallaemallae.backend.domain.stock.dto.StockSummaryResponse;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
+import com.sallaemallae.backend.domain.stock.support.StockRequestNormalizer;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,9 @@ public class StockServiceImpl implements StockService {
 
   @Override
   public StockDetailResponse getStockDetail(String ticker) {
-    Stock stock = stockRepository.findByTickerAndIsActiveTrue(normalizeTicker(ticker))
+    Stock stock = stockRepository.findByTickerAndIsActiveTrue(
+            StockRequestNormalizer.normalizeTicker(ticker, StockErrorCode.STOCK_NOT_FOUND)
+        )
         .orElseThrow(() -> new BusinessException(StockErrorCode.STOCK_NOT_FOUND));
     return toDetailResponse(stock);
   }
@@ -71,12 +74,5 @@ public class StockServiceImpl implements StockService {
         stock.getCategory(),
         stock.getUpdatedAt()
     );
-  }
-
-  private String normalizeTicker(String ticker) {
-    if (ticker == null || ticker.isBlank()) {
-      throw new BusinessException(StockErrorCode.STOCK_NOT_FOUND);
-    }
-    return ticker.trim().toUpperCase();
   }
 }

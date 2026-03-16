@@ -6,8 +6,8 @@ import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
-import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
-import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
+import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
+import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.infra.kis.KisApiException;
 import com.sallaemallae.backend.infra.kis.stock.KisDomesticStockClient;
@@ -25,8 +25,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,10 +40,11 @@ public class StockTopListServiceImpl implements StockTopListService {
 
   private final KisDomesticStockClient kisDomesticStockClient;
   private final StockRepository stockRepository;
-  private final WatchlistRepository watchlistRepository;
+  private final WatchlistService watchlistService;
 
   @Override
   public StockListResponse getTopStocks(
+      Long userId,
       String signal,
       String sector,
       String marketCap,
@@ -57,9 +56,12 @@ public class StockTopListServiceImpl implements StockTopListService {
     StockTopListQuery query = StockTopListQuery.of(signal, sector, marketCap, sort, keyword, offset, limit);
 
     try {
-      KisTopInterestStockData ranking = kisDomesticStockClient.getTopInterestStocks("J", MAX_TOP_STOCKS);
+      KisTopInterestStockData ranking = kisDomesticStockClient.getTopInterestStocks(
+          StockMarketConstants.DOMESTIC_MARKET_CODE,
+          MAX_TOP_STOCKS
+      );
       Map<String, Stock> stockMetadata = loadStockMetadata(ranking.items());
-      Set<Long> watchlistedStockIds = loadWatchlistedStockIds(resolveCurrentUserIdOrNull());
+      Set<Long> watchlistedStockIds = loadWatchlistedStockIds(userId);
 
       List<StockTopListCandidate> candidates = ranking.items().stream()
           .map(item -> toCandidate(item, stockMetadata.get(item.ticker()), watchlistedStockIds))
@@ -78,8 +80,8 @@ public class StockTopListServiceImpl implements StockTopListService {
       List<StockListItemResponse> responseItems = new ArrayList<>();
       int start = Math.min(query.offset(), signalFiltered.size());
       int end = Math.min(start + query.limit(), signalFiltered.size());
-      for (int i = start; i < end; i++) {
-        responseItems.add(toResponse(signalFiltered.get(i), i + 1));
+      for (int index = start; index < end; index++) {
+        responseItems.add(toResponse(signalFiltered.get(index), index + 1));
       }
 
       return new StockListResponse(filterCounts, responseItems);
@@ -114,23 +116,11 @@ public class StockTopListServiceImpl implements StockTopListService {
     }
 
     try {
-      return watchlistRepository.findAllByIdUserId(userId).stream()
-          .map(UserWatchlist::getId)
-          .map(id -> id != null ? id.getStockId() : null)
-          .filter(Objects::nonNull)
-          .collect(Collectors.toSet());
+      return watchlistService.getWatchlistedStockIds(userId);
     } catch (RuntimeException e) {
       log.warn("Failed to enrich top stock list with watchlist data. userId={}", userId, e);
       return Set.of();
     }
-  }
-
-  private Long resolveCurrentUserIdOrNull() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !(authentication.getPrincipal() instanceof Long userId) || userId <= 0) {
-      return null;
-    }
-    return userId;
   }
 
   private StockTopListCandidate toCandidate(
@@ -265,7 +255,6 @@ public class StockTopListServiceImpl implements StockTopListService {
     return SignalFilter.HOLD;
   }
 
-  // Temporary heuristic until ML-backed signals are wired into this endpoint.
   private int resolveConfidence(int sourceRank, Float fluctuationRate, SignalFilter signal) {
     float magnitude = fluctuationRate == null ? 0f : Math.min(Math.abs(fluctuationRate), 8f);
     int base = signal == SignalFilter.HOLD ? 52 : 58;
@@ -275,7 +264,8 @@ public class StockTopListServiceImpl implements StockTopListService {
   }
 
   private SectorFilter resolveSectorFilter(Stock stock, String fallbackName) {
-    String text = normalize(String.join(" ",
+    String text = normalize(String.join(
+        " ",
         stock != null && stock.getGicsSector() != null ? stock.getGicsSector() : "",
         stock != null && stock.getCategory() != null ? stock.getCategory() : "",
         stock != null && stock.getName() != null ? stock.getName() : "",
@@ -285,16 +275,16 @@ public class StockTopListServiceImpl implements StockTopListService {
     if (containsAny(text, "information technology", "semiconductor", "software", "it", "반도체", "전자", "internet")) {
       return SectorFilter.IT;
     }
-    if (containsAny(text, "financial", "finance", "bank", "insurance", "securities", "금융", "은행", "증권", "보험")) {
+    if (containsAny(text, "financial", "finance", "bank", "insurance", "securities", "금융", "증권", "보험")) {
       return SectorFilter.FINANCE;
     }
-    if (containsAny(text, "automobile", "auto", "motor", "자동차", "모비스", "기아", "현대")) {
+    if (containsAny(text, "automobile", "auto", "motor", "자동차", "모빌리티", "기아", "현대")) {
       return SectorFilter.AUTO;
     }
     if (containsAny(text, "health care", "bio", "biotech", "pharma", "제약", "바이오", "헬스")) {
       return SectorFilter.BIO;
     }
-    if (containsAny(text, "battery", "secondary battery", "2차전지", "에너지솔루션", "양극재", "음극재")) {
+    if (containsAny(text, "battery", "secondary battery", "2차전지", "에너지저장", "양극재", "음극재")) {
       return SectorFilter.BATTERY;
     }
     return null;

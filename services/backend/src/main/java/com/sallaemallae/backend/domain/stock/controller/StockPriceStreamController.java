@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -23,6 +24,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequestMapping("/api/stream/stocks")
 @RequiredArgsConstructor
 public class StockPriceStreamController {
+
+  private static final long SSE_ERROR_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
 
   private final StockPriceStreamService stockPriceStreamService;
 
@@ -45,7 +48,7 @@ public class StockPriceStreamController {
   }
 
   private SseEmitter buildErrorEmitter(BusinessException e) {
-    SseEmitter emitter = new SseEmitter(0L);
+    SseEmitter emitter = new SseEmitter(SSE_ERROR_TIMEOUT_MILLIS);
     try {
       emitter.send(SseEmitter.event()
           .name("error")

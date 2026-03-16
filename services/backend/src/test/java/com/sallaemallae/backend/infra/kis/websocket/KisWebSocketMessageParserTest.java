@@ -68,4 +68,20 @@ class KisWebSocketMessageParserTest {
     assertThat(acknowledgement.success()).isTrue();
     assertThat(acknowledgement.message()).isEqualTo("SUBSCRIBE SUCCESS");
   }
+
+  @Test
+  void parseSubscriptionAck_returnsEmptyWhenRequiredFieldsAreMissing() {
+    String raw = """
+        {
+          "header": {
+            "tr_id": "H0STCNT0"
+          },
+          "body": {
+            "rt_cd": "0"
+          }
+        }
+        """;
+
+    assertThat(parser.parseSubscriptionAck(raw)).isEmpty();
+  }
 }
