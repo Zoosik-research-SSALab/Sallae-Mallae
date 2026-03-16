@@ -47,6 +47,7 @@ public class KisWebSocketClient {
   private final AtomicBoolean connecting = new AtomicBoolean(false);
   private final AtomicBoolean connected = new AtomicBoolean(false);
   private final Set<Subscription> subscriptions = ConcurrentHashMap.newKeySet();
+  private final Map<String, Subscription> subscriptionsByLookupKey = new ConcurrentHashMap<>();
   private final Map<Subscription, CompletableFuture<KisWebSocketSubscriptionAck>> pendingAcknowledgements =
       new ConcurrentHashMap<>();
   private final Map<Subscription, KisWebSocketSubscriptionAck> acknowledgedSubscriptions = new ConcurrentHashMap<>();
@@ -75,7 +76,9 @@ public class KisWebSocketClient {
   }
 
   public CompletableFuture<KisWebSocketSubscriptionAck> subscribeDomesticTrade(String marketCode, String ticker) {
-    Subscription subscription = new Subscription(resolveTopic(marketCode), marketCode, ticker);
+    Subscription requested = new Subscription(resolveTopic(marketCode), marketCode, ticker);
+    String lookupKey = subscriptionLookupKey(requested.topic(), requested.ticker());
+    Subscription subscription = subscriptionsByLookupKey.computeIfAbsent(lookupKey, ignored -> requested);
     subscriptions.add(subscription);
     touchSubscription(subscription);
 
@@ -101,15 +104,16 @@ public class KisWebSocketClient {
   }
 
   public boolean isSubscriptionRequested(String marketCode, String ticker) {
-    return subscriptions.contains(new Subscription(resolveTopic(marketCode), marketCode, ticker));
+    return subscriptionsByLookupKey.containsKey(subscriptionLookupKey(resolveTopic(marketCode), ticker));
   }
 
   public boolean isSubscriptionAcknowledged(String marketCode, String ticker) {
-    return acknowledgedSubscriptions.containsKey(new Subscription(resolveTopic(marketCode), marketCode, ticker));
+    return subscriptionsByLookupKey.containsKey(subscriptionLookupKey(resolveTopic(marketCode), ticker))
+        && acknowledgedSubscriptions.containsKey(resolveSubscription(resolveTopic(marketCode), marketCode, ticker));
   }
 
   public Optional<KisWebSocketSubscriptionAck> getAcknowledgement(String marketCode, String ticker) {
-    Subscription subscription = new Subscription(resolveTopic(marketCode), marketCode, ticker);
+    Subscription subscription = resolveSubscription(resolveTopic(marketCode), marketCode, ticker);
     touchSubscription(subscription);
     return Optional.ofNullable(acknowledgedSubscriptions.get(subscription));
   }
@@ -295,9 +299,7 @@ public class KisWebSocketClient {
   }
 
   private Optional<Subscription> findSubscription(String topic, String ticker) {
-    return subscriptions.stream()
-        .filter(subscription -> subscription.topic().equals(topic) && subscription.ticker().equals(ticker))
-        .findFirst();
+    return Optional.ofNullable(subscriptionsByLookupKey.get(subscriptionLookupKey(topic, ticker)));
   }
 
   private void handleDisconnect(Throwable throwable) {
@@ -326,6 +328,7 @@ public class KisWebSocketClient {
     }
 
     subscriptions.remove(subscription);
+    subscriptionsByLookupKey.remove(subscriptionLookupKey(subscription.topic(), subscription.ticker()));
     subscriptionTouchedAt.remove(subscription);
     acknowledgedSubscriptions.remove(subscription);
     firstTickLoggedSubscriptions.remove(subscription);
@@ -334,6 +337,17 @@ public class KisWebSocketClient {
     if (pending != null && !pending.isDone()) {
       pending.completeExceptionally(new KisApiException(503, "KIS_WS_SUBSCRIPTION_EXPIRED", reason));
     }
+  }
+
+  private Subscription resolveSubscription(String topic, String marketCode, String ticker) {
+    return subscriptionsByLookupKey.getOrDefault(
+        subscriptionLookupKey(topic, ticker),
+        new Subscription(topic, marketCode, ticker)
+    );
+  }
+
+  private String subscriptionLookupKey(String topic, String ticker) {
+    return topic + ":" + ticker;
   }
 
   private final class KisListener implements WebSocket.Listener {

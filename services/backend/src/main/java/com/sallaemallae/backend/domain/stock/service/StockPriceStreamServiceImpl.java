@@ -87,7 +87,11 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     }
 
     ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(
-        () -> sendSnapshot(emitter, resolvedStock, pricePeriod),
+        () -> {
+          if (!sendSnapshot(emitter, resolvedStock, pricePeriod)) {
+            cancel(futureRef.get());
+          }
+        },
         STREAM_INTERVAL_MINUTES,
         STREAM_INTERVAL_MINUTES,
         TimeUnit.MINUTES
@@ -107,7 +111,8 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
           .name("prices")
           .data(loadPrices(stock, period)));
       return true;
-    } catch (IOException | IllegalStateException e) {
+    } catch (Exception e) {
+      log.warn("Failed to send stock price snapshot. stockId={}, ticker={}, period={}", stock.stockId(), stock.ticker(), period.code, e);
       emitter.completeWithError(e);
       return false;
     }

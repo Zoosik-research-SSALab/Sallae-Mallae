@@ -23,6 +23,10 @@ public class MarketCacheKeyFactory {
     return "KIS:QUOTE:%s:%s:V1".formatted(marketCode, ticker);
   }
 
+  public String topInterest(String marketCode, int maxItems) {
+    return "KIS:TOP_INTEREST:%s:%s:V1".formatted(marketCode, maxItems);
+  }
+
   public String realtimeTick(String marketCode, String ticker) {
     return "KIS:WS:TICK:%s:%s:V1".formatted(marketCode, ticker);
   }

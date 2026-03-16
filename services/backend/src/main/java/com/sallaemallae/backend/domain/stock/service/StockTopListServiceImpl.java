@@ -10,7 +10,8 @@ import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.infra.kis.KisApiException;
-import com.sallaemallae.backend.infra.kis.stock.KisDomesticStockClient;
+import com.sallaemallae.backend.infra.kis.cache.CachedResult;
+import com.sallaemallae.backend.infra.kis.stock.CachedKisDomesticStockGateway;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockData;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockItem;
 import java.util.ArrayList;
@@ -38,7 +39,7 @@ public class StockTopListServiceImpl implements StockTopListService {
   private static final int DEFAULT_LIMIT = 6;
   private static final int MAX_LIMIT = 50;
 
-  private final KisDomesticStockClient kisDomesticStockClient;
+  private final CachedKisDomesticStockGateway cachedKisDomesticStockGateway;
   private final StockRepository stockRepository;
   private final WatchlistService watchlistService;
 
@@ -56,10 +57,11 @@ public class StockTopListServiceImpl implements StockTopListService {
     StockTopListQuery query = StockTopListQuery.of(signal, sector, marketCap, sort, keyword, offset, limit);
 
     try {
-      KisTopInterestStockData ranking = kisDomesticStockClient.getTopInterestStocks(
+      CachedResult<KisTopInterestStockData> rankingResult = cachedKisDomesticStockGateway.getTopInterestStocks(
           StockMarketConstants.DOMESTIC_MARKET_CODE,
           MAX_TOP_STOCKS
       );
+      KisTopInterestStockData ranking = rankingResult.value();
       Map<String, Stock> stockMetadata = loadStockMetadata(ranking.items());
       Set<Long> watchlistedStockIds = loadWatchlistedStockIds(userId);
 

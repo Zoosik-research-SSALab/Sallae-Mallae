@@ -1,22 +1,31 @@
 package com.sallaemallae.backend.infra.kis;
 
 import lombok.Getter;
+import lombok.ToString;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Getter
 @Component
+@ToString(onlyExplicitlyIncluded = true)
 public class KisProperties {
 
+  @ToString.Include
   private final String mode;
   private final String appKey;
   private final String appSecret;
   private final String accountNo;
   private final String accountProductCode;
+  @ToString.Include
   private final int refreshMarginSeconds;
+  @ToString.Include
   private final int timeoutSeconds;
+  @ToString.Include
   private final int retryAttempts;
+  @ToString.Include
   private final int realtimeSubscriptionTtlMinutes;
+  @ToString.Include
+  private final int realtimeSubscriptionAckTimeoutSeconds;
 
   public KisProperties(
       @Value("${KIS_MODE:paper}") String mode,
@@ -27,7 +36,8 @@ public class KisProperties {
       @Value("${KIS_REFRESH_MARGIN_SECONDS:120}") int refreshMarginSeconds,
       @Value("${KIS_TIMEOUT_SECONDS:8}") int timeoutSeconds,
       @Value("${KIS_RETRY_ATTEMPTS:1}") int retryAttempts,
-      @Value("${KIS_REALTIME_SUBSCRIPTION_TTL_MINUTES:30}") int realtimeSubscriptionTtlMinutes
+      @Value("${KIS_REALTIME_SUBSCRIPTION_TTL_MINUTES:30}") int realtimeSubscriptionTtlMinutes,
+      @Value("${KIS_REALTIME_SUBSCRIPTION_ACK_TIMEOUT_SECONDS:7}") int realtimeSubscriptionAckTimeoutSeconds
   ) {
     this.mode = mode;
     this.appKey = appKey;
@@ -38,6 +48,7 @@ public class KisProperties {
     this.timeoutSeconds = timeoutSeconds;
     this.retryAttempts = retryAttempts;
     this.realtimeSubscriptionTtlMinutes = realtimeSubscriptionTtlMinutes;
+    this.realtimeSubscriptionAckTimeoutSeconds = realtimeSubscriptionAckTimeoutSeconds;
   }
 
   public boolean isConfigured() {

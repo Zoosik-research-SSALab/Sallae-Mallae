@@ -315,10 +315,7 @@ public class KisDomesticStockClient {
   }
 
   private Integer toInt(JsonNode node) {
-    String value = nullableText(node, "");
-    if (value == null) {
-      value = node.asText(null);
-    }
+    String value = node.asText(null);
     if (value == null || value.isBlank()) {
       return null;
     }

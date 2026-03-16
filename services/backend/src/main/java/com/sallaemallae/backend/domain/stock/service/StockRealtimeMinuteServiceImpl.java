@@ -9,6 +9,7 @@ import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockRequestNormalizer;
 import com.sallaemallae.backend.global.exception.BusinessException;
+import com.sallaemallae.backend.infra.kis.KisProperties;
 import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleAggregator;
 import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleData;
 import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeTradeTickData;
@@ -33,6 +34,7 @@ public class StockRealtimeMinuteServiceImpl implements StockRealtimeMinuteServic
   private final KisRealtimeMinuteCandleAggregator candleAggregator;
   private final StockDataPipelineMapper pipelineMapper;
   private final StockRepository stockRepository;
+  private final KisProperties kisProperties;
 
   @Override
   public StockRealtimeSubscriptionResponse subscribe(String ticker, String marketCode) {
@@ -45,7 +47,7 @@ public class StockRealtimeMinuteServiceImpl implements StockRealtimeMinuteServic
     try {
       KisWebSocketSubscriptionAck acknowledgement = kisWebSocketClient
           .subscribeDomesticTrade(normalizedMarket, normalizedTicker)
-          .get(7, TimeUnit.SECONDS);
+          .get(kisProperties.getRealtimeSubscriptionAckTimeoutSeconds(), TimeUnit.SECONDS);
       if (!acknowledgement.success()) {
         throw new BusinessException(StockErrorCode.STOCK_REALTIME_SUBSCRIPTION_FAILED);
       }

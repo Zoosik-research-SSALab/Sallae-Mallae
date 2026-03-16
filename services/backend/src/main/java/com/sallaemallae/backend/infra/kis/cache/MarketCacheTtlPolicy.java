@@ -26,10 +26,6 @@ public class MarketCacheTtlPolicy {
   private final Clock clock;
   private final Set<LocalDate> marketHolidays;
 
-  public MarketCacheTtlPolicy() {
-    this(Clock.system(ZONE_ID), Set.of());
-  }
-
   @Autowired
   public MarketCacheTtlPolicy(@Value("${KIS_MARKET_HOLIDAYS:}") String rawMarketHolidays) {
     this(Clock.system(ZONE_ID), parseHolidays(rawMarketHolidays));
@@ -42,6 +38,10 @@ public class MarketCacheTtlPolicy {
 
   public Duration quoteTtl() {
     return isMarketOpen() ? Duration.ofSeconds(5) : Duration.ofSeconds(60);
+  }
+
+  public Duration topInterestTtl() {
+    return isMarketOpen() ? Duration.ofSeconds(10) : Duration.ofSeconds(60);
   }
 
   public Duration periodTtl(LocalDate endDate) {
