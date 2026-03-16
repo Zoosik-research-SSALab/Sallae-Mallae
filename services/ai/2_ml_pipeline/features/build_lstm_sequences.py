@@ -52,9 +52,9 @@ logger = setup_logger(__name__)
 # ---------------------------------------------------------------------------
 FEATURES: list[str] = [
     "daily_return",            # 일별 수익률 (%) = close.pct_change(1) * 100
-    "volume_change_ratio",     # 거래량 변화율 = volume.pct_change(1)
+    "log_volume_change",       # 거래량 변화율 (로그 변환) = sign * log(1 + |pct_change|)
     "high_low_range",          # 고저 변동폭 (%) = (high-low) / close.shift(1) * 100
-    "foreign_net_buy_change",  # 외인 순매수 변화율 = foreign_net_buy.pct_change(1)
+    "inst_net_buy_change",     # 기관 순매수 변화율 (외인 대체)
     "relative_return",         # KOSPI200 대비 상대 수익률 = daily_return/100 - kospi200_return
 ]
 
@@ -148,33 +148,34 @@ def compute_features(
     # 1. 일별 수익률 (%)
     df["daily_return"] = df["close"].pct_change(1) * 100
 
-    # 2. 거래량 변화율
-    df["volume_change_ratio"] = df["volume"].pct_change(1)
+    # 2. 거래량 변화율 — 로그 변환 (우측 꼬리 완화, 정보 보존 개선)
+    vol_pct = df["volume"].pct_change(1)
+    vol_pct = vol_pct.replace([np.inf, -np.inf], np.nan)
+    df["log_volume_change"] = np.sign(vol_pct) * np.log1p(vol_pct.abs())
 
     # 3. 고저 변동폭 (%)
     df["high_low_range"] = ((df["high"] - df["low"]) / df["close"].shift(1)) * 100
 
-    # 4. 외인 순매수 변화율 (diff 기반 — pct_change는 0 나눗셈으로 inf/NaN 폭발)
-    if not supply_df.empty and "foreign_net_buy" in supply_df.columns:
-        supply = supply_df["foreign_net_buy"].copy()
+    # 4. 기관 순매수 변화율 (외인 대체 — 외인은 KS=0.0024 무신호)
+    if not supply_df.empty and "institution_net_buy" in supply_df.columns:
+        supply = supply_df["institution_net_buy"].copy()
         supply.index = pd.to_datetime(supply.index)
         supply = supply.reindex(df.index)
-        # diff를 20일 이동평균 절대값으로 나누어 상대적 변화율 계산
         diff = supply.diff(1)
         rolling_abs_mean = supply.abs().rolling(window=20, min_periods=1).mean()
         rolling_abs_mean = rolling_abs_mean.replace(0, np.nan)
-        df["foreign_net_buy_change"] = diff / rolling_abs_mean
-        # inf 제거
-        df["foreign_net_buy_change"] = df["foreign_net_buy_change"].replace([np.inf, -np.inf], np.nan)
+        df["inst_net_buy_change"] = diff / rolling_abs_mean
+        df["inst_net_buy_change"] = df["inst_net_buy_change"].replace([np.inf, -np.inf], np.nan)
     else:
-        df["foreign_net_buy_change"] = np.nan
+        df["inst_net_buy_change"] = np.nan
 
-    # 5. 코스피200 대비 상대 수익률
+    # 5. 코스피200 대비 상대 수익률 (NaN → forward fill → 0)
     if kospi200_series is not None:
         kospi_ret = kospi200_series.pct_change(1).reindex(df.index)
         df["relative_return"] = df["daily_return"] / 100 - kospi_ret
+        df["relative_return"] = df["relative_return"].ffill().fillna(0.0)
     else:
-        df["relative_return"] = np.nan
+        df["relative_return"] = 0.0
 
     # 타겟: TARGET_HORIZON일 후 상승 여부 (0/1)
     future_close = df["close"].shift(-TARGET_HORIZON)
@@ -247,6 +248,7 @@ def create_sequences_with_metadata(
 def _fit_scaler(X_train: np.ndarray) -> tuple[np.ndarray, np.ndarray, MinMaxScaler]:
     """학습 데이터에서 클리핑 + MinMaxScaler를 학습합니다."""
     flat = X_train.reshape(-1, N_FEATURES)
+    flat = np.where(np.isinf(flat), np.nan, flat)  # inf 방어
 
     clip_mean = np.nanmean(flat, axis=0)
     clip_std = np.nanstd(flat, axis=0)
@@ -297,8 +299,11 @@ def build_sector_sequences(
     elif split == "test":
         start_date = TEST_START_DATE
         end_date = TEST_END_DATE
+    elif split == "all":
+        start_date = None
+        end_date = None
     else:
-        raise ValueError(f"split 은 'train' 또는 'test' 이어야 합니다: {split!r}")
+        raise ValueError(f"split 은 'train', 'test', 'all' 이어야 합니다: {split!r}")
 
     all_X: list[np.ndarray] = []
     all_y: list[np.ndarray] = []
@@ -455,10 +460,12 @@ def main(group_by: str = "cluster") -> None:
 
     train_dir = PROCESSED_LSTM_PATH / "train"
     test_dir = PROCESSED_LSTM_PATH / "test"
+    all_dir = PROCESSED_LSTM_PATH / "all"
     scalers_dir = PROCESSED_LSTM_PATH / "scalers"
 
     total_train_samples = 0
     total_test_samples = 0
+    total_all_samples = 0
 
     for sector_id, sector_tickers in sector_groups.items():
         logger.info("[LSTM] 섹터 '%s' 처리 중 (%d 종목)", sector_id, len(sector_tickers))
@@ -492,10 +499,21 @@ def main(group_by: str = "cluster") -> None:
         _save_sector_npz(test_dir, sector_id, X_test, y_test, test_tickers, test_dates)
         total_test_samples += X_test.shape[0]
 
+        # --- 전체 기간 시퀀스 (Walk-Forward용) ---
+        all_result = build_sector_sequences(
+            sector_id, sector_tickers, kospi200_series, split="all"
+        )
+        if all_result is not None:
+            X_all_raw, y_all, all_tickers_list, all_dates_list = all_result
+            X_all = _apply_scaler(X_all_raw, clip_mean, clip_std, scaler)
+            _save_sector_npz(all_dir, sector_id, X_all, y_all, all_tickers_list, all_dates_list)
+            total_all_samples += X_all.shape[0]
+
     logger.info("=== LSTM 시퀀스 생성 파이프라인 완료 ===")
     logger.info("학습 샘플 합계: %d", total_train_samples)
     logger.info("테스트 샘플 합계: %d", total_test_samples)
-    print(f"\n[완료] 학습 샘플: {total_train_samples:,}  /  테스트 샘플: {total_test_samples:,}")
+    logger.info("전체 샘플 합계: %d", total_all_samples)
+    print(f"\n[완료] 학습 샘플: {total_train_samples:,}  /  테스트 샘플: {total_test_samples:,}  /  전체: {total_all_samples:,}")
 
 
 if __name__ == "__main__":

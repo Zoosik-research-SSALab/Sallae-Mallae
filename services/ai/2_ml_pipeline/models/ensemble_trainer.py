@@ -210,10 +210,9 @@ def build_meta_features() -> pd.DataFrame | None:
     # high_risk: GARCH 리스크 플래그 또는 변동성 상위
     merged["high_risk"] = merged["garch_risk_flag"].astype(float)
 
-    # 타겟 결정 (LightGBM true_class 기반: 2=상승→1, 0=하락→0, 1=횡보→제외)
+    # 타겟 결정 (LightGBM true_class 기반: 이진분류 0=하락, 1=상승)
     if "lgbm_true_class" in merged.columns:
-        # 3-class → 2-class: 상승(2)→1, 하락(0)→0, 횡보(1)→제외
-        merged["target"] = merged["lgbm_true_class"].map({0: 0, 1: np.nan, 2: 1})
+        merged["target"] = merged["lgbm_true_class"].astype(float)
     elif "lstm_true" in merged.columns:
         merged["target"] = merged["lstm_true"]
     else:
@@ -498,9 +497,9 @@ def build_meta_features_from_dfs(
     merged["confidence_gap"] = abs(merged["lgbm_up_prob"] - merged["lstm_score"])
     merged["high_risk"] = merged["garch_risk_flag"].astype(float)
 
-    # 타겟 결정
+    # 타겟 결정 (이진분류: 0=하락, 1=상승)
     if "lgbm_true_class" in merged.columns:
-        merged["target"] = merged["lgbm_true_class"].map({0: 0, 1: np.nan, 2: 1})
+        merged["target"] = merged["lgbm_true_class"].astype(float)
     elif "lstm_true" in merged.columns:
         merged["target"] = merged["lstm_true"]
     else:

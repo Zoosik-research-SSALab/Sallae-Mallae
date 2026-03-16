@@ -54,10 +54,13 @@ def setup_logger(name: str) -> logging.Logger:
     except OSError:
         pass  # Drive 미마운트 등으로 파일 로그 불가 시 콘솔만 사용
 
-    # 콘솔 핸들러 (UTF-8 강제 — Windows cp949 환경 대응)
-    import io as _io
-    _utf8_stream = _io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    console_handler = logging.StreamHandler(_utf8_stream)
+    # 콘솔 핸들러 (UTF-8 강제 — Windows cp949 환경 대응, Jupyter 호환)
+    if hasattr(sys.stdout, 'buffer'):
+        import io as _io
+        _stream = _io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    else:
+        _stream = sys.stdout
+    console_handler = logging.StreamHandler(_stream)
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)

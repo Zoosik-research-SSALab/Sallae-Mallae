@@ -76,28 +76,28 @@ BACKTEST_PATH: Path = BASE_PATH / "backtest"
 # ---------------------------------------------------------------------------
 # 학습 설정 상수
 # ---------------------------------------------------------------------------
-TRAIN_END_DATE: str = "2020-12-31"    # 학습 종료일
-TEST_START_DATE: str = "2021-01-01"   # 테스트 시작일
-TEST_END_DATE: str = "2021-01-31"     # 테스트 종료일
+TRAIN_END_DATE: str = "2020-12-31"  # 학습 종료일
+TEST_START_DATE: str = "2021-01-01"  # 테스트 시작일
+TEST_END_DATE: str = "2021-01-31"  # 테스트 종료일
 
-SEQ_LEN: int = 20          # LSTM 시퀀스 길이 (거래일 수)
-TARGET_HORIZON: int = 5    # 예측 대상 기간 (거래일 수)
+SEQ_LEN: int = 20  # LSTM 시퀀스 길이 (거래일 수)
+TARGET_HORIZON: int = 5  # 예측 대상 기간 (거래일 수)
 
-PARQUET_COMPRESSION: str = "snappy"   # Parquet 압축 방식
+PARQUET_COMPRESSION: str = "snappy"  # Parquet 압축 방식
 
 # ---------------------------------------------------------------------------
 # Phase 1 클러스터 LightGBM 상수
 # ---------------------------------------------------------------------------
-TRAIN_START_DATE: str = "2014-07-01"   # Walk-Forward 학습 시작일
-VALID_START_DATE: str = "2021-01-01"   # 검증(Walk-Forward 예측) 시작일
-VALID_END_DATE: str = "2022-12-31"     # 검증 종료일
-FINAL_TEST_START: str = "2023-01-01"   # 최종 테스트 시작일
-FINAL_TEST_END: str = "2026-01-31"     # 최종 테스트 종료일
+TRAIN_START_DATE: str = "2014-07-01"  # Walk-Forward 학습 시작일
+VALID_START_DATE: str = "2021-01-01"  # 검증(Walk-Forward 예측) 시작일
+VALID_END_DATE: str = "2022-12-31"  # 검증 종료일
+FINAL_TEST_START: str = "2023-01-01"  # 최종 테스트 시작일
+FINAL_TEST_END: str = "2026-01-31"  # 최종 테스트 종료일
 
-TARGET_HORIZON_LONG: int = 20    # 예측 대상 기간 (t+20 거래일)
-TOP_PCT: float = 0.20            # 상위 분류 비율
-BOTTOM_PCT: float = 0.20         # 하위 분류 비율
-WF_STEP_MONTHS: int = 3          # Walk-Forward 스텝 (분기별)
+TARGET_HORIZON_LONG: int = 20  # 예측 대상 기간 (t+20 거래일)
+TOP_PCT: float = 0.20  # 상위 분류 비율
+BOTTOM_PCT: float = 0.20  # 하위 분류 비율
+WF_STEP_MONTHS: int = 3  # Walk-Forward 스텝 (분기별)
 
 # 클러스터1 (IT/반도체) GICS 섹터 코드
 CLUSTER1_GICS: list[int] = [45, 50]  # Technology, Communication Services

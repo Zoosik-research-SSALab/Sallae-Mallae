@@ -28,29 +28,54 @@ logger = setup_logger(__name__)
 # ---------------------------------------------------------------------------
 
 class StockLSTM(nn.Module):
-    """KOSPI 200 주가 패턴 이진 분류 LSTM 모델."""
+    """KOSPI 200 주가 패턴 이진 분류 LSTM 모델 (Attention + BatchNorm)."""
 
     def __init__(
         self,
         input_size: int = 5,
-        hidden_size: int = 64,
+        hidden_size: int = 128,
         num_layers: int = 2,
-        dropout: float = 0.2,
+        dropout: float = 0.3,
+        use_attention: bool = True,
     ):
         super().__init__()
+        self.hidden_size = hidden_size
+        self.use_attention = use_attention
+
+        self.input_bn = nn.BatchNorm1d(input_size)
         self.lstm = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
-            dropout=dropout,
+            dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
         )
+
+        if use_attention:
+            self.attn_linear = nn.Linear(hidden_size, 1)
+
         self.dropout = nn.Dropout(dropout)
-        self.fc = nn.Linear(hidden_size, 1)
+        self.fc = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout * 0.5),
+            nn.Linear(hidden_size // 2, 1),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        lstm_out, _ = self.lstm(x)
-        out = lstm_out[:, -1, :]
+        # Input BatchNorm: (batch, seq, features) → transpose → BN → transpose
+        x = x.transpose(1, 2)            # (batch, features, seq)
+        x = self.input_bn(x)
+        x = x.transpose(1, 2)            # (batch, seq, features)
+
+        lstm_out, _ = self.lstm(x)        # (batch, seq, hidden)
+
+        if self.use_attention:
+            attn_weights = torch.softmax(self.attn_linear(lstm_out), dim=1)  # (batch, seq, 1)
+            out = (lstm_out * attn_weights).sum(dim=1)  # (batch, hidden)
+        else:
+            out = lstm_out[:, -1, :]      # (batch, hidden)
+
         out = self.dropout(out)
         return torch.sigmoid(self.fc(out)).squeeze(-1)
 
@@ -62,20 +87,33 @@ class StockLSTM(nn.Module):
 class SectorLSTMTrainer:
     """특정 섹터에 대한 LSTM 모델 학습/추론 담당 클래스."""
 
-    def __init__(self, sector_id: str, device: str | None = None):
+    def __init__(
+        self,
+        sector_id: str,
+        device: str | None = None,
+        hidden_size: int = 128,
+        num_layers: int = 2,
+        dropout: float = 0.3,
+        use_attention: bool = True,
+    ):
         self.sector_id = sector_id
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = StockLSTM().to(self.device)
+        self.model = StockLSTM(
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout,
+            use_attention=use_attention,
+        ).to(self.device)
         self.history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
 
     def train(
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        epochs: int = 50,
-        batch_size: int = 64,
-        patience: int = 10,
-        lr: float = 1e-3,
+        epochs: int = 80,
+        batch_size: int = 256,
+        patience: int = 15,
+        lr: float = 5e-4,
     ) -> dict[str, list[float]]:
         """LSTM 모델 학습 (시간 순서 마지막 10%를 검증 세트로 사용)."""
         n_val = max(1, int(len(X_train) * 0.10))
@@ -92,7 +130,10 @@ class SectorLSTMTrainer:
             shuffle=True,
         )
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.5, patience=5, min_lr=1e-6,
+        )
         criterion = nn.BCELoss()
 
         best_val_loss = float("inf")
@@ -110,6 +151,7 @@ class SectorLSTMTrainer:
                 preds = self.model(X_batch)
                 loss = criterion(preds, y_batch)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 optimizer.step()
                 epoch_loss += loss.item() * len(y_batch)
 
@@ -121,13 +163,16 @@ class SectorLSTMTrainer:
                 val_loss = criterion(val_preds, y_val.to(self.device)).item()
             self.model.train()
 
+            scheduler.step(val_loss)
+
             self.history["train_loss"].append(train_loss)
             self.history["val_loss"].append(val_loss)
 
+            current_lr = optimizer.param_groups[0]["lr"]
             if epoch % 10 == 0 or epoch == 1:
                 logger.info(
-                    "Sector %s | Epoch %d/%d | train_loss=%.4f | val_loss=%.4f",
-                    self.sector_id, epoch, epochs, train_loss, val_loss,
+                    "Sector %s | Epoch %d/%d | train=%.4f | val=%.4f | lr=%.1e",
+                    self.sector_id, epoch, epochs, train_loss, val_loss, current_lr,
                 )
 
             if val_loss < best_val_loss:
@@ -206,6 +251,57 @@ def _load_npz(npz_path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray | None
 
 MIN_SAMPLES = 100
 
+# ---------------------------------------------------------------------------
+# 클러스터별 하이퍼파라미터 (과적합 경향에 따라 차별 설정)
+# ---------------------------------------------------------------------------
+CLUSTER_HPARAMS: dict[str, dict] = {
+    # cluster1 (Tech/Growth, 62K samples): 신호 약함 + 과적합 심함 → 작은 모델, 강한 정규화
+    "cluster1": {
+        "hidden_size": 64,
+        "num_layers": 1,
+        "dropout": 0.4,
+        "use_attention": False,
+        "lr": 3e-4,
+        "batch_size": 512,
+        "epochs": 60,
+        "patience": 12,
+    },
+    # cluster2 (Finance/Credit, 103K samples): 신호 있음 → 큰 모델, Attention 사용
+    "cluster2": {
+        "hidden_size": 128,
+        "num_layers": 2,
+        "dropout": 0.3,
+        "use_attention": True,
+        "lr": 5e-4,
+        "batch_size": 256,
+        "epochs": 80,
+        "patience": 15,
+    },
+    # cluster3 (Cyclical, 323K samples): 대량 데이터 + 과적합 → 중간 모델, 정규화 강화
+    "cluster3": {
+        "hidden_size": 96,
+        "num_layers": 2,
+        "dropout": 0.4,
+        "use_attention": True,
+        "lr": 3e-4,
+        "batch_size": 512,
+        "epochs": 60,
+        "patience": 12,
+    },
+}
+
+# 매칭되지 않는 클러스터의 기본값
+_DEFAULT_HPARAMS: dict = {
+    "hidden_size": 64,
+    "num_layers": 2,
+    "dropout": 0.3,
+    "use_attention": True,
+    "lr": 5e-4,
+    "batch_size": 256,
+    "epochs": 80,
+    "patience": 15,
+}
+
 
 def train_all_sectors() -> list[dict]:
     """모든 섹터 npz 파일을 순회하며 섹터별 LSTM 모델을 학습."""
@@ -240,13 +336,28 @@ def train_all_sectors() -> list[dict]:
             )
             continue
 
+        hp = CLUSTER_HPARAMS.get(sector_id, _DEFAULT_HPARAMS)
         logger.info(
-            "Sector %s | 학습 샘플: %d | X shape: %s | y 양성 비율: %.1f%%",
+            "Sector %s | 학습 샘플: %d | X shape: %s | y 양성 비율: %.1f%% | "
+            "hidden=%d layers=%d dropout=%.1f attn=%s",
             sector_id, len(X_train), X_train.shape, y_train.mean() * 100,
+            hp["hidden_size"], hp["num_layers"], hp["dropout"], hp["use_attention"],
         )
 
-        trainer = SectorLSTMTrainer(sector_id=sector_id)
-        trainer.train(X_train, y_train)
+        trainer = SectorLSTMTrainer(
+            sector_id=sector_id,
+            hidden_size=hp["hidden_size"],
+            num_layers=hp["num_layers"],
+            dropout=hp["dropout"],
+            use_attention=hp["use_attention"],
+        )
+        trainer.train(
+            X_train, y_train,
+            epochs=hp["epochs"],
+            batch_size=hp["batch_size"],
+            patience=hp["patience"],
+            lr=hp["lr"],
+        )
 
         model_path = MODELS_LSTM_PATH / f"sector_{sector_id}_model.pt"
         trainer.save(model_path)
@@ -398,12 +509,19 @@ def train_and_predict_window(
     train_dir = PROCESSED_LSTM_PATH / "train"
     test_dir = PROCESSED_LSTM_PATH / "test"
 
-    # 모든 NPZ 파일 수집 (train + test)
-    all_npz: list[Path] = []
-    if train_dir.exists():
-        all_npz.extend(sorted(train_dir.glob("sector_*.npz")))
-    if test_dir.exists():
-        all_npz.extend(sorted(test_dir.glob("sector_*.npz")))
+    # Walk-Forward용 전체 기간 시퀀스 우선 사용
+    all_dir = PROCESSED_LSTM_PATH / "all"
+    if all_dir.exists() and any(all_dir.glob("sector_*.npz")):
+        all_npz = sorted(all_dir.glob("sector_*.npz"))
+        logger.info("[LSTM-WF] 전체 기간 시퀀스 사용: %s (%d files)", all_dir, len(all_npz))
+    else:
+        # Fallback: train + test 합산
+        all_npz: list[Path] = []
+        if train_dir.exists():
+            all_npz.extend(sorted(train_dir.glob("sector_*.npz")))
+        if test_dir.exists():
+            all_npz.extend(sorted(test_dir.glob("sector_*.npz")))
+        logger.info("[LSTM-WF] train+test 합산 사용: %d files", len(all_npz))
 
     if not all_npz:
         logger.warning("[LSTM-WF] NPZ 파일 없음")
@@ -459,13 +577,31 @@ def train_and_predict_window(
         X_train = np.nan_to_num(X_train, nan=0.0)
         X_test = np.nan_to_num(X_test, nan=0.0)
 
-        # 학습
-        trainer = SectorLSTMTrainer(sector_id=sector_id)
-        trainer.train(X_train, y_train)
+        # 학습 (클러스터별 하이퍼파라미터 적용)
+        hp = CLUSTER_HPARAMS.get(sector_id, _DEFAULT_HPARAMS)
+        trainer = SectorLSTMTrainer(
+            sector_id=sector_id,
+            hidden_size=hp["hidden_size"],
+            num_layers=hp["num_layers"],
+            dropout=hp["dropout"],
+            use_attention=hp["use_attention"],
+        )
+        trainer.train(
+            X_train, y_train,
+            epochs=hp["epochs"],
+            batch_size=hp["batch_size"],
+            patience=hp["patience"],
+            lr=hp["lr"],
+        )
 
         # 예측
         probs, preds = trainer.predict(X_test)
         sectors_trained += 1
+
+        # GPU 메모리 해제 (Walk-Forward 반복 학습 시 OOM 방지)
+        del trainer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # 결과 수집
         test_tickers = tickers_all[test_mask] if tickers_all is not None else [None] * len(X_test)
