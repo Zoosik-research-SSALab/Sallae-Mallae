@@ -13,8 +13,7 @@ public interface DeviceSessionRepository extends JpaRepository<DeviceSession, Lo
 
   List<DeviceSession> findByUserIdOrderByLastLoginAtDesc(Long userId);
 
-  @Query("SELECT COUNT(ds) FROM DeviceSession ds WHERE ds.userId = :userId")
-  int countByUserId(@Param("userId") Long userId);
+  int countByUserId(Long userId);
 
   /**
    * 가장 오래된 세션을 조회합니다. (FIFO 제거용)

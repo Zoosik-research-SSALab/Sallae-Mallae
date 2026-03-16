@@ -58,8 +58,9 @@ public class DeviceSession {
 
   @PrePersist
   protected void onCreate() {
-    this.createdAt = OffsetDateTime.now();
-    this.lastLoginAt = OffsetDateTime.now();
+    OffsetDateTime now = OffsetDateTime.now();
+    this.createdAt = now;
+    this.lastLoginAt = now;
   }
 
   @Builder

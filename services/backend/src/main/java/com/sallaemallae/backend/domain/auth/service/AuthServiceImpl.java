@@ -540,8 +540,7 @@ public class AuthServiceImpl implements AuthService {
     // 5. 토큰 버전 증가 (기존 모든 토큰 무효화)
     user.incrementTokenVersion();
 
-    // 6. 모든 Refresh Token 삭제 + 디바이스 세션 전체 제거
-    redisTokenService.deleteAllRefreshTokens(user.getId());
+    // 6. 모든 디바이스 세션 + Refresh Token 제거 (revokeAllSessions 내부에서 RT 삭제 포함)
     deviceSessionService.revokeAllSessions(user.getId());
 
     // 7. 로그인 실패 카운터 삭제 (잠금 해제)

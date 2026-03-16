@@ -3,8 +3,10 @@ package com.sallaemallae.backend.domain.auth.service;
 import com.sallaemallae.backend.domain.auth.dto.DeviceSessionListResponse;
 import com.sallaemallae.backend.domain.auth.dto.DeviceSessionResponse;
 import com.sallaemallae.backend.domain.auth.entity.DeviceSession;
+import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.domain.auth.repository.DeviceSessionRepository;
 import com.sallaemallae.backend.domain.auth.support.DeviceNameParser;
+import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +63,8 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
   @Override
   @Transactional
   public void revokeSession(Long userId, String deviceId) {
+    deviceSessionRepository.findByUserIdAndDeviceId(userId, deviceId)
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.SESSION_NOT_FOUND));
     deviceSessionRepository.deleteByUserIdAndDeviceId(userId, deviceId);
     redisTokenService.deleteRefreshToken(userId, deviceId);
     log.info("디바이스 세션 제거 완료 - userId: {}, deviceId: {}", userId, deviceId);

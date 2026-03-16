@@ -31,6 +31,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -164,7 +165,7 @@ public class AuthController {
   @PostMapping("/logout/all")
   public ApiResponse<LogoutAllResponse> logoutAll(
       @Parameter(description = "Bearer {accessToken}", required = true) @RequestHeader("Authorization") String authorization,
-      @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") String deviceId,
+      @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") @Size(max = 255) String deviceId,
       HttpServletResponse response) {
 
     String accessToken = extractAccessToken(authorization);
@@ -272,7 +273,7 @@ public class AuthController {
   })
   @GetMapping("/sessions")
   public ApiResponse<DeviceSessionListResponse> getSessions(
-      @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") String deviceId) {
+      @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") @Size(max = 255) String deviceId) {
     Long userId = authenticatedUserProvider.getCurrentUserId();
     return ApiResponse.success(deviceSessionService.getSessions(userId, deviceId));
   }
@@ -286,7 +287,7 @@ public class AuthController {
   @DeleteMapping("/sessions/{targetDeviceId}")
   public ApiResponse<Void> revokeSession(
       @Parameter(description = "제거할 디바이스 ID", required = true) @PathVariable String targetDeviceId,
-      @Parameter(description = "현재 기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") String deviceId) {
+      @Parameter(description = "현재 기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") @Size(max = 255) String deviceId) {
     if (deviceId.equals(targetDeviceId)) {
       throw new BusinessException(AuthErrorCode.SESSION_CANNOT_REVOKE_CURRENT);
     }
