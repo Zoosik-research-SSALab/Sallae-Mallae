@@ -116,7 +116,8 @@ public class SecurityConfig {
     // 허용할 Origin (로컬 개발용, 배포 시 nginx 프록시로 Same-Origin)
     configuration.setAllowedOrigins(List.of(
         "http://localhost:3000",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "https://j14d208.p.ssafy.io"
     ));
 
     // 허용할 HTTP 메서드
