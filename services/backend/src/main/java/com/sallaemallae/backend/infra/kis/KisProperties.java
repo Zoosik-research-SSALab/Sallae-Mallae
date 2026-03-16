@@ -71,6 +71,7 @@ public class KisProperties {
         : "https://openapivts.koreainvestment.com:29443";
   }
 
+  // The provided KIS Open API workbook lists official websocket endpoints as ws:// only.
   public String wsBaseUrl() {
     return isProdMode()
         ? "ws://ops.koreainvestment.com:21000"

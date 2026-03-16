@@ -22,6 +22,7 @@ final class StockTopListSupport {
     if (fluctuationRate == null) {
       return SignalFilter.HOLD;
     }
+    // TODO: Replace this temporary percentage heuristic with AI model-based signals.
     if (fluctuationRate >= 1.5f) {
       return SignalFilter.BUY;
     }

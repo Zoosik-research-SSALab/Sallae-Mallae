@@ -153,7 +153,19 @@ public class KisWebSocketClient {
     if (current != null) {
       current.sendClose(WebSocket.NORMAL_CLOSURE, "shutdown");
     }
-    scheduler.shutdownNow();
+    scheduler.shutdown();
+    try {
+      long awaitSeconds = Math.max(1L, properties.getTimeoutSeconds());
+      if (!scheduler.awaitTermination(awaitSeconds, TimeUnit.SECONDS)) {
+        scheduler.shutdownNow();
+        if (!scheduler.awaitTermination(awaitSeconds, TimeUnit.SECONDS)) {
+          log.warn("KIS websocket scheduler did not terminate cleanly.");
+        }
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      scheduler.shutdownNow();
+    }
   }
 
   private void connectIfNecessary() {

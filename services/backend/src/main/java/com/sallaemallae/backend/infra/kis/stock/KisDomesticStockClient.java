@@ -107,8 +107,9 @@ public class KisDomesticStockClient {
         if (ticker == null || !seenTickers.add(ticker)) {
           continue;
         }
+        Integer dataRank = toInt(row.path("data_rank"));
         items.add(new KisTopInterestStockItem(
-            toInt(row.path("data_rank")) != null ? toInt(row.path("data_rank")) : items.size() + 1,
+            dataRank != null ? dataRank : items.size() + 1,
             ticker,
             nullableText(row, "hts_kor_isnm"),
             toInt(row.path("stck_prpr")),
