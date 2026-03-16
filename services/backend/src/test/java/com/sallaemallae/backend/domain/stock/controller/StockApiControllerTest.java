@@ -1,0 +1,256 @@
+package com.sallaemallae.backend.domain.stock.controller;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+
+import com.sallaemallae.backend.domain.stock.dto.StockListFilterCountsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockListItemResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
+import com.sallaemallae.backend.global.security.ratelimit.RateLimitResult;
+import com.sallaemallae.backend.global.security.ratelimit.RateLimitService;
+import com.sallaemallae.backend.infra.kis.KisApiException;
+import java.time.OffsetDateTime;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class StockApiControllerTest {
+
+  @Autowired
+  private MockMvc mockMvc;
+
+  @Autowired
+  private JdbcTemplate jdbcTemplate;
+
+  @MockitoBean
+  private com.sallaemallae.backend.domain.stock.service.StockTopListService stockTopListService;
+
+  @MockitoBean
+  private JavaMailSender javaMailSender;
+
+  @MockitoBean
+  private RateLimitService rateLimitService;
+
+  @BeforeEach
+  void setUp() {
+    given(rateLimitService.checkIpLimit(anyString(), any()))
+        .willReturn(RateLimitResult.allowed(100, 99, 60));
+    given(stockTopListService.getTopStocks(any(), any(), any(), any(), any(), any(), any(), any()))
+        .willReturn(new StockListResponse(
+            new StockListFilterCountsResponse(2, 1, 1),
+            java.util.List.of(
+                new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, "BUY", 87, true),
+                new StockListItemResponse(2, 2L, "000660", "SK hynix", "Information Technology", 182000, -1.75f, "SELL", 80, false)
+            )
+        ));
+    createTablesIfNeeded();
+    clearTables();
+    seedData();
+  }
+
+  @Test
+  void getTopStocks_returnsWrappedSnakeCasePayload() throws Exception {
+    mockMvc.perform(get("/api/stocks").param("limit", "2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.filter_counts.buy").value(2))
+        .andExpect(jsonPath("$.data.filter_counts.sell").value(1))
+        .andExpect(jsonPath("$.data.filter_counts.hold").value(1))
+        .andExpect(jsonPath("$.data.stocks[0].rank").value(1))
+        .andExpect(jsonPath("$.data.stocks[0].id").value(1))
+        .andExpect(jsonPath("$.data.stocks[0].ticker").value("005930"))
+        .andExpect(jsonPath("$.data.stocks[0].gics_sector").value("Information Technology"))
+        .andExpect(jsonPath("$.data.stocks[0].fluctuation_rate").value(2.15))
+        .andExpect(jsonPath("$.data.stocks[0].is_watchlisted").value(true));
+  }
+
+  @Test
+  void getStockBasicInfo_returnsWrappedSnakeCasePayload() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}", 1L))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.id").value(1))
+        .andExpect(jsonPath("$.data.ticker").value("005930"))
+        .andExpect(jsonPath("$.data.name").value("Samsung Electronics"))
+        .andExpect(jsonPath("$.data.market_type").value("KOSPI"))
+        .andExpect(jsonPath("$.data.gics_sector").value("Information Technology"))
+        .andExpect(jsonPath("$.data.category").value("Semiconductor"))
+        .andExpect(jsonPath("$.data.base_time").exists());
+  }
+
+  @Test
+  void getStockBasicInfo_returnsErrorWhenStockMissing() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}", 999L))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.error.code").value("STOCK_001"))
+        .andExpect(jsonPath("$.error.message").value("종목을 찾을 수 없습니다."));
+  }
+
+  @Test
+  void getTopStocks_returnsKisErrorResponseWhenExternalApiFails() throws Exception {
+    willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "한국투자증권 시세 요청에 실패했습니다."))
+        .given(stockTopListService)
+        .getTopStocks(any(), any(), any(), any(), any(), any(), any(), any());
+
+    mockMvc.perform(get("/api/stocks"))
+        .andExpect(status().isBadGateway())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.error.code").value("KIS_HTTP_ERROR"))
+        .andExpect(jsonPath("$.error.message").value("한국투자증권 시세 요청에 실패했습니다."));
+  }
+
+  @Test
+  void getLegacyStockDetail_returnsRealStockData() throws Exception {
+    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+        1L,
+        null,
+        List.of(new SimpleGrantedAuthority("ROLE_USER"))
+    );
+
+    mockMvc.perform(get("/api/v1/stocks/{ticker}", "005930").with(authentication(authentication)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.id").value(1))
+        .andExpect(jsonPath("$.data.ticker").value("005930"))
+        .andExpect(jsonPath("$.data.name").value("Samsung Electronics"))
+        .andExpect(jsonPath("$.data.marketType").value("KOSPI"))
+        .andExpect(jsonPath("$.data.gicsSector").value("Information Technology"))
+        .andExpect(jsonPath("$.data.category").value("Semiconductor"))
+        .andExpect(jsonPath("$.data.baseTime").exists());
+  }
+
+  @Test
+  void streamStockPrices_opensSseChannel() throws Exception {
+    mockMvc.perform(get("/api/stream/stocks/{stockId}/prices", 1L).param("period", "1MIN"))
+        .andExpect(request().asyncStarted())
+        .andExpect(status().isOk())
+        .andExpect(result -> assertThat(result.getResponse().getContentType())
+            .contains(MediaType.TEXT_EVENT_STREAM_VALUE));
+  }
+
+  private void createTablesIfNeeded() {
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stocks (
+            id BIGINT PRIMARY KEY,
+            ticker VARCHAR(6) NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            gics_sector VARCHAR(50),
+            category VARCHAR(50),
+            outstanding_shares BIGINT,
+            market_type VARCHAR(20),
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP WITH TIME ZONE,
+            updated_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
+
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_minute (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
+
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_daily (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_date DATE NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
+
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_weekly (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_week DATE NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
+
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_monthly (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_month DATE NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
+  }
+
+  private void clearTables() {
+    jdbcTemplate.execute("DELETE FROM stock_prices_monthly");
+    jdbcTemplate.execute("DELETE FROM stock_prices_weekly");
+    jdbcTemplate.execute("DELETE FROM stock_prices_daily");
+    jdbcTemplate.execute("DELETE FROM stock_prices_minute");
+    jdbcTemplate.execute("DELETE FROM stocks");
+  }
+
+  private void seedData() {
+    OffsetDateTime now = OffsetDateTime.parse("2026-03-12T10:30:00+09:00");
+
+    jdbcTemplate.update(
+        """
+            INSERT INTO stocks (id, ticker, name, gics_sector, category, market_type, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+        1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", "KOSPI", true, now.minusDays(1), now
+    );
+
+    jdbcTemplate.update(
+        """
+            INSERT INTO stock_prices_minute (id, stock_id, trade_timestamp, open_price, high_price, low_price, close_price, volume, fluctuation_rate, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+        1L, 1L, OffsetDateTime.parse("2026-03-12T09:00:00+09:00"), 70000, 70100, 69900, 70050, 1000L, 0.10f, now
+    );
+  }
+}

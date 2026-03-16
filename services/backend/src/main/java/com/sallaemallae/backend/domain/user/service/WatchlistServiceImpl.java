@@ -6,9 +6,11 @@ import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,15 @@ public class WatchlistServiceImpl implements WatchlistService {
         .toList();
 
     return new WatchlistNewsResponse(news);
+  }
+
+  @Override
+  public Set<Long> getWatchlistedStockIds(Long userId) {
+    if (userId == null) {
+      return Set.of();
+    }
+
+    return new HashSet<>(watchlistRepository.findStockIdsByUserId(userId));
   }
 
   // 뉴스 ID 목록으로 관련 종목명을 일괄 조회하여 Map으로 반환 (N+1 방지)

@@ -10,10 +10,18 @@ import org.springframework.stereotype.Component;
 public class AuthenticatedUserProvider {
 
   public Long getCurrentUserId() {
+    Long userId = getCurrentUserIdOrNull();
+    if (userId == null) {
+      throw new BusinessException(GlobalErrorCode.UNAUTHORIZED);
+    }
+    return userId;
+  }
+
+  public Long getCurrentUserIdOrNull() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
     if (authentication == null || !(authentication.getPrincipal() instanceof Long userId) || userId <= 0) {
-      throw new BusinessException(GlobalErrorCode.UNAUTHORIZED);
+      return null;
     }
 
     return userId;

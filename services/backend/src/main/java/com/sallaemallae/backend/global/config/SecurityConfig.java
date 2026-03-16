@@ -54,6 +54,7 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             // Health check
             .requestMatchers("/health", "/health/**", "/api/health", "/api/health/**").permitAll()
+            .requestMatchers("/error", "/error/**").permitAll()
 
             // Auth - 인증 불필요
             .requestMatchers("/api/auth/login").permitAll()
@@ -80,8 +81,12 @@ public class SecurityConfig {
 
             // Main - 메인 페이지 (인증 불필요)
             .requestMatchers("/api/main/**").permitAll()
+            .requestMatchers("/api/stocks").permitAll()
+            .requestMatchers("/api/stocks/*").permitAll()
+            .requestMatchers("/api/stream/stocks/*/prices").permitAll()
             // SSE 스트림 엔드포인트 (인증 불필요)
             .requestMatchers("/api/stream/main/**").permitAll()
+            .requestMatchers("/api/internal/kis/**").hasRole("ADMIN")
 
             // Swagger / API docs (개발용)
             .requestMatchers(

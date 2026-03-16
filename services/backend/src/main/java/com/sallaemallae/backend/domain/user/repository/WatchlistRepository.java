@@ -11,6 +11,9 @@ public interface WatchlistRepository extends JpaRepository<UserWatchlist, UserWa
 
   List<UserWatchlist> findAllByIdUserId(Long userId);
 
+  @Query("select w.id.stockId from UserWatchlist w where w.id.userId = :userId")
+  List<Long> findStockIdsByUserId(@Param("userId") Long userId);
+
   long countByIdUserId(Long userId);
 
   // FS-WATCH-006: 관심종목 보유 종목의 최신 뉴스 조회

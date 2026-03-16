@@ -1,6 +1,7 @@
 package com.sallaemallae.backend.global.exception;
 
 import com.sallaemallae.backend.global.response.ApiResponse;
+import com.sallaemallae.backend.infra.kis.KisApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -22,6 +23,14 @@ public class GlobalExceptionHandler {
     return ResponseEntity
         .status(errorCode.getStatus())
         .body(ApiResponse.fail(errorCode));
+  }
+
+  @ExceptionHandler(KisApiException.class)
+  public ResponseEntity<ApiResponse<?>> handleKisApiException(KisApiException e) {
+    log.error("KIS API error. code={}, status={}, message={}", e.getCode(), e.getStatus(), e.getMessage(), e);
+    return ResponseEntity
+        .status(e.getStatus())
+        .body(ApiResponse.fail(e));
   }
 
   // 400 - @Valid 유효성 검증 실패
