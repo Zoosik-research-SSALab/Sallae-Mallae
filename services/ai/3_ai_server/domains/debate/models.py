@@ -151,3 +151,16 @@ class AiDebateReport(Base):
     debate_full_log: Mapped[dict[str, Any] | list[Any] | None] = mapped_column(JSON, nullable=True)
     chairman_report: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AiTradingHistory(Base):
+    __tablename__ = "ai_trading_history"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    portfolio_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ml_report_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    model_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    trade_type: Mapped[str] = mapped_column(String(4), nullable=False)
+    trade_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from domains.debate.models import (
     AiDebateReport,
     AiMlReport,
+    AiTradingHistory,
     DebateStock,
     MlEnsemblePrediction,
     MlGarchPrediction,
@@ -19,7 +20,13 @@ from domains.debate.models import (
 )
 
 
-def get_target_stocks(db: Session, report_date: date, market_type: str, limit: int | None) -> list[DebateStock]:
+def get_target_stocks(
+    db: Session,
+    report_date: date,
+    market_type: str,
+    limit: int | None,
+    tickers: tuple[str, ...] | None = None,
+) -> list[DebateStock]:
     stmt: Select[tuple[DebateStock]] = (
         select(DebateStock)
         .join(
@@ -31,6 +38,31 @@ def get_target_stocks(db: Session, report_date: date, market_type: str, limit: i
         .order_by(DebateStock.ticker.asc())
         .distinct()
     )
+    if tickers:
+        stmt = stmt.where(DebateStock.ticker.in_(tickers))
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return db.scalars(stmt).all()
+
+
+def get_target_stocks_by_trading_history(
+    db: Session,
+    report_date: date,
+    market_type: str,
+    portfolio_id: int | None,
+    limit: int | None,
+) -> list[DebateStock]:
+    stmt: Select[tuple[DebateStock]] = (
+        select(DebateStock)
+        .join(AiTradingHistory, AiTradingHistory.stock_id == DebateStock.id)
+        .where(DebateStock.is_active.is_(True))
+        .where(DebateStock.market_type == market_type)
+        .where(func.date(AiTradingHistory.trade_time) == report_date)
+        .order_by(DebateStock.ticker.asc())
+        .distinct()
+    )
+    if portfolio_id is not None:
+        stmt = stmt.where(AiTradingHistory.portfolio_id == portfolio_id)
     if limit is not None:
         stmt = stmt.limit(limit)
     return db.scalars(stmt).all()

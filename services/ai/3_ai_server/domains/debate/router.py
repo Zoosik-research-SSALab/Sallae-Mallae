@@ -17,11 +17,20 @@ router = APIRouter(dependencies=[Depends(verify_internal_api_key)])
 def debate_targets(
     report_date: date,
     market_type: str = Query(default="KOSPI", min_length=1, max_length=20),
+    source: str = Query(default="trading_history", min_length=1, max_length=30),
+    portfolio_id: int | None = Query(default=None, ge=1),
     limit: int | None = Query(default=None, ge=1, le=300),
     db: Session = Depends(get_session),
 ) -> DebateTargetsResponse:
     """토론 배치 대상 종목 목록을 조회한다."""
-    return get_debate_targets(db, report_date=report_date, market_type=market_type, limit=limit)
+    return get_debate_targets(
+        db,
+        report_date=report_date,
+        market_type=market_type,
+        source=source,
+        portfolio_id=portfolio_id,
+        limit=limit,
+    )
 
 
 @router.get("/inputs/{stock_id}", response_model=DebateInputsResponse)

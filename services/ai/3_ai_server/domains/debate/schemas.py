@@ -14,6 +14,7 @@ class TargetItem(BaseModel):
 
 class DebateTargetsResponse(BaseModel):
     report_date: date
+    source: str
     count: int
     targets: list[TargetItem]
 

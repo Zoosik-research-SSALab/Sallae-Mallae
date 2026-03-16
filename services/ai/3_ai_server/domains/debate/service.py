@@ -31,11 +31,30 @@ def get_debate_targets(
     *,
     report_date: date,
     market_type: str = "KOSPI",
+    source: str = "trading_history",
+    portfolio_id: int | None = None,
     limit: int | None = None,
 ) -> DebateTargetsResponse:
-    stocks = crud.get_target_stocks(db, report_date=report_date, market_type=market_type, limit=limit)
+    normalized_source = source.strip().lower()
+    if normalized_source == "trading_history":
+        stocks = crud.get_target_stocks_by_trading_history(
+            db,
+            report_date=report_date,
+            market_type=market_type,
+            portfolio_id=portfolio_id,
+            limit=limit,
+        )
+    elif normalized_source == "ml_reports":
+        stocks = crud.get_target_stocks(
+            db,
+            report_date=report_date,
+            market_type=market_type,
+            limit=limit,
+        )
+    else:
+        raise BusinessException(message=f"지원하지 않는 대상 조회 source 입니다: {source}")
     targets = [TargetItem(stock_id=stock.id, ticker=stock.ticker, stock_name=stock.name) for stock in stocks]
-    return DebateTargetsResponse(report_date=report_date, count=len(targets), targets=targets)
+    return DebateTargetsResponse(report_date=report_date, source=normalized_source, count=len(targets), targets=targets)
 
 
 def get_debate_inputs(
