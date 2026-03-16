@@ -29,7 +29,6 @@ public class KisDomesticStockClient {
   private static final String DEFAULT_MARKET_CODE = "J";
   private static final String TOP_INTEREST_SCREEN_CODE = "20180";
   private static final int MAX_TOP_INTEREST_PAGE = 10;
-  private static final long RETRY_BACKOFF_MILLIS = 250L;
 
   private final KisProperties properties;
   private final KisTokenManager kisTokenManager;
@@ -249,7 +248,8 @@ public class KisDomesticStockClient {
   }
 
   private void sleepBeforeRetry(int attempt) {
-    long delay = RETRY_BACKOFF_MILLIS * (1L << Math.max(0, attempt - 1));
+    long baseDelayMillis = Math.max(0L, properties.getRetryBackoffMillis());
+    long delay = baseDelayMillis * (1L << Math.max(0, attempt - 1));
     try {
       Thread.sleep(delay);
     } catch (InterruptedException e) {

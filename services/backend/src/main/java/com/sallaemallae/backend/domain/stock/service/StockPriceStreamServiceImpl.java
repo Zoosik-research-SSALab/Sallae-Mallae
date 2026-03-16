@@ -33,10 +33,11 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +46,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Slf4j
 @Service
 @Transactional(readOnly = true)
-@RequiredArgsConstructor
 public class StockPriceStreamServiceImpl implements StockPriceStreamService {
 
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
@@ -60,8 +60,36 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
   private final KisProperties kisProperties;
   private final KisWebSocketClient kisWebSocketClient;
   private final KisRealtimeMinuteCandleAggregator candleAggregator;
+  private final ScheduledExecutorService scheduler;
+  private final long schedulerShutdownWaitSeconds;
 
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+  public StockPriceStreamServiceImpl(
+      StockRepository stockRepository,
+      StockPriceMinuteRepository stockPriceMinuteRepository,
+      StockPriceDailyRepository stockPriceDailyRepository,
+      StockPriceWeeklyRepository stockPriceWeeklyRepository,
+      StockPriceMonthlyRepository stockPriceMonthlyRepository,
+      KisProperties kisProperties,
+      KisWebSocketClient kisWebSocketClient,
+      KisRealtimeMinuteCandleAggregator candleAggregator,
+      @Value("${stock.stream.scheduler.pool-size:4}") int schedulerPoolSize,
+      @Value("${stock.stream.scheduler.shutdown-wait-seconds:5}") long schedulerShutdownWaitSeconds
+  ) {
+    this.stockRepository = stockRepository;
+    this.stockPriceMinuteRepository = stockPriceMinuteRepository;
+    this.stockPriceDailyRepository = stockPriceDailyRepository;
+    this.stockPriceWeeklyRepository = stockPriceWeeklyRepository;
+    this.stockPriceMonthlyRepository = stockPriceMonthlyRepository;
+    this.kisProperties = kisProperties;
+    this.kisWebSocketClient = kisWebSocketClient;
+    this.candleAggregator = candleAggregator;
+    ScheduledThreadPoolExecutor executor = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(
+        Math.max(2, schedulerPoolSize)
+    );
+    executor.setRemoveOnCancelPolicy(true);
+    this.scheduler = executor;
+    this.schedulerShutdownWaitSeconds = Math.max(1L, schedulerShutdownWaitSeconds);
+  }
 
   @Override
   public StockPricesResponse getLatestPrices(Long stockId, String period) {
@@ -102,7 +130,16 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
 
   @PreDestroy
   public void shutdown() {
-    scheduler.shutdownNow();
+    scheduler.shutdown();
+    try {
+      if (!scheduler.awaitTermination(schedulerShutdownWaitSeconds, TimeUnit.SECONDS)) {
+        scheduler.shutdownNow();
+        scheduler.awaitTermination(schedulerShutdownWaitSeconds, TimeUnit.SECONDS);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      scheduler.shutdownNow();
+    }
   }
 
   private boolean sendSnapshot(SseEmitter emitter, ResolvedStock stock, PricePeriod period) {

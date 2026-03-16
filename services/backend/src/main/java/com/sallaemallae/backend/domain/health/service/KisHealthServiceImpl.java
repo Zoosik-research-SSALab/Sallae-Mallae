@@ -29,14 +29,9 @@ public class KisHealthServiceImpl implements KisHealthService {
     if (!kisProperties.isConfigured()) {
       return new KisHealthResponse(
           false,
-          kisProperties.getMode(),
-          kisProperties.restBaseUrl(),
-          false,
-          false,
           normalizedTicker,
           null,
           false,
-          null,
           "NOT_CONFIGURED",
           "한국투자증권 인증 정보가 설정되지 않았습니다."
       );
@@ -45,31 +40,24 @@ public class KisHealthServiceImpl implements KisHealthService {
     try {
       kisTokenManager.getAccessToken();
       kisApprovalKeyManager.getApprovalKey();
-      CachedResult<KisQuoteData> quote = cachedGateway.getQuote(StockMarketConstants.DOMESTIC_MARKET_CODE, normalizedTicker);
+      CachedResult<KisQuoteData> quote = cachedGateway.getQuote(
+          StockMarketConstants.DOMESTIC_MARKET_CODE,
+          normalizedTicker
+      );
       return new KisHealthResponse(
           true,
-          kisProperties.getMode(),
-          kisProperties.restBaseUrl(),
-          kisTokenManager.hasValidCachedToken(),
-          kisApprovalKeyManager.hasValidCachedApprovalKey(),
           normalizedTicker,
           quote.value().currentPrice(),
           quote.cacheHit(),
-          quote.cacheKey(),
           "OK",
           null
       );
     } catch (KisApiException e) {
       return new KisHealthResponse(
           true,
-          kisProperties.getMode(),
-          kisProperties.restBaseUrl(),
-          kisTokenManager.hasValidCachedToken(),
-          kisApprovalKeyManager.hasValidCachedApprovalKey(),
           normalizedTicker,
           null,
           false,
-          null,
           "ERROR",
           e.getCode() + ": " + e.getMessage()
       );

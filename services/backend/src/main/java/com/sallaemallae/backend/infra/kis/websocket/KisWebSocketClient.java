@@ -91,9 +91,7 @@ public class KisWebSocketClient {
     );
 
     connectIfNecessary();
-    if (connected.get()) {
-      sendSubscriptionMessage(subscription, true);
-    }
+    dispatchSubscriptionMessage(subscription, true);
     return acknowledgement;
   }
 
@@ -106,8 +104,12 @@ public class KisWebSocketClient {
   }
 
   public boolean isSubscriptionAcknowledged(String marketCode, String ticker) {
+    KisWebSocketSubscriptionAck acknowledgement =
+        acknowledgedSubscriptions.get(resolveSubscription(resolveTopic(marketCode), marketCode, ticker));
     return subscriptionsByLookupKey.containsKey(subscriptionLookupKey(resolveTopic(marketCode), ticker))
-        && acknowledgedSubscriptions.containsKey(resolveSubscription(resolveTopic(marketCode), marketCode, ticker));
+        && connected.get()
+        && acknowledgement != null
+        && acknowledgement.success();
   }
 
   public Optional<KisWebSocketSubscriptionAck> getAcknowledgement(String marketCode, String ticker) {
@@ -166,9 +168,6 @@ public class KisWebSocketClient {
             .buildAsync(URI.create(properties.wsBaseUrl()), new KisListener())
             .join();
         webSocket = socket;
-        connected.set(true);
-        resubscribeAll();
-        log.info("Connected to KIS websocket. url={}, subscriptions={}", properties.wsBaseUrl(), subscriptionsByLookupKey.size());
       } catch (Exception e) {
         connected.set(false);
         webSocket = null;
@@ -182,13 +181,17 @@ public class KisWebSocketClient {
 
   private void resubscribeAll() {
     for (Subscription subscription : List.copyOf(subscriptionsByLookupKey.values())) {
-      sendSubscriptionMessage(subscription, true);
+      dispatchSubscriptionMessage(subscription, true);
     }
+  }
+
+  private void dispatchSubscriptionMessage(Subscription subscription, boolean subscribe) {
+    scheduler.execute(() -> sendSubscriptionMessage(subscription, subscribe));
   }
 
   private void sendSubscriptionMessage(Subscription subscription, boolean subscribe) {
     WebSocket current = webSocket;
-    if (current == null) {
+    if (current == null || !connected.get()) {
       return;
     }
 
@@ -210,10 +213,6 @@ public class KisWebSocketClient {
       ));
       current.sendText(payload, true);
     } catch (Exception e) {
-      CompletableFuture<KisWebSocketSubscriptionAck> pending = pendingAcknowledgements.remove(subscription);
-      if (pending != null && !pending.isDone()) {
-        pending.completeExceptionally(e);
-      }
       log.warn("Failed to send KIS websocket subscription. topic={}, ticker={}", subscription.topic(), subscription.ticker(), e);
     }
   }
@@ -234,7 +233,11 @@ public class KisWebSocketClient {
       Subscription subscription = findSubscription(ack.topic(), ack.ticker())
           .orElse(new Subscription(ack.topic(), StockMarketConstants.DOMESTIC_MARKET_CODE, ack.ticker()));
       touchSubscription(subscription);
-      acknowledgedSubscriptions.put(subscription, ack);
+      if (ack.success()) {
+        acknowledgedSubscriptions.put(subscription, ack);
+      } else {
+        acknowledgedSubscriptions.remove(subscription);
+      }
       CompletableFuture<KisWebSocketSubscriptionAck> pending = pendingAcknowledgements.remove(subscription);
       if (pending != null && !pending.isDone()) {
         pending.complete(ack);
@@ -303,6 +306,8 @@ public class KisWebSocketClient {
   private void handleDisconnect(Throwable throwable) {
     connected.set(false);
     webSocket = null;
+    acknowledgedSubscriptions.clear();
+    firstTickLoggedSubscriptions.clear();
     if (throwable != null) {
       log.warn("Disconnected from KIS websocket.", throwable);
     }
@@ -353,6 +358,10 @@ public class KisWebSocketClient {
 
     @Override
     public void onOpen(WebSocket webSocket) {
+      KisWebSocketClient.this.webSocket = webSocket;
+      connected.set(true);
+      log.info("Connected to KIS websocket. url={}, subscriptions={}", properties.wsBaseUrl(), subscriptionsByLookupKey.size());
+      resubscribeAll();
       webSocket.request(1);
       WebSocket.Listener.super.onOpen(webSocket);
     }

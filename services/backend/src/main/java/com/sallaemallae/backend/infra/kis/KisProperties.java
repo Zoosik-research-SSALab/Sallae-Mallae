@@ -23,6 +23,8 @@ public class KisProperties {
   @ToString.Include
   private final int retryAttempts;
   @ToString.Include
+  private final long retryBackoffMillis;
+  @ToString.Include
   private final int realtimeSubscriptionTtlMinutes;
   @ToString.Include
   private final int realtimeSubscriptionAckTimeoutSeconds;
@@ -36,6 +38,7 @@ public class KisProperties {
       @Value("${KIS_REFRESH_MARGIN_SECONDS:120}") int refreshMarginSeconds,
       @Value("${KIS_TIMEOUT_SECONDS:8}") int timeoutSeconds,
       @Value("${KIS_RETRY_ATTEMPTS:1}") int retryAttempts,
+      @Value("${KIS_RETRY_BACKOFF_MILLIS:250}") long retryBackoffMillis,
       @Value("${KIS_REALTIME_SUBSCRIPTION_TTL_MINUTES:30}") int realtimeSubscriptionTtlMinutes,
       @Value("${KIS_REALTIME_SUBSCRIPTION_ACK_TIMEOUT_SECONDS:7}") int realtimeSubscriptionAckTimeoutSeconds
   ) {
@@ -47,6 +50,7 @@ public class KisProperties {
     this.refreshMarginSeconds = refreshMarginSeconds;
     this.timeoutSeconds = timeoutSeconds;
     this.retryAttempts = retryAttempts;
+    this.retryBackoffMillis = retryBackoffMillis;
     this.realtimeSubscriptionTtlMinutes = realtimeSubscriptionTtlMinutes;
     this.realtimeSubscriptionAckTimeoutSeconds = realtimeSubscriptionAckTimeoutSeconds;
   }

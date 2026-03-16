@@ -55,14 +55,9 @@ class KisHealthControllerSecurityTest {
     given(kisHealthService.check("005930"))
         .willReturn(new KisHealthResponse(
             true,
-            "paper",
-            "https://openapivts.koreainvestment.com:29443",
-            true,
-            true,
             "005930",
             70000,
             true,
-            "KIS:QUOTE:J:005930:V1",
             "OK",
             null
         ));
@@ -86,6 +81,11 @@ class KisHealthControllerSecurityTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.status").value("OK"))
-        .andExpect(jsonPath("$.data.sampleTicker").value("005930"));
+        .andExpect(jsonPath("$.data.sampleTicker").value("005930"))
+        .andExpect(jsonPath("$.data.mode").doesNotExist())
+        .andExpect(jsonPath("$.data.restBaseUrl").doesNotExist())
+        .andExpect(jsonPath("$.data.tokenCached").doesNotExist())
+        .andExpect(jsonPath("$.data.approvalKeyCached").doesNotExist())
+        .andExpect(jsonPath("$.data.quoteCacheKey").doesNotExist());
   }
 }
