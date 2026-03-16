@@ -1,3 +1,7 @@
+import { GiMoneyStack, GiSupersonicArrow } from "react-icons/gi";
+import { HiMiniPresentationChartLine } from "react-icons/hi2";
+import { PiHandCoins } from "react-icons/pi";
+import type { IconType } from "react-icons";
 import type { PortfolioHallOfFameSection } from "../types/portfolio";
 import { cn } from "@/shared/utils/cn";
 import { formatSignedValue, getHallOfFameToneClassName } from "../utils/portfolioFormatters";
@@ -6,19 +10,35 @@ type Props = {
   sections: PortfolioHallOfFameSection[];
 };
 
+const hallOfFameHeaderIcons: Record<string, IconType> = {
+  "hit-rate": GiSupersonicArrow,
+  "cumulative-return": GiMoneyStack,
+  "best-single-trade": PiHandCoins,
+  "average-return": HiMiniPresentationChartLine,
+};
+
+function getHallOfFameValueClassName(sectionId: string, rank: number) {
+  if (sectionId === "hit-rate") {
+    return rank <= 3 ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-secondary)]";
+  }
+
+  return "text-[color:var(--color-text-danger-bold)]";
+}
+
 export default function PortfolioHallOfFame({ sections }: Props) {
   return (
     <section className="flex flex-col gap-6 md:gap-8">
       <div className="flex flex-col gap-1">
         <h2 className="typo-heading-md text-[color:var(--color-text-primary)]">모의투자 명예의 전당</h2>
         <p className="typo-body-sm text-[color:var(--color-text-secondary)] md:typo-body-md">
-          과거 3년간의 모의투자 데이터를 기반으로 한 분야별 TOP 10 종목입니다
+          과거 3년간의 모의투자 데이터를 기반으로 한 분야별 TOP 10 종목입니다.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {sections.map((section) => {
           const tone = getHallOfFameToneClassName(section.tone);
+          const HeaderIcon = hallOfFameHeaderIcons[section.id];
 
           return (
             <article
@@ -26,8 +46,8 @@ export default function PortfolioHallOfFame({ sections }: Props) {
               className="rounded-3xl bg-[color:var(--color-bg-secondary)] p-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]"
             >
               <div className="flex items-center gap-3 border-b border-[color:var(--color-border-primary)] pb-3">
-                <span className={cn("inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-extrabold", tone.marker)}>
-                  {section.items[0]?.rank ?? 1}
+                <span className={cn("inline-flex h-8 w-8 items-center justify-center rounded-full", tone.marker)}>
+                  {HeaderIcon ? <HeaderIcon className="h-4 w-4" /> : <span className="text-sm font-extrabold">{section.items[0]?.rank ?? 1}</span>}
                 </span>
                 <h3 className="text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">{section.title}</h3>
               </div>
@@ -48,7 +68,13 @@ export default function PortfolioHallOfFame({ sections }: Props) {
                         {item.name}
                       </span>
                     </div>
-                    <span className={cn("shrink-0 text-sm md:text-base", item.rank <= 3 ? "font-extrabold" : "font-semibold", tone.rank)}>
+                    <span
+                      className={cn(
+                        "shrink-0 text-sm md:text-base",
+                        item.rank <= 3 ? "font-extrabold" : "font-semibold",
+                        getHallOfFameValueClassName(section.id, item.rank),
+                      )}
+                    >
                       {formatSignedValue(item.value, 1, item.suffix)}
                     </span>
                   </div>

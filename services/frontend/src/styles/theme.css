@@ -211,8 +211,8 @@
   --color-text-primary: var(--color-neutral-900);
   --color-text-secondary: var(--color-neutral-500);
   --color-text-tertiary: var(--color-neutral-400);
-  --color-text-danger: var(--color-red-400);
-  --color-text-danger-bold: var(--color-red-400);
+  --color-text-danger: var(--color-red-600);
+  --color-text-danger-bold: var(--color-red-600);
   --color-text-info: var(--color-blue-600);
   --color-text-success: var(--color-green-700);
   --color-text-warning: var(--color-yellow-700);
@@ -247,8 +247,8 @@
   --color-bg-secondary: var(--color-neutral-800);
   --color-bg-tertiary: var(--color-neutral-700);
   --color-bg-brand: var(--color-blue-400);
-  --color-bg-danger-bold: var(--color-red-400);
-  --color-bg-danger-subtle: var(--color-red-800);
+  --color-bg-danger-bold: var(--color-red-600);
+  --color-bg-danger-subtle: var(--color-red-600);
   --color-bg-info-subtle: var(--color-blue-800);
   --color-bg-success-subtle: var(--color-green-950);
   --color-bg-warning-subtle: var(--color-yellow-950);
@@ -268,8 +268,8 @@
   --color-text-primary: var(--color-neutral-50);
   --color-text-secondary: var(--color-neutral-300);
   --color-text-tertiary: var(--color-neutral-400);
-  --color-text-danger: var(--color-red-400);
-  --color-text-danger-bold: var(--color-red-400);
+  --color-text-danger: var(--color-red-600);
+  --color-text-danger-bold: var(--color-red-600);
   --color-text-info: var(--color-blue-200);
   --color-text-success: var(--color-green-300);
   --color-text-warning: var(--color-yellow-200);
@@ -326,8 +326,8 @@
     --color-text-primary: var(--color-neutral-50);
     --color-text-secondary: var(--color-neutral-300);
     --color-text-tertiary: var(--color-neutral-400);
-    --color-text-danger: var(--color-red-400);
-    --color-text-danger-bold: var(--color-red-400);
+    --color-text-danger: var(--color-red-600);
+    --color-text-danger-bold: var(--color-red-600);
     --color-text-info: var(--color-blue-200);
     --color-text-success: var(--color-green-300);
     --color-text-warning: var(--color-yellow-200);

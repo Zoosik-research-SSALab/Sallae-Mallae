@@ -10,7 +10,6 @@ type ApiResponse<T> = {
 export async function getPortfolio() {
   const payload = await apiFetch<ApiResponse<PortfolioPageData>>("/api/portfolio", {
     cache: "no-store",
-    useBaseUrl: false,
   });
 
   if (!payload.data) {

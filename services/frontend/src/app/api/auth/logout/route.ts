@@ -1,7 +1,13 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { clearMockAuthCookies, shouldUseMockAuth } from "@/app/api/auth/mock";
 import { proxyAuthRequest } from "@/app/api/auth/utils";
 
 export async function POST(request: NextRequest) {
+  if (shouldUseMockAuth()) {
+    const response = new NextResponse(null, { status: 204 });
+    return clearMockAuthCookies(response);
+  }
+
   return proxyAuthRequest({
     request,
     path: "/api/auth/logout",

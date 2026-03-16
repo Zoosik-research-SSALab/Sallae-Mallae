@@ -10,18 +10,25 @@ import Button from "@/shared/ui/Button";
 function PortfolioLoadingState() {
   return (
     <div className="animate-pulse">
-      <div className="grid items-end gap-4 md:gap-6 [grid-template-columns:minmax(0,1fr)_112px] md:[grid-template-columns:minmax(0,1fr)_220px] xl:[grid-template-columns:minmax(0,1fr)_332px]">
-        <div className="flex flex-col gap-3">
-          <div className="h-4 w-32 rounded bg-[color:var(--color-bg-secondary)]" />
-          <div className="h-10 w-64 rounded bg-[color:var(--color-bg-secondary)] md:h-14" />
-          <div className="h-5 w-full max-w-[28rem] rounded bg-[color:var(--color-bg-secondary)]" />
+      <div className="flex flex-col gap-6 md:gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+        <div className="flex min-w-0 flex-1 flex-col gap-6 md:gap-8">
+          <div className="grid items-start gap-4 [grid-template-columns:minmax(0,1fr)_112px] md:gap-6 md:[grid-template-columns:minmax(0,1fr)_220px] lg:block">
+            <div className="flex flex-col gap-3">
+              <div className="h-4 w-32 rounded bg-[color:var(--color-bg-secondary)]" />
+              <div className="h-10 w-64 rounded bg-[color:var(--color-bg-secondary)] md:h-14" />
+              <div className="h-5 w-full max-w-[28rem] rounded bg-[color:var(--color-bg-secondary)]" />
+            </div>
+            <div className="h-[134px] rounded-[24px] bg-[color:var(--color-bg-secondary)] md:h-[220px] lg:hidden" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 md:gap-4 lg:max-w-[480px]">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-24 rounded-2xl bg-[color:var(--color-bg-secondary)]" />
+            ))}
+          </div>
         </div>
-        <div className="h-[160px] rounded-[24px] bg-[color:var(--color-bg-secondary)] md:h-[220px] xl:h-[364px]" />
-      </div>
-      <div className="mt-6 grid grid-cols-2 gap-3 md:gap-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-24 rounded-2xl bg-[color:var(--color-bg-secondary)]" />
-        ))}
+
+        <div className="hidden h-[364px] rounded-[24px] bg-[color:var(--color-bg-secondary)] lg:block lg:w-[332px] lg:shrink-0" />
       </div>
       <div className="mt-8 h-96 rounded-3xl bg-[color:var(--color-bg-secondary)]" />
     </div>
@@ -33,8 +40,8 @@ export default function PortfolioPageClient() {
 
   return (
     <main className="flex w-full justify-center bg-[color:var(--color-bg-primary)] py-8 md:py-10 lg:py-12">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-3 md:px-6 lg:px-8 xl:flex-row xl:items-start xl:gap-16 xl:px-0">
-        <div className="flex min-w-0 flex-1 flex-col gap-8 md:gap-10 xl:max-w-[816px]">
+      <div className="mx-auto flex w-full max-w-[1152px] flex-col gap-8 px-3 md:px-6 lg:flex-row lg:items-start lg:justify-center lg:gap-16 lg:px-0">
+        <div className="flex min-w-0 flex-1 flex-col gap-8 px-1 md:gap-10 md:px-2 lg:max-w-[768px] lg:px-3">
           {isLoading ? <PortfolioLoadingState /> : null}
 
           {!isLoading && error ? (
@@ -53,7 +60,7 @@ export default function PortfolioPageClient() {
             <>
               <PortfolioHero hero={data.hero} />
               <PortfolioTabsSection holdings={data.holdings} todayTrades={data.todayTrades} monthlyReturns={data.monthlyReturns} />
-              <div className="xl:hidden">
+              <div className="lg:hidden">
                 <PortfolioSidebar signalSummary={data.signalSummary} popularSignals={data.popularSignals} />
               </div>
               <PortfolioHallOfFame sections={data.hallOfFame} />
@@ -62,7 +69,7 @@ export default function PortfolioPageClient() {
         </div>
 
         {data ? (
-          <aside className="hidden w-full xl:sticky xl:top-28 xl:block xl:w-80 xl:shrink-0">
+          <aside className="hidden w-full lg:block lg:w-80 lg:shrink-0">
             <PortfolioSidebar signalSummary={data.signalSummary} popularSignals={data.popularSignals} />
           </aside>
         ) : null}

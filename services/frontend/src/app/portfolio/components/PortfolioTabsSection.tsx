@@ -15,8 +15,8 @@ import {
   getDeltaTextClassName,
   getTradeActionLabel,
 } from "../utils/portfolioFormatters";
-import Button from "@/shared/ui/Button";
 import { cn } from "@/shared/utils/cn";
+import Pagination from "@/shared/ui/Pagination";
 
 type Props = {
   holdings: PortfolioHolding[];
@@ -30,8 +30,7 @@ const tabs: Array<{ id: PortfolioBoardTab; label: string }> = [
   { id: "monthlyReturns", label: "월간 수익률 추이" },
 ];
 
-const desktopPageSize = 6;
-const mobileInitialCount = 5;
+const holdingsPageSize = 6;
 
 function HoldingRows({ items }: { items: PortfolioHolding[] }) {
   return (
@@ -263,16 +262,13 @@ function MonthlyReturnBoard({ items }: { items: PortfolioMonthlyReturn[] }) {
 export default function PortfolioTabsSection({ holdings, todayTrades, monthlyReturns }: Props) {
   const [activeTab, setActiveTab] = useState<PortfolioBoardTab>("holdings");
   const [currentPage, setCurrentPage] = useState(1);
-  const [visibleCount, setVisibleCount] = useState(mobileInitialCount);
 
-  const totalPages = Math.max(1, Math.ceil(holdings.length / desktopPageSize));
-  const desktopHoldings = holdings.slice((currentPage - 1) * desktopPageSize, currentPage * desktopPageSize);
-  const mobileHoldings = holdings.slice(0, visibleCount);
+  const totalPages = Math.max(1, Math.ceil(holdings.length / holdingsPageSize));
+  const pagedHoldings = holdings.slice((currentPage - 1) * holdingsPageSize, currentPage * holdingsPageSize);
 
   const handleTabChange = (tab: PortfolioBoardTab) => {
     setActiveTab(tab);
     setCurrentPage(1);
-    setVisibleCount(mobileInitialCount);
   };
 
   return (
@@ -287,7 +283,7 @@ export default function PortfolioTabsSection({ holdings, todayTrades, monthlyRet
               type="button"
               onClick={() => handleTabChange(tab.id)}
               className={cn(
-                "pb-3 text-sm font-semibold leading-5 whitespace-nowrap transition-colors md:text-base md:leading-6",
+                "whitespace-nowrap pb-3 text-sm font-semibold leading-5 transition-colors md:text-base md:leading-6",
                 activeTab === tab.id
                   ? "border-b border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
                   : "text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-secondary)]",
@@ -302,55 +298,17 @@ export default function PortfolioTabsSection({ holdings, todayTrades, monthlyRet
 
       {activeTab === "holdings" ? (
         <>
-          <div className="hidden border-b border-[color:var(--color-border-secondary)] xl:block">
-            <HoldingRows items={desktopHoldings} />
+          <div className="hidden border-b border-[color:var(--color-border-secondary)] lg:block">
+            <HoldingRows items={pagedHoldings} />
           </div>
 
-          <div className="border-b border-[color:var(--color-border-secondary)] xl:hidden">
-            <MobileHoldingCards items={mobileHoldings} />
+          <div className="border-b border-[color:var(--color-border-secondary)] lg:hidden">
+            <MobileHoldingCards items={pagedHoldings} />
           </div>
 
-          <div className="hidden py-6 xl:flex xl:items-center xl:justify-center xl:gap-2">
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={currentPage === 1}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--color-bg-interactive-secondary-hovered)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-primary)] disabled:opacity-40"
-              aria-label="이전 페이지"
-            >
-              ‹
-            </button>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => setCurrentPage(page)}
-                className={cn(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-xl text-base font-extrabold leading-6",
-                  currentPage === page
-                    ? "bg-[color:var(--color-bg-secondary)] text-[color:var(--color-text-primary)]"
-                    : "text-[color:var(--color-text-secondary)] hover:bg-[color:var(--color-bg-secondary)]",
-                )}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-              disabled={currentPage === totalPages}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--color-bg-interactive-secondary-hovered)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-primary)] disabled:opacity-40"
-              aria-label="다음 페이지"
-            >
-              ›
-            </button>
-          </div>
-
-          {mobileHoldings.length < holdings.length ? (
-            <div className="py-4 xl:hidden">
-              <Button variant="soft" className="w-full rounded-lg py-3 font-semibold" onClick={() => setVisibleCount((count) => count + 4)}>
-                보유 종목 더보기 ↓
-              </Button>
+          {totalPages > 1 ? (
+            <div className="py-4 md:py-6">
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
             </div>
           ) : null}
         </>
@@ -358,11 +316,11 @@ export default function PortfolioTabsSection({ holdings, todayTrades, monthlyRet
 
       {activeTab === "todayTrades" ? (
         <>
-          <div className="hidden border-b border-[color:var(--color-border-secondary)] xl:block">
+          <div className="hidden border-b border-[color:var(--color-border-secondary)] lg:block">
             <TradeRows items={todayTrades} />
           </div>
 
-          <div className="border-b border-[color:var(--color-border-secondary)] xl:hidden">
+          <div className="border-b border-[color:var(--color-border-secondary)] lg:hidden">
             <MobileTradeCards items={todayTrades} />
           </div>
         </>

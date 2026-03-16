@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { BiShow } from "react-icons/bi";
+import { PiChartLineDown, PiChartLineUp } from "react-icons/pi";
+import { RiTimerLine } from "react-icons/ri";
+import type { IconType } from "react-icons";
 import type { PortfolioPopularSignal, PortfolioSignalSummary } from "../types/portfolio";
 import { formatCurrency, formatInteger, getSignalActionClassName, getSignalActionLabel } from "../utils/portfolioFormatters";
 
@@ -8,11 +12,46 @@ type Props = {
   className?: string;
 };
 
-const signalSummaryItems = [
-  { id: "buy", label: "매수 포착", key: "buyCount" as const },
-  { id: "sell", label: "매도 청산", key: "sellCount" as const },
-  { id: "hold", label: "보유 유지", key: "holdCount" as const },
-  { id: "watch", label: "관망/보류", key: "watchCount" as const },
+const signalSummaryItems: Array<{
+  id: "buy" | "sell" | "hold" | "watch";
+  label: string;
+  key: keyof Pick<PortfolioSignalSummary, "buyCount" | "sellCount" | "holdCount" | "watchCount">;
+  Icon: IconType;
+  iconClassName: string;
+  valueClassName: string;
+}> = [
+  {
+    id: "buy",
+    label: "매수 포착",
+    key: "buyCount",
+    Icon: PiChartLineUp,
+    iconClassName: "text-[color:var(--color-text-danger-bold)]",
+    valueClassName: "text-[color:var(--color-text-danger-bold)]",
+  },
+  {
+    id: "sell",
+    label: "매도 청산",
+    key: "sellCount",
+    Icon: PiChartLineDown,
+    iconClassName: "text-[color:var(--color-text-info)]",
+    valueClassName: "text-[color:var(--color-text-info)]",
+  },
+  {
+    id: "hold",
+    label: "보유 유지",
+    key: "holdCount",
+    Icon: RiTimerLine,
+    iconClassName: "text-[color:var(--color-text-success)]",
+    valueClassName: "text-[color:var(--color-text-success)]",
+  },
+  {
+    id: "watch",
+    label: "관망/보류",
+    key: "watchCount",
+    Icon: BiShow,
+    iconClassName: "text-[color:var(--color-text-warning)]",
+    valueClassName: "text-[color:var(--color-text-secondary)]",
+  },
 ];
 
 export default function PortfolioSidebar({ signalSummary, popularSignals, className }: Props) {
@@ -36,9 +75,12 @@ export default function PortfolioSidebar({ signalSummary, popularSignals, classN
                 key={item.id}
                 className="rounded-2xl bg-[color:var(--color-bg-primary)] p-4 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]"
               >
-                <p className="typo-body-xs font-semibold text-[color:var(--color-text-secondary)]">{item.label}</p>
-                <div className="mt-2 flex items-end gap-1">
-                  <span className="text-[24px] leading-6 font-extrabold text-[color:var(--color-text-primary)]">
+                <div className="mb-2.5 flex items-center">
+                  <item.Icon className={`mr-1 h-[18px] w-[18px] shrink-0 ${item.iconClassName}`} />
+                  <p className="typo-body-xs font-semibold text-[color:var(--color-text-secondary)]">{item.label}</p>
+                </div>
+                <div className="flex items-end gap-1">
+                  <span className={`text-[24px] leading-6 font-extrabold ${item.valueClassName}`}>
                     {formatInteger(signalSummary[item.key])}
                   </span>
                   <span className="typo-body-sm font-semibold text-[color:var(--color-text-tertiary)]">종목</span>
@@ -51,7 +93,7 @@ export default function PortfolioSidebar({ signalSummary, popularSignals, classN
         <section className="rounded-3xl bg-[color:var(--color-bg-primary)] p-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)] md:p-8">
           <div className="flex items-center justify-between gap-4 border-b border-[color:var(--color-border-primary)] pb-4">
             <h2 className="typo-heading-sm text-[color:var(--color-text-primary)]">인기 종목 AI 신호</h2>
-            <Link href="/signals" className="typo-body-sm font-medium text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-secondary)]">
+            <Link href="/signals" className="typo-body-sm font-medium text-[color:var(--color-text-tertiary)]">
               더보기
             </Link>
           </div>
