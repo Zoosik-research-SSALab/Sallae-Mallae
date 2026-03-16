@@ -5,11 +5,12 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from core.auth import verify_internal_api_key
 from core.config import get_session
 from domains.debate.schemas import DebateInputsResponse, DebateResultRequest, DebateResultResponse, DebateTargetsResponse
 from domains.debate.service import get_debate_inputs, get_debate_targets, save_debate_result
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_internal_api_key)])
 
 
 @router.get("/targets", response_model=DebateTargetsResponse)
