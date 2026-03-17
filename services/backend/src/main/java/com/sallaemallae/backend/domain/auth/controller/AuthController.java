@@ -148,7 +148,7 @@ public class AuthController {
   })
   @PostMapping("/logout")
   public ApiResponse<Void> logout(
-      @Parameter(description = "Bearer {accessToken}", required = true) @RequestHeader("Authorization") String authorization,
+      @Parameter(hidden = true) @RequestHeader("Authorization") String authorization,
       @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") String deviceId,
       HttpServletResponse response) {
 
@@ -164,7 +164,7 @@ public class AuthController {
   })
   @PostMapping("/logout/all")
   public ApiResponse<LogoutAllResponse> logoutAll(
-      @Parameter(description = "Bearer {accessToken}", required = true) @RequestHeader("Authorization") String authorization,
+      @Parameter(hidden = true) @RequestHeader("Authorization") String authorization,
       @Parameter(description = "기기 고유 식별자", required = true) @RequestHeader("X-Device-Id") @Size(max = 255) String deviceId,
       HttpServletResponse response) {
 
