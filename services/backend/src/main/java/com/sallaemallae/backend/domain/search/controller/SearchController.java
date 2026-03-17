@@ -1,8 +1,8 @@
 package com.sallaemallae.backend.domain.search.controller;
 
-import com.sallaemallae.backend.domain.search.dto.SearchHistoryRequest;
-import com.sallaemallae.backend.domain.search.dto.SearchRecentResponse;
-import com.sallaemallae.backend.domain.search.dto.SearchResponse;
+import com.sallaemallae.backend.domain.search.dto.request.SearchHistoryRequest;
+import com.sallaemallae.backend.domain.search.dto.response.SearchRecentResponse;
+import com.sallaemallae.backend.domain.search.dto.response.SearchResponse;
 import com.sallaemallae.backend.domain.search.exception.SearchErrorCode;
 import com.sallaemallae.backend.domain.search.service.SearchService;
 import com.sallaemallae.backend.global.response.ApiResponse;

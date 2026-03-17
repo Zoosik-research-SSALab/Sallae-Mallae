@@ -1,12 +1,12 @@
 package com.sallaemallae.backend.domain.notification.controller;
 
-import com.sallaemallae.backend.domain.notification.dto.NotificationActionResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationBulkActionResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationListResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsUpdateRequest;
-import com.sallaemallae.backend.domain.notification.dto.NotificationTabRequest;
-import com.sallaemallae.backend.domain.notification.dto.NotificationUnreadCountResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationActionResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationBulkActionResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationListResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationSettingsResponse;
+import com.sallaemallae.backend.domain.notification.dto.request.NotificationSettingsUpdateRequest;
+import com.sallaemallae.backend.domain.notification.dto.request.NotificationTabRequest;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationUnreadCountResponse;
 import com.sallaemallae.backend.domain.notification.service.NotificationService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;

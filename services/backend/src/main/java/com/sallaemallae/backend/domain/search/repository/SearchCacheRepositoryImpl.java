@@ -1,6 +1,6 @@
 package com.sallaemallae.backend.domain.search.repository;
 
-import com.sallaemallae.backend.domain.search.dto.SearchRecentItemResponse;
+import com.sallaemallae.backend.domain.search.dto.response.SearchRecentItemResponse;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;

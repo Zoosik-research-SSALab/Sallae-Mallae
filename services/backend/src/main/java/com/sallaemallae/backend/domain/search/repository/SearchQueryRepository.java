@@ -1,7 +1,7 @@
 package com.sallaemallae.backend.domain.search.repository;
 
-import com.sallaemallae.backend.domain.search.dto.SearchNewsItemResponse;
-import com.sallaemallae.backend.domain.search.dto.SearchStockItemResponse;
+import com.sallaemallae.backend.domain.search.dto.response.SearchNewsItemResponse;
+import com.sallaemallae.backend.domain.search.dto.response.SearchStockItemResponse;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
