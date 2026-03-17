@@ -84,6 +84,7 @@ public class SecurityConfig {
             .requestMatchers("/api/signals").permitAll()
             .requestMatchers("/api/stocks").permitAll()
             .requestMatchers("/api/stocks/*").permitAll()
+            .requestMatchers("/api/stocks/**").permitAll()
             .requestMatchers("/api/stream/stocks/*/prices").permitAll()
             // SSE 스트림 엔드포인트 (인증 불필요)
             .requestMatchers("/api/stream/main/**").permitAll()

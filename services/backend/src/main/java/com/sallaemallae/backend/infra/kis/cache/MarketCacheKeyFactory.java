@@ -27,6 +27,10 @@ public class MarketCacheKeyFactory {
     return "KIS:TOP_INTEREST:%s:%s:V1".formatted(marketCode, maxItems);
   }
 
+  public String topInterestStale(String marketCode, int maxItems) {
+    return "KIS:TOP_INTEREST:STALE:%s:%s:V1".formatted(marketCode, maxItems);
+  }
+
   public String realtimeTick(String marketCode, String ticker) {
     return "KIS:WS:TICK:%s:%s:V1".formatted(marketCode, ticker);
   }
