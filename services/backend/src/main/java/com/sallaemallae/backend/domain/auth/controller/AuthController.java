@@ -1,6 +1,5 @@
 package com.sallaemallae.backend.domain.auth.controller;
 
-import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
 import com.sallaemallae.backend.domain.auth.dto.DeviceSessionListResponse;
 import com.sallaemallae.backend.domain.auth.dto.LogoutAllResponse;
@@ -64,12 +63,6 @@ public class AuthController {
   public ApiResponse<LoginResponse.UserInfo> getCurrentUser() {
     return ApiResponse.success(
         authService.getCurrentUser(authenticatedUserProvider.getCurrentUserId()));
-  }
-
-  @Operation(summary = "인증 상태 확인", description = "현재 인증 상태를 반환합니다.")
-  @GetMapping("/status")
-  public ApiResponse<AuthStatusResponse> status() {
-    return ApiResponse.success(authService.getAuthStatus());
   }
 
   @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인합니다. Access Token은 응답 바디에, Refresh Token은 HttpOnly 쿠키로 반환됩니다.")
