@@ -34,13 +34,13 @@ public class CachedKisDomesticStockGateway {
     return cacheRepository.get(cacheKey, KisTopInterestStockData.class)
         .map(value -> new CachedResult<>(cacheKey, true, value))
         .orElseGet(() -> {
-          var stale = cacheRepository.get(staleCacheKey, KisTopInterestStockData.class);
           try {
             KisTopInterestStockData fresh = kisDomesticStockClient.getTopInterestStocks(marketCode, maxItems);
             cacheRepository.put(cacheKey, fresh, ttlPolicy.topInterestTtl());
             cacheRepository.put(staleCacheKey, fresh, ttlPolicy.topInterestStaleTtl());
             return new CachedResult<>(cacheKey, false, fresh);
           } catch (RuntimeException e) {
+            var stale = cacheRepository.get(staleCacheKey, KisTopInterestStockData.class);
             if (stale.isPresent()) {
               return new CachedResult<>(staleCacheKey, true, stale.get());
             }

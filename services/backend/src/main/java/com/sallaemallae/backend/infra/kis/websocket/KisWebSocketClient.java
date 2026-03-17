@@ -34,6 +34,7 @@ public class KisWebSocketClient {
 
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
   private static final String DOMESTIC_TRADE_TOPIC = "H0STCNT0";
+  private static final String ALREADY_SUBSCRIBED_MESSAGE = "ALREADY IN SUBSCRIBE";
   private static final int RECONNECT_DELAY_SECONDS = 3;
 
   private final KisProperties properties;
@@ -245,25 +246,26 @@ public class KisWebSocketClient {
     }
 
     messageParser.parseSubscriptionAck(rawMessage).ifPresent(ack -> {
+      KisWebSocketSubscriptionAck normalizedAck = normalizeAcknowledgement(ack);
       Subscription subscription = findSubscription(ack.topic(), ack.ticker())
           .orElse(new Subscription(ack.topic(), StockMarketConstants.DOMESTIC_MARKET_CODE, ack.ticker()));
       touchSubscription(subscription);
-      if (ack.success()) {
-        acknowledgedSubscriptions.put(subscription, ack);
+      if (normalizedAck.success()) {
+        acknowledgedSubscriptions.put(subscription, normalizedAck);
       } else {
         acknowledgedSubscriptions.remove(subscription);
       }
       CompletableFuture<KisWebSocketSubscriptionAck> pending = pendingAcknowledgements.remove(subscription);
       if (pending != null && !pending.isDone()) {
-        pending.complete(ack);
+        pending.complete(normalizedAck);
       }
       log.info(
           "KIS websocket subscription acknowledged. topic={}, market={}, ticker={}, success={}, message={}",
-          ack.topic(),
+          normalizedAck.topic(),
           subscription.marketCode(),
-          ack.ticker(),
-          ack.success(),
-          ack.message()
+          normalizedAck.ticker(),
+          normalizedAck.success(),
+          normalizedAck.message()
       );
     });
 
@@ -365,6 +367,22 @@ public class KisWebSocketClient {
 
   private String subscriptionLookupKey(String topic, String ticker) {
     return topic + ":" + ticker;
+  }
+
+  private KisWebSocketSubscriptionAck normalizeAcknowledgement(KisWebSocketSubscriptionAck acknowledgement) {
+    if (acknowledgement.success()
+        || acknowledgement.message() == null
+        || !ALREADY_SUBSCRIBED_MESSAGE.equalsIgnoreCase(acknowledgement.message())) {
+      return acknowledgement;
+    }
+
+    return new KisWebSocketSubscriptionAck(
+        acknowledgement.topic(),
+        acknowledgement.ticker(),
+        true,
+        acknowledgement.message(),
+        acknowledgement.acknowledgedAt()
+    );
   }
 
   private final class KisListener implements WebSocket.Listener {

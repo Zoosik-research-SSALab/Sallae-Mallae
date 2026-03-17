@@ -207,9 +207,9 @@ class StockApiControllerTest {
   }
 
   @Test
-  void legacyV1QuoteRoute_isNotMapped() throws Exception {
+  void legacyV1QuoteRoute_requiresAuthentication() throws Exception {
     mockMvc.perform(get("/api/v1/stocks/{ticker}/quote", "005930"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isUnauthorized());
   }
 
   @Test

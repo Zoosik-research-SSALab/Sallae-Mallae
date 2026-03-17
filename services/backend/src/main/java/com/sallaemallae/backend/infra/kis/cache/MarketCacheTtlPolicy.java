@@ -45,7 +45,7 @@ public class MarketCacheTtlPolicy {
   }
 
   public Duration topInterestStaleTtl() {
-    return isMarketOpen() ? Duration.ofMinutes(5) : Duration.ofMinutes(30);
+    return isMarketOpen() ? Duration.ofMinutes(30) : Duration.ofHours(6);
   }
 
   public Duration periodTtl(LocalDate endDate) {

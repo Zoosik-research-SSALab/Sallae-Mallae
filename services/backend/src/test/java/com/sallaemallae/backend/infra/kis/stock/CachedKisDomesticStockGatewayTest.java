@@ -80,18 +80,17 @@ class CachedKisDomesticStockGatewayTest {
     given(cacheKeyFactory.topInterestStale("J", 200)).willReturn("KIS:TOP_INTEREST:STALE:J:200:V1");
     given(cacheRepository.get("KIS:TOP_INTEREST:J:200:V1", KisTopInterestStockData.class))
         .willReturn(Optional.empty());
-    given(cacheRepository.get("KIS:TOP_INTEREST:STALE:J:200:V1", KisTopInterestStockData.class))
-        .willReturn(Optional.empty());
     given(kisDomesticStockClient.getTopInterestStocks("J", 200)).willReturn(fresh);
     given(ttlPolicy.topInterestTtl()).willReturn(Duration.ofSeconds(10));
-    given(ttlPolicy.topInterestStaleTtl()).willReturn(Duration.ofMinutes(5));
+    given(ttlPolicy.topInterestStaleTtl()).willReturn(Duration.ofMinutes(30));
 
     var result = gateway.getTopInterestStocks("J", 200);
 
     assertThat(result.cacheHit()).isFalse();
     assertThat(result.value()).isSameAs(fresh);
     verify(cacheRepository).put("KIS:TOP_INTEREST:J:200:V1", fresh, Duration.ofSeconds(10));
-    verify(cacheRepository).put("KIS:TOP_INTEREST:STALE:J:200:V1", fresh, Duration.ofMinutes(5));
+    verify(cacheRepository).put("KIS:TOP_INTEREST:STALE:J:200:V1", fresh, Duration.ofMinutes(30));
+    verify(cacheRepository, never()).get("KIS:TOP_INTEREST:STALE:J:200:V1", KisTopInterestStockData.class);
   }
 
   @Test
