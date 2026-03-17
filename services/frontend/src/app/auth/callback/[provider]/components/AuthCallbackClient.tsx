@@ -84,7 +84,7 @@ export default function AuthCallbackClient({ provider }: Props) {
 
         if (isSocialSignupPending(payload)) {
           writePendingSocialSignup(payload);
-          router.replace("/auth/signup/terms");
+          router.replace("/");
           return;
         }
 

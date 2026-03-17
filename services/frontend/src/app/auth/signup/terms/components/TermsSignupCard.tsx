@@ -16,6 +16,17 @@ import Input from "@/shared/ui/Input";
 
 type AgreementState = Record<number, boolean>;
 
+type TermsSignupCardProps = {
+  showCloseButton?: boolean;
+  onClose?: () => void;
+  onCompleted?: () => void;
+};
+
+type TermsSignupModalProps = {
+  open: boolean;
+  onClose: () => void;
+};
+
 const inputClassName =
   "typo-body-md !rounded-lg !border-[color:var(--color-border-secondary)] !bg-[color:var(--color-bg-secondary)] !px-4 !py-4 text-[color:var(--color-text-primary)] placeholder:text-[color:var(--color-text-tertiary)] focus-visible:!border-[color:var(--color-border-interactive-primary)] focus-visible:!ring-[color:var(--color-bg-interactive-primary)]/10";
 
@@ -39,7 +50,16 @@ function createAgreementState(payload: PendingSocialSignup): AgreementState {
   }, {});
 }
 
-export default function TermsSignupCard() {
+function clearPendingSignupAndRun(callback?: () => void) {
+  clearPendingSocialSignup();
+  callback?.();
+}
+
+export default function TermsSignupCard({
+  showCloseButton = false,
+  onClose,
+  onCompleted,
+}: TermsSignupCardProps) {
   const router = useRouter();
   const [pendingSignup, setPendingSignup] = useState<PendingSocialSignup | null>(null);
   const [nickname, setNickname] = useState("");
@@ -51,13 +71,18 @@ export default function TermsSignupCard() {
     const payload = readPendingSocialSignup();
 
     if (!payload) {
+      if (onClose) {
+        onClose();
+        return;
+      }
+
       router.replace("/auth/login");
       return;
     }
 
     setPendingSignup(payload);
     setAgreements(createAgreementState(payload));
-  }, [router]);
+  }, [onClose, router]);
 
   const requiredTerms = pendingSignup?.requiredTerms ?? [];
   const optionalTerms = pendingSignup?.optionalTerms ?? [];
@@ -69,6 +94,16 @@ export default function TermsSignupCard() {
       ...current,
       [termsId]: !current[termsId],
     }));
+  };
+
+  const handleCancel = () => {
+    if (onClose) {
+      clearPendingSignupAndRun(onClose);
+      return;
+    }
+
+    clearPendingSocialSignup();
+    router.replace("/auth/login");
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -106,6 +141,12 @@ export default function TermsSignupCard() {
       clearPendingSocialSignup();
       writeAuthPersistenceMode(true);
       useAuthStore.getState().applyAuthSession(response);
+
+      if (onCompleted) {
+        onCompleted();
+        return;
+      }
+
       router.replace("/");
     } catch (error) {
       window.alert(getAuthErrorMessage(error, "소셜 회원가입 처리에 실패했습니다."));
@@ -115,7 +156,23 @@ export default function TermsSignupCard() {
   };
 
   return (
-    <section className="flex w-full max-w-[30rem] flex-col gap-6 rounded-[28px] bg-[color:var(--color-bg-primary)] px-6 py-7 shadow-[0px_18px_40px_rgba(0,0,0,0.12)] sm:px-8">
+    <section className="relative flex w-full max-w-[30rem] flex-col gap-6 rounded-[28px] bg-[color:var(--color-bg-primary)] px-6 py-7 shadow-[0px_18px_40px_rgba(0,0,0,0.12)] sm:px-8">
+      {showCloseButton ? (
+        <div className="pointer-events-none absolute right-3 top-4 z-10">
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--color-text-tertiary)] transition-colors hover:bg-[color:var(--color-bg-tertiary)] hover:text-[color:var(--color-text-primary)]"
+            aria-label="닫기"
+          >
+            <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden>
+              <path d="M6 6 18 18" stroke="currentColor" strokeWidth="3.1" strokeLinecap="round" />
+              <path d="M18 6 6 18" stroke="currentColor" strokeWidth="3.1" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-2">
         <span className="typo-body-sm font-semibold text-[color:var(--color-text-tertiary)]">소셜 회원가입</span>
         <h1 className="typo-heading-md text-[color:var(--color-text-primary)]">약관 동의를 완료해주세요.</h1>
@@ -216,15 +273,7 @@ export default function TermsSignupCard() {
         </label>
 
         <div className="flex gap-3">
-          <Button
-            type="button"
-            variant="soft"
-            className="min-h-12 flex-1 rounded-2xl"
-            onClick={() => {
-              clearPendingSocialSignup();
-              router.replace("/auth/login");
-            }}
-          >
+          <Button type="button" variant="soft" className="min-h-12 flex-1 rounded-2xl" onClick={handleCancel}>
             취소
           </Button>
           <Button
@@ -238,5 +287,57 @@ export default function TermsSignupCard() {
         </div>
       </form>
     </section>
+  );
+}
+
+export function TermsSignupModal({ open, onClose }: TermsSignupModalProps) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleClose = () => {
+      clearPendingSignupAndRun(onClose);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleClose();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose, open]);
+
+  if (!open) {
+    return null;
+  }
+
+  const handleClose = () => {
+    clearPendingSignupAndRun(onClose);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center px-3 py-4 sm:px-4 sm:py-6">
+      <button
+        type="button"
+        aria-label="약관 동의 모달 닫기"
+        onClick={handleClose}
+        className="fixed inset-0 bg-black/56 backdrop-blur-[2px]"
+      />
+      <div className="relative z-[1] flex w-full items-center justify-center">
+        <div className="relative w-full max-w-[30rem]">
+          <TermsSignupCard showCloseButton onClose={handleClose} onCompleted={onClose} />
+        </div>
+      </div>
+    </div>
   );
 }
