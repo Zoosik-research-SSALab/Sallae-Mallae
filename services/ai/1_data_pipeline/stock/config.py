@@ -87,3 +87,7 @@ RCLONE_SYNC_DIRS: list[str] = [
     "raw/universe", "raw/fundamental",
     "processed/base_features",
 ]  # rclone 동기화 대상 (subdir 단위, 다운로드·업로드 대칭)
+RCLONE_TIMEOUT: int = 300          # subprocess.run timeout (초, 디렉토리당)
+RCLONE_CONTIMEOUT: str = "30s"     # rclone 연결 timeout (--contimeout)
+RCLONE_IO_TIMEOUT: str = "120s"    # rclone I/O timeout (--timeout)
+RCLONE_RETRIES: int = 2            # rclone 재시도 횟수 (--retries)

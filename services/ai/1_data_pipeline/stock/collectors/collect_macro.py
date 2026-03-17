@@ -36,6 +36,22 @@ from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# 타임아웃 헬퍼
+# ---------------------------------------------------------------------------
+def _call_with_timeout(fn, *args, timeout: int = 120, **kwargs):
+    """외부 라이브러리 호출을 timeout 제한 하에 실행합니다."""
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(fn, *args, **kwargs)
+        try:
+            return future.result(timeout=timeout)
+        except FuturesTimeout:
+            logger.error("외부 API 호출 timeout (%d초 초과): %s", timeout, fn.__name__)
+            return None
+
+
 # ---------------------------------------------------------------------------
 # 수집 대상 정의
 # ---------------------------------------------------------------------------
@@ -81,14 +97,16 @@ def fetch_yfinance(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
 
     for attempt in range(2):  # 최대 2회 시도
         try:
-            raw = yf.download(
+            raw = _call_with_timeout(
+                yf.download,
                 ticker,
                 start=start_date,
                 end=end_date,
                 progress=False,
                 auto_adjust=True,
+                timeout=120,
             )
-            if raw.empty:
+            if raw is None or raw.empty:
                 logger.warning("yfinance: %s 결과가 비어 있습니다 (start=%s, end=%s)", ticker, start_date, end_date)
                 return pd.DataFrame()
 
@@ -213,7 +231,13 @@ def fetch_fred(series_id: str, start_date: str, end_date: str) -> pd.DataFrame:
 
     try:
         fred = Fred(api_key=FRED_API_KEY)
-        series = fred.get_series(series_id, observation_start=start_date, observation_end=end_date)
+        series = _call_with_timeout(
+            fred.get_series,
+            series_id,
+            observation_start=start_date,
+            observation_end=end_date,
+            timeout=60,
+        )
         if series is None or series.empty:
             logger.warning("FRED: %s 결과가 비어 있습니다", series_id)
             return pd.DataFrame()
