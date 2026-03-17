@@ -16,9 +16,19 @@ services:
     build:
       context: ../../services/frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_MOCKING: ${NEXT_PUBLIC_API_MOCKING:-false}
     restart: unless-stopped
     environment:
-      AUTH_USE_MOCK: ${AUTH_USE_MOCK:-false}
+      NEXT_PUBLIC_API_MOCKING: ${NEXT_PUBLIC_API_MOCKING:-false}
+      AUTH_API_MOCKING: ${AUTH_API_MOCKING:-false}
+      AUTH_API_BASE_URL: ${AUTH_API_BASE_URL:-}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-}
+      OAUTH_NAVER_CLIENT_ID: ${OAUTH_NAVER_CLIENT_ID:-}
+      OAUTH_NAVER_REDIRECT_URI: ${OAUTH_NAVER_REDIRECT_URI:-}
+      OAUTH_KAKAO_CLIENT_ID: ${OAUTH_KAKAO_CLIENT_ID:-}
+      OAUTH_KAKAO_REDIRECT_URI: ${OAUTH_KAKAO_REDIRECT_URI:-}
     expose:
       - "3000"
     healthcheck:

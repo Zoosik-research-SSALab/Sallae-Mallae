@@ -54,6 +54,16 @@ append_prefixed_env() {
   done < <(compgen -A variable | sort)
 }
 
+append_if_present() {
+  local key="$1"
+  local out_file="$2"
+  local value="${!key:-}"
+
+  if [[ -n "$value" ]]; then
+    printf '%s=%s\n' "$key" "$value" >> "$out_file"
+  fi
+}
+
 case "$TARGET" in
   base)
     ;;
@@ -139,6 +149,25 @@ APP_DB_NAME=${app_db_name}
 APP_DB_USER=${app_db_user}
 APP_DB_PASSWORD=${app_db_password}
 EOF
+
+case "$TARGET" in
+  dev-backend|develop|master)
+    append_if_present "MAIL_HOST" "$target_file"
+    append_if_present "MAIL_PORT" "$target_file"
+    ;;
+esac
+
+case "$TARGET" in
+  dev-ai|develop)
+    if [[ -n "${ENV_DEV_KIS_API_KEY:-}" && -z "${KIS_API_KEY:-}" ]]; then
+      printf 'KIS_API_KEY=%s\n' "${ENV_DEV_KIS_API_KEY}" >> "$target_file"
+    fi
+
+    if [[ -n "${ENV_DEV_KIS_SECRET_KEY:-}" && -z "${KIS_SECRET_KEY:-}" ]]; then
+      printf 'KIS_SECRET_KEY=%s\n' "${ENV_DEV_KIS_SECRET_KEY}" >> "$target_file"
+    fi
+    ;;
+esac
 
 echo "generated:"
 echo "  $ROOT_DIR/env/base.env"
