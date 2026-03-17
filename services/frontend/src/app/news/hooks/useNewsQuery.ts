@@ -6,7 +6,7 @@ import { getNews } from "../api/getNews";
 
 export function useNewsQuery(params: NewsQueryParams) {
   return useQuery({
-    queryKey: ["news", "list", params.keyword],
+    queryKey: ["news", "list", params],
     queryFn: () => getNews(params),
     staleTime: 60_000,
   });

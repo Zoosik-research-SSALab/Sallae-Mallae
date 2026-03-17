@@ -4,6 +4,7 @@ export type NewsItem = {
   publisher: string;
   publishedAt: string;
   relatedStocks: string[];
+  url: string;
 };
 
 export type NewsPayload = {

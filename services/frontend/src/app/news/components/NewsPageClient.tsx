@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { LuSearch, LuSlidersHorizontal } from "react-icons/lu";
 import NewsArticleCard from "./NewsArticleCard";
 import NewsFilterModal from "./NewsFilterModal";
@@ -10,7 +10,6 @@ import type { NewsPeriodOption, NewsSortOption, NewsTab } from "../types/news";
 import { buildRankedNewsKeywords, filterNewsByPeriod, filterNewsByTab, sortNewsItems } from "../utils/newsFormatters";
 import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/mockNewsData";
 import Button from "@/shared/ui/Button";
-import Input from "@/shared/ui/Input";
 import Pagination from "@/shared/ui/Pagination";
 
 const tabs: Array<{ value: NewsTab; label: string }> = [
@@ -41,8 +40,7 @@ function NewsLoadingState() {
 
 export default function NewsPageClient() {
   const [searchInput, setSearchInput] = useState("");
-  const deferredSearchInput = useDeferredValue(searchInput);
-  const [keyword, setKeyword] = useState("");
+  const deferredKeyword = useDeferredValue(searchInput.trim());
   const [activeTab, setActiveTab] = useState<NewsTab>("LATEST");
   const [sortOption, setSortOption] = useState<NewsSortOption>("LATEST");
   const [periodOption, setPeriodOption] = useState<NewsPeriodOption>("MONTH");
@@ -51,57 +49,17 @@ export default function NewsPageClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      const trimmedKeyword = deferredSearchInput.trim();
-
-      startTransition(() => {
-        setKeyword(trimmedKeyword);
-        setCurrentPage(1);
-      });
-    }, 200);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [deferredSearchInput]);
-
-  useEffect(() => {
-    if (!isFilterOpen) {
-      return undefined;
-    }
-
-    const originalOverflow = document.body.style.overflow;
-    const isMobile = window.matchMedia("(max-width: 1023px)").matches;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsFilterOpen(false);
-      }
-    };
-
-    if (isMobile) {
-      document.body.style.overflow = "hidden";
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isFilterOpen]);
-
   const { data, isLoading, error, refetch, isFetching } = useNewsQuery({
     offset: 0,
+    // TODO: switch to server-side pagination once the production news API supports filtered paging.
     limit: NEWS_FETCH_LIMIT,
-    keyword,
+    keyword: deferredKeyword,
   });
 
   const queriedNews = data?.news ?? [];
   const tabFilteredNews = filterNewsByTab(queriedNews, activeTab);
   const periodFilteredNews = filterNewsByPeriod(tabFilteredNews, periodOption);
-  const sortedNews = sortNewsItems(periodFilteredNews, sortOption, keyword);
+  const sortedNews = sortNewsItems(periodFilteredNews, sortOption, deferredKeyword);
   const totalPages = Math.max(1, Math.ceil(sortedNews.length / NEWS_PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pagedNews = sortedNews.slice((safeCurrentPage - 1) * NEWS_PAGE_SIZE, safeCurrentPage * NEWS_PAGE_SIZE);
@@ -121,14 +79,9 @@ export default function NewsPageClient() {
   };
 
   const applyKeywordSearch = (nextKeyword: string) => {
-    const trimmedKeyword = nextKeyword.trim();
-    setSearchInput(trimmedKeyword);
+    setSearchInput(nextKeyword.trim());
     setActiveTab("LATEST");
-
-    startTransition(() => {
-      setKeyword(trimmedKeyword);
-      setCurrentPage(1);
-    });
+    setCurrentPage(1);
   };
 
   return (
@@ -153,19 +106,18 @@ export default function NewsPageClient() {
               <div className="flex flex-col gap-3 md:flex-row md:items-stretch">
                 <div className="flex h-12 min-w-0 flex-1 items-center gap-4 rounded-lg bg-[color:var(--color-bg-secondary)] px-4 py-2.5 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
                   <LuSearch className="h-4 w-4 shrink-0 text-[color:var(--color-text-tertiary)]" />
-                  <Input
+                  <input
                     value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
+                    onChange={(event) => {
+                      setSearchInput(event.target.value);
+                      setCurrentPage(1);
+                    }}
                     placeholder="뉴스 키워드 또는 종목명 검색"
-                    className="h-full border-0 bg-transparent px-0 py-0 text-sm text-[color:var(--color-text-primary)] placeholder:text-[color:var(--color-text-tertiary)] !outline-none !ring-0 !shadow-none !focus:border-transparent !focus:outline-none !focus:ring-0 !focus:shadow-none !focus-visible:border-transparent !focus-visible:outline-none !focus-visible:ring-0 !focus-visible:shadow-none md:text-base"
+                    className="h-full w-full border-0 bg-transparent px-0 py-0 text-sm text-[color:var(--color-text-primary)] outline-none placeholder:text-[color:var(--color-text-tertiary)] md:text-base"
                   />
                 </div>
 
                 <div className="relative">
-                  {isFilterOpen ? (
-                    <button type="button" aria-label="필터 닫기" className="fixed inset-0 z-40 hidden lg:block" onClick={() => setIsFilterOpen(false)} />
-                  ) : null}
-
                   <Button
                     variant="soft"
                     onClick={openFilterModal}
@@ -212,7 +164,9 @@ export default function NewsPageClient() {
 
               {!isLoading && error ? (
                 <div className="rounded-3xl bg-[color:var(--color-bg-secondary)] p-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
-                  <h2 className="text-xl font-extrabold leading-6 text-[color:var(--color-text-primary)]">뉴스를 불러오지 못했습니다.</h2>
+                  <h2 className="text-xl font-extrabold leading-6 text-[color:var(--color-text-primary)]">
+                    뉴스를 불러오지 못했습니다.
+                  </h2>
                   <p className="mt-2 text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">
                     {error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요."}
                   </p>
@@ -229,7 +183,9 @@ export default function NewsPageClient() {
                       pagedNews.map((item) => <NewsArticleCard key={item.id} item={item} />)
                     ) : (
                       <div className="rounded-2xl bg-[color:var(--color-bg-secondary)] px-4 py-10 text-center">
-                        <p className="text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">조건에 맞는 뉴스가 없습니다.</p>
+                        <p className="text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">
+                          조건에 맞는 뉴스가 없습니다.
+                        </p>
                       </div>
                     )}
                   </div>

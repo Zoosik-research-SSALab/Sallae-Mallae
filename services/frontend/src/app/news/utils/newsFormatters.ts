@@ -1,5 +1,6 @@
 import type { NewsItem, NewsPeriodOption, NewsSortOption, NewsTab, RankedNewsKeyword } from "../types/news";
 import { getMockNewsSeeds, WATCHLIST_NEWS_STOCKS } from "./mockNewsData";
+import { normalizeNewsKeyword } from "./newsQueryUtils";
 
 const watchlistStockSet = new Set(WATCHLIST_NEWS_STOCKS);
 
@@ -7,17 +8,8 @@ function getKoreanTimeDiff(value: number, unit: Intl.RelativeTimeFormatUnit) {
   return new Intl.RelativeTimeFormat("ko", { numeric: "auto" }).format(value, unit);
 }
 
-function normalizeKeyword(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function getPopularityScore(item: NewsItem) {
-  const seed = getMockNewsSeeds().find((candidate) => candidate.id === item.id);
-  return seed?.views ?? item.id * 97;
-}
-
 function getRelevanceScore(item: NewsItem, keyword: string) {
-  const normalizedKeyword = normalizeKeyword(keyword);
+  const normalizedKeyword = normalizeNewsKeyword(keyword);
   if (!normalizedKeyword) {
     return 0;
   }
@@ -86,9 +78,14 @@ export function filterNewsByPeriod(items: NewsItem[], period: NewsPeriodOption) 
 }
 
 export function sortNewsItems(items: NewsItem[], sort: NewsSortOption, keyword: string) {
+  const popularityMap =
+    sort === "POPULAR" ? new Map(getMockNewsSeeds().map((seed) => [seed.id, seed.views])) : new Map<number, number>();
+
   return [...items].sort((left, right) => {
     if (sort === "POPULAR") {
-      return getPopularityScore(right) - getPopularityScore(left);
+      const rightViews = popularityMap.get(right.id) ?? right.id * 97;
+      const leftViews = popularityMap.get(left.id) ?? left.id * 97;
+      return rightViews - leftViews;
     }
 
     if (sort === "RELEVANCE") {

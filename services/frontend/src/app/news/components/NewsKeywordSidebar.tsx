@@ -9,7 +9,9 @@ export default function NewsKeywordSidebar({ items, onKeywordSelect }: Props) {
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <h2 className="text-xl font-extrabold leading-6 text-[color:var(--color-text-primary)]">많이 찾는 뉴스 키워드</h2>
+        <h2 className="text-xl font-extrabold leading-6 text-[color:var(--color-text-primary)]">
+          많이 찾는 뉴스 키워드
+        </h2>
       </div>
 
       <div className="rounded-3xl bg-[color:var(--color-bg-secondary)] p-6">

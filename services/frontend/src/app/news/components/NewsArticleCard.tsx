@@ -23,13 +23,22 @@ export default function NewsArticleCard({ item }: Props) {
           ))}
         </div>
 
-        <h3 className="text-lg font-extrabold leading-6 text-[color:var(--color-text-primary)] md:text-xl">{item.title}</h3>
+        <h3 className="text-lg font-extrabold leading-6 text-[color:var(--color-text-primary)] md:text-xl">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="transition-opacity hover:opacity-80"
+          >
+            {item.title}
+          </a>
+        </h3>
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)] md:text-sm md:leading-5">
             {item.publisher}
           </span>
-          <span className="h-1 w-1 rounded-full bg-[color:var(--color-icon-disabled)]" aria-hidden />
+          <span className="h-1 w-1 rounded-full bg-[color:var(--color-icon-disabled)]" aria-hidden={true} />
           <span className="text-[10px] font-normal leading-4 text-[color:var(--color-text-tertiary)] md:text-xs">
             {formatNewsRelativeTime(item.publishedAt)}
           </span>

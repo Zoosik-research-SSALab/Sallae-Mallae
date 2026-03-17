@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { LuX } from "react-icons/lu";
 import Button from "@/shared/ui/Button";
 import type { NewsPeriodOption, NewsSortOption } from "../types/news";
@@ -73,7 +77,9 @@ function FilterPanel({
                   onClick={() => onSortChange(option.value)}
                   className="inline-flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]"
                 >
-                  <span className="text-base font-medium leading-6 text-[color:var(--color-text-secondary)]">{option.label}</span>
+                  <span className="text-base font-medium leading-6 text-[color:var(--color-text-secondary)]">
+                    {option.label}
+                  </span>
                   <RadioIndicator active={isActive} />
                 </button>
               );
@@ -120,17 +126,64 @@ function FilterPanel({
 }
 
 export default function NewsFilterModal(props: Props) {
+  const { onClose } = props;
+  const desktopPanelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!window.matchMedia("(min-width: 1024px)").matches) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (desktopPanelRef.current && !desktopPanelRef.current.contains(target)) {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [onClose]);
+
   return (
     <>
-      <div className="absolute right-0 top-full z-50 mt-3 hidden w-96 lg:block" onClick={(event) => event.stopPropagation()}>
+      <div ref={desktopPanelRef} className="absolute right-0 top-full z-50 mt-3 hidden w-96 lg:block">
         <FilterPanel {...props} />
       </div>
 
-      <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 px-3 py-6 lg:hidden" onClick={props.onClose}>
-        <div className="w-full max-w-96 animate-[stock-detail-sheet-up_220ms_ease-out]" onClick={(event) => event.stopPropagation()}>
-          <FilterPanel {...props} />
-        </div>
-      </div>
+      {typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 px-3 py-6 lg:hidden"
+              onClick={onClose}
+            >
+              <div
+                className="w-full max-w-96 animate-[stock-detail-sheet-up_220ms_ease-out]"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <FilterPanel {...props} />
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
