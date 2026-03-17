@@ -1,6 +1,5 @@
 package com.sallaemallae.backend.domain.auth.service;
 
-import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
@@ -20,8 +19,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 public interface AuthService {
-
-  AuthStatusResponse getAuthStatus();
 
   LoginResponse login(LoginRequest request, String deviceId, String userAgent, String ipAddress,
       HttpServletResponse response);

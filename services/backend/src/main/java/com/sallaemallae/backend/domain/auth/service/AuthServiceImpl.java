@@ -1,6 +1,5 @@
 package com.sallaemallae.backend.domain.auth.service;
 
-import com.sallaemallae.backend.domain.auth.dto.AuthStatusResponse;
 import com.sallaemallae.backend.domain.auth.dto.CheckEmailResponse;
 import com.sallaemallae.backend.domain.auth.dto.LoginRequest;
 import com.sallaemallae.backend.domain.auth.dto.LoginResponse;
@@ -111,12 +110,6 @@ public class AuthServiceImpl implements AuthService {
     for (OAuthProviderClient client : oauthProviderClients) {
       oauthClientMap.put(client.getProvider(), client);
     }
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public AuthStatusResponse getAuthStatus() {
-    return new AuthStatusResponse(false, null, "GUEST");
   }
 
   @Override
