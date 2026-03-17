@@ -3,6 +3,7 @@
 """
 import os
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
 
@@ -11,7 +12,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # DB 연결
 # ---------------------------------------------------------------------------
-# 배포 환경: 개별 환경변수(DB_HOST 등)로 URL 조합
+# 배포 환경: 개별 환경변수(DB_HOST 등)로 URL 조합 (비밀번호 특수문자 자동 인코딩)
 # 로컬 환경: AI_DB_URL 직접 지정 또는 개별 변수 사용
 _DB_HOST = os.environ.get("DB_HOST", "localhost")
 _DB_PORT = os.environ.get("DB_PORT", "5432")
@@ -19,10 +20,26 @@ _DB_NAME = os.environ.get("DB_NAME", "app_dev")
 _DB_USER = os.environ.get("DB_USER", "app_dev_user")
 _DB_PASSWORD = os.environ.get("DB_PASSWORD", "change_me_dev")
 
-AI_DB_URL: str = os.environ.get(
-    "AI_DB_URL",
-    f"postgresql+psycopg2://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:{_DB_PORT}/{_DB_NAME}",
-)
+# AI_DB_URL 환경변수가 있으면 비밀번호 특수문자(@등)를 인코딩하여 사용
+# 없으면 개별 변수(DB_HOST 등)로 조합
+_raw_url = os.environ.get("AI_DB_URL", "")
+if _raw_url:
+    # postgresql+psycopg2://user:pass@host:port/db 형식에서 비밀번호 추출 후 인코딩
+    _scheme_end = _raw_url.index("://") + 3
+    _at_host = _raw_url.rindex("@")  # 마지막 @가 호스트 구분자
+    _user_pass = _raw_url[_scheme_end:_at_host]
+    _colon = _user_pass.index(":")
+    _user = _user_pass[:_colon]
+    _pass = _user_pass[_colon + 1:]
+    AI_DB_URL: str = (
+        f"{_raw_url[:_scheme_end]}{quote_plus(_user)}:{quote_plus(_pass)}"
+        f"{_raw_url[_at_host:]}"
+    )
+else:
+    AI_DB_URL: str = (
+        f"postgresql+psycopg2://{quote_plus(_DB_USER)}:{quote_plus(_DB_PASSWORD)}"
+        f"@{_DB_HOST}:{_DB_PORT}/{_DB_NAME}"
+    )
 
 # ---------------------------------------------------------------------------
 # 크롤링 설정
