@@ -52,7 +52,7 @@ def _make_post_read(sess: requests.Session):
     """pykrx Post.read 를 sess 를 사용하도록 대체하는 함수를 반환합니다."""
 
     def post_read(self, **params):
-        resp = sess.post(self.url, headers=self.headers, data=params)
+        resp = sess.post(self.url, headers=self.headers, data=params, timeout=30)
         return resp
 
     return post_read
@@ -62,7 +62,7 @@ def _make_get_read(sess: requests.Session):
     """pykrx Get.read 를 sess 를 사용하도록 대체하는 함수를 반환합니다."""
 
     def get_read(self, **params):
-        resp = sess.get(self.url, headers=self.headers, params=params)
+        resp = sess.get(self.url, headers=self.headers, params=params, timeout=30)
         return resp
 
     return get_read

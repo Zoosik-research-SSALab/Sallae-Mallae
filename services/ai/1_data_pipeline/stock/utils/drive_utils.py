@@ -7,11 +7,14 @@ Python 3.10+ 호환, Google Colab 동작 지원.
 
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 from pathlib import Path
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_dir(path: Path) -> None:
@@ -110,6 +113,46 @@ def _rclone_available() -> bool:
     return shutil.which("rclone") is not None
 
 
+def _rclone_net_opts() -> list[str]:
+    """rclone 네트워크 timeout 및 재시도 옵션을 반환합니다."""
+    from config import RCLONE_CONTIMEOUT, RCLONE_IO_TIMEOUT, RCLONE_RETRIES
+
+    return [
+        "--contimeout", RCLONE_CONTIMEOUT,
+        "--timeout", RCLONE_IO_TIMEOUT,
+        "--retries", str(RCLONE_RETRIES),
+        "--low-level-retries", "3",
+    ]
+
+
+def _run_rclone(cmd: list[str]) -> bool:
+    """
+    rclone 명령을 timeout 제한 하에 실행합니다.
+
+    Args:
+        cmd: rclone 명령어 리스트 (예: ["rclone", "sync", src, dst])
+
+    Returns:
+        성공 여부. timeout 또는 오류 발생 시 False.
+    """
+    from config import RCLONE_TIMEOUT
+
+    full_cmd = cmd + _rclone_net_opts()
+    try:
+        result = subprocess.run(
+            full_cmd,
+            capture_output=True,
+            text=True,
+            timeout=RCLONE_TIMEOUT,
+        )
+        if result.returncode != 0:
+            logger.warning("rclone 실패 (exit %d): %s", result.returncode, result.stderr[:500])
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        logger.error("rclone timeout (%d초 초과): %s", RCLONE_TIMEOUT, " ".join(cmd[:4]))
+        return False
+
+
 def rclone_sync_up(local_path: Path, remote: str, subdir: str = "") -> bool:
     """
     로컬 디렉토리를 rclone remote로 업로드 동기화합니다.
@@ -131,11 +174,7 @@ def rclone_sync_up(local_path: Path, remote: str, subdir: str = "") -> bool:
     if not src.exists():
         return False
 
-    result = subprocess.run(
-        ["rclone", "sync", str(src), dst, "--progress"],
-        capture_output=True, text=True,
-    )
-    return result.returncode == 0
+    return _run_rclone(["rclone", "sync", str(src), dst])
 
 
 def rclone_sync_down(remote: str, local_path: Path, subdir: str = "") -> bool:
@@ -157,11 +196,7 @@ def rclone_sync_down(remote: str, local_path: Path, subdir: str = "") -> bool:
     dst = local_path / subdir if subdir else local_path
     ensure_dir(dst)
 
-    result = subprocess.run(
-        ["rclone", "sync", str(src), str(dst), "--progress"],
-        capture_output=True, text=True,
-    )
-    return result.returncode == 0
+    return _run_rclone(["rclone", "sync", str(src), str(dst)])
 
 
 def rclone_copy_file(local_file: Path, remote: str) -> bool:
@@ -178,8 +213,4 @@ def rclone_copy_file(local_file: Path, remote: str) -> bool:
     if not _rclone_available() or not local_file.is_file():
         return False
 
-    result = subprocess.run(
-        ["rclone", "copy", str(local_file), remote],
-        capture_output=True, text=True,
-    )
-    return result.returncode == 0
+    return _run_rclone(["rclone", "copy", str(local_file), remote])
