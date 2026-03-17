@@ -85,6 +85,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const upstreamResponse = await fetch(resolveAuthApiUrl(`/api/auth/oauth/${provider}/start`), {
       method: "GET",
       cache: "no-store",
+      headers: {
+        "X-Device-Id": deviceIdState.value,
+      },
     });
 
     const upstreamPayload = await readUpstreamPayload(upstreamResponse);

@@ -45,6 +45,12 @@ function unwrapAuthApiResponse<T>(payload: T | AuthApiEnvelope<T>, fallbackMessa
   return payload;
 }
 
+function createDeviceIdHeader() {
+  return {
+    "X-Device-Id": getOrCreateAuthDeviceId(),
+  };
+}
+
 export async function loginWithEmail(body: EmailLoginRequest) {
   const payload = await apiFetch<LoginSuccessResponse | AuthApiEnvelope<LoginSuccessResponse>, EmailLoginRequest>(
     "/api/auth/login",
@@ -53,6 +59,7 @@ export async function loginWithEmail(body: EmailLoginRequest) {
       useBaseUrl: false,
       body,
       credentials: "include",
+      headers: createDeviceIdHeader(),
     },
   );
 
@@ -66,6 +73,7 @@ export async function requestSocialLoginStart(provider: AuthProvider) {
       method: "GET",
       useBaseUrl: false,
       credentials: "include",
+      headers: createDeviceIdHeader(),
     },
   );
 
@@ -80,6 +88,7 @@ export async function completeSocialLogin(provider: AuthProvider, body: SocialCa
       useBaseUrl: false,
       body,
       credentials: "include",
+      headers: createDeviceIdHeader(),
     },
   );
 
@@ -96,6 +105,7 @@ export async function completeSocialSignup(body: SocialPolicyRequest, tempToken:
       credentials: "include",
       headers: {
         Authorization: `Bearer ${tempToken}`,
+        ...createDeviceIdHeader(),
       },
     },
   );
@@ -169,9 +179,7 @@ export async function sendEmailCode(body: SendEmailCodeRequest) {
     {
       method: "POST",
       body,
-      headers: {
-        "X-Device-Id": getOrCreateAuthDeviceId(),
-      },
+      headers: createDeviceIdHeader(),
     },
   );
 
@@ -185,9 +193,7 @@ export async function verifyEmailCode(body: VerifyEmailCodeRequest) {
   >("/api/auth/email/verify-code", {
     method: "POST",
     body,
-    headers: {
-      "X-Device-Id": getOrCreateAuthDeviceId(),
-    },
+    headers: createDeviceIdHeader(),
   });
 
   return unwrapAuthApiResponse(payload, "Verify code response is invalid.");
@@ -200,9 +206,7 @@ export async function signupWithEmail(body: EmailSignupRequest) {
       method: "POST",
       body,
       credentials: "include",
-      headers: {
-        "X-Device-Id": getOrCreateAuthDeviceId(),
-      },
+      headers: createDeviceIdHeader(),
     },
   );
 
