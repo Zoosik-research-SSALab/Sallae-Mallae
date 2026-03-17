@@ -1,14 +1,47 @@
 import { extractAuthTokens, extractMeResponse, isTermsAgreementRequiredResponse } from "@/shared/lib/auth";
+import { getOrCreateAuthDeviceId } from "@/shared/lib/authDevice";
 import { apiFetch } from "@/shared/lib/apiClient";
 import type {
   AuthProvider,
+  CheckEmailResponse,
+  EmailSignupRequest,
   EmailLoginRequest,
   LoginSuccessResponse,
   MeResponse,
   RefreshResponse,
+  SendEmailCodeRequest,
+  SendEmailCodeResponse,
+  SignupSuccessResponse,
   SocialCallbackRequest,
   SocialLoginResponse,
+  VerifyEmailCodeRequest,
+  VerifyEmailCodeResponse,
 } from "@/shared/types/auth";
+
+type AuthApiEnvelope<T> = {
+  success: boolean;
+  data: T | null;
+  error: {
+    code?: string;
+    message?: string;
+  } | null;
+};
+
+function isAuthApiEnvelope<T>(value: unknown): value is AuthApiEnvelope<T> {
+  return typeof value === "object" && value !== null && "success" in value && "data" in value;
+}
+
+function unwrapAuthApiResponse<T>(payload: T | AuthApiEnvelope<T>, fallbackMessage: string) {
+  if (isAuthApiEnvelope<T>(payload)) {
+    if (payload.data !== null) {
+      return payload.data;
+    }
+
+    throw new Error(payload.error?.message ?? fallbackMessage);
+  }
+
+  return payload;
+}
 
 export async function loginWithEmail(body: EmailLoginRequest) {
   return apiFetch<LoginSuccessResponse, EmailLoginRequest>("/api/auth/login", {
@@ -75,6 +108,63 @@ export async function logoutFromApp() {
     credentials: "include",
     withAuth: true,
   });
+}
+
+export async function checkEmailAvailability(email: string) {
+  const payload = await apiFetch<CheckEmailResponse | AuthApiEnvelope<CheckEmailResponse>>(
+    `/api/auth/check-email/${encodeURIComponent(email)}`,
+    {
+      method: "GET",
+    },
+  );
+
+  return unwrapAuthApiResponse(payload, "이메일 중복 확인 응답 형식이 올바르지 않습니다.");
+}
+
+export async function sendEmailCode(body: SendEmailCodeRequest) {
+  const payload = await apiFetch<SendEmailCodeResponse | AuthApiEnvelope<SendEmailCodeResponse>, SendEmailCodeRequest>(
+    "/api/auth/email/send-code",
+    {
+      method: "POST",
+      body,
+      headers: {
+        "X-Device-Id": getOrCreateAuthDeviceId(),
+      },
+    },
+  );
+
+  return unwrapAuthApiResponse(payload, "인증코드 발송 응답 형식이 올바르지 않습니다.");
+}
+
+export async function verifyEmailCode(body: VerifyEmailCodeRequest) {
+  const payload = await apiFetch<
+    VerifyEmailCodeResponse | AuthApiEnvelope<VerifyEmailCodeResponse>,
+    VerifyEmailCodeRequest
+  >("/api/auth/email/verify-code", {
+    method: "POST",
+    body,
+    headers: {
+      "X-Device-Id": getOrCreateAuthDeviceId(),
+    },
+  });
+
+  return unwrapAuthApiResponse(payload, "이메일 인증 응답 형식이 올바르지 않습니다.");
+}
+
+export async function signupWithEmail(body: EmailSignupRequest) {
+  const payload = await apiFetch<SignupSuccessResponse | AuthApiEnvelope<SignupSuccessResponse>, EmailSignupRequest>(
+    "/api/auth/signup",
+    {
+      method: "POST",
+      body,
+      credentials: "include",
+      headers: {
+        "X-Device-Id": getOrCreateAuthDeviceId(),
+      },
+    },
+  );
+
+  return unwrapAuthApiResponse(payload, "회원가입 응답 형식이 올바르지 않습니다.");
 }
 
 export async function restoreAuthSession() {
