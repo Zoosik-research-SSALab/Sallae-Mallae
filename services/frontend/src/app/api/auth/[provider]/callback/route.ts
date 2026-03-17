@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthProvider } from "@/shared/lib/auth";
 import { createMockSocialLoginResponse, shouldUseMockAuth } from "@/app/api/auth/mock";
-import { createErrorResponse, proxyAuthRequest, readJsonSafely } from "@/app/api/auth/utils";
+import { createErrorResponse, getPublicAppOrigin, proxyAuthRequest, readJsonSafely } from "@/app/api/auth/utils";
 import type { SocialCallbackRequest } from "@/shared/types/auth";
 
 type RouteContext = {
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return createErrorResponse("지원하지 않는 소셜 로그인 제공자입니다.", 400);
   }
 
-  const callbackUrl = new URL(`/auth/callback/${provider}`, request.url);
+  const callbackUrl = new URL(`/auth/${provider}/callback`, `${getPublicAppOrigin(request)}/`);
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const error = request.nextUrl.searchParams.get("error");
