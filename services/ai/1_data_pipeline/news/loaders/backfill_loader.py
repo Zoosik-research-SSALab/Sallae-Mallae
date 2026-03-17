@@ -83,13 +83,14 @@ def _parse_date(date_str: str) -> datetime | None:
 # ---------------------------------------------------------------------------
 def bulk_load_backfill(csv_path: str) -> dict[str, int]:
     """
-    GPU 처리 완료된 CSV를 DB에 벌크 적재.
+    GPU 처리 완료된 CSV를 DB에 벌크 적재 (메모리 최적화).
 
     처리 흐름:
-      1. CSV 로드 + 종목코드 패딩
+      1. CSV를 청크 단위로 읽기 (500행씩)
       2. URL 중복 검사 → 신규만 stock_news INSERT
       3. stock_news_map INSERT (sentiment_score, sentiment_label 포함)
       4. keywords + news_keyword_map INSERT
+      5. 청크마다 commit + session 초기화로 메모리 해제
 
     반환: {"news_inserted", "news_skipped", "maps_created", "keywords_created", "keyword_maps_created"}
     """
@@ -101,135 +102,144 @@ def bulk_load_backfill(csv_path: str) -> dict[str, int]:
         "keyword_maps_created": 0,
     }
 
-    # CSV 로드
+    CHUNK_SIZE = 500
+
+    # CSV 청크 리더 생성
     try:
-        df = pd.read_csv(
+        reader = pd.read_csv(
             csv_path, encoding="utf-8-sig", dtype={"code": str},
-            engine="python", on_bad_lines="skip",
+            engine="python", on_bad_lines="skip", chunksize=CHUNK_SIZE,
         )
     except Exception:
-        df = pd.read_csv(
+        reader = pd.read_csv(
             csv_path, encoding="utf-8", dtype={"code": str},
-            engine="python", on_bad_lines="skip",
+            engine="python", on_bad_lines="skip", chunksize=CHUNK_SIZE,
         )
 
-    if df.empty:
-        return stats
+    # 종목코드 → stock_id 캐시 (가벼운 dict만 유지)
+    stock_id_cache: dict[str, int] = {}
+    # 키워드명 → keyword_id 캐시 (가벼운 dict만 유지)
+    keyword_cache: dict[str, int] = {}
 
-    # 종목코드 6자리 패딩
-    if "code" in df.columns:
-        df["code"] = df["code"].astype(str).str.zfill(6)
+    for chunk_idx, df in enumerate(reader):
+        if df.empty:
+            continue
 
-    with get_session() as session:
-        try:
-            # 종목코드 → Stock 객체 캐시
-            stock_cache: dict[str, Stock] = {}
-            codes = df["code"].dropna().unique().tolist() if "code" in df.columns else []
-            for code in codes:
-                stock = session.query(Stock).filter(Stock.ticker == code).first()
-                if stock:
-                    stock_cache[code] = stock
+        # 종목코드 6자리 패딩
+        if "code" in df.columns:
+            df["code"] = df["code"].astype(str).str.zfill(6)
 
-            # 기존 URL 캐시 (중복 방지)
-            existing_urls: set[str] = set()
-            urls_in_df = df["article_url"].dropna().unique().tolist() if "article_url" in df.columns else []
-            for i in range(0, len(urls_in_df), 1000):
-                batch = urls_in_df[i:i + 1000]
-                rows = session.query(StockNews.url).filter(StockNews.url.in_(batch)).all()
-                existing_urls.update(r[0] for r in rows)
+        with get_session() as session:
+            try:
+                # 이 청크에 필요한 종목만 캐시 보충
+                codes = df["code"].dropna().unique().tolist() if "code" in df.columns else []
+                for code in codes:
+                    if code not in stock_id_cache:
+                        stock = session.query(Stock.id).filter(Stock.ticker == code).first()
+                        if stock:
+                            stock_id_cache[code] = stock[0]
 
-            # 기존 키워드 캐시
-            keyword_cache: dict[str, int] = {}
-            existing_kws = session.query(Keyword).all()
-            for kw in existing_kws:
-                keyword_cache[kw.name] = kw.id
+                # 이 청크의 URL로만 중복 검사
+                urls_in_chunk = df["article_url"].dropna().unique().tolist() if "article_url" in df.columns else []
+                existing_urls: set[str] = set()
+                for i in range(0, len(urls_in_chunk), 500):
+                    batch = urls_in_chunk[i:i + 500]
+                    rows = session.query(StockNews.url).filter(StockNews.url.in_(batch)).all()
+                    existing_urls.update(r[0] for r in rows)
 
-            for _, row in df.iterrows():
-                url = row.get("article_url", "")
-                code = str(row.get("code", "")).zfill(6) if row.get("code") else None
-                stock = stock_cache.get(code) if code else None
+                for _, row in df.iterrows():
+                    url = row.get("article_url", "")
+                    code = str(row.get("code", "")).zfill(6) if row.get("code") else None
+                    stock_id = stock_id_cache.get(code) if code else None
 
-                if not url or not stock:
-                    stats["news_skipped"] += 1
-                    continue
+                    if not url or not stock_id:
+                        stats["news_skipped"] += 1
+                        continue
 
-                # --- 1. stock_news INSERT (URL 중복 시 기존 뉴스에 매핑만 추가) ---
-                if url in existing_urls:
-                    existing_news = session.query(StockNews).filter(StockNews.url == url).first()
-                    if existing_news:
-                        exists_map = (
-                            session.query(StockNewsMap)
-                            .filter(StockNewsMap.stock_id == stock.id, StockNewsMap.news_id == existing_news.id)
-                            .first()
-                        )
-                        if not exists_map:
-                            session.add(StockNewsMap(
-                                stock_id=stock.id,
-                                news_id=existing_news.id,
-                                sentiment_score=_safe_float(row.get("sentiment_score")),
-                                sentiment_label=_safe_label(row.get("sentiment_label")),
+                    # --- 1. stock_news INSERT (URL 중복 시 기존 뉴스에 매핑만 추가) ---
+                    if url in existing_urls:
+                        existing_news = session.query(StockNews.id).filter(StockNews.url == url).first()
+                        if existing_news:
+                            news_id = existing_news[0]
+                            exists_map = (
+                                session.query(StockNewsMap.news_id)
+                                .filter(StockNewsMap.stock_id == stock_id, StockNewsMap.news_id == news_id)
+                                .first()
+                            )
+                            if not exists_map:
+                                session.add(StockNewsMap(
+                                    stock_id=stock_id,
+                                    news_id=news_id,
+                                    sentiment_score=_safe_float(row.get("sentiment_score")),
+                                    sentiment_label=_safe_label(row.get("sentiment_label")),
+                                ))
+                                stats["maps_created"] += 1
+                        stats["news_skipped"] += 1
+                        continue
+
+                    # 신규 뉴스 삽입
+                    news = StockNews(
+                        title=str(row.get("title", ""))[:255],
+                        snippet=str(row.get("body", ""))[:500] if row.get("body") else None,
+                        url=url,
+                        publisher=str(row.get("source", ""))[:20] if row.get("source") else None,
+                        published_at=_parse_date(str(row.get("date", ""))),
+                    )
+                    session.add(news)
+                    session.flush()  # news.id 확보
+
+                    # --- 2. stock_news_map INSERT (감성 점수 포함) ---
+                    session.add(StockNewsMap(
+                        stock_id=stock_id,
+                        news_id=news.id,
+                        sentiment_score=_safe_float(row.get("sentiment_score")),
+                        sentiment_label=_safe_label(row.get("sentiment_label")),
+                    ))
+                    stats["maps_created"] += 1
+
+                    # --- 3. keywords + news_keyword_map INSERT ---
+                    raw_keywords = str(row.get("keywords", "")).strip()
+                    if raw_keywords:
+                        seen_kw = set()  # 같은 뉴스 내 키워드 중복 방지
+                        for kw_name in raw_keywords.split(","):
+                            kw_name = kw_name.strip()
+                            if not kw_name or len(kw_name) > 20 or kw_name in seen_kw:
+                                continue
+                            seen_kw.add(kw_name)
+
+                            # 키워드 생성 또는 캐시에서 조회
+                            if kw_name not in keyword_cache:
+                                existing_kw = session.query(Keyword.id).filter(Keyword.name == kw_name).first()
+                                if existing_kw:
+                                    keyword_cache[kw_name] = existing_kw[0]
+                                else:
+                                    kw_obj = Keyword(name=kw_name)
+                                    session.add(kw_obj)
+                                    session.flush()
+                                    keyword_cache[kw_name] = kw_obj.id
+                                    stats["keywords_created"] += 1
+
+                            # 뉴스-키워드 매핑
+                            session.add(NewsKeywordMap(
+                                news_id=news.id,
+                                keyword_id=keyword_cache[kw_name],
                             ))
-                            stats["maps_created"] += 1
-                    stats["news_skipped"] += 1
-                    continue
+                            stats["keyword_maps_created"] += 1
 
-                # 신규 뉴스 삽입
-                news = StockNews(
-                    title=str(row.get("title", ""))[:255],
-                    snippet=str(row.get("body", ""))[:500] if row.get("body") else None,
-                    url=url,
-                    publisher=str(row.get("source", ""))[:20] if row.get("source") else None,
-                    published_at=_parse_date(str(row.get("date", ""))),
+                    existing_urls.add(url)
+                    stats["news_inserted"] += 1
+
+                # 청크 끝: 커밋 + 세션 메모리 해제
+                session.commit()
+                session.expunge_all()
+                logger.info(
+                    "  청크 %d 완료 (누적 뉴스 %d건, 스킵 %d건)",
+                    chunk_idx + 1, stats["news_inserted"], stats["news_skipped"],
                 )
-                session.add(news)
-                session.flush()  # news.id 확보
 
-                # --- 2. stock_news_map INSERT (감성 점수 포함) ---
-                session.add(StockNewsMap(
-                    stock_id=stock.id,
-                    news_id=news.id,
-                    sentiment_score=_safe_float(row.get("sentiment_score")),
-                    sentiment_label=_safe_label(row.get("sentiment_label")),
-                ))
-                stats["maps_created"] += 1
-
-                # --- 3. keywords + news_keyword_map INSERT ---
-                raw_keywords = str(row.get("keywords", "")).strip()
-                if raw_keywords:
-                    seen_kw = set()  # 같은 뉴스 내 키워드 중복 방지
-                    for kw_name in raw_keywords.split(","):
-                        kw_name = kw_name.strip()
-                        if not kw_name or len(kw_name) > 20 or kw_name in seen_kw:
-                            continue
-                        seen_kw.add(kw_name)
-
-                        # 키워드 생성 또는 캐시에서 조회
-                        if kw_name not in keyword_cache:
-                            kw_obj = Keyword(name=kw_name)
-                            session.add(kw_obj)
-                            session.flush()
-                            keyword_cache[kw_name] = kw_obj.id
-                            stats["keywords_created"] += 1
-
-                        # 뉴스-키워드 매핑
-                        session.add(NewsKeywordMap(
-                            news_id=news.id,
-                            keyword_id=keyword_cache[kw_name],
-                        ))
-                        stats["keyword_maps_created"] += 1
-
-                existing_urls.add(url)
-                stats["news_inserted"] += 1
-
-                # 1000건마다 중간 커밋 (메모리 관리)
-                if stats["news_inserted"] % 1000 == 0:
-                    session.commit()
-                    logger.info("  ... %d건 적재 완료", stats["news_inserted"])
-
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
+            except Exception:
+                session.rollback()
+                raise
 
     return stats
 
