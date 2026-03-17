@@ -31,4 +31,20 @@ class MarketCacheTtlPolicyTest {
 
     assertThat(policy.quoteTtl().toSeconds()).isEqualTo(60);
   }
+
+  @Test
+  void topInterestStaleTtl_isLongerDuringOpenMarket() {
+    Clock openClock = Clock.fixed(Instant.parse("2026-03-16T01:00:00Z"), ZONE_ID);
+    MarketCacheTtlPolicy policy = new MarketCacheTtlPolicy(openClock, Set.of());
+
+    assertThat(policy.topInterestStaleTtl().toMinutes()).isEqualTo(30);
+  }
+
+  @Test
+  void topInterestStaleTtl_isLongerOutsideMarketHours() {
+    Clock closedClock = Clock.fixed(Instant.parse("2026-03-16T12:00:00Z"), ZONE_ID);
+    MarketCacheTtlPolicy policy = new MarketCacheTtlPolicy(closedClock, Set.of());
+
+    assertThat(policy.topInterestStaleTtl().toHours()).isEqualTo(6);
+  }
 }
