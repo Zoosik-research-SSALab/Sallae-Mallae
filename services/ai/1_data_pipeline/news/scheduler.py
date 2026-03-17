@@ -208,11 +208,9 @@ def run_daily_pipeline() -> None:
         logger.error("DB 적재 실패 — 파이프라인 중단")
         return
 
-    # 4단계: 키워드 추출 + 임베딩 (최근 1일 기사만)
-    ok = _run_step("키워드", [python, "-m", "processors.keyword_batch", "--days", "1"])
-    if not ok:
-        logger.error("키워드 추출 실패 — 파이프라인 중단")
-        return
+    # 4단계: 키워드 추출 + 임베딩은 GPU 서버에서 별도 실행
+    # (Gemini API 토큰 제한 + 임베딩 모델 GPU 필요)
+    logger.info("[키워드] GPU 서버에서 별도 실행 필요: python -m processors.keyword_batch --days 1")
 
     # 성공 기록
     _save_last_run_date(today)
