@@ -139,8 +139,8 @@ public class StockTopListServiceImpl implements StockTopListService {
     List<StockTopListCandidate> enrichedVisibleCandidates = enrichFallbackCandidates(visibleCandidates);
 
     return new StockListResponse(
-        StockTopListSupport.countSignals(enrichedVisibleCandidates),
-        toResponses(enrichedVisibleCandidates)
+        StockTopListSupport.countSignals(filtered),
+        toResponses(enrichedVisibleCandidates, query.offset())
     );
   }
 
@@ -233,7 +233,7 @@ public class StockTopListServiceImpl implements StockTopListService {
   }
 
   private List<StockListItemResponse> paginate(List<StockTopListCandidate> candidates, StockTopListQuery query) {
-    return toResponses(paginateCandidates(candidates, query));
+    return toResponses(paginateCandidates(candidates, query), query.offset());
   }
 
   private List<StockTopListCandidate> paginateCandidates(List<StockTopListCandidate> candidates, StockTopListQuery query) {
@@ -246,10 +246,10 @@ public class StockTopListServiceImpl implements StockTopListService {
     return candidates.subList(start, end);
   }
 
-  private List<StockListItemResponse> toResponses(List<StockTopListCandidate> candidates) {
+  private List<StockListItemResponse> toResponses(List<StockTopListCandidate> candidates, int offset) {
     List<StockListItemResponse> responseItems = new ArrayList<>();
     for (int index = 0; index < candidates.size(); index++) {
-      responseItems.add(StockTopListSupport.toResponse(candidates.get(index), index + 1));
+      responseItems.add(StockTopListSupport.toResponse(candidates.get(index), offset + index + 1));
     }
     return responseItems;
   }
@@ -285,6 +285,9 @@ public class StockTopListServiceImpl implements StockTopListService {
         ));
       } catch (KisApiException e) {
         log.warn("Failed to enrich fallback stock list with KIS quote. ticker={}, code={}", candidate.ticker(), e.getCode());
+        enriched.add(candidate);
+      } catch (RuntimeException e) {
+        log.warn("Failed to enrich fallback stock list with KIS quote. ticker={}", candidate.ticker(), e);
         enriched.add(candidate);
       }
     }

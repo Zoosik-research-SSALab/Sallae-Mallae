@@ -167,6 +167,35 @@ class StockTopListServiceImplTest {
   }
 
   @Test
+  void getTopStocks_countsFallbackSignalsFromAllFilteredCandidatesNotVisiblePageOnly() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService
+    );
+
+    given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
+        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "실시간 시세 데이터를 불러오지 못했습니다."));
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock hynix = stock(2L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f);
+    StockPriceDaily hynixPrice = dailyPrice(2L, 182000, -1.75f);
+
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(hynix, samsung));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(2L, 1L)))
+        .willReturn(List.of(samsungPrice, hynixPrice));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "CHANGE", null, 0, 1);
+
+    assertThat(response.filterCounts().buy()).isEqualTo(1);
+    assertThat(response.filterCounts().sell()).isEqualTo(1);
+    assertThat(response.filterCounts().hold()).isEqualTo(0);
+    assertThat(response.stocks()).hasSize(1);
+  }
+
+  @Test
   void getTopStocks_capsLimitAtThirty() {
     StockTopListServiceImpl service = new StockTopListServiceImpl(
         cachedKisDomesticStockGateway,
@@ -238,7 +267,91 @@ class StockTopListServiceImplTest {
     assertThat(response.stocks()).hasSize(1);
     assertThat(response.stocks().getFirst().price()).isEqualTo(70300);
     assertThat(response.stocks().getFirst().fluctuationRate()).isEqualTo(2.03f);
-    assertThat(response.filterCounts().buy()).isEqualTo(1);
+    assertThat(response.filterCounts().buy()).isEqualTo(0);
+    assertThat(response.filterCounts().hold()).isEqualTo(1);
+  }
+
+  @Test
+  void getTopStocks_continuesFallbackQuoteEnrichmentWhenOneTickerFails() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService
+    );
+
+    given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
+        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "실시간 시세 데이터를 불러오지 못했습니다."));
+
+    Stock alpha = stock(1L, "000001", "Alpha", "Information Technology", "Semiconductor", 1_000_000L);
+    Stock samsung = stock(2L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(alpha, samsung));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(1L, 2L))).willReturn(List.of());
+    given(cachedKisDomesticStockGateway.getQuote("J", "000001"))
+        .willThrow(new RuntimeException("temporary parse error"));
+    given(cachedKisDomesticStockGateway.getQuote("J", "005930"))
+        .willReturn(new CachedResult<>(
+            "KIS:QUOTE:J:005930:V1",
+            false,
+            new KisQuoteData(
+                "J",
+                "005930",
+                "Samsung Electronics",
+                70300,
+                68900,
+                1400,
+                2.03f,
+                70000,
+                70500,
+                69800,
+                1_000_000L,
+                OffsetDateTime.now(ZoneId.of("Asia/Seoul")),
+                "KIS"
+            )
+        ));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "CHANGE", null, 0, 30);
+
+    assertThat(response.stocks()).hasSize(2);
+    assertThat(response.stocks().get(0).ticker()).isEqualTo("000001");
+    assertThat(response.stocks().get(0).price()).isNull();
+    assertThat(response.stocks().get(1).ticker()).isEqualTo("005930");
+    assertThat(response.stocks().get(1).price()).isEqualTo(70300);
+  }
+
+  @Test
+  void getTopStocks_appliesOffsetToDisplayRank() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService
+    );
+
+    given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200)).willReturn(new CachedResult<>(
+        "KIS:TOP_INTEREST:J:200:V1",
+        false,
+        new KisTopInterestStockData(
+            "J",
+            OffsetDateTime.parse("2026-03-13T10:00:00+09:00"),
+            List.of(
+                new KisTopInterestStockItem(1, "005930", "Samsung Electronics", 70000, 1500, "2", 2.2f, 100000L, 7000000000L, 70000, 69900, 321),
+                new KisTopInterestStockItem(2, "035420", "NAVER", 200000, 200, "3", 0.3f, 50000L, 10000000000L, 200100, 199900, 280),
+                new KisTopInterestStockItem(3, "000660", "SK hynix", 180000, -3600, "5", -2.0f, 70000L, 12600000000L, 180100, 179900, 250)
+            ),
+            "KIS"
+        )
+    ));
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    given(stockRepository.findAllByTickerInAndIsActiveTrue(List.of("005930", "035420", "000660")))
+        .willReturn(List.of(samsung, naver, hynix));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "CHANGE", null, 1, 1);
+
+    assertThat(response.stocks()).hasSize(1);
+    assertThat(response.stocks().getFirst().rank()).isEqualTo(2);
   }
 
   private Stock stock(
