@@ -97,7 +97,9 @@ export type SignupAgreement = {
 };
 
 export type SocialPolicyRequest = {
+  tempToken: string;
   nickname: string;
+  emailOptIn: boolean;
   agreements: SignupAgreement[];
 };
 

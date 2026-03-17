@@ -8,7 +8,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function extractSocialPolicyRequest(value: unknown): SocialPolicyRequest | null {
-  if (!isRecord(value) || typeof value.nickname !== "string" || !Array.isArray(value.agreements)) {
+  if (
+    !isRecord(value) ||
+    typeof value.tempToken !== "string" ||
+    typeof value.nickname !== "string" ||
+    typeof value.emailOptIn !== "boolean" ||
+    !Array.isArray(value.agreements)
+  ) {
     return null;
   }
 
@@ -30,7 +36,9 @@ function extractSocialPolicyRequest(value: unknown): SocialPolicyRequest | null 
   }
 
   return {
+    tempToken: value.tempToken.trim(),
     nickname: value.nickname.trim(),
+    emailOptIn: value.emailOptIn,
     agreements,
   };
 }
@@ -43,7 +51,7 @@ export async function POST(request: NextRequest) {
   const payload = await readJsonSafely<unknown>(request);
   const body = extractSocialPolicyRequest(payload);
 
-  if (!body || !body.nickname) {
+  if (!body || !body.tempToken || !body.nickname) {
     return createErrorResponse("Invalid social signup payload.", 400);
   }
 
@@ -69,6 +77,5 @@ export async function POST(request: NextRequest) {
     path: "/api/auth/policy",
     method: "POST",
     body,
-    forwardAuthorization: true,
   });
 }

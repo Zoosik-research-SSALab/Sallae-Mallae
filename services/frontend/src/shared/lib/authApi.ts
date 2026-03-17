@@ -95,7 +95,7 @@ export async function completeSocialLogin(provider: AuthProvider, body: SocialCa
   return unwrapAuthApiResponse(payload, "Social login response is invalid.");
 }
 
-export async function completeSocialSignup(body: SocialPolicyRequest, tempToken: string) {
+export async function completeSocialSignup(body: SocialPolicyRequest) {
   const payload = await apiFetch<LoginSuccessResponse | AuthApiEnvelope<LoginSuccessResponse>, SocialPolicyRequest>(
     "/api/auth/policy",
     {
@@ -103,10 +103,7 @@ export async function completeSocialSignup(body: SocialPolicyRequest, tempToken:
       useBaseUrl: false,
       body,
       credentials: "include",
-      headers: {
-        Authorization: `Bearer ${tempToken}`,
-        ...createDeviceIdHeader(),
-      },
+      headers: createDeviceIdHeader(),
     },
   );
 
