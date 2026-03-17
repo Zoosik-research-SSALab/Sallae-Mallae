@@ -196,10 +196,12 @@ def bulk_load_backfill(csv_path: str) -> dict[str, int]:
                 # --- 3. keywords + news_keyword_map INSERT ---
                 raw_keywords = str(row.get("keywords", "")).strip()
                 if raw_keywords:
+                    seen_kw = set()  # 같은 뉴스 내 키워드 중복 방지
                     for kw_name in raw_keywords.split(","):
                         kw_name = kw_name.strip()
-                        if not kw_name or len(kw_name) > 20:
+                        if not kw_name or len(kw_name) > 20 or kw_name in seen_kw:
                             continue
+                        seen_kw.add(kw_name)
 
                         # 키워드 생성 또는 캐시에서 조회
                         if kw_name not in keyword_cache:
