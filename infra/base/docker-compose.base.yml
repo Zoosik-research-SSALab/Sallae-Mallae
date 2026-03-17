@@ -8,6 +8,7 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     environment:
+      TZ: Asia/Seoul
       POSTGRES_USER: ${POSTGRES_SUPERUSER}
       POSTGRES_PASSWORD: ${POSTGRES_SUPERPASSWORD}
       POSTGRES_DB: postgres
@@ -15,6 +16,8 @@ services:
       APP_DB_USER: ${APP_DB_USER}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - postgres-data:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
@@ -31,7 +34,11 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - redis-data:/data
+    environment:
+      TZ: Asia/Seoul
     networks:
       - base-net
     healthcheck:
@@ -46,12 +53,15 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
+      TZ: Asia/Seoul
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
       - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
       - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - minio-data:/data
     networks:
       - base-net
@@ -73,10 +83,14 @@ services:
         mc anonymous set download local/${MINIO_PUBLIC_BUCKET}
         mc mb --ignore-existing local/${MINIO_PRIVATE_BUCKET}
     environment:
+      TZ: Asia/Seoul
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET}
       MINIO_PRIVATE_BUCKET: ${MINIO_PRIVATE_BUCKET}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - base-net
 

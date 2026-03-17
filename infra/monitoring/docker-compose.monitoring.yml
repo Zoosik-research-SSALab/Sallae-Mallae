@@ -2,9 +2,13 @@ services:
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
     ports:
       - "${PROMETHEUS_BIND:-127.0.0.1:9090}:9090"
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     networks:
@@ -16,10 +20,13 @@ services:
     ports:
       - "${GRAFANA_BIND:-127.0.0.1:3001}:3000"
     environment:
+      TZ: Asia/Seoul
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change_me_monitoring}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
@@ -30,11 +37,15 @@ services:
   node-exporter:
     image: prom/node-exporter:latest
     restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
     command:
       - --path.rootfs=/host
     ports:
       - "${NODE_EXPORTER_BIND:-127.0.0.1:9100}:9100"
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - /:/host:ro,rslave
     networks:
       - monitoring-net
@@ -42,9 +53,13 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
     ports:
       - "${CADVISOR_BIND:-127.0.0.1:8088}:8080"
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
