@@ -82,7 +82,15 @@ export function resolveAuthRedirectUrl(redirect: string) {
 }
 
 export function getOrCreateDeviceId(request: NextRequest): DeviceIdState {
+  const headerDeviceId = request.headers.get("x-device-id")?.trim();
   const existingDeviceId = request.cookies.get(AUTH_DEVICE_COOKIE_NAME)?.value;
+
+  if (headerDeviceId) {
+    return {
+      value: headerDeviceId,
+      isNew: existingDeviceId !== headerDeviceId,
+    };
+  }
 
   if (existingDeviceId) {
     return {
