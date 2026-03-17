@@ -18,6 +18,7 @@ import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.infra.kis.KisApiException;
 import com.sallaemallae.backend.infra.kis.cache.CachedResult;
 import com.sallaemallae.backend.infra.kis.stock.CachedKisDomesticStockGateway;
+import com.sallaemallae.backend.infra.kis.stock.KisQuoteData;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockData;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockItem;
 import java.util.ArrayList;
@@ -134,9 +135,12 @@ public class StockTopListServiceImpl implements StockTopListService {
         signalFiltered.size()
     );
 
+    List<StockTopListCandidate> visibleCandidates = paginateCandidates(signalFiltered, query);
+    List<StockTopListCandidate> enrichedVisibleCandidates = enrichFallbackCandidates(visibleCandidates);
+
     return new StockListResponse(
-        StockTopListSupport.countSignals(filtered),
-        paginate(signalFiltered, query)
+        StockTopListSupport.countSignals(enrichedVisibleCandidates),
+        toResponses(enrichedVisibleCandidates)
     );
   }
 
@@ -229,13 +233,62 @@ public class StockTopListServiceImpl implements StockTopListService {
   }
 
   private List<StockListItemResponse> paginate(List<StockTopListCandidate> candidates, StockTopListQuery query) {
-    List<StockListItemResponse> responseItems = new ArrayList<>();
+    return toResponses(paginateCandidates(candidates, query));
+  }
+
+  private List<StockTopListCandidate> paginateCandidates(List<StockTopListCandidate> candidates, StockTopListQuery query) {
+    if (candidates.isEmpty()) {
+      return List.of();
+    }
+
     int start = Math.min(query.offset(), candidates.size());
     int end = Math.min(start + query.limit(), candidates.size());
-    for (int index = start; index < end; index++) {
+    return candidates.subList(start, end);
+  }
+
+  private List<StockListItemResponse> toResponses(List<StockTopListCandidate> candidates) {
+    List<StockListItemResponse> responseItems = new ArrayList<>();
+    for (int index = 0; index < candidates.size(); index++) {
       responseItems.add(StockTopListSupport.toResponse(candidates.get(index), index + 1));
     }
     return responseItems;
+  }
+
+  private List<StockTopListCandidate> enrichFallbackCandidates(List<StockTopListCandidate> candidates) {
+    List<StockTopListCandidate> enriched = new ArrayList<>(candidates.size());
+    for (StockTopListCandidate candidate : candidates) {
+      if (candidate.price() != null && candidate.fluctuationRate() != null) {
+        enriched.add(candidate);
+        continue;
+      }
+
+      try {
+        CachedResult<KisQuoteData> quoteResult = cachedKisDomesticStockGateway.getQuote(
+            StockMarketConstants.DOMESTIC_MARKET_CODE,
+            candidate.ticker()
+        );
+        KisQuoteData quote = quoteResult.value();
+        SignalFilter signal = StockTopListSupport.resolveSignal(quote.changeRate());
+        enriched.add(new StockTopListCandidate(
+            candidate.sourceRank(),
+            candidate.stockId(),
+            candidate.ticker(),
+            candidate.name(),
+            candidate.gicsSector(),
+            quote.currentPrice(),
+            quote.changeRate(),
+            signal,
+            StockTopListSupport.resolveConfidence(candidate.sourceRank(), quote.changeRate(), signal),
+            candidate.isWatchlisted(),
+            candidate.marketCap(),
+            candidate.sectorFilter()
+        ));
+      } catch (KisApiException e) {
+        log.warn("Failed to enrich fallback stock list with KIS quote. ticker={}, code={}", candidate.ticker(), e.getCode());
+        enriched.add(candidate);
+      }
+    }
+    return enriched;
   }
 
   private String resolveName(Stock stock, KisTopInterestStockItem item) {
