@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthProvider } from "@/shared/lib/auth";
-import type { SocialCallbackRequest } from "@/shared/types/auth";
+import { createMockSocialLoginResponse, shouldUseMockAuth } from "@/app/api/auth/mock";
 import { createErrorResponse, proxyAuthRequest, readJsonSafely } from "@/app/api/auth/utils";
+import type { SocialCallbackRequest } from "@/shared/types/auth";
 
 type RouteContext = {
   params: Promise<{
@@ -89,7 +90,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const body = extractSocialCallbackRequest(payload);
 
   if (!body?.authorizationCode || !body.state) {
-    return createErrorResponse("소셜 로그인 승인 정보가 올바르지 않습니다.", 400);
+    return createErrorResponse("소셜 로그인 확인 정보가 올바르지 않습니다.", 400);
+  }
+
+  if (shouldUseMockAuth()) {
+    return createMockSocialLoginResponse(provider);
   }
 
   return proxyAuthRequest({

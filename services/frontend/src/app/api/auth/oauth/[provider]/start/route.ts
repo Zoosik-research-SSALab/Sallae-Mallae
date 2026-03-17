@@ -8,6 +8,7 @@ import {
   readUpstreamPayload,
   resolveAuthApiUrl,
 } from "@/app/api/auth/utils";
+import { shouldUseMockAuth } from "@/app/api/auth/mock";
 
 type RouteContext = {
   params: Promise<{
@@ -134,11 +135,23 @@ function createStartErrorRedirect(
   return response;
 }
 
+function createMockStartRedirect(request: NextRequest, provider: AuthProvider) {
+  const deviceIdState = getOrCreateDeviceId(request);
+  const state = `mock-${provider}-state`;
+  const response = NextResponse.redirect(new URL(`/auth/callback/${provider}?code=mock-${provider}-code&state=${state}`, request.url));
+  applyDeviceIdCookie(response, deviceIdState);
+  return response;
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const { provider } = await context.params;
 
   if (!isAuthProvider(provider)) {
     return createErrorResponse("지원하지 않는 소셜 로그인 제공자입니다.", 400);
+  }
+
+  if (shouldUseMockAuth()) {
+    return createMockStartRedirect(request, provider);
   }
 
   const deviceIdState = getOrCreateDeviceId(request);
