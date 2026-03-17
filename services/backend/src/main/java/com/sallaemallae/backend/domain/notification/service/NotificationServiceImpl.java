@@ -2,12 +2,12 @@ package com.sallaemallae.backend.domain.notification.service;
 
 import com.sallaemallae.backend.domain.auth.entity.User;
 import com.sallaemallae.backend.domain.auth.repository.UserRepository;
-import com.sallaemallae.backend.domain.notification.dto.NotificationActionResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationBulkActionResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationListResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsResponse;
-import com.sallaemallae.backend.domain.notification.dto.NotificationSettingsUpdateRequest;
-import com.sallaemallae.backend.domain.notification.dto.NotificationUnreadCountResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationActionResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationBulkActionResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationListResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationSettingsResponse;
+import com.sallaemallae.backend.domain.notification.dto.request.NotificationSettingsUpdateRequest;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationUnreadCountResponse;
 import com.sallaemallae.backend.domain.notification.entity.UserNotification;
 import com.sallaemallae.backend.domain.notification.enumtype.NotificationTab;
 import com.sallaemallae.backend.domain.notification.exception.NotificationErrorCode;

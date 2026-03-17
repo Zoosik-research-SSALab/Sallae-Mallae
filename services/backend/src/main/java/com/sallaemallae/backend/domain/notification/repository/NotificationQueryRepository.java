@@ -1,6 +1,6 @@
 package com.sallaemallae.backend.domain.notification.repository;
 
-import com.sallaemallae.backend.domain.notification.dto.NotificationItemResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationItemResponse;
 import com.sallaemallae.backend.domain.notification.enumtype.NotificationTab;
 import com.sallaemallae.backend.domain.notification.enumtype.NotifyType;
 import jakarta.persistence.EntityManager;

@@ -1,6 +1,6 @@
 package com.sallaemallae.backend.domain.auth.service;
 
-import com.sallaemallae.backend.domain.auth.dto.DeviceSessionListResponse;
+import com.sallaemallae.backend.domain.auth.dto.response.DeviceSessionListResponse;
 
 public interface DeviceSessionService {
 

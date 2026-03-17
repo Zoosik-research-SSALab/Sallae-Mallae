@@ -1,13 +1,13 @@
 package com.sallaemallae.backend.domain.user.controller;
 
-import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
-import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
-import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistNewsResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistStatusResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistAddResponse;
+import com.sallaemallae.backend.domain.user.dto.request.WatchlistAlertToggleRequest;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistAlertToggleResponse;
+import com.sallaemallae.backend.domain.user.dto.request.WatchlistCreateRequest;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistListResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistNewsResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistRemoveResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistStatusResponse;
 import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.response.ApiResponse;

@@ -1,8 +1,8 @@
 package com.sallaemallae.backend.domain.user.controller;
 
-import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
-import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
-import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
+import com.sallaemallae.backend.domain.user.dto.request.UserEmailOptInRequest;
+import com.sallaemallae.backend.domain.user.dto.request.UserPasswordUpdateRequest;
+import com.sallaemallae.backend.domain.user.dto.request.UserProfileUpdateRequest;
 import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;

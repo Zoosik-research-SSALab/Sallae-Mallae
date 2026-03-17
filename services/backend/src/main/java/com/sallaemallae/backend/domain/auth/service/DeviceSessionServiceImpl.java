@@ -1,7 +1,7 @@
 package com.sallaemallae.backend.domain.auth.service;
 
-import com.sallaemallae.backend.domain.auth.dto.DeviceSessionListResponse;
-import com.sallaemallae.backend.domain.auth.dto.DeviceSessionResponse;
+import com.sallaemallae.backend.domain.auth.dto.response.DeviceSessionListResponse;
+import com.sallaemallae.backend.domain.auth.dto.response.DeviceSessionResponse;
 import com.sallaemallae.backend.domain.auth.entity.DeviceSession;
 import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.domain.auth.repository.DeviceSessionRepository;

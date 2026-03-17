@@ -1,15 +1,15 @@
 package com.sallaemallae.backend.domain.user.service;
 
-import com.sallaemallae.backend.domain.user.dto.UserEmailOptInRequest;
-import com.sallaemallae.backend.domain.user.dto.UserPasswordUpdateRequest;
-import com.sallaemallae.backend.domain.user.dto.UserProfileUpdateRequest;
-import com.sallaemallae.backend.domain.user.dto.WatchlistAddResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleRequest;
-import com.sallaemallae.backend.domain.user.dto.WatchlistAlertToggleResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistCreateRequest;
-import com.sallaemallae.backend.domain.user.dto.WatchlistListResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistRemoveResponse;
-import com.sallaemallae.backend.domain.user.dto.WatchlistStatusResponse;
+import com.sallaemallae.backend.domain.user.dto.request.UserEmailOptInRequest;
+import com.sallaemallae.backend.domain.user.dto.request.UserPasswordUpdateRequest;
+import com.sallaemallae.backend.domain.user.dto.request.UserProfileUpdateRequest;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistAddResponse;
+import com.sallaemallae.backend.domain.user.dto.request.WatchlistAlertToggleRequest;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistAlertToggleResponse;
+import com.sallaemallae.backend.domain.user.dto.request.WatchlistCreateRequest;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistListResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistRemoveResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistStatusResponse;
 import java.util.List;
 import java.util.Map;
 
