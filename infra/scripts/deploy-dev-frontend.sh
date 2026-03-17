@@ -5,6 +5,7 @@ TARGET="dev-frontend"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+check_deploy_resources
 sync_source
 require_dir "$SOURCE_DIR/services/frontend"
 

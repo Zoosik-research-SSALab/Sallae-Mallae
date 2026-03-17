@@ -6,6 +6,18 @@ if [[ -z "${MATTERMOST_WEBHOOK_URL:-}" ]]; then
   exit 0
 fi
 
+deploy_precheck_env_file="${DEPLOY_PRECHECK_ENV_FILE:-${INFRA_TMP_DIR:-}/deploy-precheck.env}"
+deploy_precheck_details_file="${DEPLOY_PRECHECK_DETAILS_FILE:-${INFRA_TMP_DIR:-}/deploy-precheck-details.txt}"
+
+deploy_precheck_status=""
+deploy_precheck_summary=""
+if [[ -n "$deploy_precheck_env_file" && -f "$deploy_precheck_env_file" ]]; then
+  # shellcheck disable=SC1090
+  source "$deploy_precheck_env_file"
+  deploy_precheck_status="${DEPLOY_PRECHECK_STATUS:-}"
+  deploy_precheck_summary="${DEPLOY_PRECHECK_SUMMARY:-}"
+fi
+
 job_status="${CI_JOB_STATUS:-unknown}"
 case "$job_status" in
   success)
@@ -32,9 +44,13 @@ payload="$(
   PIPELINE_URL="${CI_PIPELINE_URL:-unknown}" \
   JOB_URL="${CI_JOB_URL:-unknown}" \
   GUIDANCE="$guidance" \
+  DEPLOY_PRECHECK_STATUS="$deploy_precheck_status" \
+  DEPLOY_PRECHECK_SUMMARY="$deploy_precheck_summary" \
+  DEPLOY_PRECHECK_DETAILS_FILE="$deploy_precheck_details_file" \
   python3 - <<'PY'
 import json
 import os
+from pathlib import Path
 
 lines = [
     os.environ["TITLE"],
@@ -45,6 +61,20 @@ lines = [
     f"- author: `{os.environ['COMMIT_AUTHOR']}`",
     f"- commit message: {os.environ['COMMIT_MESSAGE']}",
 ]
+
+if os.environ.get("DEPLOY_PRECHECK_STATUS") == "blocked":
+    lines.extend(
+        [
+            "",
+            f"> 배포 사전 점검 차단: {os.environ.get('DEPLOY_PRECHECK_SUMMARY') or '자원 사용량 임계치 초과'}",
+        ]
+    )
+
+    details_file = os.environ.get("DEPLOY_PRECHECK_DETAILS_FILE", "")
+    if details_file and Path(details_file).is_file():
+        details = Path(details_file).read_text(encoding="utf-8").strip()
+        if details:
+            lines.extend(["", "```text", details, "```"])
 
 if os.environ["GUIDANCE"]:
     lines.extend(["", os.environ["GUIDANCE"]])
