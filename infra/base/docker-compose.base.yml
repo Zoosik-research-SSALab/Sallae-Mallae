@@ -5,6 +5,8 @@ services:
     image: sallae/postgres-timescale-pgvector:pg16
     command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_SUPERUSER}
       POSTGRES_PASSWORD: ${POSTGRES_SUPERPASSWORD}
