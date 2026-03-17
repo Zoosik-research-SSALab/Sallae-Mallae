@@ -81,6 +81,7 @@ public class SecurityConfig {
 
             // Main - 메인 페이지 (인증 불필요)
             .requestMatchers("/api/main/**").permitAll()
+            .requestMatchers("/api/signals").permitAll()
             .requestMatchers("/api/stocks").permitAll()
             .requestMatchers("/api/stocks/*").permitAll()
             .requestMatchers("/api/stream/stocks/*/prices").permitAll()
