@@ -98,7 +98,7 @@ public class AuthServiceImpl implements AuthService {
   private final DeviceSessionService deviceSessionService;
   private final DeviceSessionRepository deviceSessionRepository;
 
-  private static final int EMAIL_RATE_LIMIT = 3;
+  private static final int EMAIL_RATE_LIMIT = 5;
   private static final int EMAIL_RATE_WINDOW_SECONDS = 3600;  // 1시간
 
   private Map<AuthProvider, OAuthProviderClient> oauthClientMap;
