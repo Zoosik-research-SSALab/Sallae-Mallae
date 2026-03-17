@@ -514,24 +514,27 @@ public class AuthServiceImpl implements AuthService {
     String verificationToken = request.verificationToken();
     String newPassword = request.newPassword();
 
-    // 1. 인증 토큰 검증 및 소비
-    String verifiedEmail = redisTokenService.consumeVerifiedToken("PASSWORD_RESET", verificationToken);
+    // 1. 인증 토큰 검증 (삭제하지 않음)
+    String verifiedEmail = redisTokenService.getVerifiedToken("PASSWORD_RESET", verificationToken);
     if (verifiedEmail == null || !verifiedEmail.equals(email)) {
       throw new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID);
     }
 
-    // 2. 사용자 조회
-    User user = userRepository.findByEmail(email)
-        .orElseThrow(() -> new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID));
-
-    // 3. 비밀번호 정책 검증
+    // 2. 비밀번호 정책 검증 (실패해도 토큰 유지)
     PasswordValidator.ValidationResult validationResult = passwordValidator.validate(newPassword, email);
     if (!validationResult.valid()) {
       throw new BusinessException(AuthErrorCode.PWD_POLICY_VIOLATION);
     }
 
+    // 3. 사용자 조회
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID));
+
     // 4. 최근 3개 비밀번호 재사용 확인
     checkRecentPasswordReuse(user.getId(), newPassword);
+
+    // 5. 검증 통과 후 토큰 소비 (삭제)
+    redisTokenService.consumeVerifiedToken("PASSWORD_RESET", verificationToken);
 
     // 5. 비밀번호 해시 및 변경
     String hashedPassword = passwordEncoder.encode(newPassword);
