@@ -44,6 +44,7 @@ export default function TermsSignupCard() {
   const [pendingSignup, setPendingSignup] = useState<PendingSocialSignup | null>(null);
   const [nickname, setNickname] = useState("");
   const [agreements, setAgreements] = useState<AgreementState>({});
+  const [emailOptIn, setEmailOptIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function TermsSignupCard() {
 
   const requiredTerms = pendingSignup?.requiredTerms ?? [];
   const optionalTerms = pendingSignup?.optionalTerms ?? [];
+  const allTerms = [...requiredTerms, ...optionalTerms];
   const allRequiredChecked = requiredTerms.every((item) => agreements[item.termsId]);
 
   const toggleAgreement = (termsId: number) => {
@@ -91,23 +93,22 @@ export default function TermsSignupCard() {
     setIsSubmitting(true);
 
     try {
-      const response = await completeSocialSignup(
-        {
-          nickname: trimmedNickname,
-          agreements: [...requiredTerms, ...optionalTerms].map((item) => ({
-            termsId: item.termsId,
-            agreed: Boolean(agreements[item.termsId]),
-          })),
-        },
-        pendingSignup.tempToken,
-      );
+      const response = await completeSocialSignup({
+        tempToken: pendingSignup.tempToken,
+        nickname: trimmedNickname,
+        emailOptIn,
+        agreements: allTerms.map((item) => ({
+          termsId: item.termsId,
+          agreed: Boolean(agreements[item.termsId]),
+        })),
+      });
 
       clearPendingSocialSignup();
       writeAuthPersistenceMode(true);
       useAuthStore.getState().applyAuthSession(response);
       router.replace("/");
     } catch (error) {
-      window.alert(getAuthErrorMessage(error, "약관 동의 처리에 실패했습니다."));
+      window.alert(getAuthErrorMessage(error, "소셜 회원가입 처리에 실패했습니다."));
     } finally {
       setIsSubmitting(false);
     }
@@ -116,10 +117,10 @@ export default function TermsSignupCard() {
   return (
     <section className="flex w-full max-w-[30rem] flex-col gap-6 rounded-[28px] bg-[color:var(--color-bg-primary)] px-6 py-7 shadow-[0px_18px_40px_rgba(0,0,0,0.12)] sm:px-8">
       <div className="flex flex-col gap-2">
-        <span className="typo-body-sm font-semibold text-[color:var(--color-text-tertiary)]">신규 회원 가입</span>
-        <h1 className="typo-heading-md text-[color:var(--color-text-primary)]">약관 동의 후 가입을 완료해주세요.</h1>
+        <span className="typo-body-sm font-semibold text-[color:var(--color-text-tertiary)]">소셜 회원가입</span>
+        <h1 className="typo-heading-md text-[color:var(--color-text-primary)]">약관 동의를 완료해주세요.</h1>
         <p className="typo-body-md text-[color:var(--color-text-secondary)]">
-          소셜 로그인 정보가 확인되었습니다. 필수 약관 동의와 닉네임 입력만 마치면 바로 시작할 수 있습니다.
+          소셜 계정 정보를 확인했습니다. 필수 약관 동의와 닉네임 입력을 완료하면 바로 서비스를 사용할 수 있습니다.
         </p>
       </div>
 
@@ -129,7 +130,7 @@ export default function TermsSignupCard() {
           <span className="typo-body-sm text-[color:var(--color-text-primary)]">{pendingSignup?.email ?? "-"}</span>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="typo-body-sm font-semibold text-[color:var(--color-text-tertiary)]">소셜 계정</span>
+          <span className="typo-body-sm font-semibold text-[color:var(--color-text-tertiary)]">연결 계정</span>
           <span className="typo-body-sm text-[color:var(--color-text-primary)]">
             {pendingSignup ? getProviderLabel(pendingSignup.provider) : "-"}
           </span>
@@ -198,6 +199,21 @@ export default function TermsSignupCard() {
             </div>
           </div>
         ) : null}
+
+        <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--color-border-primary)] px-4 py-3">
+          <input
+            type="checkbox"
+            checked={emailOptIn}
+            onChange={(event) => setEmailOptIn(event.target.checked)}
+            className="mt-0.5 h-5 w-5 rounded border-[color:var(--color-border-primary)] accent-[color:var(--color-bg-interactive-primary)]"
+          />
+          <div className="flex flex-col gap-1">
+            <span className="typo-body-md font-semibold text-[color:var(--color-text-primary)]">이벤트 및 혜택 안내 이메일 수신</span>
+            <span className="typo-body-xs text-[color:var(--color-text-tertiary)]">
+              선택 항목이며 동의하지 않아도 회원가입은 진행됩니다.
+            </span>
+          </div>
+        </label>
 
         <div className="flex gap-3">
           <Button
