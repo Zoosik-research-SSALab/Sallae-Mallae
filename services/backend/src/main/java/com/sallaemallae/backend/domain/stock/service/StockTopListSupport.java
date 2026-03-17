@@ -13,7 +13,7 @@ import java.util.Map;
 final class StockTopListSupport {
 
   private static final int DEFAULT_LIMIT = 6;
-  private static final int MAX_LIMIT = 50;
+  private static final int MAX_LIMIT = 30;
 
   private StockTopListSupport() {
   }
@@ -155,8 +155,8 @@ final class StockTopListSupport {
         Integer limit
     ) {
       int normalizedOffset = offset == null ? 0 : offset;
-      int normalizedLimit = limit == null ? DEFAULT_LIMIT : limit;
-      if (normalizedOffset < 0 || normalizedLimit < 1 || normalizedLimit > MAX_LIMIT) {
+      int normalizedLimit = limit == null ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
+      if (normalizedOffset < 0 || normalizedLimit < 1) {
         throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
       }
 
