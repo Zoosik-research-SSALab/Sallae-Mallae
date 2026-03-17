@@ -63,30 +63,4 @@ public class SocialAccount {
         .build();
   }
 
-  // Google 계정 연동
-  public static SocialAccount google(Long userId, String providerAccountId) {
-    return SocialAccount.builder()
-        .userId(userId)
-        .provider(AuthProvider.GOOGLE)
-        .providerAccountId(providerAccountId)
-        .build();
-  }
-
-  // Naver 계정 연동
-  public static SocialAccount naver(Long userId, String providerAccountId) {
-    return SocialAccount.builder()
-        .userId(userId)
-        .provider(AuthProvider.NAVER)
-        .providerAccountId(providerAccountId)
-        .build();
-  }
-
-  // Kakao 계정 연동
-  public static SocialAccount kakao(Long userId, String providerAccountId) {
-    return SocialAccount.builder()
-        .userId(userId)
-        .provider(AuthProvider.KAKAO)
-        .providerAccountId(providerAccountId)
-        .build();
-  }
 }
