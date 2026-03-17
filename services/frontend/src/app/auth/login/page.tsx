@@ -8,7 +8,12 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-[calc(100vh-72px)] items-center justify-center bg-[color:var(--color-bg-secondary)] px-4 py-10">
-      <LoginCard showCloseButton onClose={() => router.push("/")} onAuthenticated={() => router.replace("/")} />
+      <LoginCard
+        showCloseButton
+        onClose={() => router.push("/")}
+        onAuthenticated={() => router.replace("/")}
+        onOpenSignup={() => router.push("/auth/signup")}
+      />
     </main>
   );
 }

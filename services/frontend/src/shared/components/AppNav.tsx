@@ -6,10 +6,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BiBarChartAlt2 } from "react-icons/bi";
-import { GoBook, GoListUnordered, GoSearch } from "react-icons/go";
+import { GoBook, GoBriefcase, GoListUnordered, GoSearch } from "react-icons/go";
 import { HiOutlineBell } from "react-icons/hi";
 import { IoCloseOutline } from "react-icons/io5";
 import type { IconType } from "react-icons";
+import { LuNewspaper } from "react-icons/lu";
 import { MdOutlineFavorite } from "react-icons/md";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -27,6 +28,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/", label: "ABOUT", icon: GoBook, highlightOnMatch: false },
+  { href: "/portfolio", label: "포트폴리오", icon: GoBriefcase },
   { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2 },
   { href: "/stocks", label: "전체 종목", icon: GoListUnordered },
   { href: "/scraps", label: "관심 종목", icon: MdOutlineFavorite },
@@ -47,7 +49,11 @@ function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean
       className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[color:var(--color-bg-tertiary)] text-[color:var(--color-icon-interactive-primary)]"
       aria-hidden
     >
-      {Icon ? <Icon className={active ? "h-4 w-4 text-[color:var(--color-icon-interactive-primary)]" : "h-4 w-4"} /> : <span className="h-4 w-4" />}
+      {Icon ? (
+        <Icon className={active ? "h-4 w-4 text-[color:var(--color-icon-interactive-primary)]" : "h-4 w-4"} />
+      ) : (
+        <LuNewspaper className={active ? "h-4 w-4 text-[color:var(--color-icon-interactive-primary)]" : "h-4 w-4"} />
+      )}
     </span>
   );
 }
@@ -290,7 +296,7 @@ export default function AppNav() {
               </div>
             </div>
 
-            <div className="flex w-full flex-1 flex-col items-start overflow-y-auto">
+            <div className="flex w-full flex-1 flex-col items-start overflow-y-auto pt-4">
               <div className="flex w-full justify-start px-6">
                 <div className="flex w-full max-w-[22rem] items-center rounded-lg bg-[color:var(--color-bg-tertiary)]">
                   <button
@@ -307,7 +313,7 @@ export default function AppNav() {
                     onClick={goToSearch}
                     className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
-                    <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" />
+                    <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" style={{ strokeWidth: 2 }} />
                     <span className="whitespace-nowrap">검색하기</span>
                   </button>
                 </div>
@@ -329,7 +335,7 @@ export default function AppNav() {
                         >
                           <CategoryIcon Icon={item.icon} active={isActive} />
                           <span
-                            className={`typo-body-md whitespace-nowrap font-semibold transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
+                            className={`typo-body-lg align-middle whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
                           >
                             {item.label}
                           </span>
@@ -366,7 +372,7 @@ export default function AppNav() {
                         type="button"
                         className={`typo-body-md w-full cursor-pointer whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
                       >
-                        내 정보 수정
+                        회원정보 수정
                       </button>
                     </div>
                   ) : (
