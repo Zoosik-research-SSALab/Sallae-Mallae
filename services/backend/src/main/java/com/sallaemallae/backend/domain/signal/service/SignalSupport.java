@@ -8,13 +8,12 @@ import java.util.Locale;
 
 final class SignalSupport {
 
-  private static final int DEFAULT_LIMIT = 6;
   private static final int MAX_LIMIT = 50;
 
   private SignalSupport() {
   }
 
-  static Comparator<SignalCandidateRow> comparator(SortFilter sort) {
+  static Comparator<SignalCandidateRow> comparator(SignalSort sort) {
     return switch (sort) {
       case UP -> Comparator
           .comparing(SignalCandidateRow::fluctuationRate, Comparator.nullsLast(Comparator.reverseOrder()))
@@ -36,8 +35,8 @@ final class SignalSupport {
   }
 
   record SignalQuery(
-      FilterFilter filter,
-      SortFilter sort,
+      SignalFilter filter,
+      SignalSort sort,
       int offset,
       int limit
   ) {
@@ -48,25 +47,25 @@ final class SignalSupport {
       }
 
       return new SignalQuery(
-          FilterFilter.from(filter),
-          SortFilter.from(sort),
+          SignalFilter.from(filter),
+          SignalSort.from(sort),
           offset,
-          limit == 0 ? DEFAULT_LIMIT : limit
+          limit
       );
     }
   }
 
-  enum FilterFilter {
+  enum SignalFilter {
     ALL,
     BUY,
     SELL;
 
-    static FilterFilter from(String value) {
+    static SignalFilter from(String value) {
       if (value == null || value.isBlank()) {
         return ALL;
       }
       try {
-        return FilterFilter.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        return SignalFilter.valueOf(value.trim().toUpperCase(Locale.ROOT));
       } catch (IllegalArgumentException exception) {
         throw new BusinessException(SignalErrorCode.SIGNAL_INPUT_INVALID);
       }
@@ -77,17 +76,17 @@ final class SignalSupport {
     }
   }
 
-  enum SortFilter {
+  enum SignalSort {
     LATEST,
     UP,
     DOWN;
 
-    static SortFilter from(String value) {
+    static SignalSort from(String value) {
       if (value == null || value.isBlank()) {
         return LATEST;
       }
       try {
-        return SortFilter.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        return SignalSort.valueOf(value.trim().toUpperCase(Locale.ROOT));
       } catch (IllegalArgumentException exception) {
         throw new BusinessException(SignalErrorCode.SIGNAL_INPUT_INVALID);
       }

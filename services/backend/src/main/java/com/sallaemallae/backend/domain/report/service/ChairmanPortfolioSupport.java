@@ -6,7 +6,6 @@ import java.util.Locale;
 
 final class ChairmanPortfolioSupport {
 
-  private static final int DEFAULT_LIMIT = 6;
   private static final int MAX_LIMIT = 50;
 
   private ChairmanPortfolioSupport() {
@@ -26,7 +25,7 @@ final class ChairmanPortfolioSupport {
       return new PortfolioQuery(
           Tab.from(tab),
           offset,
-          limit == 0 ? DEFAULT_LIMIT : limit
+          limit
       );
     }
   }

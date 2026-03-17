@@ -4,11 +4,14 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import static com.sallaemallae.backend.global.util.NativeQueryResultUtils.toFloat;
+import static com.sallaemallae.backend.global.util.NativeQueryResultUtils.toInteger;
+import static com.sallaemallae.backend.global.util.NativeQueryResultUtils.toLong;
+import static com.sallaemallae.backend.global.util.NativeQueryResultUtils.toOffsetDateTime;
 
 @Repository
 @RequiredArgsConstructor
@@ -274,27 +277,5 @@ public class ChairmanPortfolioQueryRepository {
       Integer price,
       String signal
   ) {
-  }
-
-  private Long toLong(Object value) {
-    return value instanceof Number number ? number.longValue() : null;
-  }
-
-  private Integer toInteger(Object value) {
-    return value instanceof Number number ? number.intValue() : null;
-  }
-
-  private Float toFloat(Object value) {
-    return value instanceof Number number ? number.floatValue() : null;
-  }
-
-  private OffsetDateTime toOffsetDateTime(Object value) {
-    if (value instanceof OffsetDateTime offsetDateTime) {
-      return offsetDateTime;
-    }
-    if (value instanceof java.sql.Timestamp timestamp) {
-      return timestamp.toInstant().atOffset(ZoneOffset.UTC);
-    }
-    return null;
   }
 }
