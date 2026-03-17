@@ -5,7 +5,7 @@ KOSPI 200 데이터 파이프라인 통합 실행 스크립트.
 실행 단계:
 1. Drive 폴더 구조 확인
 2. 데이터 수집 (OHLCV → 수급 → 매크로 → 재무)
-3. 피처 엔지니어링 (LightGBM → LSTM → GARCH)
+3. 베이스 피처 생성
 4. 데이터 품질 검증
 5. 완료 요약 로그
 
@@ -28,9 +28,7 @@ from datetime import datetime
 from config import (
     BASE_PATH,
     LOGS_PATH,
-    PROCESSED_GARCH_PATH,
-    PROCESSED_LGBM_PATH,
-    PROCESSED_LSTM_PATH,
+    PROCESSED_BASE_PATH,
     RAW_FINANCIAL_PATH,
     RAW_MACRO_PATH,
     RAW_OHLCV_PATH,
@@ -156,77 +154,27 @@ def run_collection(mode: str = "incremental", use_universe: bool = False) -> boo
 
 def run_feature_engineering() -> bool:
     """
-    피처 엔지니어링 단계를 실행합니다.
+    베이스 피처 생성 단계를 실행합니다.
 
-    LightGBM → LSTM → GARCH 순서로 실행합니다.
-    각 모듈 실패 시 해당 항목을 건너뛰고 다음으로 진행합니다.
+    OHLCV + 수급 + 매크로 + 메타 피처를 결합하여
+    processed/base_features/base_features.parquet 로 저장합니다.
 
     Returns:
-        전체 피처 빌드가 하나라도 성공하면 True, 모두 실패하면 False
+        성공 여부
     """
-    logger.info("=== 피처 엔지니어링 시작 ===")
-    success_count = 0
-    fail_count = 0
+    logger.info("=== 베이스 피처 생성 시작 ===")
 
-    # --- 베이스 피처 ---
-    # processors.build_base_features.main() 이 OHLCV 파일 목록에서 종목을 자동 수집하여
-    # build_base_features() 를 호출하고 (date, ticker) MultiIndex로 저장합니다.
     try:
-        logger.info("[피처 1/3] 베이스 피처 빌드 시작")
         from processors.build_base_features import main as base_features_main
         base_features_main()
-        logger.info("[피처 1/3] 베이스 피처 빌드 완료")
-        success_count += 1
+        logger.info("=== 베이스 피처 생성 완료 ===")
+        return True
     except ImportError:
-        logger.warning("[피처 1/3] processors.build_base_features 모듈 없음 - 건너뜀")
-        fail_count += 1
+        logger.warning("processors.build_base_features 모듈 없음 - 건너뜀")
+        return False
     except Exception as exc:
-        logger.error("[피처 1/3] 베이스 피처 빌드 실패: %s", exc)
-        fail_count += 1
-
-    # --- LSTM 시퀀스 ---
-    # build_lstm_sequences.main() 이 OHLCV 파일 목록에서 종목을 자동 수집하여
-    # 섹터별 시퀀스를 생성하고 저장합니다.
-    try:
-        logger.info("[피처 2/3] LSTM 시퀀스 빌드 시작")
-        from features.build_lstm_sequences import main as lstm_main
-        lstm_main()
-        logger.info("[피처 2/3] LSTM 시퀀스 빌드 완료")
-        success_count += 1
-    except ImportError:
-        logger.warning("[피처 2/3] features.build_lstm_sequences 모듈 없음 - 건너뜀")
-        fail_count += 1
-    except Exception as exc:
-        logger.error("[피처 2/3] LSTM 시퀀스 빌드 실패: %s", exc)
-        fail_count += 1
-
-    # --- GARCH 수익률 ---
-    # build_garch_returns.build_all(tickers) 이 종목별 수익률 데이터를 생성합니다.
-    # 종목 목록은 RAW_OHLCV_PATH 파일 목록에서 수집합니다.
-    try:
-        logger.info("[피처 3/3] GARCH 수익률 빌드 시작")
-        from features.build_garch_returns import build_all as garch_build_all
-        garch_tickers: list[str] = []
-        if RAW_OHLCV_PATH.exists():
-            garch_tickers = [p.stem for p in sorted(RAW_OHLCV_PATH.glob("*.parquet"))]
-        if garch_tickers:
-            garch_build_all(garch_tickers)
-            logger.info("[피처 3/3] GARCH 수익률 빌드 완료 | 종목 수: %d", len(garch_tickers))
-        else:
-            logger.warning("[피처 3/3] OHLCV parquet 파일 없음 - GARCH 건너뜀")
-        success_count += 1
-    except ImportError:
-        logger.warning("[피처 3/3] features.build_garch_returns 모듈 없음 - 건너뜀")
-        fail_count += 1
-    except Exception as exc:
-        logger.error("[피처 3/3] GARCH 수익률 빌드 실패: %s", exc)
-        fail_count += 1
-
-    logger.info(
-        "=== 피처 엔지니어링 완료 | 성공: %d / 실패: %d ===",
-        success_count, fail_count,
-    )
-    return success_count > 0
+        logger.error("베이스 피처 생성 실패: %s", exc)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -273,9 +221,7 @@ def _check_drive_structure() -> None:
         RAW_SUPPLY_PATH,
         RAW_MACRO_PATH,
         RAW_FINANCIAL_PATH,
-        PROCESSED_LGBM_PATH,
-        PROCESSED_LSTM_PATH,
-        PROCESSED_GARCH_PATH,
+        PROCESSED_BASE_PATH,
         LOGS_PATH,
     ]
 

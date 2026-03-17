@@ -45,14 +45,10 @@ RAW_FUNDAMENTAL_PATH: Path = BASE_PATH / "raw" / "fundamental"
 # 가공 데이터 경로
 # ---------------------------------------------------------------------------
 PROCESSED_BASE_PATH: Path = BASE_PATH / "processed" / "base_features"
-PROCESSED_LGBM_PATH: Path = BASE_PATH / "processed" / "lgbm_features"
-PROCESSED_LSTM_PATH: Path = BASE_PATH / "processed" / "lstm_sequences"
-PROCESSED_GARCH_PATH: Path = BASE_PATH / "processed" / "garch_returns"
 
 # ---------------------------------------------------------------------------
-# 모델 / 로그 경로
+# 로그 경로
 # ---------------------------------------------------------------------------
-MODELS_PATH: Path = BASE_PATH / "models"
 LOGS_PATH: Path = BASE_PATH / "logs" / "collection"
 
 # ---------------------------------------------------------------------------
