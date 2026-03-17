@@ -75,6 +75,7 @@ services:
     restart: unless-stopped
     command: ["python", "scheduler.py"]
     environment:
+      TZ: Asia/Seoul
       AI_DB_URL: postgresql+psycopg2://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres:5432/${APP_DB_NAME}
       GMS_API_URL: ${GMS_API_URL:-}
       GMS_API_KEY: ${GMS_API_KEY:-}
@@ -85,12 +86,11 @@ services:
     volumes:
       - news-output:/app/output
       - news-data:/app/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - app-net
       - base-net
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
 
 networks:
   app-net:
