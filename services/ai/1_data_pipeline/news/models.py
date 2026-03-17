@@ -8,6 +8,7 @@
   - keywords           : 키워드 마스터
   - news_keyword_map   : 뉴스-키워드 N:M 매핑
   - keyword_embeddings : 키워드 임베딩 벡터 (384차원)
+  - keyword_clusters   : 키워드 클러스터 마스터
 """
 from datetime import datetime
 
@@ -99,11 +100,13 @@ class Keyword(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(20), unique=True, nullable=False)
+    cluster_id = Column(BigInteger, ForeignKey("keyword_clusters.id", ondelete="SET NULL"))
     created_at = Column(DateTime(timezone=True), default=datetime.now)
 
     # 관계
     news_maps = relationship("NewsKeywordMap", back_populates="keyword")
     embedding_rel = relationship("KeywordEmbedding", back_populates="keyword", uselist=False)
+    cluster = relationship("KeywordCluster", back_populates="keywords")
 
 
 # ---------------------------------------------------------------------------
@@ -131,3 +134,17 @@ class KeywordEmbedding(Base):
 
     # 관계
     keyword = relationship("Keyword", back_populates="embedding_rel")
+
+
+# ---------------------------------------------------------------------------
+# 키워드 클러스터 마스터
+# ---------------------------------------------------------------------------
+class KeywordCluster(Base):
+    __tablename__ = "keyword_clusters"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    name = Column(String(15), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.now)
+
+    # 관계
+    keywords = relationship("Keyword", back_populates="cluster")
