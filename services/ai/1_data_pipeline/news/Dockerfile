@@ -7,6 +7,8 @@ LABEL description="KOSPI200 뉴스 수집·전처리·키워드 추출 파이프
 # 시스템 의존성
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    libxml2-dev \
+    libxslt1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
