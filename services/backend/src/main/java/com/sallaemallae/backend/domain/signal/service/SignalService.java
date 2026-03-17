@@ -1,9 +1,8 @@
 package com.sallaemallae.backend.domain.signal.service;
 
-import com.sallaemallae.backend.domain.signal.dto.SignalItemResponse;
-import java.util.List;
+import com.sallaemallae.backend.domain.signal.dto.SignalListResponse;
 
 public interface SignalService {
 
-  List<SignalItemResponse> getSignals(Long cursor, int size);
+  SignalListResponse getSignals(String filter, String sort, int offset, int limit);
 }
