@@ -51,6 +51,10 @@ public enum AuthErrorCode implements ErrorCode {
   PWD_WRONG_CURRENT(401, "PWD_004", "현재 비밀번호가 올바르지 않습니다."),
   PWD_SOCIAL_ACCOUNT(400, "PWD_005", "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다."),
 
+  // 디바이스 세션
+  SESSION_NOT_FOUND(404, "SESSION_001", "해당 디바이스 세션을 찾을 수 없습니다."),
+  SESSION_CANNOT_REVOKE_CURRENT(400, "SESSION_002", "현재 사용 중인 세션은 제거할 수 없습니다."),
+
   // Rate Limit
   RATE_EXCEEDED(429, "RATE_001", "요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
   EMAIL_RATE_EXCEEDED(429, "RATE_002", "이메일 발송 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.");

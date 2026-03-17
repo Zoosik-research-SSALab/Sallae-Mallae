@@ -17,7 +17,8 @@ import com.sallaemallae.backend.global.sse.SseManager;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
-
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
 import java.util.Comparator;
@@ -172,9 +173,12 @@ public class MainServiceImpl implements MainService {
         }
     }
 
-    /** 코스피/코스닥/환율 지수 갱신 → Redis 저장 → SSE broadcast (실패 시 이전 캐시 유지) */
+    /** 코스피/코스닥/환율 지수 갱신 → Redis 저장 → SSE broadcast (장 시간에만 호출, 실패 시 이전 캐시 유지) */
     @Scheduled(fixedRate = 60_000, initialDelay = 15_000)
     public void refreshMarketIndex() {
+        if (!isMarketOpen()) {
+            return;
+        }
         try {
             MarketIndexResponse data = fetchMarketIndex();
             if (data == null) {
@@ -186,6 +190,12 @@ public class MainServiceImpl implements MainService {
         } catch (Exception e) {
             log.error("시장 지수 갱신 실패", e);
         }
+    }
+
+    /** KST 기준 장 운영 시간(08:50~15:40) 여부 확인 (여유 10분 포함) */
+    private boolean isMarketOpen() {
+        LocalTime now = LocalTime.now(ZoneId.of("Asia/Seoul"));
+        return !now.isBefore(LocalTime.of(8, 50)) && !now.isAfter(LocalTime.of(15, 40));
     }
 
     /** 매수/매도 신호 갱신 (캐시만 갱신, SSE 없음) */

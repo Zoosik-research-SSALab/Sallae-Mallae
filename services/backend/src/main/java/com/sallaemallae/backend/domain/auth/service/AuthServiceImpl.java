@@ -29,6 +29,7 @@ import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.global.exception.GlobalErrorCode;
 import com.sallaemallae.backend.domain.auth.oauth.OAuthProviderClient;
 import com.sallaemallae.backend.domain.auth.oauth.OAuthUserProfile;
+import com.sallaemallae.backend.domain.auth.repository.DeviceSessionRepository;
 import com.sallaemallae.backend.domain.auth.repository.LoginHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.PasswordHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.SocialAccountRepository;
@@ -94,6 +95,8 @@ public class AuthServiceImpl implements AuthService {
   private final List<OAuthProviderClient> oauthProviderClients;
   private final PasswordValidator passwordValidator;
   private final RateLimitService rateLimitService;
+  private final DeviceSessionService deviceSessionService;
+  private final DeviceSessionRepository deviceSessionRepository;
 
   private static final int EMAIL_RATE_LIMIT = 3;
   private static final int EMAIL_RATE_WINDOW_SECONDS = 3600;  // 1시간
@@ -167,14 +170,17 @@ public class AuthServiceImpl implements AuthService {
     // 9. Set refresh token cookie
     setRefreshTokenCookie(response, refreshToken);
 
-    // 10. Determine provider
+    // 10. 디바이스 세션 등록/갱신
+    deviceSessionService.registerOrUpdateSession(user.getId(), deviceId, userAgent, ipAddress);
+
+    // 11. Determine provider
     AuthProvider provider = determineProvider(user);
 
-    // 11. 이전 로그인 시간 조회
+    // 12. 이전 로그인 시간 조회
     OffsetDateTime lastLoginAt = loginHistoryRepository.findLastLoginAt(user.getId())
         .orElse(null);
 
-    // 12. Build and return response
+    // 13. Build and return response
     return LoginResponse.of(
         accessToken,
         jwtProvider.getAccessTokenExpirationSeconds(),
@@ -334,11 +340,14 @@ public class AuthServiceImpl implements AuthService {
         user.getId(), role, user.getTokenVersion(), deviceId);
     String refreshToken = jwtProvider.createRefreshToken(user.getId(), deviceId);
 
-    // 11. Refresh Token 저장
+    // 9. Refresh Token 저장
     redisTokenService.saveRefreshToken(user.getId(), deviceId, refreshToken);
 
-    // 12. Refresh Token 쿠키 설정
+    // 10. Refresh Token 쿠키 설정
     setRefreshTokenCookie(response, refreshToken);
+
+    // 11. 디바이스 세션 등록
+    deviceSessionService.registerOrUpdateSession(user.getId(), deviceId, userAgent, ipAddress);
 
     log.info("New user registered: {}", email);
 
@@ -365,13 +374,49 @@ public class AuthServiceImpl implements AuthService {
       redisTokenService.addToBlacklist(jti, remainingExpiration, "logout");
     }
 
-    // 4. Delete refresh token from Redis
-    redisTokenService.deleteRefreshToken(userId, deviceId);
+    // 4. 디바이스 세션 + RT 제거 (revokeSession이 RT 삭제도 담당)
+    deviceSessionService.revokeSession(userId, deviceId);
 
     // 5. Clear refresh token cookie
     clearRefreshTokenCookie(response);
 
     log.info("User {} logged out from device {}", userId, deviceId);
+  }
+
+  @Override
+  @Transactional
+  public int logoutAll(String accessToken, String deviceId, HttpServletResponse response) {
+    // 1. AT에서 userId 추출
+    Claims claims = jwtProvider.getClaimsIgnoreExpiration(accessToken);
+    String jti = claims.get("jti", String.class);
+    Long userId = Long.parseLong(claims.getSubject());
+    String tokenDeviceId = claims.get("deviceId", String.class);
+
+    // 2. Validate device ID
+    if (!deviceId.equals(tokenDeviceId)) {
+      throw new BusinessException(AuthErrorCode.TOKEN_DEVICE_MISMATCH);
+    }
+
+    // 3. 현재 AT 블랙리스트 등록
+    long remainingExpiration = jwtProvider.getRemainingExpiration(accessToken);
+    if (remainingExpiration > 0) {
+      redisTokenService.addToBlacklist(jti, remainingExpiration, "logout_all");
+    }
+
+    // 4. token_version 증가 → 다른 기기의 AT도 다음 검증 시 무효화
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.AUTH_UNAUTHORIZED));
+    user.incrementTokenVersion();
+
+    // 5. 모든 디바이스 세션 + RT 제거
+    int sessionCount = deviceSessionRepository.countByUserId(userId);
+    deviceSessionService.revokeAllSessions(userId);
+
+    // 6. 쿠키 삭제
+    clearRefreshTokenCookie(response);
+
+    log.info("User {} logged out from all devices. {} sessions invalidated", userId, sessionCount);
+    return sessionCount;
   }
 
   @Override
@@ -469,24 +514,27 @@ public class AuthServiceImpl implements AuthService {
     String verificationToken = request.verificationToken();
     String newPassword = request.newPassword();
 
-    // 1. 인증 토큰 검증 및 소비
-    String verifiedEmail = redisTokenService.consumeVerifiedToken("PASSWORD_RESET", verificationToken);
+    // 1. 인증 토큰 검증 (삭제하지 않음)
+    String verifiedEmail = redisTokenService.getVerifiedToken("PASSWORD_RESET", verificationToken);
     if (verifiedEmail == null || !verifiedEmail.equals(email)) {
       throw new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID);
     }
 
-    // 2. 사용자 조회
-    User user = userRepository.findByEmail(email)
-        .orElseThrow(() -> new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID));
-
-    // 3. 비밀번호 정책 검증
+    // 2. 비밀번호 정책 검증 (실패해도 토큰 유지)
     PasswordValidator.ValidationResult validationResult = passwordValidator.validate(newPassword, email);
     if (!validationResult.valid()) {
       throw new BusinessException(AuthErrorCode.PWD_POLICY_VIOLATION);
     }
 
+    // 3. 사용자 조회
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.PWD_TOKEN_INVALID));
+
     // 4. 최근 3개 비밀번호 재사용 확인
     checkRecentPasswordReuse(user.getId(), newPassword);
+
+    // 5. 검증 통과 후 토큰 소비 (삭제)
+    redisTokenService.consumeVerifiedToken("PASSWORD_RESET", verificationToken);
 
     // 5. 비밀번호 해시 및 변경
     String hashedPassword = passwordEncoder.encode(newPassword);
@@ -495,8 +543,8 @@ public class AuthServiceImpl implements AuthService {
     // 5. 토큰 버전 증가 (기존 모든 토큰 무효화)
     user.incrementTokenVersion();
 
-    // 6. 모든 Refresh Token 삭제
-    redisTokenService.deleteAllRefreshTokens(user.getId());
+    // 6. 모든 디바이스 세션 + Refresh Token 제거 (revokeAllSessions 내부에서 RT 삭제 포함)
+    deviceSessionService.revokeAllSessions(user.getId());
 
     // 7. 로그인 실패 카운터 삭제 (잠금 해제)
     redisTokenService.deleteLoginFailCount(email);
@@ -614,6 +662,9 @@ public class AuthServiceImpl implements AuthService {
     redisTokenService.saveRefreshToken(user.getId(), deviceId, refreshToken);
     setRefreshTokenCookie(response, refreshToken);
 
+    // 디바이스 세션 등록
+    deviceSessionService.registerOrUpdateSession(user.getId(), deviceId, userAgent, ipAddress);
+
     log.info("New social user registered: {} via {}", email, authProvider);
 
     return LoginResponse.of(
@@ -652,6 +703,9 @@ public class AuthServiceImpl implements AuthService {
 
     redisTokenService.saveRefreshToken(user.getId(), deviceId, refreshToken);
     setRefreshTokenCookie(response, refreshToken);
+
+    // 디바이스 세션 등록/갱신
+    deviceSessionService.registerOrUpdateSession(user.getId(), deviceId, userAgent, ipAddress);
 
     loginHistoryRepository.save(
         LoginHistory.socialLoginSuccess(user.getId(), user.getEmail(), ipAddress, userAgent));

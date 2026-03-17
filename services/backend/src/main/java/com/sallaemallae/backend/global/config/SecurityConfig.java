@@ -77,10 +77,14 @@ public class SecurityConfig {
             // Auth - 인증 필요
             .requestMatchers("/api/auth/logout").authenticated()
             .requestMatchers("/api/auth/logout/all").authenticated()
+            .requestMatchers("/api/auth/sessions/**").authenticated()
 
             // Main - 메인 페이지 (인증 불필요)
             .requestMatchers("/api/main/**").permitAll()
-            .requestMatchers("/api/stocks", "/api/stocks/**").permitAll()
+            .requestMatchers("/api/signals").permitAll()
+            .requestMatchers("/api/stocks").permitAll()
+            .requestMatchers("/api/stocks/*").permitAll()
+            .requestMatchers("/api/stocks/**").permitAll()
             .requestMatchers("/api/stream/stocks/*/prices").permitAll()
             // SSE 스트림 엔드포인트 (인증 불필요)
             .requestMatchers("/api/stream/main/**").permitAll()
@@ -119,7 +123,8 @@ public class SecurityConfig {
     // 허용할 Origin (로컬 개발용, 배포 시 nginx 프록시로 Same-Origin)
     configuration.setAllowedOrigins(List.of(
         "http://localhost:3000",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "https://j14d208.p.ssafy.io"
     ));
 
     // 허용할 HTTP 메서드

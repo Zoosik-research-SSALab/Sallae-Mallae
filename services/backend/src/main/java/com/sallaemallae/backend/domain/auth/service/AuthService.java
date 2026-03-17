@@ -37,6 +37,8 @@ public interface AuthService {
 
   void logout(String accessToken, String deviceId, HttpServletResponse response);
 
+  int logoutAll(String accessToken, String deviceId, HttpServletResponse response);
+
   RefreshResponse refresh(HttpServletRequest request, String deviceId,
       HttpServletResponse response);
 
