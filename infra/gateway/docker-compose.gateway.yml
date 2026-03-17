@@ -3,6 +3,7 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     environment:
+      TZ: Asia/Seoul
       ROOT_HOST: ${ROOT_HOST}
       ROOT_WEB_TARGET: ${ROOT_WEB_TARGET:-host.docker.internal:8081}
       ROOT_API_TARGET: ${ROOT_API_TARGET:-host.docker.internal:8082}
@@ -15,6 +16,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - ${GATEWAY_NGINX_TEMPLATE:-../nginx/nginx.gateway.conf.template}:/etc/nginx/templates/default.conf.template:ro
       - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
       - ${CERTBOT_WEBROOT:-/var/www/certbot}:/var/www/certbot:ro
