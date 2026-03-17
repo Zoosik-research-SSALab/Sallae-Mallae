@@ -13,6 +13,8 @@ public class PasswordValidator {
   private static final Pattern LETTER_PATTERN = Pattern.compile(".*[a-zA-Z].*");
   // 숫자 1개 이상
   private static final Pattern DIGIT_PATTERN = Pattern.compile(".*\\d.*");
+  // 특수문자 1개 이상
+  private static final Pattern SPECIAL_CHAR_PATTERN = Pattern.compile(".*[!@#$%^&*(),.?\":{}|<>].*");
   // 연속 동일 문자 3자 이상
   private static final Pattern CONSECUTIVE_SAME_CHARS = Pattern.compile("(.)\\1{2,}");
 
@@ -34,6 +36,11 @@ public class PasswordValidator {
     // 숫자 검사
     if (!DIGIT_PATTERN.matcher(password).matches()) {
       return ValidationResult.fail("비밀번호에 숫자가 1개 이상 포함되어야 합니다.");
+    }
+
+    // 특수문자 검사
+    if (!SPECIAL_CHAR_PATTERN.matcher(password).matches()) {
+      return ValidationResult.fail("비밀번호에 특수문자가 1개 이상 포함되어야 합니다.");
     }
 
     // 이메일 포함 여부 검사
