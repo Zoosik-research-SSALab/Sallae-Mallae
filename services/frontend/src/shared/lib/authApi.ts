@@ -44,12 +44,17 @@ function unwrapAuthApiResponse<T>(payload: T | AuthApiEnvelope<T>, fallbackMessa
 }
 
 export async function loginWithEmail(body: EmailLoginRequest) {
-  return apiFetch<LoginSuccessResponse, EmailLoginRequest>("/api/auth/login", {
-    method: "POST",
-    useBaseUrl: false,
-    body,
-    credentials: "include",
-  });
+  const payload = await apiFetch<LoginSuccessResponse | AuthApiEnvelope<LoginSuccessResponse>, EmailLoginRequest>(
+    "/api/auth/login",
+    {
+      method: "POST",
+      useBaseUrl: false,
+      body,
+      credentials: "include",
+    },
+  );
+
+  return unwrapAuthApiResponse(payload, "로그인 응답 형식이 올바르지 않습니다.");
 }
 
 export function getSocialLoginStartPath(provider: AuthProvider) {
@@ -57,22 +62,29 @@ export function getSocialLoginStartPath(provider: AuthProvider) {
 }
 
 export async function completeSocialLogin(provider: AuthProvider, body: SocialCallbackRequest) {
-  return apiFetch<SocialLoginResponse, SocialCallbackRequest>(`/api/auth/${provider}/callback`, {
-    method: "POST",
-    useBaseUrl: false,
-    body,
-    credentials: "include",
-  });
+  const payload = await apiFetch<SocialLoginResponse | AuthApiEnvelope<SocialLoginResponse>, SocialCallbackRequest>(
+    `/api/auth/${provider}/callback`,
+    {
+      method: "POST",
+      useBaseUrl: false,
+      body,
+      credentials: "include",
+    },
+  );
+
+  return unwrapAuthApiResponse(payload, "소셜 로그인 응답 형식이 올바르지 않습니다.");
 }
 
 export async function refreshAccessToken() {
-  const payload = await apiFetch<RefreshResponse>("/api/auth/refresh", {
+  const payload = await apiFetch<RefreshResponse | AuthApiEnvelope<RefreshResponse>>("/api/auth/refresh", {
     method: "POST",
     useBaseUrl: false,
     credentials: "include",
   });
 
-  const tokens = extractAuthTokens(payload);
+  const unwrapped = unwrapAuthApiResponse(payload, "토큰 갱신 응답 형식이 올바르지 않습니다.");
+
+  const tokens = extractAuthTokens(unwrapped);
   if (!tokens) {
     throw new Error("토큰 갱신 응답 형식이 올바르지 않습니다.");
   }
@@ -81,7 +93,7 @@ export async function refreshAccessToken() {
 }
 
 export async function getMe(accessToken?: string) {
-  const payload = await apiFetch<MeResponse>("/api/auth/me", {
+  const payload = await apiFetch<MeResponse | AuthApiEnvelope<MeResponse>>("/api/auth/me", {
     method: "GET",
     useBaseUrl: false,
     credentials: "include",
@@ -93,7 +105,9 @@ export async function getMe(accessToken?: string) {
       : undefined,
   });
 
-  const user = extractMeResponse(payload);
+  const unwrapped = unwrapAuthApiResponse(payload, "사용자 정보 응답 형식이 올바르지 않습니다.");
+
+  const user = extractMeResponse(unwrapped);
   if (!user) {
     throw new Error("사용자 정보 응답 형식이 올바르지 않습니다.");
   }
