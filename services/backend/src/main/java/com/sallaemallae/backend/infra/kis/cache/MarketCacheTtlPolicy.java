@@ -44,6 +44,10 @@ public class MarketCacheTtlPolicy {
     return isMarketOpen() ? Duration.ofSeconds(10) : Duration.ofSeconds(60);
   }
 
+  public Duration topInterestStaleTtl() {
+    return isMarketOpen() ? Duration.ofMinutes(5) : Duration.ofMinutes(30);
+  }
+
   public Duration periodTtl(LocalDate endDate) {
     LocalDate today = ZonedDateTime.now(clock).withZoneSameInstant(ZONE_ID).toLocalDate();
     return !endDate.isBefore(today) ? Duration.ofSeconds(30) : Duration.ofHours(6);

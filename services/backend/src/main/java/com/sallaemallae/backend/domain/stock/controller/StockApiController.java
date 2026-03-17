@@ -1,7 +1,15 @@
 package com.sallaemallae.backend.domain.stock.controller;
 
 import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockDataPipelinePreviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockPeriodPriceResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockQuoteResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinutePipelinePreviewResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinuteSnapshotResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockRealtimeSubscriptionResponse;
+import com.sallaemallae.backend.domain.stock.service.StockMarketQueryService;
+import com.sallaemallae.backend.domain.stock.service.StockRealtimeMinuteService;
 import com.sallaemallae.backend.domain.stock.service.StockService;
 import com.sallaemallae.backend.domain.stock.service.StockTopListService;
 import com.sallaemallae.backend.global.response.ApiResponse;
@@ -13,11 +21,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Stock Detail", description = "Stock basic info and chart streaming APIs")
+@Tag(name = "Stock Detail", description = "Stock basic info and market data APIs")
 @SecurityRequirements
 @RestController
 @RequestMapping("/api/stocks")
@@ -26,6 +35,8 @@ public class StockApiController {
 
   private final StockService stockService;
   private final StockTopListService stockTopListService;
+  private final StockMarketQueryService stockMarketQueryService;
+  private final StockRealtimeMinuteService stockRealtimeMinuteService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
 
   @Operation(
@@ -36,13 +47,13 @@ public class StockApiController {
   public ApiResponse<StockListResponse> getTopStocks(
       @Parameter(description = "Signal filter. Allowed values: BUY, SELL, HOLD", example = "BUY")
       @RequestParam(required = false) String signal,
-      @Parameter(description = "Sector filter. Allowed values: IT, 금융, 자동차, 바이오, 2차전지", example = "IT")
+      @Parameter(description = "Sector filter. Example values: IT, Finance, Mobility, Bio", example = "IT")
       @RequestParam(required = false) String sector,
       @Parameter(description = "Market cap filter. Allowed values: ALL, LARGE, MID", example = "ALL")
       @RequestParam(name = "market_cap", required = false) String marketCap,
       @Parameter(description = "Sort order. Allowed values: MARKET_CAP, CHANGE", example = "CHANGE")
       @RequestParam(required = false) String sort,
-      @Parameter(description = "Keyword filter applied to ticker, name, and sector", example = "삼성")
+      @Parameter(description = "Keyword filter applied to ticker, name, and sector", example = "Samsung")
       @RequestParam(required = false) String keyword,
       @Parameter(description = "Zero-based offset", example = "0")
       @RequestParam(defaultValue = "0") Integer offset,
@@ -68,5 +79,91 @@ public class StockApiController {
       @PathVariable Long stockId
   ) {
     return ApiResponse.success(stockService.getStockBasicInfo(stockId));
+  }
+
+  @Operation(summary = "Get stock quote", description = "Returns the latest KIS quote for the given ticker.")
+  @GetMapping("/{ticker}/quote")
+  public ApiResponse<StockQuoteResponse> getQuote(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Market code", example = "J")
+      @RequestParam(defaultValue = "J") String market
+  ) {
+    return ApiResponse.success(stockMarketQueryService.getQuote(ticker, market));
+  }
+
+  @Operation(summary = "Get period prices", description = "Returns KIS period price candles for the given ticker.")
+  @GetMapping("/{ticker}/period-prices")
+  public ApiResponse<StockPeriodPriceResponse> getPeriodPrices(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Market code", example = "J")
+      @RequestParam(defaultValue = "J") String market,
+      @Parameter(description = "Period code", example = "D")
+      @RequestParam(defaultValue = "D") String period,
+      @Parameter(description = "Start date (yyyyMMdd)", example = "20260310")
+      @RequestParam String startDate,
+      @Parameter(description = "End date (yyyyMMdd)", example = "20260317")
+      @RequestParam String endDate,
+      @RequestParam(defaultValue = "true") boolean adjusted
+  ) {
+    return ApiResponse.success(
+        stockMarketQueryService.getPeriodPrices(ticker, market, period, startDate, endDate, adjusted)
+    );
+  }
+
+  @Operation(summary = "Preview stock storage pipeline", description = "Returns DB-ready preview data without persisting it.")
+  @GetMapping("/{ticker}/pipeline-preview")
+  public ApiResponse<StockDataPipelinePreviewResponse> previewPipeline(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Market code", example = "J")
+      @RequestParam(defaultValue = "J") String market,
+      @Parameter(description = "Period code", example = "D")
+      @RequestParam(defaultValue = "D") String period,
+      @Parameter(description = "Start date (yyyyMMdd)", example = "20260310")
+      @RequestParam String startDate,
+      @Parameter(description = "End date (yyyyMMdd)", example = "20260317")
+      @RequestParam String endDate,
+      @RequestParam(defaultValue = "true") boolean adjusted
+  ) {
+    return ApiResponse.success(
+        stockMarketQueryService.previewStoragePipeline(ticker, market, period, startDate, endDate, adjusted)
+    );
+  }
+
+  @Operation(summary = "Subscribe realtime stock feed", description = "Subscribes the ticker to the KIS realtime websocket feed.")
+  @PostMapping("/{ticker}/realtime/subscribe")
+  public ApiResponse<StockRealtimeSubscriptionResponse> subscribeRealtime(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Market code", example = "J")
+      @RequestParam(defaultValue = "J") String market
+  ) {
+    return ApiResponse.success(stockRealtimeMinuteService.subscribe(ticker, market));
+  }
+
+  @Operation(summary = "Get realtime minute candles", description = "Returns the in-memory realtime minute candle snapshot.")
+  @GetMapping("/{ticker}/realtime/minute-candles")
+  public ApiResponse<StockRealtimeMinuteSnapshotResponse> getRealtimeMinuteCandles(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Market code", example = "J")
+      @RequestParam(defaultValue = "J") String market,
+      @RequestParam(defaultValue = "5") int limit
+  ) {
+    return ApiResponse.success(stockRealtimeMinuteService.getSnapshot(ticker, market, limit));
+  }
+
+  @Operation(summary = "Preview realtime minute storage pipeline", description = "Returns DB-ready realtime minute preview data without persisting it.")
+  @GetMapping("/{ticker}/realtime/pipeline-preview")
+  public ApiResponse<StockRealtimeMinutePipelinePreviewResponse> previewRealtimePipeline(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Market code", example = "J")
+      @RequestParam(defaultValue = "J") String market,
+      @RequestParam(defaultValue = "5") int limit
+  ) {
+    return ApiResponse.success(stockRealtimeMinuteService.previewStoragePipeline(ticker, market, limit));
   }
 }

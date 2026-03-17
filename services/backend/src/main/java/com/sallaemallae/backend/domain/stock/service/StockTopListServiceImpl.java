@@ -3,7 +3,9 @@ package com.sallaemallae.backend.domain.stock.service;
 import com.sallaemallae.backend.domain.stock.dto.StockListItemResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
+import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
+import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.service.StockTopListSupport.MarketCapFilter;
 import com.sallaemallae.backend.domain.stock.service.StockTopListSupport.SectorFilter;
@@ -40,6 +42,7 @@ public class StockTopListServiceImpl implements StockTopListService {
 
   private final CachedKisDomesticStockGateway cachedKisDomesticStockGateway;
   private final StockRepository stockRepository;
+  private final StockPriceDailyRepository stockPriceDailyRepository;
   private final WatchlistService watchlistService;
 
   @Override
@@ -80,7 +83,69 @@ public class StockTopListServiceImpl implements StockTopListService {
       return new StockListResponse(StockTopListSupport.countSignals(candidates), responseItems);
     } catch (KisApiException e) {
       log.warn("Failed to fetch KIS top stock list. code={}", e.getCode(), e);
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_DATA_UNAVAILABLE);
+      return buildLocalFallbackResponse(userId, query);
+    }
+  }
+
+  private StockListResponse buildLocalFallbackResponse(Long userId, StockTopListQuery query) {
+    List<Stock> activeStocks = loadActiveStocks();
+    Map<Long, StockPriceDaily> latestDailyPrices = loadLatestDailyPrices(activeStocks);
+    Set<Long> watchlistedStockIds = loadWatchlistedStockIds(userId);
+
+    List<StockTopListCandidate> candidates = new ArrayList<>();
+    int sourceRank = 1;
+    for (Stock stock : activeStocks) {
+      StockPriceDaily latestPrice = latestDailyPrices.get(stock.getId());
+      Float fluctuationRate = latestPrice != null ? latestPrice.getFluctuationRate() : null;
+      Integer price = latestPrice != null ? latestPrice.getClosePrice() : null;
+      SignalFilter signal = StockTopListSupport.resolveSignal(fluctuationRate);
+
+      candidates.add(new StockTopListCandidate(
+          sourceRank,
+          stock.getId(),
+          stock.getTicker(),
+          stock.getName(),
+          stock.getGicsSector(),
+          price,
+          fluctuationRate,
+          signal,
+          StockTopListSupport.resolveConfidence(sourceRank, fluctuationRate, signal),
+          watchlistedStockIds.contains(stock.getId()),
+          resolveMarketCap(stock, price),
+          resolveSectorFilter(stock, stock.getName())
+      ));
+      sourceRank++;
+    }
+
+    List<StockTopListCandidate> filtered = candidates.stream()
+        .filter(candidate -> StockTopListSupport.matchesKeyword(candidate, query.keyword()))
+        .filter(candidate -> StockTopListSupport.matchesSector(candidate, query.sector()))
+        .filter(candidate -> StockTopListSupport.matchesMarketCap(candidate, query.marketCap()))
+        .sorted(StockTopListSupport.comparator(query.sort()))
+        .toList();
+
+    List<StockTopListCandidate> signalFiltered = filtered.stream()
+        .filter(candidate -> query.signal() == null || candidate.signal() == query.signal())
+        .toList();
+
+    log.info(
+        "Serving stock top list from local fallback. totalCandidates={}, filteredCandidates={}",
+        candidates.size(),
+        signalFiltered.size()
+    );
+
+    return new StockListResponse(
+        StockTopListSupport.countSignals(filtered),
+        paginate(signalFiltered, query)
+    );
+  }
+
+  private List<Stock> loadActiveStocks() {
+    try {
+      return stockRepository.findAllByIsActiveTrueOrderByNameAsc();
+    } catch (RuntimeException e) {
+      log.warn("Failed to load local stock metadata for fallback stock list.", e);
+      return List.of();
     }
   }
 
@@ -113,6 +178,24 @@ public class StockTopListServiceImpl implements StockTopListService {
     } catch (RuntimeException e) {
       log.warn("Failed to enrich top stock list with watchlist data. userId={}", userId, e);
       return Set.of();
+    }
+  }
+
+  private Map<Long, StockPriceDaily> loadLatestDailyPrices(List<Stock> stocks) {
+    List<Long> stockIds = stocks.stream()
+        .map(Stock::getId)
+        .filter(Objects::nonNull)
+        .toList();
+    if (stockIds.isEmpty()) {
+      return Map.of();
+    }
+
+    try {
+      return stockPriceDailyRepository.findLatestByStockIdIn(stockIds).stream()
+          .collect(Collectors.toMap(StockPriceDaily::getStockId, Function.identity(), (left, right) -> left));
+    } catch (RuntimeException e) {
+      log.warn("Failed to load latest daily prices for fallback stock list.", e);
+      return Map.of();
     }
   }
 

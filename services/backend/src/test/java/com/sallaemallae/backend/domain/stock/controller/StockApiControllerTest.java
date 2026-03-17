@@ -10,14 +10,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 
 import com.sallaemallae.backend.domain.stock.dto.StockListFilterCountsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListItemResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockPeriodPriceResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockPriceCandleResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockQuoteResponse;
 import com.sallaemallae.backend.global.security.ratelimit.RateLimitResult;
 import com.sallaemallae.backend.global.security.ratelimit.RateLimitService;
 import com.sallaemallae.backend.infra.kis.KisApiException;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +31,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -45,6 +46,12 @@ class StockApiControllerTest {
 
   @MockitoBean
   private com.sallaemallae.backend.domain.stock.service.StockTopListService stockTopListService;
+
+  @MockitoBean
+  private com.sallaemallae.backend.domain.stock.service.StockMarketQueryService stockMarketQueryService;
+
+  @MockitoBean
+  private com.sallaemallae.backend.domain.stock.service.StockRealtimeMinuteService stockRealtimeMinuteService;
 
   @MockitoBean
   private JavaMailSender javaMailSender;
@@ -63,6 +70,47 @@ class StockApiControllerTest {
                 new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, "BUY", 87, true),
                 new StockListItemResponse(2, 2L, "000660", "SK hynix", "Information Technology", 182000, -1.75f, "SELL", 80, false)
             )
+        ));
+    given(stockMarketQueryService.getQuote(anyString(), anyString()))
+        .willReturn(new StockQuoteResponse(
+            "005930",
+            "Samsung Electronics",
+            "J",
+            70300,
+            68900,
+            1400,
+            2.03f,
+            70000,
+            70500,
+            69800,
+            1_000_000L,
+            OffsetDateTime.parse("2026-03-17T14:14:35+09:00"),
+            true,
+            "KIS:QUOTE:J:005930:V1",
+            "KIS"
+        ));
+    given(stockMarketQueryService.getPeriodPrices(anyString(), anyString(), anyString(), anyString(), anyString(), any(Boolean.class)))
+        .willReturn(new StockPeriodPriceResponse(
+            "005930",
+            "Samsung Electronics",
+            "J",
+            "D",
+            "20260310",
+            "20260317",
+            true,
+            70300,
+            68900,
+            1400,
+            2.03f,
+            70000,
+            70500,
+            69800,
+            1_000_000L,
+            OffsetDateTime.parse("2026-03-17T14:14:35+09:00"),
+            List.of(new StockPriceCandleResponse(LocalDate.parse("2026-03-17"), 70000, 70500, 69800, 70300, 1_000_000L, 1400, 2.03f, false)),
+            true,
+            "KIS:PERIOD:J:005930:D:20260310:20260317:true:V1",
+            "KIS"
         ));
     createTablesIfNeeded();
     clearTables();
@@ -122,22 +170,46 @@ class StockApiControllerTest {
   }
 
   @Test
-  void getLegacyStockDetail_returnsRealStockData() throws Exception {
-    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-        1L,
-        null,
-        List.of(new SimpleGrantedAuthority("ROLE_USER"))
-    );
+  void getQuote_isPublic() throws Exception {
+    mockMvc.perform(get("/api/stocks/{ticker}/quote", "005930"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.ticker").value("005930"))
+        .andExpect(jsonPath("$.data.market").value("J"))
+        .andExpect(jsonPath("$.data.currentPrice").value(70300));
+  }
 
-    mockMvc.perform(get("/api/v1/stocks/{ticker}", "005930").with(authentication(authentication)))
+  @Test
+  void getPeriodPrices_isPublic() throws Exception {
+    mockMvc.perform(get("/api/stocks/{ticker}/period-prices", "005930")
+            .param("market", "J")
+            .param("period", "D")
+            .param("startDate", "20260310")
+            .param("endDate", "20260317")
+            .param("adjusted", "true"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.ticker").value("005930"))
+        .andExpect(jsonPath("$.data.period").value("D"))
+        .andExpect(jsonPath("$.data.candles[0].tradeDate").value("2026-03-17"));
+  }
+
+  @Test
+  void getStockBasicInfo_isPublic() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}", 1L))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.id").value(1))
         .andExpect(jsonPath("$.data.ticker").value("005930"))
         .andExpect(jsonPath("$.data.name").value("Samsung Electronics"))
-        .andExpect(jsonPath("$.data.marketType").value("KOSPI"))
-        .andExpect(jsonPath("$.data.gicsSector").value("Information Technology"))
+        .andExpect(jsonPath("$.data.market_type").value("KOSPI"))
+        .andExpect(jsonPath("$.data.gics_sector").value("Information Technology"))
         .andExpect(jsonPath("$.data.category").value("Semiconductor"))
-        .andExpect(jsonPath("$.data.baseTime").exists());
+        .andExpect(jsonPath("$.data.base_time").exists());
+  }
+
+  @Test
+  void legacyV1QuoteRoute_isNotMapped() throws Exception {
+    mockMvc.perform(get("/api/v1/stocks/{ticker}/quote", "005930"))
+        .andExpect(status().isNotFound());
   }
 
   @Test
