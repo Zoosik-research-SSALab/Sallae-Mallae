@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { GoSearch, GoX } from "react-icons/go";
 import type { RecentSearchItem, SearchAutocompleteResponse, SearchNewsItem, SearchStockItem } from "@/shared/types/search";
 import Input from "@/shared/ui/Input";
@@ -94,6 +94,7 @@ export default function SearchModal({
   className,
   onClose,
   onValueChange,
+  onSubmit,
   onRecentSearchClick,
   onRecentSearchRemove,
   onRecentSearchesClear,
@@ -101,20 +102,26 @@ export default function SearchModal({
   onNewsSelect,
 }: Props) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<SearchResultTab>("stocks");
   const trimmedValue = value.trim();
   const isShowingResults = Boolean(trimmedValue);
   const hasRecentSearches = recentSearches.length > 0;
   const hasStockResults = searchResults.stocks.length > 0;
   const hasNewsResults = searchResults.news.length > 0;
-  const resolvedActiveTab: SearchResultTab =
-    !isShowingResults
-      ? "stocks"
-      : activeTab === "stocks" && !hasStockResults && hasNewsResults
-        ? "news"
-        : activeTab === "news" && !hasNewsResults && hasStockResults
-          ? "stocks"
-          : activeTab;
+
+  useEffect(() => {
+    if (!isShowingResults) return;
+
+    if (activeTab === "stocks" && !hasStockResults && hasNewsResults) {
+      setActiveTab("news");
+      return;
+    }
+
+    if (activeTab === "news" && !hasNewsResults && hasStockResults) {
+      setActiveTab("stocks");
+    }
+  }, [activeTab, hasNewsResults, hasStockResults, isShowingResults]);
 
   useEffect(() => {
     if (!open) {
@@ -122,29 +129,94 @@ export default function SearchModal({
     }
 
     const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const previousActiveElement = document.activeElement as HTMLElement | null;
+
+    document.body.style.overflow = 'hidden';
+
+    const dialogElement = dialogRef.current;
+
+    const getFocusableElements = () => {
+      if (!dialogElement) return [];
+
+      return Array.from(
+        dialogElement.querySelectorAll<HTMLElement>(
+          [
+            'button:not([disabled])',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            'a[href]',
+            '[tabindex]:not([tabindex="-1"])',
+          ].join(","),
+        ),
+      ).filter((element) => {
+        return !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true";
+      });
+    };
+    
+    getFocusableElements()[0]?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();
+        return;
       }
-    };
 
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusableElements = getFocusableElements();
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey) {
+        if (activeElement === firstElement || !dialogElement?.contains(activeElement)) {
+          event.preventDefault();
+          lastElement.focus();
+        }
+        return;
+      }
+
+      if (activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+
+    };
     window.addEventListener("keydown", onKeyDown);
 
-    return () => {
+    return() => {
       document.body.style.overflow = originalOverflow;
+
       window.removeEventListener("keydown", onKeyDown);
+
+      previousActiveElement?.focus();
     };
+
+    
   }, [onClose, open]);
+  
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const nextValue = value.trim();
+    if (!nextValue) return;
+
+    onSubmit?.(nextValue);
+  };
 
   if (!open) {
     return null;
   }
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:px-6">
@@ -156,6 +228,7 @@ export default function SearchModal({
       />
 
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -198,14 +271,14 @@ export default function SearchModal({
             {isShowingResults ? (
               <>
                 <section className="flex flex-col gap-4">
-                  <div className="border-b border-[color:var(--color-border-primary)] px-6 pt-2">
+                  <div className="border-b border-[color:var(--color-border-primary)] pt-2">
                     <div className="flex items-start gap-6">
                       <button
                         type="button"
                         onClick={() => setActiveTab("stocks")}
                         className={cn(
                           "typo-body-md border-b pb-3 font-semibold transition-colors",
-                          resolvedActiveTab === "stocks"
+                          activeTab === "stocks"
                             ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
                             : "border-transparent text-[color:var(--color-text-tertiary)]",
                         )}
@@ -217,7 +290,7 @@ export default function SearchModal({
                         onClick={() => setActiveTab("news")}
                         className={cn(
                           "typo-body-md border-b pb-3 font-semibold transition-colors",
-                          resolvedActiveTab === "news"
+                          activeTab === "news"
                             ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
                             : "border-transparent text-[color:var(--color-text-tertiary)]",
                         )}
@@ -227,10 +300,10 @@ export default function SearchModal({
                     </div>
                   </div>
 
-                  {isSearching ? <p className="typo-body-sm px-6 text-[color:var(--color-text-tertiary)]">검색 중...</p> : null}
+                  {isSearching ? <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">검색 중...</p> : null}
                 </section>
 
-                {!isSearching && resolvedActiveTab === "stocks" ? (
+                {!isSearching && activeTab === "stocks" ? (
                   <section className="flex flex-col gap-4">
                     {hasStockResults ? (
                       <div className="flex flex-col gap-2 px-2">
@@ -264,12 +337,12 @@ export default function SearchModal({
                         ))}
                       </div>
                     ) : (
-                      <p className="typo-body-sm px-6 text-[color:var(--color-text-tertiary)]">일치하는 종목이 없습니다.</p>
+                      <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">일치하는 종목이 없습니다.</p>
                     )}
                   </section>
                 ) : null}
 
-                {!isSearching && resolvedActiveTab === "news" ? (
+                {!isSearching && activeTab === "news" ? (
                   <section className="flex flex-col gap-4">
                     {hasNewsResults ? (
                       <div className="flex flex-col gap-2 px-2">
@@ -290,7 +363,7 @@ export default function SearchModal({
                         ))}
                       </div>
                     ) : (
-                      <p className="typo-body-sm px-6 text-[color:var(--color-text-tertiary)]">일치하는 이슈·뉴스가 없습니다.</p>
+                      <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">일치하는 이슈·뉴스가 없습니다.</p>
                     )}
                   </section>
                 ) : null}

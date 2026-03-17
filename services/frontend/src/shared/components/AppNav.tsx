@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BiBarChartAlt2 } from "react-icons/bi";
 import { GoBook, GoListUnordered, GoSearch } from "react-icons/go";
 import { HiOutlineBell } from "react-icons/hi";
@@ -75,6 +75,7 @@ export default function AppNav() {
   const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([]);
   const [searchResults, setSearchResults] = useState<SearchAutocompleteResponse>({ stocks: [], news: [] });
   const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const shouldIgnoreSearchTriggerFocusRef = useRef(false);
 
   const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
   const isAuthReady = authStatus !== "restoring";
@@ -211,11 +212,17 @@ export default function AppNav() {
   };
 
   const openSearchModal = () => {
+    if (shouldIgnoreSearchTriggerFocusRef.current) {
+      shouldIgnoreSearchTriggerFocusRef.current = false;
+      return;
+    }
+
     setIsDrawerOpen(false);
     setIsSearchModalOpen(true);
   };
 
   const closeSearchModal = () => {
+    shouldIgnoreSearchTriggerFocusRef.current = true;
     setIsSearchModalOpen(false);
     setSearchKeyword("");
   };
