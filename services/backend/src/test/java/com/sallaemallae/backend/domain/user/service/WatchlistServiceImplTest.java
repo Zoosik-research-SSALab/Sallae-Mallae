@@ -3,7 +3,7 @@ package com.sallaemallae.backend.domain.user.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
-import com.sallaemallae.backend.domain.user.dto.WatchlistNewsResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
