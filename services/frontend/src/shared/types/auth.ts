@@ -9,7 +9,7 @@ export type AuthUser = {
   profileImageUrl: string | null;
   provider: string;
   role: string;
-  lastLoginAt: string;
+  lastLoginAt?: string | null;
 };
 
 export type AuthSessionUser = Pick<AuthUser, "userId" | "email" | "nickname" | "profileImageUrl">;
@@ -60,5 +60,51 @@ export type SocialLoginResponse = LoginSuccessResponse | TermsAgreementRequiredR
 export type RefreshResponse = AuthTokens;
 
 export type MeResponse = {
+  user: AuthUser;
+};
+
+export type EmailVerificationPurpose = "SIGNUP" | "PASSWORD_RESET";
+
+export type CheckEmailResponse = {
+  email: string;
+  available: boolean;
+};
+
+export type SendEmailCodeRequest = {
+  email: string;
+  purpose: EmailVerificationPurpose;
+};
+
+export type SendEmailCodeResponse = {
+  expiresIn: number;
+  remainingAttempts: number;
+};
+
+export type VerifyEmailCodeRequest = {
+  email: string;
+  code: string;
+  purpose: EmailVerificationPurpose;
+};
+
+export type VerifyEmailCodeResponse = {
+  verificationToken: string;
+  expiresIn: number;
+};
+
+export type SignupAgreement = {
+  termsId: number;
+  agreed: boolean;
+};
+
+export type EmailSignupRequest = {
+  verificationToken: string;
+  email: string;
+  password: string;
+  nickname: string;
+  emailOptIn: boolean;
+  agreements: SignupAgreement[];
+};
+
+export type SignupSuccessResponse = AuthTokens & {
   user: AuthUser;
 };

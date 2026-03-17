@@ -1,36 +1,17 @@
-const AUTH_PERSISTENCE_KEY = "sallaemallae-auth-persistence";
-
 type AuthPersistenceMode = "persistent" | "session";
 
-function canUseStorage() {
-  return typeof window !== "undefined";
-}
-
 export function readAuthPersistenceMode(): AuthPersistenceMode {
-  if (!canUseStorage()) {
-    return "persistent";
-  }
-
-  const stored = window.localStorage.getItem(AUTH_PERSISTENCE_KEY);
-  return stored === "session" ? "session" : "persistent";
+  return "persistent";
 }
 
 export function writeAuthPersistenceMode(keepSignedIn: boolean) {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(AUTH_PERSISTENCE_KEY, keepSignedIn ? "persistent" : "session");
+  void keepSignedIn;
 }
 
 export function clearAuthPersistenceMode() {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  window.localStorage.removeItem(AUTH_PERSISTENCE_KEY);
+  return;
 }
 
 export function shouldRestoreAuthSession() {
-  return readAuthPersistenceMode() === "persistent";
+  return true;
 }
