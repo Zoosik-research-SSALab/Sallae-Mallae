@@ -29,6 +29,21 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS}
+      JWT_SECRET: ${JWT_SECRET:-}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-}
+      OAUTH_NAVER_CLIENT_ID: ${OAUTH_NAVER_CLIENT_ID:-}
+      OAUTH_NAVER_CLIENT_SECRET: ${OAUTH_NAVER_CLIENT_SECRET:-}
+      OAUTH_NAVER_REDIRECT_URI: ${OAUTH_NAVER_REDIRECT_URI:-}
+      OAUTH_KAKAO_CLIENT_ID: ${OAUTH_KAKAO_CLIENT_ID:-}
+      OAUTH_KAKAO_CLIENT_SECRET: ${OAUTH_KAKAO_CLIENT_SECRET:-}
+      OAUTH_KAKAO_REDIRECT_URI: ${OAUTH_KAKAO_REDIRECT_URI:-}
+      AI_SERVER_BASE_URL: ${AI_SERVER_BASE_URL:-http://ml-server:8000}
     expose:
       - "8080"
     healthcheck:
@@ -45,7 +60,19 @@ services:
     build:
       context: ../../services/frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_MOCKING: ${NEXT_PUBLIC_API_MOCKING:-false}
     restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_MOCKING: ${NEXT_PUBLIC_API_MOCKING:-false}
+      AUTH_API_MOCKING: ${AUTH_API_MOCKING:-false}
+      AUTH_API_BASE_URL: ${AUTH_API_BASE_URL:-}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-}
+      OAUTH_NAVER_CLIENT_ID: ${OAUTH_NAVER_CLIENT_ID:-}
+      OAUTH_NAVER_REDIRECT_URI: ${OAUTH_NAVER_REDIRECT_URI:-}
+      OAUTH_KAKAO_CLIENT_ID: ${OAUTH_KAKAO_CLIENT_ID:-}
+      OAUTH_KAKAO_REDIRECT_URI: ${OAUTH_KAKAO_REDIRECT_URI:-}
     expose:
       - "3000"
     healthcheck:
@@ -64,6 +91,8 @@ services:
     restart: unless-stopped
     environment:
       AI_DB_URL: postgresql+psycopg2://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres:5432/${APP_DB_NAME}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change_me_ai_internal_key}
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://spring:8080}
     expose:
       - "8000"
     networks:
@@ -84,6 +113,16 @@ services:
       DB_NAME: ${APP_DB_NAME}
       DB_USER: ${APP_DB_USER}
       DB_PASSWORD: ${APP_DB_PASSWORD}
+      RCLONE_AUTO_SYNC: "true"
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
+      DART_API_KEY: ${DART_API_KEY:-}
+      ECOS_API_KEY: ${ECOS_API_KEY:-}
+      FRED_API_KEY: ${FRED_API_KEY:-}
+      KIS_API_KEY: ${KIS_API_KEY:-}
+      KIS_SECRET_KEY: ${KIS_SECRET_KEY:-}
+      KRX_API_KEY: ${KRX_API_KEY:-}
+      KRX_USER_ID: ${KRX_USER_ID:-}
+      KRX_PASSWORD: ${KRX_PASSWORD:-}
     networks:
       - app-net
       - base-net
