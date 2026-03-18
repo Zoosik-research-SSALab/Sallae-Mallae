@@ -25,8 +25,9 @@ import argparse
 import asyncio
 import logging
 import random
+import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import aiohttp
 import pandas as pd
@@ -58,12 +59,30 @@ DAILY_SEMAPHORE_LIMIT = 8
 # 날짜 파싱
 # ---------------------------------------------------------------------------
 def _parse_date(date_str: str) -> datetime | None:
-    """다양한 날짜 형식을 datetime으로 변환."""
+    """다양한 날짜 형식 및 상대시간('3시간 전', '1일 전' 등)을 datetime으로 변환."""
     if not date_str:
         return None
-    for fmt in ("%Y.%m.%d", "%Y-%m-%d", "%Y.%m.%d."):
+
+    text = date_str.strip()
+
+    # 상대시간 처리: "N분 전", "N시간 전", "N일 전"
+    rel = re.match(r"(\d+)\s*(분|시간|일)\s*전", text)
+    if rel:
+        amount, unit = int(rel.group(1)), rel.group(2)
+        now = datetime.now()
+        if unit == "분":
+            return now - timedelta(minutes=amount)
+        elif unit == "시간":
+            return now - timedelta(hours=amount)
+        elif unit == "일":
+            return now - timedelta(days=amount)
+
+    # 절대시간 형식
+    cleaned = text.rstrip(".")
+    for fmt in ("%Y.%m.%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+                "%Y.%m.%d", "%Y-%m-%d", "%Y%m%d"):
         try:
-            return datetime.strptime(date_str.strip().rstrip("."), fmt.rstrip("."))
+            return datetime.strptime(cleaned, fmt)
         except ValueError:
             continue
     return None
