@@ -69,6 +69,8 @@ def _ensure_financial_data() -> bool:
         logger.info("재무 데이터 커버리지 부족 (%.0f%% 누락) — Drive에서 보충", missing_ratio * 100)
         return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
 
+    coverage = len(financial_tickers & ohlcv_tickers) / len(ohlcv_tickers)
+    logger.info("재무 데이터 볼륨 정상 (커버리지 %.0f%%, %d종목)", coverage * 100, len(financial_tickers))
     return True
 
 
