@@ -98,25 +98,18 @@ class StockTopListServiceImplTest {
         watchlistService
     );
 
-    given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200)).willReturn(new CachedResult<>(
-        "KIS:TOP_INTEREST:J:200:V1",
-        true,
-        new KisTopInterestStockData(
-            "J",
-            OffsetDateTime.parse("2026-03-13T10:00:00+09:00"),
-            List.of(new KisTopInterestStockItem(1, "005930", "Samsung Electronics", 70000, 1500, "2", 2.2f, 100000L, 7000000000L, 70000, 69900, 321)),
-            "KIS"
-        )
-    ));
     Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
-    given(stockRepository.findAllByTickerInAndIsActiveTrue(List.of("005930")))
-        .willReturn(List.of(samsung));
+    StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f, 1_000_000L);
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(1L))).willReturn(List.of(samsungPrice));
 
     StockListResponse response = service.getTopStocks(null, "BUY", "IT", "LARGE", "MARKET_CAP", "samsung", 0, 10);
 
     assertThat(response.filterCounts().buy()).isEqualTo(1);
     assertThat(response.stocks()).hasSize(1);
     assertThat(response.stocks().get(0).isWatchlisted()).isFalse();
+    assertThat(response.stocks().get(0).tradingVolume()).isEqualTo(1_000_000L);
+    assertThat(response.stocks().get(0).tradingValue()).isEqualTo(70_300_000_000L);
     verifyNoInteractions(watchlistService);
   }
 
@@ -145,12 +138,12 @@ class StockTopListServiceImplTest {
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
-        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "실시간 시세 데이터를 불러오지 못했습니다."));
+        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "failed"));
 
     Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
     Stock hynix = stock(2L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
-    StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f);
-    StockPriceDaily hynixPrice = dailyPrice(2L, 182000, -1.75f);
+    StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f, 1_000_000L);
+    StockPriceDaily hynixPrice = dailyPrice(2L, 182000, -1.75f, 700_000L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(hynix, samsung));
     given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(2L, 1L)))
@@ -176,12 +169,12 @@ class StockTopListServiceImplTest {
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
-        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "실시간 시세 데이터를 불러오지 못했습니다."));
+        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "failed"));
 
     Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
     Stock hynix = stock(2L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
-    StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f);
-    StockPriceDaily hynixPrice = dailyPrice(2L, 182000, -1.75f);
+    StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f, 1_000_000L);
+    StockPriceDaily hynixPrice = dailyPrice(2L, 182000, -1.75f, 700_000L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(hynix, samsung));
     given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(2L, 1L)))
@@ -218,12 +211,38 @@ class StockTopListServiceImplTest {
             false,
             new KisTopInterestStockData("J", OffsetDateTime.parse("2026-03-17T15:00:00+09:00"), items, "KIS")
         ));
-    given(stockRepository.findAllByTickerInAndIsActiveTrue(any()))
-        .willReturn(stocks);
+    given(stockRepository.findAllByTickerInAndIsActiveTrue(any())).willReturn(stocks);
 
     StockListResponse response = service.getTopStocks(null, null, null, null, "CHANGE", null, 0, 50);
 
     assertThat(response.stocks()).hasSize(30);
+  }
+
+  @Test
+  void getTopStocks_usesLocalUniverseForMarketCapSortAndAcceptsAllSector() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService
+    );
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f, 1_000_000L);
+    StockPriceDaily naverPrice = dailyPrice(2L, 200000, 0.30f, 500_000L);
+    StockPriceDaily hynixPrice = dailyPrice(3L, 182000, -1.75f, 700_000L);
+
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(2L, 1L, 3L)))
+        .willReturn(List.of(samsungPrice, naverPrice, hynixPrice));
+
+    StockListResponse response = service.getTopStocks(null, null, "\uC804\uCCB4", null, "MARKET_CAP", null, 0, 3);
+
+    assertThat(response.stocks()).extracting(item -> item.ticker()).containsExactly("005930", "000660", "035420");
+    assertThat(response.stocks().getFirst().tradingValue()).isEqualTo(70_300_000_000L);
+    verifyNoInteractions(cachedKisDomesticStockGateway);
   }
 
   @Test
@@ -236,7 +255,7 @@ class StockTopListServiceImplTest {
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
-        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "실시간 시세 데이터를 불러오지 못했습니다."));
+        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "failed"));
 
     Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
@@ -281,7 +300,7 @@ class StockTopListServiceImplTest {
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
-        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "실시간 시세 데이터를 불러오지 못했습니다."));
+        .willThrow(new KisApiException(502, "KIS_HTTP_ERROR", "failed"));
 
     Stock alpha = stock(1L, "000001", "Alpha", "Information Technology", "Semiconductor", 1_000_000L);
     Stock samsung = stock(2L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
@@ -372,11 +391,12 @@ class StockTopListServiceImplTest {
     return stock;
   }
 
-  private StockPriceDaily dailyPrice(Long stockId, Integer closePrice, Float fluctuationRate) {
+  private StockPriceDaily dailyPrice(Long stockId, Integer closePrice, Float fluctuationRate, Long volume) {
     StockPriceDaily stockPriceDaily = mock(StockPriceDaily.class);
     given(stockPriceDaily.getStockId()).willReturn(stockId);
     given(stockPriceDaily.getClosePrice()).willReturn(closePrice);
     given(stockPriceDaily.getFluctuationRate()).willReturn(fluctuationRate);
+    given(stockPriceDaily.getVolume()).willReturn(volume);
     return stockPriceDaily;
   }
 }

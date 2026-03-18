@@ -77,8 +77,8 @@ class StockApiControllerTest {
         .willReturn(new StockListResponse(
             new StockListFilterCountsResponse(2, 1, 1),
             java.util.List.of(
-                new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, "BUY", 87, true),
-                new StockListItemResponse(2, 2L, "000660", "SK hynix", "Information Technology", 182000, -1.75f, "SELL", 80, false)
+                new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, 7_030_000_000L, 100_000L, null, "BUY", 87, true),
+                new StockListItemResponse(2, 2L, "000660", "SK hynix", "Information Technology", 182000, -1.75f, 12_740_000_000L, 70_000L, null, "SELL", 80, false)
             )
         ));
     given(stockMarketQueryService.getQuote(anyString(), anyString()))
@@ -154,6 +154,8 @@ class StockApiControllerTest {
         .andExpect(jsonPath("$.data.stocks[0].ticker").value("005930"))
         .andExpect(jsonPath("$.data.stocks[0].gics_sector").value("Information Technology"))
         .andExpect(jsonPath("$.data.stocks[0].fluctuation_rate").value(2.15))
+        .andExpect(jsonPath("$.data.stocks[0].trading_value").value(7030000000L))
+        .andExpect(jsonPath("$.data.stocks[0].trading_volume").value(100000L))
         .andExpect(jsonPath("$.data.stocks[0].is_watchlisted").value(true));
   }
 

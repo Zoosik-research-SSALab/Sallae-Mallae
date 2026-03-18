@@ -14,6 +14,11 @@ final class StockTopListSupport {
 
   private static final int DEFAULT_LIMIT = 6;
   private static final int MAX_LIMIT = 30;
+  private static final String ALL_KOREAN = "\uC804\uCCB4";
+  private static final String FINANCE_KOREAN = "\uAE08\uC735";
+  private static final String AUTO_KOREAN = "\uC790\uB3D9\uCC28";
+  private static final String BIO_KOREAN = "\uBC14\uC774\uC624";
+  private static final String BATTERY_KOREAN = "2\uCC28\uC804\uC9C0";
 
   private StockTopListSupport() {
   }
@@ -105,6 +110,9 @@ final class StockTopListSupport {
         candidate.gicsSector(),
         candidate.price(),
         candidate.fluctuationRate(),
+        candidate.tradingValue(),
+        candidate.tradingVolume(),
+        candidate.dividendYield(),
         candidate.signal().name(),
         candidate.confidence(),
         candidate.isWatchlisted()
@@ -123,6 +131,9 @@ final class StockTopListSupport {
       String gicsSector,
       Integer price,
       Float fluctuationRate,
+      Long tradingValue,
+      Long tradingVolume,
+      Float dividendYield,
       SignalFilter signal,
       int confidence,
       boolean isWatchlisted,
@@ -191,10 +202,10 @@ final class StockTopListSupport {
 
   enum SectorFilter {
     IT("IT"),
-    FINANCE("금융"),
-    AUTO("자동차"),
-    BIO("바이오"),
-    BATTERY("2차전지");
+    FINANCE(FINANCE_KOREAN),
+    AUTO(AUTO_KOREAN),
+    BIO(BIO_KOREAN),
+    BATTERY(BATTERY_KOREAN);
 
     private final String label;
 
@@ -210,13 +221,25 @@ final class StockTopListSupport {
       if (value == null || value.isBlank()) {
         return null;
       }
-      return switch (value.trim()) {
+
+      String trimmed = value.trim();
+      if (ALL_KOREAN.equals(trimmed) || "ALL".equalsIgnoreCase(trimmed)) {
+        return null;
+      }
+
+      return switch (trimmed.toUpperCase(Locale.ROOT)) {
         case "IT" -> IT;
-        case "금융" -> FINANCE;
-        case "자동차" -> AUTO;
-        case "바이오" -> BIO;
-        case "2차전지" -> BATTERY;
-        default -> throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+        case "FINANCE" -> FINANCE;
+        case "AUTO", "MOBILITY" -> AUTO;
+        case "BIO" -> BIO;
+        case "BATTERY" -> BATTERY;
+        default -> switch (trimmed) {
+          case FINANCE_KOREAN -> FINANCE;
+          case AUTO_KOREAN -> AUTO;
+          case BIO_KOREAN -> BIO;
+          case BATTERY_KOREAN -> BATTERY;
+          default -> throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+        };
       };
     }
   }
@@ -241,8 +264,14 @@ final class StockTopListSupport {
       if (value == null || value.isBlank()) {
         return ALL;
       }
+
+      String trimmed = value.trim();
+      if (ALL_KOREAN.equals(trimmed)) {
+        return ALL;
+      }
+
       try {
-        return MarketCapFilter.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        return MarketCapFilter.valueOf(trimmed.toUpperCase(Locale.ROOT));
       } catch (IllegalArgumentException e) {
         throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
       }
