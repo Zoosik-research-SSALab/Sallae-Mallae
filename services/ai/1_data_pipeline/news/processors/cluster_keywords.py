@@ -189,8 +189,81 @@ def save_clusters_to_db(
 # ---------------------------------------------------------------------------
 # 메인 실행
 # ---------------------------------------------------------------------------
+def assign_to_nearest_cluster() -> int:
+    """
+    cluster_id가 없는 새 키워드를 기존 클러스터 중 가장 가까운 곳에 배정.
+    전체 재클러스터링 없이 증분으로 처리하여 DB 부하 최소화.
+    반환: 배정된 키워드 수
+    """
+    with get_session() as session:
+        try:
+            # 기존 클러스터 centroid 계산
+            clustered = (
+                session.query(Keyword.cluster_id, KeywordEmbedding.embedding)
+                .join(KeywordEmbedding, Keyword.id == KeywordEmbedding.keyword_id)
+                .filter(Keyword.cluster_id.isnot(None))
+                .all()
+            )
+
+            if not clustered:
+                logger.info("기존 클러스터가 없어 증분 배정 불가 — 전체 클러스터링 필요")
+                return 0
+
+            # 클러스터별 centroid 계산
+            import json as _json
+            from collections import defaultdict
+            cluster_embs = defaultdict(list)
+            for cluster_id, emb in clustered:
+                vec = emb if isinstance(emb, (list, np.ndarray)) else _json.loads(emb)
+                cluster_embs[cluster_id].append(vec)
+
+            centroids = {}
+            for cid, vecs in cluster_embs.items():
+                centroids[cid] = np.mean(vecs, axis=0).astype(np.float32)
+
+            centroid_ids = list(centroids.keys())
+            centroid_matrix = np.array([centroids[cid] for cid in centroid_ids])
+
+            # cluster_id가 없는 새 키워드 조회
+            unclustered = (
+                session.query(Keyword.id, KeywordEmbedding.embedding)
+                .join(KeywordEmbedding, Keyword.id == KeywordEmbedding.keyword_id)
+                .filter(Keyword.cluster_id.is_(None))
+                .all()
+            )
+
+            if not unclustered:
+                logger.info("미배정 키워드 없음")
+                return 0
+
+            assigned = 0
+            for kw_id, emb in unclustered:
+                vec = np.array(emb if isinstance(emb, (list, np.ndarray)) else _json.loads(emb), dtype=np.float32)
+                # 코사인 유사도로 가장 가까운 클러스터 찾기
+                similarities = centroid_matrix @ vec
+                best_idx = int(np.argmax(similarities))
+                best_cluster_id = centroid_ids[best_idx]
+
+                session.query(Keyword).filter(Keyword.id == kw_id).update(
+                    {"cluster_id": best_cluster_id}
+                )
+                assigned += 1
+
+                if assigned % 500 == 0:
+                    session.commit()
+                    logger.info("  ... %d건 배정 완료", assigned)
+
+            session.commit()
+            logger.info("증분 클러스터 배정 완료: %d건", assigned)
+            return assigned
+
+        except Exception:
+            session.rollback()
+            raise
+
+
 def run_cluster_keywords(n_clusters: int | None = None, reset: bool = False) -> None:
-    """키워드 임베딩 기반 클러스터링 실행."""
+    """키워드 임베딩 기반 전체 클러스터링 실행. 주 1회 등 주기적으로 사용."""
     # 1. 임베딩 로드
     kw_ids, kw_names, embeddings = load_embeddings()
     if len(kw_ids) == 0:

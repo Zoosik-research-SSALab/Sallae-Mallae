@@ -148,3 +148,17 @@ class KeywordCluster(Base):
 
     # 관계
     keywords = relationship("Keyword", back_populates="cluster")
+
+
+# ---------------------------------------------------------------------------
+# 파이프라인 신호 (EC2 → 데스크탑 워커 연동)
+# ---------------------------------------------------------------------------
+class PipelineSignal(Base):
+    __tablename__ = "pipeline_signals"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    signal_type = Column(String(50), nullable=False)   # e.g. "NEWS_CRAWL_DONE"
+    status = Column(String(20), nullable=False, default="PENDING")  # PENDING → PROCESSING → DONE / FAILED
+    retry_count = Column(BigInteger, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), default=datetime.now)
+    processed_at = Column(DateTime(timezone=True))
