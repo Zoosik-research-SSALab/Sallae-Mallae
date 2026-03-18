@@ -178,12 +178,12 @@ def check_weekly_recluster() -> None:
             logger.error("전체 재클러스터링 실패: %s", e)
 
 
-def start_worker(watch_from: str = "17:00", interval: int = 60) -> None:
+def start_worker(watch_from: str = "18:30", interval: int = 300, max_polls: int = 10) -> None:
     """DB 폴링 워커를 시작."""
     hour, minute = map(int, watch_from.split(":"))
 
-    logger.info("키워드 워커 시작 | 감시 시작: %s | 폴링 간격: %d초 | 최대 재시도: %d회",
-                watch_from, interval, MAX_RETRIES)
+    logger.info("키워드 워커 시작 | 감시 시작: %s | 폴링 간격: %d초 | 최대 폴링: %d회 | 최대 재시도: %d회",
+                watch_from, interval, max_polls, MAX_RETRIES)
     logger.info("주간 전체 재클러스터링: 매주 토요일 20:00")
 
     # 워커 재시작 시 PROCESSING 상태로 남은 신호 복구
@@ -204,8 +204,9 @@ def start_worker(watch_from: str = "17:00", interval: int = 60) -> None:
             # 매일 감시 시작 시각까지 대기
             wait_until(hour, minute)
 
-            logger.info("신호 감시 시작")
+            logger.info("신호 감시 시작 (최대 %d회 폴링)", max_polls)
             processed_today = False
+            poll_count = 0
 
             while not processed_today:
                 signal = check_pending_signal()
@@ -240,11 +241,12 @@ def start_worker(watch_from: str = "17:00", interval: int = 60) -> None:
                             logger.info("다음 폴링에서 재시도 예정")
                             time.sleep(interval)
                 else:
-                    # 자정이 지나면 다음 날 감시 시작 시각으로 넘어감
-                    if datetime.datetime.now().hour >= 23 and datetime.datetime.now().minute >= 59:
-                        logger.info("자정 도래 — 신호 없이 하루 종료")
+                    poll_count += 1
+                    if poll_count >= max_polls:
+                        logger.info("최대 폴링 횟수(%d회) 도달 — 신호 없이 하루 종료", max_polls)
                         processed_today = True
                     else:
+                        logger.info("신호 없음 (%d/%d) — %d초 후 재확인", poll_count, max_polls, interval)
                         time.sleep(interval)
 
             # 다음 날 감시를 위해 자정+1분까지 대기
@@ -274,10 +276,12 @@ def main():
     parser = argparse.ArgumentParser(description="키워드 추출 데스크탑 워커 (DB 폴링)")
     parser.add_argument("--run-now", action="store_true",
                         help="신호 무시, 즉시 1회 실행 후 종료")
-    parser.add_argument("--watch-from", default="17:30",
-                        help="감시 시작 시각 (기본: 17:30)")
+    parser.add_argument("--watch-from", default="18:30",
+                        help="감시 시작 시각 (기본: 18:30)")
     parser.add_argument("--interval", type=int, default=300,
                         help="폴링 간격 초 (기본: 300)")
+    parser.add_argument("--max-polls", type=int, default=10,
+                        help="최대 폴링 횟수 (기본: 10)")
     args = parser.parse_args()
 
     if args.run_now:
@@ -289,7 +293,7 @@ def main():
         logger.info("--run-now: 실행 완료")
         return
 
-    start_worker(watch_from=args.watch_from, interval=args.interval)
+    start_worker(watch_from=args.watch_from, interval=args.interval, max_polls=args.max_polls)
 
 
 if __name__ == "__main__":
