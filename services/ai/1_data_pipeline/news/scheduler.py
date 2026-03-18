@@ -165,6 +165,20 @@ def _find_latest_dir(prefix: str) -> str | None:
     return str(candidates[0]) if candidates else None
 
 
+def _send_pipeline_signal() -> None:
+    """DB에 크롤링 완료 신호를 기록하여 데스크탑 GPU 워커에게 알림."""
+    from db import get_session
+    from models import PipelineSignal
+
+    with get_session() as session:
+        try:
+            session.add(PipelineSignal(signal_type="NEWS_CRAWL_DONE", status="PENDING"))
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+
 def run_daily_pipeline() -> None:
     """4단계 뉴스 파이프라인을 순서대로 실행."""
     today = datetime.date.today()
@@ -208,9 +222,9 @@ def run_daily_pipeline() -> None:
         logger.error("DB 적재 실패 — 파이프라인 중단")
         return
 
-    # 4단계: 키워드 추출 + 임베딩은 GPU 서버에서 별도 실행
-    # (Gemini API 토큰 제한 + 임베딩 모델 GPU 필요)
-    logger.info("[키워드] GPU 서버에서 별도 실행 필요: python -m processors.keyword_batch --days 1")
+    # 4단계: 키워드 추출 신호 전송 (데스크탑 GPU 워커가 감지하여 처리)
+    _send_pipeline_signal()
+    logger.info("[키워드] 파이프라인 신호 전송 완료 — 데스크탑 워커가 키워드 추출 수행 예정")
 
     # 성공 기록
     _save_last_run_date(today)
