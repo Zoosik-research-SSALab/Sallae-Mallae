@@ -46,7 +46,7 @@ logger = setup_logger(__name__)
 # 수집 단계
 # ---------------------------------------------------------------------------
 
-def run_collection(mode: str = "incremental", use_universe: bool = False) -> bool:
+def run_collection(mode: str = "incremental", use_universe: bool = False) -> tuple[bool, list[str]]:
     """
     데이터 수집 단계를 실행합니다.
 
@@ -58,7 +58,7 @@ def run_collection(mode: str = "incremental", use_universe: bool = False) -> boo
         use_universe: True이면 유니버스 파일(편출 종목 포함)로 OHLCV 수집
 
     Returns:
-        전체 수집이 하나라도 성공하면 True, 모두 실패하면 False
+        (성공 여부, 신규 저장된 재무 파일명 리스트)
     """
     logger.info("=== 데이터 수집 시작 | mode=%s | use_universe=%s ===", mode, use_universe)
     success_count = 0
@@ -128,11 +128,12 @@ def run_collection(mode: str = "incremental", use_universe: bool = False) -> boo
         fail_count += 1
 
     # --- 재무 데이터 수집 ---
+    financial_new_files: list[str] = []
     try:
         logger.info("[수집 4/4] 재무 데이터 수집 시작")
         from collectors.collect_financial import collect_recent_quarters
-        collect_recent_quarters(tickers)
-        logger.info("[수집 4/4] 재무 데이터 수집 완료")
+        financial_new_files = collect_recent_quarters(tickers)
+        logger.info("[수집 4/4] 재무 데이터 수집 완료 (신규 %d건)", len(financial_new_files))
         success_count += 1
     except ImportError:
         logger.warning("[수집 4/4] collectors.collect_financial 모듈 없음 - 건너뜀")
@@ -145,7 +146,7 @@ def run_collection(mode: str = "incremental", use_universe: bool = False) -> boo
         "=== 데이터 수집 완료 | 성공: %d / 실패: %d ===",
         success_count, fail_count,
     )
-    return success_count > 0
+    return success_count > 0, financial_new_files
 
 
 # ---------------------------------------------------------------------------
@@ -311,8 +312,9 @@ def run_full_pipeline(
         step_results["drive_check"] = f"FAIL: {exc}"
 
     # 2. 데이터 수집
+    financial_new_files: list[str] = []
     try:
-        collection_ok = run_collection(mode=mode, use_universe=use_universe)
+        collection_ok, financial_new_files = run_collection(mode=mode, use_universe=use_universe)
         step_results["collection"] = "OK" if collection_ok else "PARTIAL"
     except Exception as exc:
         logger.error("수집 단계 예외: %s", exc)
@@ -348,7 +350,7 @@ def run_full_pipeline(
 
     # 5. rclone 업로드 동기화 (로컬 → Drive, 대상 디렉토리만)
     if RCLONE_AUTO_SYNC and RCLONE_REMOTE:
-        from utils.drive_utils import rclone_sync_up
+        from utils.drive_utils import rclone_copy_file, rclone_sync_up
         failed = []
         for subdir in RCLONE_SYNC_DIRS:
             logger.info("rclone 업로드: %s → %s/%s", BASE_PATH / subdir, RCLONE_REMOTE, subdir)
@@ -358,6 +360,24 @@ def run_full_pipeline(
             except Exception as exc:
                 logger.error("rclone 업로드 실패 (%s): %s", subdir, exc)
                 failed.append(subdir)
+
+        # 재무 데이터: 신규 파일만 개별 copy (rclone sync 대신)
+        if financial_new_files:
+            fin_remote = f"{RCLONE_REMOTE}/raw/financial"
+            fin_ok = 0
+            fin_fail = 0
+            for filename in financial_new_files:
+                filepath = RAW_FINANCIAL_PATH / filename
+                if rclone_copy_file(filepath, fin_remote):
+                    fin_ok += 1
+                else:
+                    fin_fail += 1
+            logger.info(
+                "재무 데이터 개별 업로드: 성공=%d / 실패=%d", fin_ok, fin_fail,
+            )
+            if fin_fail > 0:
+                failed.append("raw/financial (일부)")
+
         if failed:
             step_results["rclone_up"] = f"PARTIAL (실패: {', '.join(failed)})"
         else:
