@@ -19,7 +19,7 @@ from domains.debate.schemas import (
     FundamentalPersona,
     GarchPredictionPayload,
     LgbmPredictionPayload,
-    LstmPredictionPayload,
+    TftPredictionPayload,
     NewsItem,
     NewsPersona,
     TargetItem,
@@ -78,11 +78,11 @@ def get_debate_inputs(
 
     ensemble_prediction = None
     lgbm_prediction = None
-    lstm_prediction = None
+    tft_prediction = None
     garch_prediction = None
     ensemble_prediction = crud.get_ensemble_prediction(db, stock_id, report_date, resolved_model_version)
     lgbm_prediction = crud.get_lgbm_prediction(db, stock_id, report_date, resolved_model_version)
-    lstm_prediction = crud.get_lstm_prediction(db, stock_id, report_date, resolved_model_version)
+    tft_prediction = crud.get_tft_prediction(db, stock_id, report_date, resolved_model_version)
     garch_prediction = crud.get_garch_prediction(db, stock_id, report_date, resolved_model_version)
 
     recent_news_rows = crud.get_recent_news(db, stock_id=stock_id, report_date=report_date, limit=news_limit)
@@ -134,12 +134,12 @@ def get_debate_inputs(
             prob_sideways=lgbm_prediction.prob_sideways,
             prob_up=lgbm_prediction.prob_up,
         ) if lgbm_prediction else None,
-        lstm_prediction=LstmPredictionPayload(
-            model_version=lstm_prediction.model_version,
-            group_id=lstm_prediction.group_id,
-            prob=lstm_prediction.prob,
-            pred=lstm_prediction.pred,
-        ) if lstm_prediction else None,
+        tft_prediction=TftPredictionPayload(
+            model_version=tft_prediction.model_version,
+            group_id=tft_prediction.group_id,
+            prob=tft_prediction.prob,
+            pred=tft_prediction.pred,
+        ) if tft_prediction else None,
         garch_prediction=GarchPredictionPayload(
             model_version=garch_prediction.model_version,
             vol_1d=garch_prediction.vol_1d,

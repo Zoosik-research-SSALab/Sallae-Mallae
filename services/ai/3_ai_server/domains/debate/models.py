@@ -89,8 +89,8 @@ class MlLgbmPrediction(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class MlLstmPrediction(Base):
-    __tablename__ = "ml_lstm_predictions"
+class MlTftPrediction(Base):
+    __tablename__ = "ml_tft_predictions"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)

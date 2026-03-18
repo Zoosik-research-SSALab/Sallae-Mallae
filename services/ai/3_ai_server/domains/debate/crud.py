@@ -13,7 +13,7 @@ from domains.debate.models import (
     MlEnsemblePrediction,
     MlGarchPrediction,
     MlLgbmPrediction,
-    MlLstmPrediction,
+    MlTftPrediction,
     StockFinancial,
     StockNews,
     StockNewsMap,
@@ -116,8 +116,8 @@ def get_lgbm_prediction(db: Session, stock_id: int, report_date: date, model_ver
     return _get_prediction_by_version(db, MlLgbmPrediction, stock_id, report_date, model_version)
 
 
-def get_lstm_prediction(db: Session, stock_id: int, report_date: date, model_version: str | None):
-    return _get_prediction_by_version(db, MlLstmPrediction, stock_id, report_date, model_version)
+def get_tft_prediction(db: Session, stock_id: int, report_date: date, model_version: str | None):
+    return _get_prediction_by_version(db, MlTftPrediction, stock_id, report_date, model_version)
 
 
 def get_garch_prediction(db: Session, stock_id: int, report_date: date, model_version: str | None):
