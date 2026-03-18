@@ -458,18 +458,21 @@ def run_portfolio_simulation(target_date: str, signals_df: pd.DataFrame) -> dict
             "ensemble_prob": signal_map.get(pos.ticker),
         })
         if "stop_loss" in reason:
-            cooldown[pos.ticker] = REBUY_COOLDOWN
+            # 쿨다운: 만료 날짜를 저장 (현재 날짜 + REBUY_COOLDOWN 거래일)
+            cooldown[pos.ticker] = str(
+                (pd.Timestamp(target_date) + pd.offsets.BDay(REBUY_COOLDOWN)).date()
+            )
 
     # 매수 판단
     held = {p.ticker for p in positions}
     candidates = []
+    today = pd.Timestamp(target_date)
     for _, row in signals_df.iterrows():
         t = row["ticker"]
         if t in held or row["ensemble_prob"] <= BUY_THRESHOLD:
             continue
-        cd = cooldown.get(t, 0)
-        if cd > 0:
-            cooldown[t] = cd - 1
+        expire = cooldown.get(t)
+        if expire and today < pd.Timestamp(expire):
             continue
         candidates.append((t, row["ensemble_prob"]))
     candidates.sort(key=lambda x: -x[1])
