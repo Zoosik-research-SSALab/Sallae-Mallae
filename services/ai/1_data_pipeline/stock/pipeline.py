@@ -43,6 +43,36 @@ logger = setup_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# 재무 데이터 볼륨 상태 감지 및 자동 복구
+# ---------------------------------------------------------------------------
+
+def _ensure_financial_data() -> bool:
+    """재무 데이터 볼륨 상태를 확인하고 부족하면 Drive에서 다운로드."""
+    if not (RCLONE_AUTO_SYNC and RCLONE_REMOTE):
+        return True
+
+    from utils.drive_utils import rclone_sync_down
+
+    # 1단계: 디렉토리가 비어있으면 전체 다운로드
+    if not RAW_FINANCIAL_PATH.exists() or not any(RAW_FINANCIAL_PATH.glob("*.parquet")):
+        logger.info("재무 데이터 없음 — Drive에서 초기 다운로드")
+        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
+
+    # 2단계: OHLCV 종목 대비 커버리지 확인
+    ohlcv_tickers = {p.stem for p in RAW_OHLCV_PATH.glob("*.parquet")}
+    financial_tickers = {p.stem.split("_")[0] for p in RAW_FINANCIAL_PATH.glob("*.parquet")}
+    if not ohlcv_tickers:
+        return True  # OHLCV도 없으면 비교 불가, 스킵
+
+    missing_ratio = len(ohlcv_tickers - financial_tickers) / len(ohlcv_tickers)
+    if missing_ratio > 0.5:
+        logger.info("재무 데이터 커버리지 부족 (%.0f%% 누락) — Drive에서 보충", missing_ratio * 100)
+        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
+
+    return True
+
+
+# ---------------------------------------------------------------------------
 # 수집 단계
 # ---------------------------------------------------------------------------
 
@@ -254,6 +284,7 @@ def run_full_pipeline(
     skip_features: bool = False,
     skip_validation: bool = False,
     use_universe: bool = False,
+    ensure_financial: bool = False,
 ) -> None:
     """
     전체 데이터 파이프라인을 실행합니다.
@@ -273,6 +304,7 @@ def run_full_pipeline(
         skip_features:   True 이면 피처 엔지니어링 건너뜀
         skip_validation: True 이면 품질 검증 건너뜀
         use_universe:    True 이면 유니버스 파일(편출 종목 포함)로 OHLCV 수집
+        ensure_financial: True 이면 rclone DOWN 단계 후 재무 데이터 볼륨 확인
     """
     pipeline_start = time.monotonic()
     start_dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -302,6 +334,15 @@ def run_full_pipeline(
             step_results["rclone_down"] = "OK"
     else:
         step_results["rclone_down"] = "SKIPPED"
+
+    # 0-1. 재무 데이터 볼륨 상태 확인 (--ensure-financial 지정 시)
+    if ensure_financial:
+        try:
+            _ensure_financial_data()
+            step_results["ensure_financial"] = "OK"
+        except Exception as exc:
+            logger.error("재무 데이터 확인 실패: %s", exc)
+            step_results["ensure_financial"] = f"FAIL: {exc}"
 
     # 1. Drive 폴더 구조 확인
     try:
@@ -451,6 +492,11 @@ def main() -> None:
         action="store_true",
         help="유니버스 파일(편출 종목 포함)로 OHLCV 수집 (생존편향 해결)",
     )
+    parser.add_argument(
+        "--ensure-financial",
+        action="store_true",
+        help="재무 데이터 볼륨 상태를 확인하고 부족하면 Drive에서 다운로드합니다",
+    )
     args = parser.parse_args()
 
     run_full_pipeline(
@@ -458,6 +504,7 @@ def main() -> None:
         skip_features=args.skip_features,
         skip_validation=args.skip_validation,
         use_universe=args.use_universe,
+        ensure_financial=args.ensure_financial,
     )
 
 
