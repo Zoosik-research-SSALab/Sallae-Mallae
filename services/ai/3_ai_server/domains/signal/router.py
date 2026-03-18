@@ -33,10 +33,10 @@ def upload_signals(req: SignalUploadRequest, db: Session = Depends(get_session))
 
     logger.info("[SIGNAL] %s 시그널 업로드: %d종목", req.date, len(signals))
 
-    tft_cnt = crud.upsert_tft_predictions(db, report_date, req.model_version, signals)
-    lgbm_cnt = crud.upsert_lgbm_predictions(db, report_date, req.model_version, signals)
-    garch_cnt = crud.upsert_garch_predictions(db, report_date, req.model_version, signals)
-    ens_cnt = crud.upsert_ensemble_predictions(db, report_date, req.model_version, signals)
+    tft_cnt = crud.upsert_tft_predictions(db, report_date, "tft-v2", signals)
+    lgbm_cnt = crud.upsert_lgbm_predictions(db, report_date, "lgbm-v1", signals)
+    garch_cnt = crud.upsert_garch_predictions(db, report_date, "garch-v1", signals)
+    ens_cnt = crud.upsert_ensemble_predictions(db, report_date, "ensemble-v6", signals)
     report_cnt = crud.upsert_ml_reports(db, report_date, req.model_version, signals)
 
     db.commit()
