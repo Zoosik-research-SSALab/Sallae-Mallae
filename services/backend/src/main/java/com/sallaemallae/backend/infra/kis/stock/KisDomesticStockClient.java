@@ -9,6 +9,7 @@ import com.sallaemallae.backend.infra.kis.KisTokenManager;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,9 +27,11 @@ import org.springframework.web.client.RestClientResponseException;
 public class KisDomesticStockClient {
 
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
+  private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
   private static final String DEFAULT_MARKET_CODE = "J";
   private static final String TOP_INTEREST_SCREEN_CODE = "20180";
   private static final int MAX_TOP_INTEREST_PAGE = 10;
+  private static final int MAX_DIVIDEND_RATE_PAGE = 10;
 
   private final KisProperties properties;
   private final KisTokenManager kisTokenManager;
@@ -136,6 +139,64 @@ public class KisDomesticStockClient {
     );
   }
 
+  public KisDividendRateData getCashDividendRateRanking(
+      String marketGroup,
+      String upjong,
+      LocalDate fromDate,
+      LocalDate toDate
+  ) {
+    List<KisDividendRateItem> items = new ArrayList<>();
+    String query = "CTS_AREA="
+        + "&GB1=" + marketGroup
+        + "&UPJONG=" + upjong
+        + "&GB2=0"
+        + "&GB3=2"
+        + "&F_DT=" + fromDate.format(BASIC_DATE)
+        + "&T_DT=" + toDate.format(BASIC_DATE)
+        + "&GB4=0";
+    String trCont = "";
+
+    for (int page = 1; page <= MAX_DIVIDEND_RATE_PAGE; page++) {
+      KisApiResponse response = getResponse(
+          "/uapi/domestic-stock/v1/ranking/dividend-rate",
+          "HHKDB13470100",
+          query,
+          trCont
+      );
+
+      JsonNode output = dividendRateOutput(response.body());
+      if (!output.isArray() || output.isEmpty()) {
+        break;
+      }
+
+      for (JsonNode row : output) {
+        items.add(new KisDividendRateItem(
+            toInt(row.path("rank")),
+            nullableText(row, "sht_cd"),
+            toDate(row.path("record_date")),
+            toFloat(row.path("divi_rate")),
+            nullableText(row, "divi_kind")
+        ));
+      }
+
+      String nextTrCont = response.headers().getFirst("tr_cont");
+      if (!"M".equalsIgnoreCase(nextTrCont != null ? nextTrCont.trim() : null)) {
+        break;
+      }
+      trCont = "N";
+    }
+
+    return new KisDividendRateData(
+        marketGroup,
+        upjong,
+        fromDate,
+        toDate,
+        OffsetDateTime.now(ZONE_ID),
+        List.copyOf(items),
+        "KIS"
+    );
+  }
+
   public KisPeriodPriceData getPeriodPrices(
       String marketCode,
       String ticker,
@@ -213,6 +274,10 @@ public class KisDomesticStockClient {
   }
 
   private JsonNode get(String path, String trId, String query) {
+    return getResponse(path, trId, query, null).body();
+  }
+
+  private KisApiResponse getResponse(String path, String trId, String query, String trCont) {
     properties.validateConfigured();
 
     int attempts = Math.max(0, properties.getRetryAttempts()) + 1;
@@ -220,14 +285,18 @@ public class KisDomesticStockClient {
 
     for (int attempt = 1; attempt <= attempts; attempt++) {
       try {
-        JsonNode response = restClient.get()
+        var response = restClient.get()
             .uri(path + "?" + query)
-            .headers(headers -> buildHeaders(headers, trId))
+            .headers(headers -> buildHeaders(headers, trId, trCont))
             .accept(MediaType.APPLICATION_JSON)
             .retrieve()
-            .body(JsonNode.class);
-        validateBusinessResponse(response);
-        return response;
+            .toEntity(JsonNode.class);
+        JsonNode body = response.getBody();
+        if (body == null) {
+          throw new KisApiException(502, "KIS_EMPTY_BODY", "KIS response body is empty.");
+        }
+        validateBusinessResponse(body);
+        return new KisApiResponse(body, response.getHeaders());
       } catch (RestClientResponseException e) {
         lastException = toKisApiException(e);
         if (attempt >= attempts || e.getStatusCode().is4xxClientError()) {
@@ -267,11 +336,14 @@ public class KisDomesticStockClient {
     }
   }
 
-  private void buildHeaders(HttpHeaders headers, String trId) {
+  private void buildHeaders(HttpHeaders headers, String trId, String trCont) {
     headers.setBearerAuth(kisTokenManager.getAccessToken());
     headers.set("appkey", properties.getAppKey());
     headers.set("appsecret", properties.getAppSecret());
     headers.set("tr_id", trId);
+    if (trCont != null && !trCont.isBlank()) {
+      headers.set("tr_cont", trCont);
+    }
     headers.set("custtype", "P");
     headers.setContentType(MediaType.APPLICATION_JSON);
   }
@@ -357,5 +429,30 @@ public class KisDomesticStockClient {
     } catch (NumberFormatException ignored) {
       return null;
     }
+  }
+
+  private JsonNode dividendRateOutput(JsonNode body) {
+    JsonNode output = body.path("output1");
+    if (output.isArray()) {
+      return output;
+    }
+    return body.path("output");
+  }
+
+  private LocalDate toDate(JsonNode node) {
+    String value = node.asText(null);
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    try {
+      return value.contains("-")
+          ? LocalDate.parse(value)
+          : LocalDate.parse(value, BASIC_DATE);
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private record KisApiResponse(JsonNode body, HttpHeaders headers) {
   }
 }

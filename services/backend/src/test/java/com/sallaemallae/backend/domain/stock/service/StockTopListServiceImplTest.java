@@ -25,6 +25,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,13 +47,17 @@ class StockTopListServiceImplTest {
   @Mock
   private WatchlistService watchlistService;
 
+  @Mock
+  private StockDividendYieldSnapshotService stockDividendYieldSnapshotService;
+
   @Test
   void getTopStocks_returnsPaginatedListAndCounts() {
     StockTopListServiceImpl service = new StockTopListServiceImpl(
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200)).willReturn(new CachedResult<>(
@@ -95,7 +100,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
@@ -119,7 +125,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     assertThatThrownBy(() -> service.getTopStocks(null, null, null, null, null, null, -1, 2))
@@ -134,7 +141,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
@@ -165,7 +173,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
@@ -194,7 +203,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     List<KisTopInterestStockItem> items = new ArrayList<>();
@@ -224,7 +234,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
@@ -251,7 +262,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
@@ -296,7 +308,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200))
@@ -344,7 +357,8 @@ class StockTopListServiceImplTest {
         cachedKisDomesticStockGateway,
         stockRepository,
         stockPriceDailyRepository,
-        watchlistService
+        watchlistService,
+        stockDividendYieldSnapshotService
     );
 
     given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200)).willReturn(new CachedResult<>(
@@ -371,6 +385,70 @@ class StockTopListServiceImplTest {
 
     assertThat(response.stocks()).hasSize(1);
     assertThat(response.stocks().getFirst().rank()).isEqualTo(2);
+  }
+
+  @Test
+  void getTopStocks_mergesDividendYieldFromSnapshot() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService,
+        stockDividendYieldSnapshotService
+    );
+
+    given(stockDividendYieldSnapshotService.getDividendYieldMap()).willReturn(Map.of("005930", 2.35f));
+    given(stockDividendYieldSnapshotService.getLatestDividendYieldByStockIds(List.of(1L))).willReturn(Map.of());
+    given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200)).willReturn(new CachedResult<>(
+        "KIS:TOP_INTEREST:J:200:V1",
+        false,
+        new KisTopInterestStockData(
+            "J",
+            OffsetDateTime.parse("2026-03-13T10:00:00+09:00"),
+            List.of(new KisTopInterestStockItem(1, "005930", "Samsung Electronics", 70000, 1500, "2", 2.2f, 100000L, 7000000000L, 70000, 69900, 321)),
+            "KIS"
+        )
+    ));
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    given(stockRepository.findAllByTickerInAndIsActiveTrue(List.of("005930")))
+        .willReturn(List.of(samsung));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "CHANGE", null, 0, 10);
+
+    assertThat(response.stocks()).hasSize(1);
+    assertThat(response.stocks().getFirst().dividendYield()).isEqualTo(2.35f);
+  }
+
+  @Test
+  void getTopStocks_prefersLatestDbDividendYieldOverRedisSnapshot() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService,
+        stockDividendYieldSnapshotService
+    );
+
+    given(stockDividendYieldSnapshotService.getDividendYieldMap()).willReturn(Map.of("005930", 2.35f));
+    given(stockDividendYieldSnapshotService.getLatestDividendYieldByStockIds(List.of(1L))).willReturn(Map.of(1L, 1.75f));
+    given(cachedKisDomesticStockGateway.getTopInterestStocks("J", 200)).willReturn(new CachedResult<>(
+        "KIS:TOP_INTEREST:J:200:V1",
+        false,
+        new KisTopInterestStockData(
+            "J",
+            OffsetDateTime.parse("2026-03-13T10:00:00+09:00"),
+            List.of(new KisTopInterestStockItem(1, "005930", "Samsung Electronics", 70000, 1500, "2", 2.2f, 100000L, 7000000000L, 70000, 69900, 321)),
+            "KIS"
+        )
+    ));
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    given(stockRepository.findAllByTickerInAndIsActiveTrue(List.of("005930")))
+        .willReturn(List.of(samsung));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "CHANGE", null, 0, 10);
+
+    assertThat(response.stocks()).hasSize(1);
+    assertThat(response.stocks().getFirst().dividendYield()).isEqualTo(1.75f);
   }
 
   private Stock stock(

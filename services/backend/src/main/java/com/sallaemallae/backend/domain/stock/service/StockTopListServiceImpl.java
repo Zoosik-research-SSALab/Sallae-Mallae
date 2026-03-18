@@ -22,6 +22,7 @@ import com.sallaemallae.backend.infra.kis.stock.KisQuoteData;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockData;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockItem;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +46,7 @@ public class StockTopListServiceImpl implements StockTopListService {
   private final StockRepository stockRepository;
   private final StockPriceDailyRepository stockPriceDailyRepository;
   private final WatchlistService watchlistService;
+  private final StockDividendYieldSnapshotService stockDividendYieldSnapshotService;
 
   @Override
   public StockListResponse getTopStocks(
@@ -58,8 +60,9 @@ public class StockTopListServiceImpl implements StockTopListService {
       Integer limit
   ) {
     StockTopListQuery query = StockTopListQuery.of(signal, sector, marketCap, sort, keyword, offset, limit);
+    Map<String, Float> dividendYieldMap = loadDividendYieldMap();
     if (query.sort() == StockTopListSupport.SortFilter.MARKET_CAP) {
-      return buildMarketCapResponse(userId, query);
+      return buildMarketCapResponse(userId, query, dividendYieldMap);
     }
 
     try {
@@ -69,10 +72,17 @@ public class StockTopListServiceImpl implements StockTopListService {
       );
       KisTopInterestStockData ranking = rankingResult.value();
       Map<String, Stock> stockMetadata = loadStockMetadata(ranking.items());
+      Map<Long, Float> dbDividendYieldByStockId = loadDbDividendYieldByStockIds(stockMetadata.values());
       Set<Long> watchlistedStockIds = loadWatchlistedStockIds(userId);
 
       List<StockTopListCandidate> candidates = ranking.items().stream()
-          .map(item -> toCandidate(item, stockMetadata.get(item.ticker()), watchlistedStockIds))
+          .map(item -> toCandidate(
+              item,
+              stockMetadata.get(item.ticker()),
+              watchlistedStockIds,
+              dbDividendYieldByStockId,
+              dividendYieldMap
+          ))
           .filter(candidate -> StockTopListSupport.matchesKeyword(candidate, query.keyword()))
           .filter(candidate -> StockTopListSupport.matchesSector(candidate, query.sector()))
           .filter(candidate -> StockTopListSupport.matchesMarketCap(candidate, query.marketCap()))
@@ -86,12 +96,16 @@ public class StockTopListServiceImpl implements StockTopListService {
       );
     } catch (KisApiException e) {
       log.warn("Failed to fetch KIS top stock list. code={}", e.getCode(), e);
-      return buildLocalFallbackResponse(userId, query);
+      return buildLocalFallbackResponse(userId, query, dividendYieldMap);
     }
   }
 
-  private StockListResponse buildMarketCapResponse(Long userId, StockTopListQuery query) {
-    List<StockTopListCandidate> candidates = buildLocalCandidates(userId);
+  private StockListResponse buildMarketCapResponse(
+      Long userId,
+      StockTopListQuery query,
+      Map<String, Float> dividendYieldMap
+  ) {
+    List<StockTopListCandidate> candidates = buildLocalCandidates(userId, dividendYieldMap);
     List<StockTopListCandidate> filtered = filterAndSortCandidates(candidates, query);
     List<StockTopListCandidate> signalFiltered = filterSignalCandidates(filtered, query);
     List<StockTopListCandidate> visibleCandidates = paginateCandidates(signalFiltered, query);
@@ -103,8 +117,12 @@ public class StockTopListServiceImpl implements StockTopListService {
     );
   }
 
-  private StockListResponse buildLocalFallbackResponse(Long userId, StockTopListQuery query) {
-    List<StockTopListCandidate> candidates = buildLocalCandidates(userId);
+  private StockListResponse buildLocalFallbackResponse(
+      Long userId,
+      StockTopListQuery query,
+      Map<String, Float> dividendYieldMap
+  ) {
+    List<StockTopListCandidate> candidates = buildLocalCandidates(userId, dividendYieldMap);
     List<StockTopListCandidate> filtered = filterAndSortCandidates(candidates, query);
     List<StockTopListCandidate> signalFiltered = filterSignalCandidates(filtered, query);
 
@@ -123,9 +141,10 @@ public class StockTopListServiceImpl implements StockTopListService {
     );
   }
 
-  private List<StockTopListCandidate> buildLocalCandidates(Long userId) {
+  private List<StockTopListCandidate> buildLocalCandidates(Long userId, Map<String, Float> dividendYieldMap) {
     List<Stock> activeStocks = loadActiveStocks();
     Map<Long, StockPriceDaily> latestDailyPrices = loadLatestDailyPrices(activeStocks);
+    Map<Long, Float> dbDividendYieldByStockId = loadDbDividendYieldByStockIds(activeStocks);
     Set<Long> watchlistedStockIds = loadWatchlistedStockIds(userId);
 
     List<StockTopListCandidate> candidates = new ArrayList<>();
@@ -148,7 +167,7 @@ public class StockTopListServiceImpl implements StockTopListService {
           fluctuationRate,
           tradingValue,
           tradingVolume,
-          null,
+          resolveDividendYield(stock.getId(), stock.getTicker(), dbDividendYieldByStockId, dividendYieldMap),
           signal,
           StockTopListSupport.resolveConfidence(sourceRank, fluctuationRate, signal),
           watchlistedStockIds.contains(stock.getId()),
@@ -244,7 +263,9 @@ public class StockTopListServiceImpl implements StockTopListService {
   private StockTopListCandidate toCandidate(
       KisTopInterestStockItem item,
       Stock stock,
-      Set<Long> watchlistedStockIds
+      Set<Long> watchlistedStockIds,
+      Map<Long, Float> dbDividendYieldByStockId,
+      Map<String, Float> dividendYieldMap
   ) {
     SectorFilter sectorFilter = resolveSectorFilter(stock, item.name());
     String sectorLabel = stock != null && stock.getGicsSector() != null && !stock.getGicsSector().isBlank()
@@ -264,7 +285,7 @@ public class StockTopListServiceImpl implements StockTopListService {
         item.fluctuationRate(),
         resolveTradingValue(item.price(), item.volume(), item.tradingValue()),
         item.volume(),
-        null,
+        resolveDividendYield(stockId, item.ticker(), dbDividendYieldByStockId, dividendYieldMap),
         signal,
         confidence,
         stockId != null && watchlistedStockIds.contains(stockId),
@@ -293,6 +314,50 @@ public class StockTopListServiceImpl implements StockTopListService {
       responseItems.add(StockTopListSupport.toResponse(candidates.get(index), offset + index + 1));
     }
     return responseItems;
+  }
+
+  private Map<String, Float> loadDividendYieldMap() {
+    try {
+      Map<String, Float> dividendYieldMap = stockDividendYieldSnapshotService.getDividendYieldMap();
+      return dividendYieldMap == null ? Map.of() : dividendYieldMap;
+    } catch (RuntimeException e) {
+      log.warn("Failed to load dividend yield snapshot for stock top list.", e);
+      return Map.of();
+    }
+  }
+
+  private Map<Long, Float> loadDbDividendYieldByStockIds(Collection<Stock> stocks) {
+    List<Long> stockIds = stocks.stream()
+        .map(Stock::getId)
+        .filter(Objects::nonNull)
+        .distinct()
+        .toList();
+    if (stockIds.isEmpty()) {
+      return Map.of();
+    }
+
+    try {
+      Map<Long, Float> dividendYieldMap = stockDividendYieldSnapshotService.getLatestDividendYieldByStockIds(stockIds);
+      return dividendYieldMap == null ? Map.of() : dividendYieldMap;
+    } catch (RuntimeException e) {
+      log.warn("Failed to load dividend yield snapshots from DB for stock top list.", e);
+      return Map.of();
+    }
+  }
+
+  private Float resolveDividendYield(
+      Long stockId,
+      String ticker,
+      Map<Long, Float> dbDividendYieldByStockId,
+      Map<String, Float> cachedDividendYieldByTicker
+  ) {
+    if (stockId != null) {
+      Float dbValue = dbDividendYieldByStockId.get(stockId);
+      if (dbValue != null) {
+        return dbValue;
+      }
+    }
+    return ticker == null ? null : cachedDividendYieldByTicker.get(ticker);
   }
 
   private List<StockTopListCandidate> enrichCandidatesWithQuotes(List<StockTopListCandidate> candidates) {
