@@ -24,7 +24,7 @@ FOLDER_SPECS: list[tuple[str, str]] = [
         "파일 형식: {ticker}.parquet\n"
         "컬럼: open, high, low, close, volume\n"
         "인덱스: date (DatetimeIndex)\n"
-        "수집 범위: 2015-01-01 ~ 현재 (코스피 200 전 종목)\n",
+        "수집 범위: 2008-01-01 ~ 현재 (코스피 200 전 종목)\n",
     ),
     (
         "raw/supply_demand",
@@ -33,12 +33,12 @@ FOLDER_SPECS: list[tuple[str, str]] = [
         "컬럼: foreign_net_buy, institution_net_buy, individual_net_buy,\n"
         "       foreign_cum_buy, institution_cum_buy\n"
         "인덱스: date (DatetimeIndex)\n"
-        "수집 범위: 2020-01-01 ~ 현재 (코스피 200 전 종목)\n",
+        "수집 범위: 2008-01-01 ~ 현재 (코스피 200 전 종목)\n",
     ),
     (
         "raw/macro",
         "원시 거시경제 데이터 저장 폴더.\n"
-        "FRED API 등에서 수집한 금리, 환율, 지수 데이터를 보관합니다.\n",
+        "yfinance, pykrx, ECOS API로 수집한 금리, 환율, 지수 데이터를 보관합니다.\n",
     ),
     (
         "raw/financial",
@@ -46,50 +46,16 @@ FOLDER_SPECS: list[tuple[str, str]] = [
         "DART API에서 수집한 종목별 재무제표 데이터를 보관합니다.\n",
     ),
     (
-        "processed/lgbm_features",
-        "LightGBM 모델용 피처 데이터 저장 폴더.\n"
-        "원시 데이터를 가공하여 생성한 테이블형 피처를 보관합니다.\n",
-    ),
-    (
-        "processed/lstm_sequences",
-        "LSTM 모델용 시퀀스 데이터 저장 폴더.\n"
-        "슬라이딩 윈도우 방식으로 생성한 시계열 시퀀스를 보관합니다.\n",
-    ),
-    (
-        "processed/garch_returns",
-        "GARCH 모델용 수익률 데이터 저장 폴더.\n"
-        "로그 수익률 및 변동성 추정치를 보관합니다.\n",
-    ),
-    (
-        "models/lgbm",
-        "LightGBM 학습 완료 모델 저장 폴더.\n"
-        "파일 형식: {ticker}_lgbm.pkl 또는 .txt\n",
-    ),
-    (
-        "models/lstm",
-        "LSTM 학습 완료 모델 저장 폴더.\n"
-        "파일 형식: {ticker}_lstm.pt 또는 .h5\n",
-    ),
-    (
-        "models/garch",
-        "GARCH 학습 완료 모델 저장 폴더.\n"
-        "파일 형식: {ticker}_garch.pkl\n",
-    ),
-    (
-        "models/meta_model",
-        "메타 모델(앙상블) 저장 폴더.\n"
-        "LightGBM / LSTM / GARCH 출력을 결합하는 상위 모델을 보관합니다.\n",
+        "processed/base_features",
+        "범용 베이스 피처 저장 폴더.\n"
+        "OHLCV + 수급 + 매크로 + 메타 피처를 결합한 base_features.parquet.\n"
+        "인덱스: MultiIndex (date, ticker)\n",
     ),
     (
         "logs/collection",
         "데이터 수집 로그 저장 폴더.\n"
         "파일 형식: YYYY-MM-DD_collection.log (일별)\n"
         "보관 기간: 90일 (자동 삭제)\n",
-    ),
-    (
-        "logs/mlflow",
-        "MLflow 실험 추적 로그 저장 폴더.\n"
-        "모델 학습 실험 결과 및 파라미터를 보관합니다.\n",
     ),
 ]
 

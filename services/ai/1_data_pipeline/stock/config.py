@@ -45,14 +45,10 @@ RAW_FUNDAMENTAL_PATH: Path = BASE_PATH / "raw" / "fundamental"
 # 가공 데이터 경로
 # ---------------------------------------------------------------------------
 PROCESSED_BASE_PATH: Path = BASE_PATH / "processed" / "base_features"
-PROCESSED_LGBM_PATH: Path = BASE_PATH / "processed" / "lgbm_features"
-PROCESSED_LSTM_PATH: Path = BASE_PATH / "processed" / "lstm_sequences"
-PROCESSED_GARCH_PATH: Path = BASE_PATH / "processed" / "garch_returns"
 
 # ---------------------------------------------------------------------------
-# 모델 / 로그 경로
+# 로그 경로
 # ---------------------------------------------------------------------------
-MODELS_PATH: Path = BASE_PATH / "models"
 LOGS_PATH: Path = BASE_PATH / "logs" / "collection"
 
 # ---------------------------------------------------------------------------
@@ -83,10 +79,12 @@ PARQUET_COMPRESSION: str = "snappy"   # Parquet 압축 방식
 RCLONE_REMOTE: str | None = os.environ.get("RCLONE_REMOTE")  # 예: "gdrive:kospi200-project"
 RCLONE_AUTO_SYNC: bool = os.environ.get("RCLONE_AUTO_SYNC", "false").lower() == "true"
 RCLONE_SYNC_DIRS: list[str] = [
-    "raw/ohlcv", "raw/supply_demand", "raw/macro", "raw/financial",
+    "raw/ohlcv", "raw/supply_demand", "raw/macro",
     "raw/universe", "raw/fundamental",
     "processed/base_features",
 ]  # rclone 동기화 대상 (subdir 단위, 다운로드·업로드 대칭)
+# raw/financial은 파일 수(13,000+)가 많아 rclone sync timeout 발생.
+# 대신 수집 시 신규 파일만 rclone copy로 개별 업로드한다 (pipeline.py 참조).
 RCLONE_TIMEOUT: int = 300          # subprocess.run timeout (초, 디렉토리당)
 RCLONE_CONTIMEOUT: str = "30s"     # rclone 연결 timeout (--contimeout)
 RCLONE_IO_TIMEOUT: str = "120s"    # rclone I/O timeout (--timeout)

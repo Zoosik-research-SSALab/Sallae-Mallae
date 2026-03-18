@@ -317,7 +317,7 @@ def collect_quarter(
     year: int,
     quarter: int,
     corp_codes: dict[str, str] | None = None,
-) -> None:
+) -> list[str]:
     """
     지정한 분기의 재무 데이터를 수집하여 Point-in-Time 파일로 저장합니다.
 
@@ -329,9 +329,12 @@ def collect_quarter(
         year: 회계연도
         quarter: 분기 (1~4)
         corp_codes: 미리 조회한 {ticker: corp_code} 딕셔너리. None이면 내부에서 조회.
+
+    Returns:
+        신규 저장된 파일명 리스트 (예: ["005930_2025Q04_20260318.parquet"])
     """
     if not _validate_dart_key():
-        return
+        return []
 
     ensure_dir(RAW_FINANCIAL_PATH)
     today_str: str = date.today().strftime("%Y%m%d")
@@ -341,9 +344,9 @@ def collect_quarter(
         corp_codes = get_dart_corp_codes(tickers)
     if not corp_codes:
         logger.error("유효한 corp_code가 없습니다. 수집을 종료합니다.")
-        return
+        return []
 
-    success_count = 0
+    saved_files: list[str] = []
     for ticker in tickers:
         corp_code = corp_codes.get(ticker)
         if not corp_code:
@@ -365,30 +368,35 @@ def collect_quarter(
             )
             continue
 
-        dest = RAW_FINANCIAL_PATH / f"{ticker}_{year}Q{quarter:02d}_{today_str}.parquet"
+        filename = f"{ticker}_{year}Q{quarter:02d}_{today_str}.parquet"
+        dest = RAW_FINANCIAL_PATH / filename
         save_parquet(df, dest, compression=PARQUET_COMPRESSION)
         logger.info("[%s] 저장 완료 -> %s", ticker, dest)
-        success_count += 1
+        saved_files.append(filename)
 
     logger.info(
         "분기 수집 완료: %dQ%d, 성공=%d/%d",
-        year, quarter, success_count, len(tickers),
+        year, quarter, len(saved_files), len(tickers),
     )
+    return saved_files
 
 
 # ---------------------------------------------------------------------------
 # 최근 N개 분기 수집
 # ---------------------------------------------------------------------------
-def collect_recent_quarters(tickers: list[str], n_quarters: int = 8) -> None:
+def collect_recent_quarters(tickers: list[str], n_quarters: int = 8) -> list[str]:
     """
     오늘 기준으로 최근 N개 분기의 재무 데이터를 수집합니다.
 
     Args:
         tickers: 수집할 종목 코드 리스트
         n_quarters: 수집할 분기 수 (기본값 8, 약 2년치)
+
+    Returns:
+        신규 저장된 파일명 리스트
     """
     if not _validate_dart_key():
-        return
+        return []
 
     # 최근 N개 분기 목록 생성 (역순: 가장 최근 분기부터)
     quarters: list[tuple[int, int]] = []
@@ -416,11 +424,15 @@ def collect_recent_quarters(tickers: list[str], n_quarters: int = 8) -> None:
     corp_codes = get_dart_corp_codes(tickers)
     if not corp_codes:
         logger.error("유효한 corp_code가 없습니다. 수집을 종료합니다.")
-        return
+        return []
 
+    all_saved: list[str] = []
     for year, quarter in quarters:
         logger.info("--- %dQ%d 수집 ---", year, quarter)
-        collect_quarter(tickers, year, quarter, corp_codes=corp_codes)
+        saved = collect_quarter(tickers, year, quarter, corp_codes=corp_codes)
+        all_saved.extend(saved)
+
+    return all_saved
 
 
 # ---------------------------------------------------------------------------
