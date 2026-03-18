@@ -134,7 +134,7 @@ def _run_step(step_name: str, cmd: list[str]) -> bool:
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=3600,  # 1시간 타임아웃
+            timeout=7200,  # 2시간 타임아웃
         )
         if result.stdout:
             for line in result.stdout.strip().split("\n")[-10:]:
@@ -148,7 +148,7 @@ def _run_step(step_name: str, cmd: list[str]) -> bool:
         logger.info("[%s] 완료", step_name)
         return True
     except subprocess.TimeoutExpired:
-        logger.error("[%s] 타임아웃 (1시간 초과)", step_name)
+        logger.error("[%s] 타임아웃 (2시간 초과)", step_name)
         return False
     except Exception as exc:
         logger.error("[%s] 실행 오류: %s", step_name, exc)
