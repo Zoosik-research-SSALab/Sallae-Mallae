@@ -12,16 +12,16 @@ export default function PortfolioStockDetailPage() {
   const stock = mockStockDetail;
 
   return (
-    <>
+    <div className="pt-10 pb-16 md:p-0">
       {/* Header: full-width, outside max-w container */}
       <StockDetailHeader
         stockName={stock.name}
         portfolioLabel={stock.portfolioLabel}
       />
 
-      <main className="w-full md:py-12 lg:py-12">
+      <main className="w-full md:py-12">
         {/* Two-column layout on desktop, single column on mobile */}
-        <div className="max-w-[1152px] px-3 mx-auto mt-6 flex flex-col gap-6 md:flex-row md:gap-8 md:items-start">
+        <div className="max-w-[1152px] px-3 mx-auto flex flex-col gap-6 md:flex-row md:gap-8 md:items-start">
           {/* Left column */}
           <div className="flex flex-col gap-10 w-full md:w-[60%]">
             {/* Stock info */}
@@ -91,6 +91,6 @@ export default function PortfolioStockDetailPage() {
           </button>
         </div>
       </main>
-    </>
+    </div>
   );
 }

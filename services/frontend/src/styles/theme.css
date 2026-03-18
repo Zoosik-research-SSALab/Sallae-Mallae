@@ -230,16 +230,24 @@
   --semantic-color-bg-info-subtle: var(--color-blue-50);
   --semantic-color-bg-disabled: var(--color-brand-secondary-200);
   --semantic-color-bg-interactive-primary: var(--color-brand-primary-600);
-  --semantic-color-bg-interactive-secondary-hovered: var(--color-brand-secondary-100);
-  --semantic-color-bg-interactive-secondary-pressed: var(--color-brand-secondary-300);
+  --semantic-color-bg-interactive-secondary-hovered: var(
+    --color-brand-secondary-100
+  );
+  --semantic-color-bg-interactive-secondary-pressed: var(
+    --color-brand-secondary-300
+  );
   --semantic-color-bg-inverse-bolder: var(--color-brand-secondary-900);
   --semantic-color-border-primary: var(--color-brand-secondary-300);
   --semantic-color-border-secondary: var(--color-brand-secondary-100);
   --semantic-color-border-base: var(--color-black);
   --semantic-color-border-disabled: var(--color-brand-secondary-400);
   --semantic-color-border-interactive-primary: var(--color-brand-primary-600);
-  --semantic-color-border-interactive-primary-pressed: var(--color-brand-primary-700);
-  --semantic-color-border-interactive-secondary: var(--color-brand-secondary-400);
+  --semantic-color-border-interactive-primary-pressed: var(
+    --color-brand-primary-700
+  );
+  --semantic-color-border-interactive-secondary: var(
+    --color-brand-secondary-400
+  );
   --semantic-color-text-base: var(--color-white);
   --semantic-color-text-base-reversed: var(--color-brand-secondary-900);
   --semantic-color-text-primary: var(--color-brand-secondary-900);
@@ -352,16 +360,26 @@
   --color-bg-info-subtle: var(--semantic-color-bg-info-subtle);
   --color-bg-disabled: var(--semantic-color-bg-disabled);
   --color-bg-interactive-primary: var(--semantic-color-bg-interactive-primary);
-  --color-bg-interactive-secondary-hovered: var(--semantic-color-bg-interactive-secondary-hovered);
-  --color-bg-interactive-secondary-pressed: var(--semantic-color-bg-interactive-secondary-pressed);
+  --color-bg-interactive-secondary-hovered: var(
+    --semantic-color-bg-interactive-secondary-hovered
+  );
+  --color-bg-interactive-secondary-pressed: var(
+    --semantic-color-bg-interactive-secondary-pressed
+  );
   --color-bg-inverse-bolder: var(--semantic-color-bg-inverse-bolder);
   --color-border-primary: var(--semantic-color-border-primary);
   --color-border-secondary: var(--semantic-color-border-secondary);
   --color-border-base: var(--semantic-color-border-base);
   --color-border-disabled: var(--semantic-color-border-disabled);
-  --color-border-interactive-primary: var(--semantic-color-border-interactive-primary);
-  --color-border-interactive-primary-pressed: var(--semantic-color-border-interactive-primary-pressed);
-  --color-border-interactive-secondary: var(--semantic-color-border-interactive-secondary);
+  --color-border-interactive-primary: var(
+    --semantic-color-border-interactive-primary
+  );
+  --color-border-interactive-primary-pressed: var(
+    --semantic-color-border-interactive-primary-pressed
+  );
+  --color-border-interactive-secondary: var(
+    --semantic-color-border-interactive-secondary
+  );
   --color-text-base: var(--semantic-color-text-base);
   --color-text-base-reversed: var(--semantic-color-text-base-reversed);
   --color-text-primary: var(--semantic-color-text-primary);
@@ -370,14 +388,24 @@
   --color-text-danger: var(--semantic-color-text-danger);
   --color-text-danger-bold: var(--semantic-color-text-danger-bold);
   --color-text-info: var(--semantic-color-text-info);
-  --color-text-interactive-primary: var(--semantic-color-text-interactive-primary);
-  --color-text-interactive-secondary: var(--semantic-color-text-interactive-secondary);
-  --color-text-interactive-inverse: var(--semantic-color-text-interactive-inverse);
+  --color-text-interactive-primary: var(
+    --semantic-color-text-interactive-primary
+  );
+  --color-text-interactive-secondary: var(
+    --semantic-color-text-interactive-secondary
+  );
+  --color-text-interactive-inverse: var(
+    --semantic-color-text-interactive-inverse
+  );
   --color-icon-primary: var(--semantic-color-icon-primary);
   --color-icon-secondary: var(--semantic-color-icon-secondary);
   --color-icon-disabled: var(--semantic-color-icon-disabled);
-  --color-icon-interactive-primary: var(--semantic-color-icon-interactive-primary);
-  --color-icon-interactive-inverse: var(--semantic-color-icon-interactive-inverse);
+  --color-icon-interactive-primary: var(
+    --semantic-color-icon-interactive-primary
+  );
+  --color-icon-interactive-inverse: var(
+    --semantic-color-icon-interactive-inverse
+  );
   --color-signal-confidence-buy: var(--semantic-color-signal-confidence-buy);
   --color-signal-confidence-sell: var(--semantic-color-signal-confidence-sell);
   --color-bg-flash-positive: var(--semantic-color-bg-flash-positive);
@@ -406,16 +434,24 @@
   --semantic-color-bg-info-subtle: var(--color-blue-800);
   --semantic-color-bg-disabled: var(--color-brand-secondary-700);
   --semantic-color-bg-interactive-primary: var(--color-brand-primary-400);
-  --semantic-color-bg-interactive-secondary-hovered: var(--color-brand-secondary-700);
-  --semantic-color-bg-interactive-secondary-pressed: var(--color-brand-secondary-600);
+  --semantic-color-bg-interactive-secondary-hovered: var(
+    --color-brand-secondary-700
+  );
+  --semantic-color-bg-interactive-secondary-pressed: var(
+    --color-brand-secondary-600
+  );
   --semantic-color-bg-inverse-bolder: var(--color-white);
   --semantic-color-border-primary: var(--color-brand-secondary-500);
   --semantic-color-border-secondary: var(--color-brand-secondary-700);
   --semantic-color-border-base: var(--color-white);
   --semantic-color-border-disabled: var(--color-brand-secondary-300);
   --semantic-color-border-interactive-primary: var(--color-brand-primary-400);
-  --semantic-color-border-interactive-primary-pressed: var(--color-brand-primary-300);
-  --semantic-color-border-interactive-secondary: var(--color-brand-secondary-500);
+  --semantic-color-border-interactive-primary-pressed: var(
+    --color-brand-primary-300
+  );
+  --semantic-color-border-interactive-secondary: var(
+    --color-brand-secondary-500
+  );
   --semantic-color-text-base: var(--color-brand-secondary-900);
   --semantic-color-text-base-reversed: var(--color-white);
   --semantic-color-text-primary: var(--color-neutral-50);
@@ -459,16 +495,24 @@
     --semantic-color-bg-info-subtle: var(--color-blue-800);
     --semantic-color-bg-disabled: var(--color-brand-secondary-700);
     --semantic-color-bg-interactive-primary: var(--color-brand-primary-400);
-    --semantic-color-bg-interactive-secondary-hovered: var(--color-brand-secondary-700);
-    --semantic-color-bg-interactive-secondary-pressed: var(--color-brand-secondary-600);
+    --semantic-color-bg-interactive-secondary-hovered: var(
+      --color-brand-secondary-700
+    );
+    --semantic-color-bg-interactive-secondary-pressed: var(
+      --color-brand-secondary-600
+    );
     --semantic-color-bg-inverse-bolder: var(--color-white);
     --semantic-color-border-primary: var(--color-brand-secondary-500);
     --semantic-color-border-secondary: var(--color-brand-secondary-700);
     --semantic-color-border-base: var(--color-white);
     --semantic-color-border-disabled: var(--color-brand-secondary-300);
     --semantic-color-border-interactive-primary: var(--color-brand-primary-400);
-    --semantic-color-border-interactive-primary-pressed: var(--color-brand-primary-300);
-    --semantic-color-border-interactive-secondary: var(--color-brand-secondary-500);
+    --semantic-color-border-interactive-primary-pressed: var(
+      --color-brand-primary-300
+    );
+    --semantic-color-border-interactive-secondary: var(
+      --color-brand-secondary-500
+    );
     --semantic-color-text-base: var(--color-brand-secondary-900);
     --semantic-color-text-base-reversed: var(--color-white);
     --semantic-color-text-primary: var(--color-neutral-50);
@@ -478,7 +522,9 @@
     --semantic-color-text-danger-bold: var(--color-red-200);
     --semantic-color-text-info: var(--color-brand-primary-200);
     --semantic-color-text-interactive-primary: var(--color-brand-primary-400);
-    --semantic-color-text-interactive-secondary: var(--color-brand-secondary-100);
+    --semantic-color-text-interactive-secondary: var(
+      --color-brand-secondary-100
+    );
     --semantic-color-text-interactive-inverse: var(--color-brand-secondary-900);
     --semantic-color-icon-primary: var(--color-neutral-50);
     --semantic-color-icon-secondary: var(--color-neutral-100);
@@ -504,7 +550,7 @@
     --semantic-heading-2xl-font-size: var(--font-size-700);
     --semantic-heading-2xl-line-height: var(--line-height-900);
 
-    --semantic-heading-3xl-font-weight: var(--font-weight-semibold);
+    --semantic-heading-3xl-font-weight: var(--font-weight-extrabold);
     --semantic-heading-3xl-font-size: var(--font-size-900);
     --semantic-heading-3xl-line-height: var(--line-height-1000);
 
