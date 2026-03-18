@@ -94,6 +94,8 @@ async def extract_keywords_batch(
         extractor = KeywordExtractor(
             backend="gemini", api_key=GMS_API_KEY, model=GMS_MODEL, base_url=GMS_API_URL
         )
+    elif backend == "vllm":
+        extractor = KeywordExtractor(backend="vllm")
     else:
         extractor = KeywordExtractor(backend=backend)
     results: dict[int, list[str]] = {}
@@ -344,7 +346,7 @@ def main():
     parser.add_argument("--delay", type=float, default=0.5, help="배치 간 딜레이 초 (기본: 0.5)")
     parser.add_argument("--limit", type=int, default=5000, help="최대 처리 건수 (기본: 5000)")
     parser.add_argument("--backend", type=str, default="keybert",
-                        choices=["keybert", "gemini", "claude", "ollama"],
+                        choices=["keybert", "gemini", "claude", "vllm"],
                         help="키워드 추출 백엔드 (기본: keybert)")
     args = parser.parse_args()
 

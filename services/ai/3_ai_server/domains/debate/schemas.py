@@ -69,7 +69,7 @@ class LgbmPredictionPayload(BaseModel):
     prob_up: float
 
 
-class LstmPredictionPayload(BaseModel):
+class TftPredictionPayload(BaseModel):
     model_version: str
     group_id: str | None = None
     prob: float
@@ -105,7 +105,7 @@ class ChartPersona(BaseModel):
     ai_ml_report: AiMlReportPayload | None = None
     ensemble_prediction: EnsemblePredictionPayload | None = None
     lgbm_prediction: LgbmPredictionPayload | None = None
-    lstm_prediction: LstmPredictionPayload | None = None
+    tft_prediction: TftPredictionPayload | None = None
     garch_prediction: GarchPredictionPayload | None = None
 
 

@@ -8,7 +8,7 @@ NLP 처리 모듈 — 키워드 추출 & 관련 종목 매칭
 
 백엔드 교체:
   - 현재: "claude" (Anthropic API, 개념적 키워드 품질 최고)
-  - 추후: "ollama" (로컬 LLM, Ollama 서버 필요)
+  - 로컬: "vllm" (vLLM 서버, OpenAI 호환 API)
 
 Usage:
     extractor = KeywordExtractor(backend="claude", api_key="sk-ant-...")
@@ -181,29 +181,47 @@ JSON 응답:"""
 # Ollama 백엔드 (로컬 LLM)
 # ──────────────────────────────────────
 
-class OllamaBackend:
+class VLLMBackend:
     """
-    로컬 Ollama LLM을 사용한 생성형 키워드 추출.
-    무료이나 Ollama 서버 실행 필요 (https://ollama.ai).
-    추천 모델: qwen2.5:7b (한국어 품질 우수)
+    로컬 vLLM 서버를 사용한 키워드 추출 (OpenAI 호환 API).
 
-    설치:
-        curl -fsSL https://ollama.ai/install.sh | sh
-        ollama pull qwen2.5:7b
-        ollama serve
+    모델: Qwen/Qwen2.5-7B-Instruct-AWQ (4bit 양자화)
+    - 백필에서 사용한 Qwen2.5-7B-Instruct 기반
+    - RTX 5060 8GB VRAM에서 FP16 원본 모델 로딩 불가 (모델 ~14GB > VRAM 8GB)
+    - AWQ 4bit 양자화로 ~4GB로 축소, --cpu-offload-gb 2로 일부 가중치를 CPU RAM으로 오프로드
+    - 디스플레이 출력(~700MB) 점유 상태에서도 8GB VRAM에서 안정 실행
+
+    실행 (WSL2 Ubuntu):
+        vllm serve Qwen/Qwen2.5-7B-Instruct-AWQ \\
+          --host 0.0.0.0 --port 8000 --max-model-len 2048 \\
+          --gpu-memory-utilization 0.85 --enforce-eager \\
+          --quantization awq --cpu-offload-gb 2
     """
+
+    _SYSTEM = (
+        "당신은 한국 주식 시장 뉴스 분석 전문가입니다. "
+        "주어진 기사에서 핵심 주제 키워드를 추출합니다."
+    )
 
     _PROMPT = """\
-한국 주식 뉴스 기사의 핵심 주제 키워드를 최대 3개만 JSON 배열로 출력하세요.
-규칙: 산업 트렌드/이슈/현상 나타내는 2~8글자 한국어 명사구, 기업명/종목명 제외.
-예시 출력: ["AI 반도체 수요", "금리 인상 우려", "실적 개선"]
+다음 뉴스 기사를 분석하여 핵심 주제 키워드를 최대 3개 추출해주세요.
+
+규칙:
+- 기업명/종목명/사람 이름은 키워드에서 반드시 제외 (해당 종목의 기업명은 이미 알고 있음)
+- 키워드는 사업/기술/이벤트/산업 트렌드를 나타내는 명사구여야 합니다
+  (좋은 예: "ESS 수주", "HBM 납품", "금리 인상", "실적 개선", "공급망 재편")
+  (나쁜 예: "삼성전자", "효성중공업", "조현준", "엔비디아")
+- 여러 기사에 공통 적용 가능한 보편적 키워드를 우선하세요
+- 2~8글자의 간결한 한국어 키프레이즈로 작성하세요
+- 쉼표로 구분하여 키워드만 출력하세요. 다른 설명은 쓰지 마세요
 
 제목: {title}
 본문: {body}
 
-JSON:"""
+키워드:"""
 
-    def __init__(self, model: str = "exaone3.5:7.8b", base_url: str = "http://localhost:11434"):
+    def __init__(self, model: str = "Qwen/Qwen2.5-7B-Instruct-AWQ",
+                 base_url: str = "http://localhost:8000"):
         self._model = model
         self._base_url = base_url.rstrip("/")
 
@@ -211,24 +229,32 @@ JSON:"""
         import aiohttp
         payload = {
             "model": self._model,
-            "prompt": self._PROMPT.format(title=title, body=body[:1500]),
-            "stream": False,
+            "messages": [
+                {"role": "system", "content": self._SYSTEM},
+                {"role": "user", "content": self._PROMPT.format(title=title, body=body[:1500])},
+            ],
+            "max_tokens": 50,
+            "temperature": 0,
         }
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{self._base_url}/api/generate",
+                    f"{self._base_url}/v1/chat/completions",
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=60),
                 ) as resp:
                     data = await resp.json()
-                    raw = data.get("response", "").strip()
+                    raw = data["choices"][0]["message"]["content"].strip()
+                    # JSON 배열 형식 시도
                     match = re.search(r'\[.*?\]', raw, re.DOTALL)
                     if match:
                         keywords = json.loads(match.group())
                         return [str(k).strip() for k in keywords[:3] if k and str(k).strip()]
+                    # 쉼표 구분 형식 파싱
+                    keywords = [k.strip().strip('"\'') for k in raw.split(",")]
+                    return [k for k in keywords[:3] if k and len(k) <= 20]
         except Exception as e:
-            logger.warning(f"Ollama 키워드 추출 실패: {e}")
+            logger.warning("vLLM 키워드 추출 실패: %s", e)
         return []
 
 
@@ -302,12 +328,12 @@ class KeywordExtractor:
     키워드 추출 + 관련 종목 매칭 메인 클래스.
 
     Args:
-        backend: "keybert" | "gemini" | "claude" | "ollama"
+        backend: "keybert" | "gemini" | "claude" | "vllm"
         **kwargs: 백엔드 초기화 파라미터
             keybert: model_name (옵션, 기본: intfloat/multilingual-e5-small)
             gemini:  api_key (필수), model (옵션), base_url (옵션)
             claude:  api_key (필수), model (옵션)
-            ollama:  model (옵션), base_url (옵션)
+            vllm:    model (옵션), base_url (옵션)
 
     Example:
         extractor = KeywordExtractor(backend="keybert")
@@ -321,10 +347,10 @@ class KeywordExtractor:
             self._backend = ClaudeBackend(**kwargs)
         elif backend == "gemini":
             self._backend = GeminiBackend(**kwargs)
-        elif backend == "ollama":
-            self._backend = OllamaBackend(**kwargs)
+        elif backend == "vllm":
+            self._backend = VLLMBackend(**kwargs)
         else:
-            raise ValueError(f"알 수 없는 백엔드: '{backend}'. 'keybert', 'gemini', 'claude', 'ollama'를 사용하세요.")
+            raise ValueError(f"알 수 없는 백엔드: '{backend}'. 'keybert', 'gemini', 'claude', 'vllm'를 사용하세요.")
         self._backend_name = backend
 
     async def extract_keywords(self, title: str, body: str) -> list[str]:

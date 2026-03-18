@@ -5,7 +5,7 @@ KOSPI 200 데이터 파이프라인 통합 실행 스크립트.
 실행 단계:
 1. Drive 폴더 구조 확인
 2. 데이터 수집 (OHLCV → 수급 → 매크로 → 재무)
-3. 피처 엔지니어링 (LightGBM → LSTM → GARCH)
+3. 베이스 피처 생성
 4. 데이터 품질 검증
 5. 완료 요약 로그
 
@@ -28,9 +28,7 @@ from datetime import datetime
 from config import (
     BASE_PATH,
     LOGS_PATH,
-    PROCESSED_GARCH_PATH,
-    PROCESSED_LGBM_PATH,
-    PROCESSED_LSTM_PATH,
+    PROCESSED_BASE_PATH,
     RAW_FINANCIAL_PATH,
     RAW_MACRO_PATH,
     RAW_OHLCV_PATH,
@@ -45,10 +43,42 @@ logger = setup_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# 재무 데이터 볼륨 상태 감지 및 자동 복구
+# ---------------------------------------------------------------------------
+
+def _ensure_financial_data() -> bool:
+    """재무 데이터 볼륨 상태를 확인하고 부족하면 Drive에서 다운로드."""
+    if not (RCLONE_AUTO_SYNC and RCLONE_REMOTE):
+        return True
+
+    from utils.drive_utils import rclone_sync_down
+
+    # 1단계: 디렉토리가 비어있으면 전체 다운로드
+    if not RAW_FINANCIAL_PATH.exists() or not any(RAW_FINANCIAL_PATH.glob("*.parquet")):
+        logger.info("재무 데이터 없음 — Drive에서 초기 다운로드")
+        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
+
+    # 2단계: OHLCV 종목 대비 커버리지 확인
+    ohlcv_tickers = {p.stem for p in RAW_OHLCV_PATH.glob("*.parquet")}
+    financial_tickers = {p.stem.split("_")[0] for p in RAW_FINANCIAL_PATH.glob("*.parquet")}
+    if not ohlcv_tickers:
+        return True  # OHLCV도 없으면 비교 불가, 스킵
+
+    missing_ratio = len(ohlcv_tickers - financial_tickers) / len(ohlcv_tickers)
+    if missing_ratio > 0.5:
+        logger.info("재무 데이터 커버리지 부족 (%.0f%% 누락) — Drive에서 보충", missing_ratio * 100)
+        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
+
+    coverage = len(financial_tickers & ohlcv_tickers) / len(ohlcv_tickers)
+    logger.info("재무 데이터 볼륨 정상 (커버리지 %.0f%%, %d종목)", coverage * 100, len(financial_tickers))
+    return True
+
+
+# ---------------------------------------------------------------------------
 # 수집 단계
 # ---------------------------------------------------------------------------
 
-def run_collection(mode: str = "incremental", use_universe: bool = False) -> bool:
+def run_collection(mode: str = "incremental", use_universe: bool = False) -> tuple[bool, list[str]]:
     """
     데이터 수집 단계를 실행합니다.
 
@@ -60,7 +90,7 @@ def run_collection(mode: str = "incremental", use_universe: bool = False) -> boo
         use_universe: True이면 유니버스 파일(편출 종목 포함)로 OHLCV 수집
 
     Returns:
-        전체 수집이 하나라도 성공하면 True, 모두 실패하면 False
+        (성공 여부, 신규 저장된 재무 파일명 리스트)
     """
     logger.info("=== 데이터 수집 시작 | mode=%s | use_universe=%s ===", mode, use_universe)
     success_count = 0
@@ -130,11 +160,12 @@ def run_collection(mode: str = "incremental", use_universe: bool = False) -> boo
         fail_count += 1
 
     # --- 재무 데이터 수집 ---
+    financial_new_files: list[str] = []
     try:
         logger.info("[수집 4/4] 재무 데이터 수집 시작")
         from collectors.collect_financial import collect_recent_quarters
-        collect_recent_quarters(tickers)
-        logger.info("[수집 4/4] 재무 데이터 수집 완료")
+        financial_new_files = collect_recent_quarters(tickers)
+        logger.info("[수집 4/4] 재무 데이터 수집 완료 (신규 %d건)", len(financial_new_files))
         success_count += 1
     except ImportError:
         logger.warning("[수집 4/4] collectors.collect_financial 모듈 없음 - 건너뜀")
@@ -147,7 +178,7 @@ def run_collection(mode: str = "incremental", use_universe: bool = False) -> boo
         "=== 데이터 수집 완료 | 성공: %d / 실패: %d ===",
         success_count, fail_count,
     )
-    return success_count > 0
+    return success_count > 0, financial_new_files
 
 
 # ---------------------------------------------------------------------------
@@ -156,77 +187,27 @@ def run_collection(mode: str = "incremental", use_universe: bool = False) -> boo
 
 def run_feature_engineering() -> bool:
     """
-    피처 엔지니어링 단계를 실행합니다.
+    베이스 피처 생성 단계를 실행합니다.
 
-    LightGBM → LSTM → GARCH 순서로 실행합니다.
-    각 모듈 실패 시 해당 항목을 건너뛰고 다음으로 진행합니다.
+    OHLCV + 수급 + 매크로 + 메타 피처를 결합하여
+    processed/base_features/base_features.parquet 로 저장합니다.
 
     Returns:
-        전체 피처 빌드가 하나라도 성공하면 True, 모두 실패하면 False
+        성공 여부
     """
-    logger.info("=== 피처 엔지니어링 시작 ===")
-    success_count = 0
-    fail_count = 0
+    logger.info("=== 베이스 피처 생성 시작 ===")
 
-    # --- 베이스 피처 ---
-    # processors.build_base_features.main() 이 OHLCV 파일 목록에서 종목을 자동 수집하여
-    # build_base_features() 를 호출하고 (date, ticker) MultiIndex로 저장합니다.
     try:
-        logger.info("[피처 1/3] 베이스 피처 빌드 시작")
         from processors.build_base_features import main as base_features_main
         base_features_main()
-        logger.info("[피처 1/3] 베이스 피처 빌드 완료")
-        success_count += 1
+        logger.info("=== 베이스 피처 생성 완료 ===")
+        return True
     except ImportError:
-        logger.warning("[피처 1/3] processors.build_base_features 모듈 없음 - 건너뜀")
-        fail_count += 1
+        logger.warning("processors.build_base_features 모듈 없음 - 건너뜀")
+        return False
     except Exception as exc:
-        logger.error("[피처 1/3] 베이스 피처 빌드 실패: %s", exc)
-        fail_count += 1
-
-    # --- LSTM 시퀀스 ---
-    # build_lstm_sequences.main() 이 OHLCV 파일 목록에서 종목을 자동 수집하여
-    # 섹터별 시퀀스를 생성하고 저장합니다.
-    try:
-        logger.info("[피처 2/3] LSTM 시퀀스 빌드 시작")
-        from features.build_lstm_sequences import main as lstm_main
-        lstm_main()
-        logger.info("[피처 2/3] LSTM 시퀀스 빌드 완료")
-        success_count += 1
-    except ImportError:
-        logger.warning("[피처 2/3] features.build_lstm_sequences 모듈 없음 - 건너뜀")
-        fail_count += 1
-    except Exception as exc:
-        logger.error("[피처 2/3] LSTM 시퀀스 빌드 실패: %s", exc)
-        fail_count += 1
-
-    # --- GARCH 수익률 ---
-    # build_garch_returns.build_all(tickers) 이 종목별 수익률 데이터를 생성합니다.
-    # 종목 목록은 RAW_OHLCV_PATH 파일 목록에서 수집합니다.
-    try:
-        logger.info("[피처 3/3] GARCH 수익률 빌드 시작")
-        from features.build_garch_returns import build_all as garch_build_all
-        garch_tickers: list[str] = []
-        if RAW_OHLCV_PATH.exists():
-            garch_tickers = [p.stem for p in sorted(RAW_OHLCV_PATH.glob("*.parquet"))]
-        if garch_tickers:
-            garch_build_all(garch_tickers)
-            logger.info("[피처 3/3] GARCH 수익률 빌드 완료 | 종목 수: %d", len(garch_tickers))
-        else:
-            logger.warning("[피처 3/3] OHLCV parquet 파일 없음 - GARCH 건너뜀")
-        success_count += 1
-    except ImportError:
-        logger.warning("[피처 3/3] features.build_garch_returns 모듈 없음 - 건너뜀")
-        fail_count += 1
-    except Exception as exc:
-        logger.error("[피처 3/3] GARCH 수익률 빌드 실패: %s", exc)
-        fail_count += 1
-
-    logger.info(
-        "=== 피처 엔지니어링 완료 | 성공: %d / 실패: %d ===",
-        success_count, fail_count,
-    )
-    return success_count > 0
+        logger.error("베이스 피처 생성 실패: %s", exc)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -273,9 +254,7 @@ def _check_drive_structure() -> None:
         RAW_SUPPLY_PATH,
         RAW_MACRO_PATH,
         RAW_FINANCIAL_PATH,
-        PROCESSED_LGBM_PATH,
-        PROCESSED_LSTM_PATH,
-        PROCESSED_GARCH_PATH,
+        PROCESSED_BASE_PATH,
         LOGS_PATH,
     ]
 
@@ -307,6 +286,7 @@ def run_full_pipeline(
     skip_features: bool = False,
     skip_validation: bool = False,
     use_universe: bool = False,
+    ensure_financial: bool = False,
 ) -> None:
     """
     전체 데이터 파이프라인을 실행합니다.
@@ -326,6 +306,7 @@ def run_full_pipeline(
         skip_features:   True 이면 피처 엔지니어링 건너뜀
         skip_validation: True 이면 품질 검증 건너뜀
         use_universe:    True 이면 유니버스 파일(편출 종목 포함)로 OHLCV 수집
+        ensure_financial: True 이면 rclone DOWN 단계 후 재무 데이터 볼륨 확인
     """
     pipeline_start = time.monotonic()
     start_dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -356,6 +337,15 @@ def run_full_pipeline(
     else:
         step_results["rclone_down"] = "SKIPPED"
 
+    # 0-1. 재무 데이터 볼륨 상태 확인 (--ensure-financial 지정 시)
+    if ensure_financial:
+        try:
+            _ensure_financial_data()
+            step_results["ensure_financial"] = "OK"
+        except Exception as exc:
+            logger.error("재무 데이터 확인 실패: %s", exc)
+            step_results["ensure_financial"] = f"FAIL: {exc}"
+
     # 1. Drive 폴더 구조 확인
     try:
         _check_drive_structure()
@@ -365,8 +355,9 @@ def run_full_pipeline(
         step_results["drive_check"] = f"FAIL: {exc}"
 
     # 2. 데이터 수집
+    financial_new_files: list[str] = []
     try:
-        collection_ok = run_collection(mode=mode, use_universe=use_universe)
+        collection_ok, financial_new_files = run_collection(mode=mode, use_universe=use_universe)
         step_results["collection"] = "OK" if collection_ok else "PARTIAL"
     except Exception as exc:
         logger.error("수집 단계 예외: %s", exc)
@@ -402,7 +393,7 @@ def run_full_pipeline(
 
     # 5. rclone 업로드 동기화 (로컬 → Drive, 대상 디렉토리만)
     if RCLONE_AUTO_SYNC and RCLONE_REMOTE:
-        from utils.drive_utils import rclone_sync_up
+        from utils.drive_utils import rclone_copy_file, rclone_sync_up
         failed = []
         for subdir in RCLONE_SYNC_DIRS:
             logger.info("rclone 업로드: %s → %s/%s", BASE_PATH / subdir, RCLONE_REMOTE, subdir)
@@ -412,6 +403,24 @@ def run_full_pipeline(
             except Exception as exc:
                 logger.error("rclone 업로드 실패 (%s): %s", subdir, exc)
                 failed.append(subdir)
+
+        # 재무 데이터: 신규 파일만 개별 copy (rclone sync 대신)
+        if financial_new_files:
+            fin_remote = f"{RCLONE_REMOTE}/raw/financial"
+            fin_ok = 0
+            fin_fail = 0
+            for filename in financial_new_files:
+                filepath = RAW_FINANCIAL_PATH / filename
+                if rclone_copy_file(filepath, fin_remote):
+                    fin_ok += 1
+                else:
+                    fin_fail += 1
+            logger.info(
+                "재무 데이터 개별 업로드: 성공=%d / 실패=%d", fin_ok, fin_fail,
+            )
+            if fin_fail > 0:
+                failed.append("raw/financial (일부)")
+
         if failed:
             step_results["rclone_up"] = f"PARTIAL (실패: {', '.join(failed)})"
         else:
@@ -485,6 +494,11 @@ def main() -> None:
         action="store_true",
         help="유니버스 파일(편출 종목 포함)로 OHLCV 수집 (생존편향 해결)",
     )
+    parser.add_argument(
+        "--ensure-financial",
+        action="store_true",
+        help="재무 데이터 볼륨 상태를 확인하고 부족하면 Drive에서 다운로드합니다",
+    )
     args = parser.parse_args()
 
     run_full_pipeline(
@@ -492,6 +506,7 @@ def main() -> None:
         skip_features=args.skip_features,
         skip_validation=args.skip_validation,
         use_universe=args.use_universe,
+        ensure_financial=args.ensure_financial,
     )
 
 

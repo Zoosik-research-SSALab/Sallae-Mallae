@@ -246,6 +246,10 @@ def _startup_sync_down() -> None:
             logger.info("초기 동기화 다운로드: %s/%s", RCLONE_REMOTE, subdir)
             rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir=subdir)
         logger.info("초기 동기화 다운로드 완료")
+
+        # 재무 데이터 볼륨 상태 자동 확인
+        from pipeline import _ensure_financial_data
+        _ensure_financial_data()
     except Exception as exc:
         logger.error("초기 동기화 실패: %s", exc)
 
