@@ -92,6 +92,39 @@ async def _fetch_html(session: aiohttp.ClientSession, url: str) -> str | None:
     return None
 
 
+def _extract_date_from_soup(soup: BeautifulSoup) -> datetime | None:
+    """BeautifulSoup 객체에서 날짜를 추출하는 공통 로직."""
+    # 1. n.news.naver.com 셀렉터 (data-date-time 속성 우선)
+    for sel in ["span.media_end_head_info_datestamp_time", "span._ARTICLE_DATE_TIME"]:
+        el = soup.select_one(sel)
+        if el:
+            dt_attr = el.get("data-date-time") or el.get("data-modify-date-time")
+            if dt_attr:
+                parsed = _parse_date(dt_attr)
+                if parsed:
+                    return parsed
+            parsed = _parse_date(el.get_text(strip=True))
+            if parsed:
+                return parsed
+
+    # 2. finance.naver.com 셀렉터
+    date_tag = soup.select_one(".article_info .date") or soup.select_one("span.tah")
+    if date_tag:
+        parsed = _parse_date(date_tag.get_text(strip=True))
+        if parsed:
+            return parsed
+
+    # 3. 날짜 패턴이 있는 태그 탐색
+    for tag in soup.select("dd, span, em, time"):
+        text = tag.get_text(strip=True)
+        if re.match(r"\d{4}[.\-]", text):
+            parsed = _parse_date(text)
+            if parsed:
+                return parsed
+
+    return None
+
+
 async def extract_date_from_url(
     http_session: aiohttp.ClientSession,
     semaphore: asyncio.Semaphore,
@@ -99,55 +132,44 @@ async def extract_date_from_url(
 ) -> datetime | None:
     """기사 URL에서 발행일을 추출한다."""
     async with semaphore:
-        # 1차: 네이버 금융 뉴스 페이지에서 날짜 추출
+        # 1차: URL 직접 접속
         html = await _fetch_html(http_session, url)
-        if not html:
-            return None
+        if html:
+            soup = BeautifulSoup(html, "lxml")
+            result = _extract_date_from_soup(soup)
+            if result:
+                return result
 
-        soup = BeautifulSoup(html, "lxml")
+            # 리다이렉트 링크 따라가기 (finance.naver.com → 원본 기사)
+            redirect_link = soup.select_one("a.link_news_t") or soup.select_one("a#scrollDiv")
+            if redirect_link and redirect_link.get("href"):
+                html2 = await _fetch_html(http_session, redirect_link.get("href"))
+                if html2:
+                    result = _extract_date_from_soup(BeautifulSoup(html2, "lxml"))
+                    if result:
+                        return result
 
-        # 네이버 금융 뉴스 페이지 날짜 위치들
-        date_tag = soup.select_one(".article_info .date") or soup.select_one("span.tah")
-        if date_tag:
-            parsed = _parse_date(date_tag.get_text(strip=True))
-            if parsed:
-                return parsed
-
-        # dd 태그 내 날짜 패턴 탐색 (네이버 금융 상세)
-        for dd in soup.select("dd, span, em"):
-            text = dd.get_text(strip=True)
-            if re.match(r"\d{4}[.\-]", text):
-                parsed = _parse_date(text)
-                if parsed:
-                    return parsed
-
-        # 2차: 원본 기사 페이지로 이동하여 날짜 추출
+        # 2차: URL에서 oid/aid 추출하여 n.news.naver.com으로 재구성
         parsed_url = urlparse(url)
+
+        # 쿼리파라미터 방식: ?office_id=022&article_id=0004108254
         qs = parse_qs(parsed_url.query)
         oid = qs.get("office_id", qs.get("oid", [None]))[0]
         aid = qs.get("article_id", qs.get("aid", [None]))[0]
 
-        if oid and aid:
+        # 경로 방식: /mnews/article/022/0004108254
+        if not oid or not aid:
+            path_match = re.search(r"/article/(\d+)/(\d+)", parsed_url.path)
+            if path_match:
+                oid, aid = path_match.group(1), path_match.group(2)
+
+        if oid and aid and "n.news.naver.com" not in url:
             direct_url = f"https://n.news.naver.com/mnews/article/{oid}/{aid}"
-            html2 = await _fetch_html(http_session, direct_url)
-            if html2:
-                soup2 = BeautifulSoup(html2, "lxml")
-                # 네이버 뉴스 발행일
-                date_el = (
-                    soup2.select_one("span.media_end_head_info_datestamp_time")
-                    or soup2.select_one("span._ARTICLE_DATE_TIME")
-                    or soup2.select_one(".article_info .date")
-                )
-                if date_el:
-                    # data-date-time 속성 우선
-                    dt_attr = date_el.get("data-date-time") or date_el.get("data-modify-date-time")
-                    if dt_attr:
-                        parsed = _parse_date(dt_attr)
-                        if parsed:
-                            return parsed
-                    parsed = _parse_date(date_el.get_text(strip=True))
-                    if parsed:
-                        return parsed
+            html3 = await _fetch_html(http_session, direct_url)
+            if html3:
+                result = _extract_date_from_soup(BeautifulSoup(html3, "lxml"))
+                if result:
+                    return result
 
         await asyncio.sleep(REQUEST_DELAY)
         return None
