@@ -61,8 +61,8 @@ public class StockTopListServiceImpl implements StockTopListService {
   ) {
     StockTopListQuery query = StockTopListQuery.of(signal, sector, marketCap, sort, keyword, offset, limit);
     Map<String, Float> dividendYieldMap = loadDividendYieldMap();
-    if (query.sort() == StockTopListSupport.SortFilter.MARKET_CAP) {
-      return buildMarketCapResponse(userId, query, dividendYieldMap);
+    if (query.sort().usesLocalUniverse()) {
+      return buildLocalUniverseResponse(userId, query, dividendYieldMap);
     }
 
     try {
@@ -100,7 +100,7 @@ public class StockTopListServiceImpl implements StockTopListService {
     }
   }
 
-  private StockListResponse buildMarketCapResponse(
+  private StockListResponse buildLocalUniverseResponse(
       Long userId,
       StockTopListQuery query,
       Map<String, Float> dividendYieldMap
@@ -108,10 +108,14 @@ public class StockTopListServiceImpl implements StockTopListService {
     List<StockTopListCandidate> candidates = buildLocalCandidates(userId, dividendYieldMap);
     List<StockTopListCandidate> filtered = filterAndSortCandidates(candidates, query);
     List<StockTopListCandidate> signalFiltered = filterSignalCandidates(filtered, query);
+    List<StockTopListCandidate> visibleCandidates = paginateCandidates(signalFiltered, query);
+    List<StockTopListCandidate> responseCandidates = query.sort().requiresVisibleQuoteEnrichment()
+        ? enrichCandidatesWithQuotes(visibleCandidates)
+        : visibleCandidates;
 
     return new StockListResponse(
         StockTopListSupport.countSignals(filtered),
-        toResponses(paginateCandidates(signalFiltered, query), query.offset())
+        toResponses(responseCandidates, query.offset())
     );
   }
 

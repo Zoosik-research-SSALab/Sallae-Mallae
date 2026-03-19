@@ -257,6 +257,138 @@ class StockTopListServiceImplTest {
   }
 
   @Test
+  void getTopStocks_sortsByTradingValueFromLocalUniverse() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService,
+        stockDividendYieldSnapshotService
+    );
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    StockPriceDaily samsungPrice = dailyPrice(1L, 70_300, 2.15f, 1_000_000L);
+    StockPriceDaily naverPrice = dailyPrice(2L, 200_000, 0.30f, 500_000L);
+    StockPriceDaily hynixPrice = dailyPrice(3L, 182_000, -1.75f, 700_000L);
+
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(2L, 1L, 3L)))
+        .willReturn(List.of(samsungPrice, naverPrice, hynixPrice));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "TRADING_VALUE", null, 0, 3);
+
+    assertThat(response.stocks()).extracting(item -> item.ticker()).containsExactly("000660", "035420", "005930");
+    assertThat(response.stocks()).extracting(item -> item.tradingValue())
+        .containsExactly(127_400_000_000L, 100_000_000_000L, 70_300_000_000L);
+    verifyNoInteractions(cachedKisDomesticStockGateway);
+  }
+
+  @Test
+  void getTopStocks_sortsByTradingVolumeFromLocalUniverse() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService,
+        stockDividendYieldSnapshotService
+    );
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    StockPriceDaily samsungPrice = dailyPrice(1L, 70_300, 2.15f, 1_000_000L);
+    StockPriceDaily naverPrice = dailyPrice(2L, 200_000, 0.30f, 500_000L);
+    StockPriceDaily hynixPrice = dailyPrice(3L, 182_000, -1.75f, 700_000L);
+
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(2L, 1L, 3L)))
+        .willReturn(List.of(samsungPrice, naverPrice, hynixPrice));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "TRADING_VOLUME", null, 0, 3);
+
+    assertThat(response.stocks()).extracting(item -> item.ticker()).containsExactly("005930", "000660", "035420");
+    assertThat(response.stocks()).extracting(item -> item.tradingVolume())
+        .containsExactly(1_000_000L, 700_000L, 500_000L);
+    verifyNoInteractions(cachedKisDomesticStockGateway);
+  }
+
+  @Test
+  void getTopStocks_sortsByDividendYieldFromLocalUniverse() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService,
+        stockDividendYieldSnapshotService
+    );
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    StockPriceDaily samsungPrice = dailyPrice(1L, 70_300, 2.15f, 1_000_000L);
+    StockPriceDaily naverPrice = dailyPrice(2L, 200_000, 0.30f, 500_000L);
+    StockPriceDaily hynixPrice = dailyPrice(3L, 182_000, -1.75f, 700_000L);
+
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(2L, 1L, 3L)))
+        .willReturn(List.of(samsungPrice, naverPrice, hynixPrice));
+    given(stockDividendYieldSnapshotService.getLatestDividendYieldByStockIds(List.of(2L, 1L, 3L)))
+        .willReturn(Map.of(1L, 2.35f, 2L, 1.1f, 3L, 3.2f));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "DIVIDEND_YIELD", null, 0, 3);
+
+    assertThat(response.stocks()).extracting(item -> item.ticker()).containsExactly("000660", "005930", "035420");
+    assertThat(response.stocks()).extracting(item -> item.dividendYield())
+        .containsExactly(3.2f, 2.35f, 1.1f);
+    verifyNoInteractions(cachedKisDomesticStockGateway);
+  }
+
+  @Test
+  void getTopStocks_enrichesTradingValuePageWithKisQuotesWhenDailyPriceMissing() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService,
+        stockDividendYieldSnapshotService
+    );
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(1L))).willReturn(List.of());
+    given(cachedKisDomesticStockGateway.getQuote("J", "005930"))
+        .willReturn(new CachedResult<>(
+            "KIS:QUOTE:J:005930:V1",
+            false,
+            new KisQuoteData(
+                "J",
+                "005930",
+                "Samsung Electronics",
+                70300,
+                68900,
+                1400,
+                2.03f,
+                70000,
+                70500,
+                69800,
+                1_000_000L,
+                OffsetDateTime.now(ZoneId.of("Asia/Seoul")),
+                "KIS"
+            )
+        ));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "TRADING_VALUE", null, 0, 30);
+
+    assertThat(response.stocks()).hasSize(1);
+    assertThat(response.stocks().getFirst().price()).isEqualTo(70300);
+    assertThat(response.stocks().getFirst().fluctuationRate()).isEqualTo(2.03f);
+    assertThat(response.stocks().getFirst().tradingVolume()).isEqualTo(1_000_000L);
+    assertThat(response.stocks().getFirst().tradingValue()).isEqualTo(70_300_000_000L);
+  }
+
+  @Test
   void getTopStocks_doesNotQuoteEnrichMarketCapResultsWhenDailyPriceIsMissing() {
     StockTopListServiceImpl service = new StockTopListServiceImpl(
         cachedKisDomesticStockGateway,
