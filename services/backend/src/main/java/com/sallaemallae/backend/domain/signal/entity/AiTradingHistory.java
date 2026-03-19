@@ -33,6 +33,9 @@ public class AiTradingHistory {
   @Column(name = "ml_report_id")
   private Long mlReportId;
 
+  @Column(name = "debate_report_id")
+  private Long debateReportId;
+
   @Column(name = "model_version", length = 20)
   private String modelVersion;
 

@@ -15,18 +15,18 @@ public class MainStockQueryRepository {
 
     private final EntityManager entityManager;
 
-    /** ML confidence 상위 10종목 조회 (최근 거래일 기준) */
+    /** 의장 confidence 상위 10종목 조회 (최근 거래일 기준) */
     public List<TopStockItemResponse> getTopTenStocksToday() {
         String sql = """
             SELECT s.id AS stock_id, s.name AS stock_name,
                    sp.close_price, sp.fluctuation_rate,
-                   r.ml_signal, r.ml_confidence
+                   r.chairman_signal, r.debate_confidence
             FROM stocks s
             JOIN LATERAL (
-                SELECT ml_signal, ml_confidence
-                FROM ai_ml_reports
+                SELECT chairman_signal, debate_confidence
+                FROM ai_debate_reports
                 WHERE stock_id = s.id
-                  AND report_date = (SELECT MAX(report_date) FROM ai_ml_reports WHERE report_date <= CURRENT_DATE)
+                  AND report_date = (SELECT MAX(report_date) FROM ai_debate_reports WHERE report_date <= CURRENT_DATE)
                 ORDER BY created_at DESC LIMIT 1
             ) r ON true
             JOIN LATERAL (
@@ -37,7 +37,7 @@ public class MainStockQueryRepository {
                 LIMIT 1
             ) sp ON true
             WHERE s.is_active = true
-            ORDER BY r.ml_confidence DESC
+            ORDER BY r.debate_confidence DESC
             LIMIT 10
             """;
 
@@ -51,8 +51,8 @@ public class MainStockQueryRepository {
                 row.get("stock_name", String.class),
                 row.get("close_price", Number.class).intValue(),
                 toFloat(row.get("fluctuation_rate", Number.class)),
-                row.get("ml_signal", String.class),
-                toPercentInt(row.get("ml_confidence", Number.class))
+                row.get("chairman_signal", String.class),
+                toPercentInt(row.get("debate_confidence", Number.class))
             ));
         }
         return items;
@@ -94,10 +94,10 @@ public class MainStockQueryRepository {
     private List<NewSignalItemResponse> getSignalsByType(String tradeType) {
         String sql = """
             SELECT s.id AS stock_id, s.ticker, s.name AS stock_name,
-                   r.ml_confidence, sp.close_price, sp.fluctuation_rate
+                   r.debate_confidence, sp.close_price, sp.fluctuation_rate
             FROM ai_trading_history h
             JOIN stocks s ON s.id = h.stock_id
-            LEFT JOIN ai_ml_reports r ON r.id = h.ml_report_id
+            LEFT JOIN ai_debate_reports r ON r.id = h.debate_report_id
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
                 FROM stock_prices_daily
@@ -111,7 +111,7 @@ public class MainStockQueryRepository {
                 WHERE trade_time <= CURRENT_TIMESTAMP
             )
               AND h.trade_type = :tradeType
-            ORDER BY r.ml_confidence DESC NULLS LAST
+            ORDER BY r.debate_confidence DESC NULLS LAST
             LIMIT 3
             """;
 
@@ -125,7 +125,7 @@ public class MainStockQueryRepository {
                 row.get("stock_id", Number.class).longValue(),
                 row.get("ticker", String.class),
                 row.get("stock_name", String.class),
-                toPercentInt(row.get("ml_confidence", Number.class)),
+                toPercentInt(row.get("debate_confidence", Number.class)),
                 row.get("close_price", Number.class).intValue(),
                 toFloat(row.get("fluctuation_rate", Number.class))
             ));

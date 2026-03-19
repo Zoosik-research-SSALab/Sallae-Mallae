@@ -22,16 +22,16 @@ public class SignalQueryRepository {
     String sql = """
         WITH latest_report_date AS (
             SELECT MAX(report_date) AS report_date
-            FROM ai_ml_reports
+            FROM ai_debate_reports
             WHERE report_date <= CURRENT_DATE
         ),
         latest_reports AS (
             SELECT DISTINCT ON (r.stock_id)
                    r.stock_id,
-                   r.ml_signal,
-                   r.ml_confidence,
+                   r.chairman_signal AS signal,
+                   r.debate_confidence AS confidence,
                    r.created_at
-            FROM ai_ml_reports r
+            FROM ai_debate_reports r
             JOIN latest_report_date d ON r.report_date = d.report_date
             ORDER BY r.stock_id, r.created_at DESC, r.id DESC
         )
@@ -40,8 +40,8 @@ public class SignalQueryRepository {
                s.name,
                p.close_price,
                p.fluctuation_rate,
-               lr.ml_signal,
-               lr.ml_confidence,
+               lr.signal,
+               lr.confidence,
                lr.created_at
         FROM latest_reports lr
         JOIN stocks s ON s.id = lr.stock_id
@@ -54,7 +54,7 @@ public class SignalQueryRepository {
             LIMIT 1
         ) p ON true
         WHERE s.is_active = true
-          AND lr.ml_signal IN ('BUY', 'SELL')
+          AND lr.signal IN ('BUY', 'SELL')
         """;
 
     List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class).getResultList();
@@ -66,8 +66,8 @@ public class SignalQueryRepository {
           row.get("name", String.class),
           toInteger(row.get("close_price")),
           toFloat(row.get("fluctuation_rate")),
-          row.get("ml_signal", String.class),
-          toFloat(row.get("ml_confidence")),
+          row.get("signal", String.class),
+          toFloat(row.get("confidence")),
           toOffsetDateTime(row.get("created_at"))
       ));
     }
