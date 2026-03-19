@@ -96,6 +96,13 @@ export type SignupAgreement = {
   agreed: boolean;
 };
 
+export type SocialPolicyRequest = {
+  tempToken: string;
+  nickname: string;
+  emailOptIn: boolean;
+  agreements: SignupAgreement[];
+};
+
 export type EmailSignupRequest = {
   verificationToken: string;
   email: string;

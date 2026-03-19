@@ -16,6 +16,10 @@ function normalizeBaseUrl(value: string) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
+function normalizeOrigin(value: string) {
+  return normalizeBaseUrl(value.trim());
+}
+
 function joinBaseUrl(baseUrl: string, path: string) {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -36,6 +40,35 @@ export function getAuthApiBaseUrl() {
   return normalizeBaseUrl(configured);
 }
 
+export function getPublicAppOrigin(request: NextRequest) {
+  const explicitOrigin =
+    process.env.APP_ORIGIN?.trim() ||
+    process.env.NEXT_PUBLIC_APP_ORIGIN?.trim();
+
+  if (explicitOrigin) {
+    return normalizeOrigin(explicitOrigin);
+  }
+
+  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
+  const hostHeader = request.headers.get("host")?.trim();
+  const protocolHeader = request.headers.get("x-forwarded-proto")?.trim();
+
+  const host = forwardedHost || hostHeader;
+  const protocol = protocolHeader || request.nextUrl.protocol.replace(/:$/, "") || "http";
+
+  if (host) {
+    const normalizedHost = process.env.NODE_ENV === "development" ? host.replace(/^0\.0\.0\.0(?=[:/]|$)/, "localhost") : host;
+    return `${protocol}://${normalizedHost}`;
+  }
+
+  const fallbackUrl = new URL(request.url);
+  if (process.env.NODE_ENV === "development" && fallbackUrl.hostname === "0.0.0.0") {
+    fallbackUrl.hostname = "localhost";
+  }
+
+  return normalizeOrigin(fallbackUrl.origin);
+}
+
 export function resolveAuthApiUrl(path: string) {
   return joinBaseUrl(getAuthApiBaseUrl(), path);
 }
@@ -49,7 +82,15 @@ export function resolveAuthRedirectUrl(redirect: string) {
 }
 
 export function getOrCreateDeviceId(request: NextRequest): DeviceIdState {
+  const headerDeviceId = request.headers.get("x-device-id")?.trim();
   const existingDeviceId = request.cookies.get(AUTH_DEVICE_COOKIE_NAME)?.value;
+
+  if (headerDeviceId) {
+    return {
+      value: headerDeviceId,
+      isNew: existingDeviceId !== headerDeviceId,
+    };
+  }
 
   if (existingDeviceId) {
     return {

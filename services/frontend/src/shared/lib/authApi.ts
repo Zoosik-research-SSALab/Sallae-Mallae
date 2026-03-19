@@ -4,16 +4,18 @@ import { apiFetch } from "@/shared/lib/apiClient";
 import type {
   AuthProvider,
   CheckEmailResponse,
-  EmailSignupRequest,
   EmailLoginRequest,
+  EmailSignupRequest,
   LoginSuccessResponse,
   MeResponse,
+  OAuthStartResponse,
   RefreshResponse,
   SendEmailCodeRequest,
   SendEmailCodeResponse,
   SignupSuccessResponse,
   SocialCallbackRequest,
   SocialLoginResponse,
+  SocialPolicyRequest,
   VerifyEmailCodeRequest,
   VerifyEmailCodeResponse,
 } from "@/shared/types/auth";
@@ -43,6 +45,12 @@ function unwrapAuthApiResponse<T>(payload: T | AuthApiEnvelope<T>, fallbackMessa
   return payload;
 }
 
+function createDeviceIdHeader() {
+  return {
+    "X-Device-Id": getOrCreateAuthDeviceId(),
+  };
+}
+
 export async function loginWithEmail(body: EmailLoginRequest) {
   const payload = await apiFetch<LoginSuccessResponse | AuthApiEnvelope<LoginSuccessResponse>, EmailLoginRequest>(
     "/api/auth/login",
@@ -51,14 +59,25 @@ export async function loginWithEmail(body: EmailLoginRequest) {
       useBaseUrl: false,
       body,
       credentials: "include",
+      headers: createDeviceIdHeader(),
     },
   );
 
-  return unwrapAuthApiResponse(payload, "로그인 응답 형식이 올바르지 않습니다.");
+  return unwrapAuthApiResponse(payload, "Login response is invalid.");
 }
 
-export function getSocialLoginStartPath(provider: AuthProvider) {
-  return `/api/auth/oauth/${provider}/start`;
+export async function requestSocialLoginStart(provider: AuthProvider) {
+  const payload = await apiFetch<OAuthStartResponse | AuthApiEnvelope<OAuthStartResponse>>(
+    `/api/auth/oauth/${provider}/start`,
+    {
+      method: "GET",
+      useBaseUrl: false,
+      credentials: "include",
+      headers: createDeviceIdHeader(),
+    },
+  );
+
+  return unwrapAuthApiResponse(payload, "OAuth start response is invalid.");
 }
 
 export async function completeSocialLogin(provider: AuthProvider, body: SocialCallbackRequest) {
@@ -69,10 +88,26 @@ export async function completeSocialLogin(provider: AuthProvider, body: SocialCa
       useBaseUrl: false,
       body,
       credentials: "include",
+      headers: createDeviceIdHeader(),
     },
   );
 
-  return unwrapAuthApiResponse(payload, "소셜 로그인 응답 형식이 올바르지 않습니다.");
+  return unwrapAuthApiResponse(payload, "Social login response is invalid.");
+}
+
+export async function completeSocialSignup(body: SocialPolicyRequest) {
+  const payload = await apiFetch<LoginSuccessResponse | AuthApiEnvelope<LoginSuccessResponse>, SocialPolicyRequest>(
+    "/api/auth/policy",
+    {
+      method: "POST",
+      useBaseUrl: false,
+      body,
+      credentials: "include",
+      headers: createDeviceIdHeader(),
+    },
+  );
+
+  return unwrapAuthApiResponse(payload, "Social signup completion response is invalid.");
 }
 
 export async function refreshAccessToken() {
@@ -82,11 +117,11 @@ export async function refreshAccessToken() {
     credentials: "include",
   });
 
-  const unwrapped = unwrapAuthApiResponse(payload, "토큰 갱신 응답 형식이 올바르지 않습니다.");
-
+  const unwrapped = unwrapAuthApiResponse(payload, "Refresh response is invalid.");
   const tokens = extractAuthTokens(unwrapped);
+
   if (!tokens) {
-    throw new Error("토큰 갱신 응답 형식이 올바르지 않습니다.");
+    throw new Error("Refresh response is invalid.");
   }
 
   return tokens;
@@ -105,11 +140,11 @@ export async function getMe(accessToken?: string) {
       : undefined,
   });
 
-  const unwrapped = unwrapAuthApiResponse(payload, "사용자 정보 응답 형식이 올바르지 않습니다.");
-
+  const unwrapped = unwrapAuthApiResponse(payload, "Me response is invalid.");
   const user = extractMeResponse(unwrapped);
+
   if (!user) {
-    throw new Error("사용자 정보 응답 형식이 올바르지 않습니다.");
+    throw new Error("Me response is invalid.");
   }
 
   return user;
@@ -132,7 +167,7 @@ export async function checkEmailAvailability(email: string) {
     },
   );
 
-  return unwrapAuthApiResponse(payload, "이메일 중복 확인 응답 형식이 올바르지 않습니다.");
+  return unwrapAuthApiResponse(payload, "Email availability response is invalid.");
 }
 
 export async function sendEmailCode(body: SendEmailCodeRequest) {
@@ -141,13 +176,11 @@ export async function sendEmailCode(body: SendEmailCodeRequest) {
     {
       method: "POST",
       body,
-      headers: {
-        "X-Device-Id": getOrCreateAuthDeviceId(),
-      },
+      headers: createDeviceIdHeader(),
     },
   );
 
-  return unwrapAuthApiResponse(payload, "인증코드 발송 응답 형식이 올바르지 않습니다.");
+  return unwrapAuthApiResponse(payload, "Send code response is invalid.");
 }
 
 export async function verifyEmailCode(body: VerifyEmailCodeRequest) {
@@ -157,12 +190,10 @@ export async function verifyEmailCode(body: VerifyEmailCodeRequest) {
   >("/api/auth/email/verify-code", {
     method: "POST",
     body,
-    headers: {
-      "X-Device-Id": getOrCreateAuthDeviceId(),
-    },
+    headers: createDeviceIdHeader(),
   });
 
-  return unwrapAuthApiResponse(payload, "이메일 인증 응답 형식이 올바르지 않습니다.");
+  return unwrapAuthApiResponse(payload, "Verify code response is invalid.");
 }
 
 export async function signupWithEmail(body: EmailSignupRequest) {
@@ -172,13 +203,11 @@ export async function signupWithEmail(body: EmailSignupRequest) {
       method: "POST",
       body,
       credentials: "include",
-      headers: {
-        "X-Device-Id": getOrCreateAuthDeviceId(),
-      },
+      headers: createDeviceIdHeader(),
     },
   );
 
-  return unwrapAuthApiResponse(payload, "회원가입 응답 형식이 올바르지 않습니다.");
+  return unwrapAuthApiResponse(payload, "Signup response is invalid.");
 }
 
 export async function restoreAuthSession() {

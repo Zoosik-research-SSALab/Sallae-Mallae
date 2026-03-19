@@ -6,8 +6,9 @@ import { FcGoogle } from "react-icons/fc";
 import { SiNaver } from "react-icons/si";
 import SignupCard from "@/app/auth/signup/components/SignupCard";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
-import { getSocialLoginStartPath, loginWithEmail } from "@/shared/lib/authApi";
+import { loginWithEmail } from "@/shared/lib/authApi";
 import { writeAuthPersistenceMode } from "@/shared/lib/authPersistence";
+import { startSocialLogin } from "@/shared/lib/socialAuth";
 import { useAuthStore } from "@/shared/lib/authStore";
 import Button from "@/shared/ui/Button";
 import Input from "@/shared/ui/Input";
@@ -105,13 +106,19 @@ export function LoginCard({ showCloseButton = false, onClose, onAuthenticated, o
     }
   };
 
-  const handleProviderLogin = (provider: AuthProvider) => {
+  const handleProviderLogin = async (provider: AuthProvider) => {
     if (activeAction) {
       return;
     }
 
     setActiveAction(provider);
-    window.location.assign(getSocialLoginStartPath(provider));
+
+    try {
+      await startSocialLogin(provider);
+    } catch (error) {
+      window.alert(getAuthErrorMessage(error, "소셜 로그인에 실패했습니다."));
+      setActiveAction(null);
+    }
   };
 
   const isEmailSubmitting = activeAction === "email";
