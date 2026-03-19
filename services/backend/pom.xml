@@ -75,12 +75,6 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
-		<!-- MinIO -->
-		<dependency>
-			<groupId>io.minio</groupId>
-			<artifactId>minio</artifactId>
-			<version>8.5.17</version>
-		</dependency>
 		<!-- Swagger (SpringDoc OpenAPI) -->
 		<dependency>
 			<groupId>org.springdoc</groupId>

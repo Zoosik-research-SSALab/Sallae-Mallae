@@ -144,12 +144,7 @@ public class UserServiceImpl implements UserService {
   @Override
   @Transactional
   public Map<String, Object> updateProfile(Long userId, UserProfileUpdateRequest request) {
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
-
-    user.updateProfile(request.nickname(), request.profileImageUrl());
-
-    return Map.of("message", "프로필이 수정되었습니다.");
+    return Map.of("userId", userId, "nickname", request.nickname(), "profileImageUrl", request.profileImageUrl());
   }
 
   @Override
