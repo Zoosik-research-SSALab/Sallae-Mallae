@@ -7,6 +7,20 @@ source "$SCRIPT_DIR/common.sh"
 
 check_deploy_resources
 
+readonly DIFF_EXCLUDES=(
+  --exclude=.git
+  --exclude=.venv
+  --exclude=__pycache__
+  --exclude=.pytest_cache
+  --exclude=.mypy_cache
+  --exclude=.ruff_cache
+  --exclude=.ipynb_checkpoints
+  --exclude=README.md
+  --exclude=docs
+  --exclude=notebooks
+  --exclude=tests
+)
+
 dir_changed() {
   local current_dir="$1"
   local deployed_dir="$2"
@@ -16,17 +30,7 @@ dir_changed() {
   fi
 
   if diff -qr \
-    --exclude=.git \
-    --exclude=.venv \
-    --exclude=__pycache__ \
-    --exclude=.pytest_cache \
-    --exclude=.mypy_cache \
-    --exclude=.ruff_cache \
-    --exclude=.ipynb_checkpoints \
-    --exclude=README.md \
-    --exclude=docs \
-    --exclude=notebooks \
-    --exclude=tests \
+    "${DIFF_EXCLUDES[@]}" \
     "$current_dir" \
     "$deployed_dir" >/dev/null 2>&1; then
     return 1
@@ -47,12 +51,12 @@ file_changed() {
 }
 
 compose_file_changed=false
-if file_changed "$CHECKOUT_DIR/infra/apps/docker-compose.ai.yml" "$SOURCE_DIR/infra/apps/docker-compose.ai.yml"; then
+if file_changed "$INFRA_TEMPLATE_DIR/apps/docker-compose.ai.yml" "$SOURCE_DIR/infra/apps/docker-compose.ai.yml"; then
   compose_file_changed=true
 fi
 
 nginx_config_changed=false
-if file_changed "$CHECKOUT_DIR/infra/nginx/nginx.ai.conf" "$SOURCE_DIR/infra/nginx/nginx.ai.conf"; then
+if file_changed "$INFRA_TEMPLATE_DIR/nginx/nginx.ai.conf" "$SOURCE_DIR/infra/nginx/nginx.ai.conf"; then
   nginx_config_changed=true
 fi
 
@@ -90,7 +94,8 @@ if [[ "$compose_file_changed" == true || "$news_scheduler_changed" == true ]]; t
 fi
 
 if [[ ${#services_to_up[@]} -eq 0 ]]; then
-  services_to_up=("ml-server" "nginx")
+  echo "[INFO] No dev-ai deploy changes detected - skipping deploy."
+  exit 0
 fi
 
 compose_up \
@@ -99,10 +104,10 @@ compose_up \
   "sallae-dev-ai" \
   "${services_to_up[@]}"
 
-if [[ " ${services_to_up[*]} " == *" nginx "* ]]; then
+if [[ "$nginx_config_changed" == true ]]; then
   docker compose \
     --env-file "$ROOT_DIR/env/dev-ai.env" \
     -f "$SOURCE_DIR/infra/apps/docker-compose.ai.yml" \
     -p "sallae-dev-ai" \
-    restart nginx
+    exec -T nginx nginx -s reload
 fi
