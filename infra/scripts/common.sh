@@ -179,6 +179,7 @@ compose_up() {
   local env_file="$1"
   local compose_file="$2"
   local project_name="$3"
+  shift 3
 
   require_file "$env_file"
   require_file "$compose_file"
@@ -187,5 +188,5 @@ compose_up() {
     --env-file "$env_file" \
     -f "$compose_file" \
     -p "$project_name" \
-    up -d --build
+    up -d --build "$@"
 }
