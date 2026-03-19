@@ -1,4 +1,5 @@
 import ScrapsPageClient from "./ScrapsPageClient";
+import ProtectedPage from "@/shared/components/ProtectedPage";
 
 type Props = {
   searchParams: Promise<{
@@ -9,5 +10,9 @@ type Props = {
 export default async function ScrapsPage({ searchParams }: Props) {
   const { page } = await searchParams;
 
-  return <ScrapsPageClient initialPage={page} />;
+  return (
+    <ProtectedPage>
+      <ScrapsPageClient initialPage={page} />
+    </ProtectedPage>
+  );
 }

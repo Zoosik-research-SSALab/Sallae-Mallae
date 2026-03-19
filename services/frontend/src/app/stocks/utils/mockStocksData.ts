@@ -298,12 +298,12 @@ function sortByApi(stocks: MockStockItem[], sort: StocksApiSort) {
   );
 }
 
-function filterBySector(stocks: MockStockItem[], sector: string) {
-  if (!sector || sector === ALL_SECTOR) {
+function filterBySectors(stocks: MockStockItem[], sectors: string[]) {
+  if (sectors.length === 0 || sectors.includes(ALL_SECTOR)) {
     return stocks;
   }
 
-  return stocks.filter((stock) => isMatchedStockSector(sector, stock.gicsSector));
+  return stocks.filter((stock) => sectors.some((sector) => isMatchedStockSector(sector, stock.gicsSector)));
 }
 
 function toStockItem(stock: MockStockItem, rank: number): StockItem {
@@ -324,7 +324,7 @@ function toStockItem(stock: MockStockItem, rank: number): StockItem {
 
 export function getMockStocksResponse(params: StocksQueryParams): StocksResponse {
   const liveStocks = MOCK_STOCKS.map(applyLiveSnapshot);
-  const sectorScopedStocks = filterBySector(liveStocks, params.sector);
+  const sectorScopedStocks = filterBySectors(liveStocks, params.sectors);
   const sortedStocks = sortByApi(sectorScopedStocks, params.sort ?? "CHANGE");
   const slicedStocks = sortedStocks.slice(params.offset, params.offset + params.limit);
 

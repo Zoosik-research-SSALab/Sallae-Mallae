@@ -1,5 +1,10 @@
 import SignalsPageClient from "./SignalsPageClient";
+import ProtectedPage from "@/shared/components/ProtectedPage";
 
 export default function SignalsPage() {
-  return <SignalsPageClient />;
+  return (
+    <ProtectedPage>
+      <SignalsPageClient />
+    </ProtectedPage>
+  );
 }

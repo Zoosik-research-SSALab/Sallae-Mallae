@@ -8,6 +8,7 @@ import { formatPrice } from "@/shared/lib/stockFormatters";
 import type { StockItem, StockRankingMetric } from "../types/stocks";
 import { formatMetricValue, getMetricColumnLabel, getMetricValue, getRateClassName } from "../utils/stockMetrics";
 import { rowLayoutTransition } from "../utils/rowLayoutTransition";
+import { formatStockSectorLabel } from "../utils/stockSectorLabels";
 import StockLogo from "./StockLogo";
 import StocksSortTabs from "./StocksSortTabs";
 
@@ -42,22 +43,23 @@ export default function StocksDesktopTable({
 }: Props) {
   const metricColumnLabel = getMetricColumnLabel(activeMetric);
 
+  const newLocal = "typo-body-sm font-semibold text-[color:var(--color-text-secondary)]";
   return (
     <div className="hidden w-full flex-col gap-6 lg:flex">
-      <div className="overflow-hidden rounded-xl bg-[color:var(--color-bg-primary)]">
+      <div className="overflow-hidden rounded-xl bg-bg-primary">
         <StocksSortTabs value={activeMetric} onChange={onMetricChange} />
         <div className="h-6" />
 
-        <div className="flex items-start justify-between gap-6 bg-[color:var(--color-bg-secondary)] px-4 py-4">
+        <div className="flex items-start justify-between gap-6 bg-bg-secondary px-4 py-4">
           <div className="flex flex-1 items-center gap-6">
-            <div className="typo-body-sm min-w-6 font-semibold text-[color:var(--color-text-secondary)]">순위</div>
-            <div className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">종목명</div>
+            <div className="typo-body-sm min-w-6 font-semibold text-text-secondary">순위</div>
+            <div className={newLocal}>종목명</div>
           </div>
 
           <div className="flex flex-1 items-center justify-between gap-4">
-            <div className="typo-body-sm w-28 text-right font-semibold text-[color:var(--color-text-secondary)]">현재가 / 등락률</div>
-            <div className="typo-body-sm w-28 text-center font-semibold text-[color:var(--color-text-secondary)]">{metricColumnLabel}</div>
-            <div className="typo-body-sm w-16 text-right font-semibold text-[color:var(--color-text-secondary)]">관심 추가</div>
+            <div className="typo-body-sm w-28 text-right font-semibold text-text-secondary">현재가 / 등락률</div>
+            <div className="typo-body-sm w-28 text-center font-semibold text-text-secondary">{metricColumnLabel}</div>
+            <div className="typo-body-sm w-16 text-right font-semibold text-text-secondary">관심 추가</div>
           </div>
         </div>
 
@@ -72,7 +74,7 @@ export default function StocksDesktopTable({
                   layout="position"
                   initial={false}
                   transition={rowLayoutTransition}
-                  className="border-b border-[color:var(--color-border-secondary)] px-4 py-4"
+                  className="border-b border-border-secondary px-4 py-4"
                 >
                   <div className="flex items-center justify-between gap-6">
                     <Link
@@ -88,7 +90,7 @@ export default function StocksDesktopTable({
                           <div className="min-w-0">
                             <div className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>
                             <div className="typo-body-xs mt-1 truncate font-semibold text-[color:var(--color-text-tertiary)]">
-                              {item.ticker} · {item.gicsSector}
+                              {item.ticker} · {formatStockSectorLabel(item.gicsSector)}
                             </div>
                           </div>
                         </div>

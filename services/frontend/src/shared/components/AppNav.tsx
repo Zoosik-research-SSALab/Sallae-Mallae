@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,25 +12,29 @@ import type { IconType } from "react-icons";
 import { LuNewspaper } from "react-icons/lu";
 import { MdOutlineFavorite } from "react-icons/md";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
+import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
+import { useAuthModalStore } from "@/shared/lib/authModalStore";
 import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { useAuthStore } from "@/shared/lib/authStore";
+import ProtectedLink from "@/shared/components/ProtectedLink";
 
 type NavItem = {
   href: string;
   label: string;
   icon: IconType | null;
   highlightOnMatch?: boolean;
+  requiresAuth?: boolean;
 };
 
 const navItems: NavItem[] = [
   { href: "/", label: "ABOUT", icon: GoBook, highlightOnMatch: false },
-  { href: "/portfolio", label: "포트폴리오", icon: GoBriefcase },
-  { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2 },
+  { href: "/portfolio", label: "포트폴리오", icon: GoBriefcase, requiresAuth: true },
+  { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2, requiresAuth: true },
   { href: "/stocks", label: "전체 종목", icon: GoListUnordered },
-  { href: "/scraps", label: "관심 종목", icon: MdOutlineFavorite },
+  { href: "/scraps", label: "관심 종목", icon: MdOutlineFavorite, requiresAuth: true },
   { href: "/news", label: "뉴스", icon: null },
 ];
 
@@ -39,10 +42,6 @@ const loginButtonClassName =
   "typo-body-md inline-flex cursor-pointer items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
 const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
-const LoginModal = dynamic(() => import("@/app/auth/login/components/LoginCard").then((module) => module.LoginModal), {
-  ssr: false,
-});
-
 function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean }) {
   return (
     <span
@@ -65,9 +64,10 @@ export default function AppNav() {
   const authStatus = useAuthStore((state) => state.status);
   const currentUser = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const showLoginModal = useAuthModalStore((state) => state.openLoginModal);
+  const requireAuthAction = useRequireAuthAction();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
 
   const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
@@ -142,9 +142,9 @@ export default function AppNav() {
     setIsDrawerOpen(false);
   };
 
-  const openLoginModal = () => {
+  const handleOpenLoginModal = () => {
     setIsDrawerOpen(false);
-    setIsLoginModalOpen(true);
+    showLoginModal();
   };
 
   const handleLogout = async () => {
@@ -176,14 +176,23 @@ export default function AppNav() {
             <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
               {navItems.map((item) => {
                 const isActive = isActivePath(item);
+                const className = `typo-heading-sm whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`;
+
+                if (item.requiresAuth) {
+                  return (
+                    <ProtectedLink
+                      key={item.href}
+                      href={item.href}
+                      ariaCurrent={isActive ? "page" : undefined}
+                      className={className}
+                    >
+                      {item.label}
+                    </ProtectedLink>
+                  );
+                }
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`typo-heading-sm whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
-                  >
+                  <Link key={item.href} href={item.href} aria-current={isActive ? "page" : undefined} className={className}>
                     {item.label}
                   </Link>
                 );
@@ -249,7 +258,7 @@ export default function AppNav() {
                   </span>
                 </div>
               ) : (
-                <button type="button" onClick={openLoginModal} className={loginButtonClassName}>
+                <button type="button" onClick={handleOpenLoginModal} className={loginButtonClassName}>
                   로그인
                 </button>
               )
@@ -301,7 +310,9 @@ export default function AppNav() {
                 <div className="flex w-full max-w-[22rem] items-center rounded-lg bg-[color:var(--color-bg-tertiary)]">
                   <button
                     type="button"
-                    onClick={() => goToPath("/notifications")}
+                    onClick={() => {
+                      requireAuthAction(() => goToPath("/notifications"));
+                    }}
                     className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <HiOutlineBell className="h-5 w-5 text-[color:var(--color-border-interactive-secondary)]" />
@@ -324,6 +335,30 @@ export default function AppNav() {
                   <nav className="flex flex-col gap-4">
                     {navItems.map((item) => {
                       const isActive = isActivePath(item);
+                      const content = (
+                        <>
+                          <CategoryIcon Icon={item.icon} active={isActive} />
+                          <span
+                            className={`typo-body-lg align-middle whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
+                          >
+                            {item.label}
+                          </span>
+                        </>
+                      );
+
+                      if (item.requiresAuth) {
+                        return (
+                          <ProtectedLink
+                            key={`drawer-${item.href}`}
+                            href={item.href}
+                            onClick={() => setIsDrawerOpen(false)}
+                            ariaCurrent={isActive ? "page" : undefined}
+                            className="inline-flex w-full items-center gap-2"
+                          >
+                            {content}
+                          </ProtectedLink>
+                        );
+                      }
 
                       return (
                         <Link
@@ -333,12 +368,7 @@ export default function AppNav() {
                           aria-current={isActive ? "page" : undefined}
                           className="inline-flex w-full items-center gap-2"
                         >
-                          <CategoryIcon Icon={item.icon} active={isActive} />
-                          <span
-                            className={`typo-body-lg align-middle whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
-                          >
-                            {item.label}
-                          </span>
+                          {content}
                         </Link>
                       );
                     })}
@@ -376,7 +406,7 @@ export default function AppNav() {
                       </button>
                     </div>
                   ) : (
-                    <button type="button" onClick={openLoginModal} className={`${loginButtonClassName} w-full justify-center`}>
+                    <button type="button" onClick={handleOpenLoginModal} className={`${loginButtonClassName} w-full justify-center`}>
                       로그인
                     </button>
                   )
@@ -389,7 +419,6 @@ export default function AppNav() {
         </div>
       ) : null}
 
-      {isLoginModalOpen ? <LoginModal open={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} /> : null}
     </>
   );
 }
