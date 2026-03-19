@@ -3,6 +3,10 @@ package com.sallaemallae.backend.infra.kis.cache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +32,29 @@ public class MarketCacheRepository {
       log.warn("Failed to deserialize Redis cache. key={}", key, e);
       return Optional.empty();
     }
+  }
+
+  public <T> Map<String, T> multiGet(List<String> keys, Class<T> type) {
+    if (keys == null || keys.isEmpty()) {
+      return Map.of();
+    }
+    List<String> values = redisTemplate.opsForValue().multiGet(keys);
+    if (values == null) {
+      return Map.of();
+    }
+    Map<String, T> result = new HashMap<>();
+    for (int i = 0; i < keys.size(); i++) {
+      String json = values.get(i);
+      if (json == null || json.isBlank()) {
+        continue;
+      }
+      try {
+        result.put(keys.get(i), objectMapper.readValue(json, type));
+      } catch (JsonProcessingException e) {
+        log.warn("Failed to deserialize Redis cache. key={}", keys.get(i), e);
+      }
+    }
+    return result;
   }
 
   public void put(String key, Object value, Duration ttl) {
