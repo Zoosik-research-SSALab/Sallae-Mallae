@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { getMe } from "@/shared/lib/authApi";
 import { useAuthStore } from "@/shared/lib/authStore";
@@ -13,9 +13,11 @@ type Props = {
 export default function ProtectedPage({ children }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const authStatus = useAuthStore((state) => state.status);
   const clearAuth = useAuthStore((state) => state.clearAuth);
-  const redirectPath = pathname;
+  const search = searchParams.toString();
+  const redirectPath = search ? `${pathname}?${search}` : pathname;
 
   const {
     isLoading: isAuthCheckLoading,

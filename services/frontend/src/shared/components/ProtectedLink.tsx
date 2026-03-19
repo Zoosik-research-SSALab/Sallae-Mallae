@@ -11,7 +11,7 @@ type Props = LinkProps & {
   onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 };
 
-export default function ProtectedLink({ children, onClick, ...props }: Props) {
+export default function ProtectedLink({ children, onClick, ariaCurrent, ...props }: Props) {
   const requireAuthAction = useRequireAuthAction();
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -25,8 +25,9 @@ export default function ProtectedLink({ children, onClick, ...props }: Props) {
       event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
 
     if (isModifiedClick) {
-      event.preventDefault();
-      requireAuthAction();
+      if (!requireAuthAction()) {
+        event.preventDefault();
+      }
       return;
     }
 
@@ -37,7 +38,7 @@ export default function ProtectedLink({ children, onClick, ...props }: Props) {
   };
 
   return (
-    <Link {...props} onClick={handleClick}>
+    <Link {...props} aria-current={ariaCurrent} onClick={handleClick}>
       {children}
     </Link>
   );

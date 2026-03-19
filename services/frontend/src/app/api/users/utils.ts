@@ -81,6 +81,7 @@ export async function proxyUsersApiRequest({ request, path, method }: ProxyUsers
   const authorization = request.headers.get("authorization");
   const cookie = request.headers.get("cookie");
   const contentType = request.headers.get("content-type");
+  const accept = request.headers.get("accept");
 
   if (authorization) {
     headers.set("Authorization", authorization);
@@ -92,6 +93,10 @@ export async function proxyUsersApiRequest({ request, path, method }: ProxyUsers
 
   if (contentType) {
     headers.set("Content-Type", contentType);
+  }
+
+  if (accept) {
+    headers.set("Accept", accept);
   }
 
   const body = method === "GET" ? undefined : await request.text();
