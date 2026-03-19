@@ -192,8 +192,13 @@ def run_daily_pipeline() -> None:
 
     python = sys.executable
 
-    # 1단계: 크롤링 → CSV
-    ok = _run_step("크롤링", [python, "-m", "crawlers.daily", "--csv-only"])
+    # 1단계: 크롤링 → CSV (전날~당일만 수집)
+    yesterday = (today - datetime.timedelta(days=1)).isoformat()
+    today_str = today.isoformat()
+    ok = _run_step("크롤링", [
+        python, "-m", "crawlers.daily", "--csv-only",
+        "--start-date", yesterday, "--end-date", today_str,
+    ])
     if not ok:
         logger.error("크롤링 실패 — 파이프라인 중단")
         return

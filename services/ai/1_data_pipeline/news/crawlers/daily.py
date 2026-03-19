@@ -49,9 +49,10 @@ logger = logging.getLogger(__name__)
 # 크롤링 설정
 # ---------------------------------------------------------------------------
 DAILY_MAX_PAGES = 10
-DAILY_PAGE_DELAY = (0.5, 1.2)
-DAILY_STOCK_COOLDOWN = 3
-DAILY_BATCH_COOLDOWN = 30
+DAILY_PAGE_DELAY = (0.3, 0.8)
+DAILY_STOCK_COOLDOWN = 1
+DAILY_BATCH_COOLDOWN = 10
+DAILY_BATCH_SIZE = 50
 DAILY_SEMAPHORE_LIMIT = 8
 
 
@@ -112,11 +113,35 @@ async def crawl_stock(
         for a in articles:
             a["name"] = name
 
+        # 날짜 범위 밖 기사가 있으면 필터링 후 조기 종료
+        has_old = False
+        if start_date:
+            start_dt = datetime.combine(start_date, datetime.min.time())
+            filtered = []
+            for a in articles:
+                parsed = _parse_date(str(a.get("date", "")))
+                if parsed and parsed < start_dt:
+                    has_old = True
+                else:
+                    filtered.append(a)
+            articles = filtered
+            if has_old:
+                logger.info("  [%s] 페이지 %d: 날짜 범위 이전 기사 감지 → 조기 종료", code, page)
+
+        if not articles:
+            if has_old:
+                break
+            continue
+
         # 본문 스니펫 수집
         snippet_tasks = [extract_news_snippet(session, art) for art in articles]
         completed = await asyncio.gather(*snippet_tasks, return_exceptions=True)
         valid = [r for r in completed if isinstance(r, dict)]
         all_articles.extend(valid)
+
+        # 날짜 범위 이전 기사가 있었으면 더 이상 페이지 탐색 불필요
+        if has_old:
+            break
 
         await asyncio.sleep(random.uniform(*DAILY_PAGE_DELAY))
 
@@ -249,8 +274,8 @@ async def run_daily_crawl(
             if idx < len(stocks_df):
                 await asyncio.sleep(DAILY_STOCK_COOLDOWN)
 
-            # 25종목마다 배치 쿨다운
-            if idx % 25 == 0 and idx < len(stocks_df):
+            # BATCH_SIZE 종목마다 배치 쿨다운
+            if idx % DAILY_BATCH_SIZE == 0 and idx < len(stocks_df):
                 logger.info("  배치 쿨다운 %d초...", DAILY_BATCH_COOLDOWN)
                 await asyncio.sleep(DAILY_BATCH_COOLDOWN)
 
