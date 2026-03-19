@@ -3,7 +3,11 @@ import type { StockItem, StockRankingMetric } from "../types/stocks";
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
 
-function formatCurrencyAmount(value: number) {
+function formatCurrencyAmount(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+
   if (value >= 1_000_000_000_000) {
     return `${(value / 1_000_000_000_000).toFixed(value >= 10_000_000_000_000 ? 0 : 1)}조`;
   }
@@ -15,7 +19,11 @@ function formatCurrencyAmount(value: number) {
   return `${numberFormatter.format(Math.round(value))}원`;
 }
 
-function formatVolume(value: number) {
+function formatVolume(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+
   if (value >= 100_000_000) {
     return `${(value / 100_000_000).toFixed(1)}억주`;
   }
@@ -30,9 +38,9 @@ function formatVolume(value: number) {
 export function getMetricValue(item: StockItem, metric: StockRankingMetric) {
   switch (metric) {
     case "TURNOVER":
-      return item.tradingValue;
+      return item.tradingValue ?? Number.NEGATIVE_INFINITY;
     case "VOLUME":
-      return item.tradingVolume;
+      return item.tradingVolume ?? Number.NEGATIVE_INFINITY;
     case "RETURN":
       return item.fluctuationRate;
     case "DIVIDEND":
@@ -72,8 +80,16 @@ export function getMetricColumnLabel(metric: StockRankingMetric) {
 export function formatMetricValue(item: StockItem, metric: StockRankingMetric) {
   switch (metric) {
     case "TURNOVER":
+      if (item.tradingValue === null) {
+        return "-";
+      }
+
       return formatCurrencyAmount(item.tradingValue);
     case "VOLUME":
+      if (item.tradingVolume === null) {
+        return "-";
+      }
+
       return formatVolume(item.tradingVolume);
     case "RETURN":
       return formatSignedRate(item.fluctuationRate);

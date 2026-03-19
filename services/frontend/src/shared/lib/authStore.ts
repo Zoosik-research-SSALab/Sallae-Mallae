@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { toAuthSessionUser } from "@/shared/lib/auth";
-import type { AuthTokens, AuthUser } from "@/shared/types/auth";
+import type { AuthSessionUser, AuthTokens, AuthUser } from "@/shared/types/auth";
 
 export type AuthStatus = "restoring" | "authenticated" | "unauthenticated";
 
@@ -14,6 +14,7 @@ type AuthStoreState = {
   applyAuthSession: (payload: AuthTokens & { user: AuthUser }) => void;
   updateAccessToken: (tokens: AuthTokens) => void;
   setUser: (user: AuthUser) => void;
+  updateSessionUser: (user: Partial<AuthSessionUser>) => void;
   clearAuth: () => void;
 };
 
@@ -48,6 +49,12 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
       ...state,
       user: toAuthSessionUser(user),
       status: "authenticated",
+    })),
+  updateSessionUser: (user) =>
+    set((state) => ({
+      ...state,
+      user: state.user ? { ...state.user, ...user } : state.user,
+      status: state.user ? "authenticated" : state.status,
     })),
   clearAuth: () =>
     set({
