@@ -121,7 +121,7 @@ export default function CommitteeDiscussion({
       {/* Past records button */}
       <button
         type="button"
-        className="w-full py-4 rounded-xl typo-body-md font-semibold text-center bg-[color:var(--color-bg-secondary)] text-text-secondary hover:opacity-80 transition-opacity"
+        className="w-full py-4 rounded-xl typo-body-md font-semibold text-center bg-bg-secondary text-text-secondary hover:opacity-80 transition-opacity"
       >
         과거 토론 기록 전체보기
       </button>
