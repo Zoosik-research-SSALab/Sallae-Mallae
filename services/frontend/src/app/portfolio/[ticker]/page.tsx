@@ -21,7 +21,7 @@ export default function PortfolioStockDetailPage() {
 
       <main className="w-full md:py-12">
         {/* Two-column layout on desktop, single column on mobile */}
-        <div className="max-w-[1152px] px-3 mx-auto flex flex-col gap-6 md:flex-row md:gap-8 md:items-start">
+        <div className="max-w-6xl px-3 mx-auto flex flex-col gap-6 md:flex-row md:gap-8 md:items-start">
           {/* Left column */}
           <div className="flex flex-col gap-10 w-full md:w-[60%]">
             {/* Stock info */}
@@ -49,7 +49,7 @@ export default function PortfolioStockDetailPage() {
             {/* Trade history */}
             <TradeHistory trades={stock.trades} />
           </div>
-          <div>
+          <div className="flex flex-col gap-10">
             {/* Return chart */}
             <ReturnChart />
 
@@ -59,11 +59,10 @@ export default function PortfolioStockDetailPage() {
               stats={stock.backtest.stats}
             />
 
-            {/* Bottom link button — visible on desktop below left column */}
-            <div className="hidden md:block">
+            <div className="flex items-center justify-center mb-4">
               <button
                 type="button"
-                className="w-full py-4 rounded-xl text-sm font-semibold text-center bg-[color:var(--color-bg-tertiary)] text-[color:var(--color-text-secondary)] hover:opacity-80 transition-opacity"
+                className="py-4 px-8 rounded-xl typo-body-lg font-semibold text-center bg-bg-tertiary text-text-secondary hover:opacity-80 transition-opacity"
               >
                 이 종목 일반 상세정보 보기 (호가/공시 등)
               </button>
@@ -79,16 +78,6 @@ export default function PortfolioStockDetailPage() {
               members={stock.committee.members}
             />
           </div>
-        </div>
-
-        {/* Bottom link button — visible on mobile only, below committee discussion */}
-        <div className="mt-6 md:hidden">
-          <button
-            type="button"
-            className="w-full py-4 rounded-xl text-sm font-semibold text-center bg-[color:var(--color-bg-tertiary)] text-[color:var(--color-text-secondary)] hover:opacity-80 transition-opacity"
-          >
-            이 종목 일반 상세정보 보기 (호가/공시 등)
-          </button>
         </div>
       </main>
     </div>

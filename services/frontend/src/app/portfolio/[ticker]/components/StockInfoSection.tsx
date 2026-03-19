@@ -19,12 +19,12 @@ export default function StockInfoSection({
             AI 포트폴리오 편입 종목
           </span>
         )}
-        <span className="typo-body-md text-(--color-text-tertiary) tracking-(--letter-spacing-tight)">
+        <span className="typo-body-md text-text-tertiary tracking-spacing-tight">
           {ticker}
         </span>
       </div>
-      <h1 className="typo-heading-3xl text-(--color-text-primary)">{name}</h1>
-      <p className="typo-body-md text-(--color-text-secondary) tracking-(--letter-spacing-tight)">
+      <h1 className="typo-heading-3xl text-text-primary">{name}</h1>
+      <p className="typo-body-md text-text-secondary tracking-spacing-tight">
         {description}
       </p>
     </div>

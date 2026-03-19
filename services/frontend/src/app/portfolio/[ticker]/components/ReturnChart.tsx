@@ -1,11 +1,11 @@
 export default function ReturnChart() {
   return (
-    <div className="flex flex-col gap-3 pb-4 border-b border-[color:var(--color-border-primary)]">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-lg font-extrabold text-[color:var(--color-text-primary)]">
+    <div className="flex flex-col gap-3 pb-4 border-b border-border-primary">
+      <div className="flex flex-col gap-1">
+        <h2 className="typo-heading-md font-extrabold text-text-primary">
           수익률 추이
         </h2>
-        <p className="text-xs text-[color:var(--color-text-secondary)]">
+        <p className="typo-body-md font-medium text-text-secondary">
           매수 시점(02.13) 이후 일별 평가 손익 추이
         </p>
       </div>

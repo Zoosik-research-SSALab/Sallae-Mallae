@@ -10,7 +10,7 @@ type Props = {
 function Avatar({ role }: { role: string }) {
   return (
     <div
-      className="shrink-0 rounded-xl overflow-hidden bg-[color:var(--color-bg-tertiary)] flex items-end justify-center"
+      className="shrink-0 rounded-xl overflow-hidden bg-bg-tertiary flex items-end justify-center"
       style={{ width: 100, height: 150 }}
     >
       <div className="w-full bg-black/50 px-2 py-1">
@@ -42,16 +42,18 @@ function ChatBubble({ member }: { member: CommitteeMember }) {
     : "text-[color:var(--color-text-secondary)]";
 
   return (
-    <div className={`flex items-start gap-3 ${isLeft ? "flex-row" : "flex-row-reverse"}`}>
+    <div
+      className={`flex items-start gap-3 ${isLeft ? "flex-row" : "flex-row-reverse"}`}
+    >
       <Avatar role={member.role} />
       <div className="flex flex-1 flex-col gap-1.5 self-stretch min-w-0">
         <p
-          className={`text-sm font-semibold text-[color:var(--color-text-primary)] tracking-tight ${isLeft ? "" : "text-right"}`}
+          className={`typo-body-md font-semibold text-text-primary tracking-tight ${isLeft ? "" : "text-right"}`}
         >
           {member.role}
         </p>
         <div className={`${bubbleBg} ${bubbleRadius} px-4 py-3 w-full`}>
-          <p className={`text-sm font-medium leading-5 tracking-tight ${textColor}`}>
+          <p className={`typo-body-md font-medium tracking-tight ${textColor}`}>
             {member.opinion}
           </p>
         </div>
@@ -69,31 +71,25 @@ export default function CommitteeDiscussion({
   return (
     <div className="flex flex-col pb-10">
       {/* Header with border-bottom */}
-      <div className="flex flex-col gap-1 border-b border-[color:var(--color-border-primary)] pb-4">
-        <h2
-          className="font-extrabold text-[color:var(--color-text-primary)] tracking-tight"
-          style={{ fontSize: 20, lineHeight: "24px" }}
-        >
+      <div className="flex flex-col gap-1 border-b border-border-primary pb-4">
+        <h2 className="typo-heading-sm font-extrabold text-text-primary tracking-tight">
           이 종목 최근 위원회 토론
         </h2>
-        <p className="text-xs font-medium text-[color:var(--color-text-secondary)]">
+        <p className="typo-body-sm font-medium text-text-secondary">
           {briefingDate}
         </p>
       </div>
 
       {/* Final decision row */}
       <div className="flex items-center justify-between py-8">
-        <span className="text-sm font-semibold text-[color:var(--color-text-secondary)] tracking-tight">
+        <span className="typo-body-md font-semibold text-text-secondary tracking-tight">
           당시 최종 의결
         </span>
         <div className="flex items-center gap-2">
-          <span
-            className="font-black text-[color:var(--color-text-danger)] tracking-tight"
-            style={{ fontSize: 15 }}
-          >
+          <span className="text-[15px] font-black text-text-danger tracking-tight">
             {finalDecision}
           </span>
-          <span className="inline-flex items-center px-3 py-1 rounded bg-[color:var(--color-bg-danger-subtle)] text-xs font-semibold text-[color:var(--color-text-danger-bold)]">
+          <span className="typo-body-sm inline-flex items-center px-3 py-1 rounded bg-bg-danger-subtle font-semibold text-text-danger-bold ">
             신뢰도 {confidence}%
           </span>
         </div>
@@ -109,7 +105,7 @@ export default function CommitteeDiscussion({
       {/* Past records button */}
       <button
         type="button"
-        className="w-full py-4 rounded-xl text-sm font-semibold text-center bg-[color:var(--color-bg-secondary)] text-[color:var(--color-text-secondary)] hover:opacity-80 transition-opacity"
+        className="w-full py-4 rounded-xl typo-body-md font-semibold text-center bg-[color:var(--color-bg-secondary)] text-text-secondary hover:opacity-80 transition-opacity"
       >
         과거 토론 기록 전체보기
       </button>

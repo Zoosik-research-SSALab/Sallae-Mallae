@@ -49,19 +49,16 @@ export default function TradeHistory({ trades }: Props) {
     <div className="flex flex-col">
       {/* Section header */}
       <div className="flex flex-col gap-1 pb-6">
-        <h2
-          className="font-extrabold text-[color:var(--color-text-primary)] tracking-tight"
-          style={{ fontSize: 24, lineHeight: "28px" }}
-        >
+        <h2 className="typo-heading-md font-extrabold text-text-primary tracking-tight">
           전체 매매 내역
         </h2>
-        <p className="text-sm font-medium text-[color:var(--color-text-secondary)] tracking-tight">
+        <p className="typo-body-md font-medium text-text-secondary tracking-tight">
           AI 위원회의 모든 과거 매수 및 매도 기록입니다.
         </p>
       </div>
 
       {/* ===== Mobile: card layout ===== */}
-      <div className="flex flex-col gap-2 border-t border-[color:var(--color-border-primary)] py-4 md:hidden">
+      <div className="flex flex-col gap-2 border-t border-border-primary py-4 md:hidden">
         {paginated.map((trade) => {
           const isPositive = trade.returnRate >= 0;
           const returnColor = isPositive
@@ -78,32 +75,32 @@ export default function TradeHistory({ trades }: Props) {
               <div className="flex flex-col gap-1.5 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusBadge status={trade.status} />
-                  <span className="text-sm  font-semibold text-(--color-text-primary) tracking-tight">
+                  <span className="typo-body-md font-semibold text-text-primary tracking-tight">
                     {trade.dateRange}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-medium text-(--color-text-secondary)">
+                <div className="typo-body-md flex items-center gap-2 text-sm">
+                  <span className=" font-medium text-text-secondary">
                     {formatPrice(trade.buyPrice)}
                   </span>
                   <IoArrowForward
                     size={14}
-                    className="text-(--color-text-tertiary) shrink-0"
+                    className="text-text-tertiary shrink-0"
                   />
-                  <span className="font-semibold text-(--color-text-primary)">
+                  <span className="font-semibold text-text-primary">
                     {rightPrice ? formatPrice(rightPrice) : "-"}
                   </span>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-0.5 shrink-0">
                 <p
-                  className="text-base font-semibold"
+                  className="text-[15px] font-black leading-[22.5px] tracking-[-0.32px]"
                   style={{ color: returnColor }}
                 >
                   {sign}
                   {trade.returnRate.toFixed(2)}%
                 </p>
-                <p className="text-sm font-medium text-[color:var(--color-text-secondary)]">
+                <p className="typo-body-md font-medium text-text-secondary tracking-[0.32px]">
                   {trade.durationLabel}
                 </p>
               </div>
