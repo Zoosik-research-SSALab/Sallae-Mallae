@@ -14,49 +14,6 @@ class NewsInferResponse(BaseModel):
     model_version: str
 
 
-# --- 키워드 관련 스키마 (기존) ---
-
-class KeywordItem(BaseModel):
-    """키워드 단건"""
-    keyword_id: int
-    name: str
-    count: int
-
-
-class KeywordListResponse(BaseModel):
-    """종목별 키워드 목록"""
-    keywords: list[KeywordItem]
-
-
-class SimilarKeywordItem(BaseModel):
-    keyword_id: int
-    name: str
-    similarity: float
-
-
-class SimilarKeywordResponse(BaseModel):
-    query: str
-    results: list[SimilarKeywordItem]
-
-
-# --- 뉴스 목록 스키마 (기존) ---
-
-class NewsListItem(BaseModel):
-    id: int
-    title: str
-    snippet: str | None = None
-    url: str | None = None
-    publisher: str | None = None
-    published_at: datetime | None = None
-    sentiment_score: float | None = None
-    sentiment_label: str | None = None
-
-
-class NewsListResponse(BaseModel):
-    news: list[NewsListItem]
-    total: int
-
-
 # --- 뉴스 에이전트용 디베이트 데이터 스키마 ---
 
 class KeywordNewsItem(BaseModel):

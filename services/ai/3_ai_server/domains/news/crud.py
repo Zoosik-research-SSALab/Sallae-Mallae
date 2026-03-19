@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import Integer, case, desc, func, select
 from sqlalchemy.orm import Session
@@ -9,9 +9,23 @@ from domains.news.models import (
     Keyword,
     KeywordEmbedding,
     NewsKeywordMap,
+    Stock,
     StockNews,
     StockNewsMap,
 )
+
+# 한국 시간대 (UTC+9)
+KST = timezone(timedelta(hours=9))
+
+
+def _date_to_range(start_date: date, end_date: date) -> tuple[datetime, datetime]:
+    """
+    날짜 범위를 timestamp 범위로 변환한다. (인덱스 친화적)
+    func.date() 래핑 대신 >= start_dt AND < next_day_dt 형태로 사용.
+    """
+    start_dt = datetime.combine(start_date, time.min, tzinfo=KST)
+    end_dt = datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=KST)
+    return start_dt, end_dt
 
 
 def get_top_keywords_by_date_range(
@@ -24,10 +38,10 @@ def get_top_keywords_by_date_range(
     지정된 날짜 범위의 뉴스에서 가장 많이 언급된 키워드 상위 N개를 조회한다.
     클러스터 기반으로 유사 키워드를 그룹핑하여 카운트한다.
 
-    반환: [{"keyword_id": int, "name": str, "cluster_id": int|None, "count": int}]
+    반환: [{"keyword_id": int, "name": str, "count": int}]
     """
-    # 클러스터가 있는 키워드: cluster_id로 그룹핑
-    # 클러스터가 없는 키워드: keyword_id별로 개별 카운트
+    start_dt, end_dt = _date_to_range(start_date, end_date)
+
     stmt = (
         select(
             func.coalesce(Keyword.cluster_id, Keyword.id).label("group_id"),
@@ -35,8 +49,8 @@ def get_top_keywords_by_date_range(
         )
         .join(NewsKeywordMap, NewsKeywordMap.keyword_id == Keyword.id)
         .join(StockNews, StockNews.id == NewsKeywordMap.news_id)
-        .where(func.date(StockNews.published_at) >= start_date)
-        .where(func.date(StockNews.published_at) <= end_date)
+        .where(StockNews.published_at >= start_dt)
+        .where(StockNews.published_at < end_dt)
         .group_by(func.coalesce(Keyword.cluster_id, Keyword.id))
         .order_by(desc("mention_count"))
         .limit(top_k)
@@ -50,8 +64,8 @@ def get_top_keywords_by_date_range(
             select(Keyword.id, Keyword.name)
             .join(NewsKeywordMap, NewsKeywordMap.keyword_id == Keyword.id)
             .join(StockNews, StockNews.id == NewsKeywordMap.news_id)
-            .where(func.date(StockNews.published_at) >= start_date)
-            .where(func.date(StockNews.published_at) <= end_date)
+            .where(StockNews.published_at >= start_dt)
+            .where(StockNews.published_at < end_dt)
             .where(
                 func.coalesce(Keyword.cluster_id, Keyword.id) == group_id
             )
@@ -83,6 +97,8 @@ def get_news_by_keyword(
 
     반환: [{"news_id", "title", "snippet", "url", "published_at"}]
     """
+    start_dt, end_dt = _date_to_range(start_date, end_date)
+
     # 해당 키워드의 cluster_id 조회
     kw = db.execute(
         select(Keyword.cluster_id).where(Keyword.id == keyword_id)
@@ -110,8 +126,8 @@ def get_news_by_keyword(
         )
         .join(NewsKeywordMap, NewsKeywordMap.news_id == StockNews.id)
         .where(NewsKeywordMap.keyword_id.in_(keyword_ids))
-        .where(func.date(StockNews.published_at) >= start_date)
-        .where(func.date(StockNews.published_at) <= end_date)
+        .where(StockNews.published_at >= start_dt)
+        .where(StockNews.published_at < end_dt)
         .order_by(desc(StockNews.published_at))
         .distinct()
         .limit(limit)
@@ -141,13 +157,13 @@ def get_sentiment_indices_by_date_range(
 
     반환: [{"stock_id", "avg_score", "positive", "negative", "neutral", "total"}]
     """
-    from domains.debate.models import DebateStock
+    start_dt, end_dt = _date_to_range(start_date, end_date)
 
     stmt = (
         select(
             StockNewsMap.stock_id,
-            DebateStock.ticker,
-            DebateStock.name,
+            Stock.ticker,
+            Stock.name,
             func.avg(StockNewsMap.sentiment_score).label("avg_score"),
             func.sum(
                 case((StockNewsMap.sentiment_label == "POSITIVE", 1), else_=0)
@@ -161,11 +177,11 @@ def get_sentiment_indices_by_date_range(
             func.count(StockNewsMap.news_id).label("total_count"),
         )
         .join(StockNews, StockNews.id == StockNewsMap.news_id)
-        .join(DebateStock, DebateStock.id == StockNewsMap.stock_id)
-        .where(func.date(StockNews.published_at) >= start_date)
-        .where(func.date(StockNews.published_at) <= end_date)
+        .join(Stock, Stock.id == StockNewsMap.stock_id)
+        .where(StockNews.published_at >= start_dt)
+        .where(StockNews.published_at < end_dt)
         .where(StockNewsMap.sentiment_label.isnot(None))
-        .group_by(StockNewsMap.stock_id, DebateStock.ticker, DebateStock.name)
+        .group_by(StockNewsMap.stock_id, Stock.ticker, Stock.name)
         .order_by(desc("total_count"))
     )
     rows = db.execute(stmt).all()
@@ -176,10 +192,10 @@ def get_sentiment_indices_by_date_range(
             "ticker": r[1],
             "stock_name": r[2],
             "avg_score": float(r[3]) if r[3] is not None else None,
-            "positive": r[4] or 0,
-            "negative": r[5] or 0,
-            "neutral": r[6] or 0,
-            "total": r[7] or 0,
+            "positive": int(r[4] or 0),
+            "negative": int(r[5] or 0),
+            "neutral": int(r[6] or 0),
+            "total": int(r[7] or 0),
         }
         for r in rows
     ]

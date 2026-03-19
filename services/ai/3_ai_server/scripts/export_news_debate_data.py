@@ -116,7 +116,7 @@ def export_single_date(
             "stock_id": s["stock_id"],
             "ticker": s["ticker"],
             "stock_name": s["stock_name"],
-            "avg_sentiment_score": s["avg_score"],
+            "avg_sentiment_score": float(s["avg_score"]) if s["avg_score"] is not None else None,
             "positive_count": s["positive"],
             "negative_count": s["negative"],
             "neutral_count": s["neutral"],
@@ -228,6 +228,7 @@ def run_export(
 
                 except Exception as e:
                     logger.warning("날짜 %s 처리 실패: %s", current, e)
+                    db.rollback()
                     skipped += 1
 
                 current += timedelta(days=1)

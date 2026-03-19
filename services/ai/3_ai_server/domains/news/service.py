@@ -21,6 +21,7 @@ def infer_news(payload: NewsInferRequest) -> NewsInferResponse:
     return NewsInferResponse(sentiment="NEUTRAL", score=0.5, model_version="news-v0")
 
 
+
 def get_debate_news_data(
     db: Session,
     *,
