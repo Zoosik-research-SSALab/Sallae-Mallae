@@ -29,11 +29,6 @@ public class UserController {
   private final UserService userService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
 
-  @Operation(summary = "프로필 수정", description = "닉네임 및 프로필 이미지 URL을 수정합니다.")
-  @ApiResponses({
-      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "프로필 수정 성공"),
-      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
-  })
   @PatchMapping("/profile")
   public ApiResponse<Map<String, Object>> updateProfile(
       @Valid @RequestBody UserProfileUpdateRequest request) {
@@ -54,10 +49,6 @@ public class UserController {
     return ApiResponse.success(userService.updatePassword(userId, request));
   }
 
-  @Operation(summary = "이메일 수신 동의 변경", description = "마케팅 이메일 수신 동의 여부를 변경합니다.")
-  @ApiResponses({
-      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "변경 성공")
-  })
   @PatchMapping("/profile/email-opt-in")
   public ApiResponse<Map<String, Object>> updateEmailOptIn(
       @Valid @RequestBody UserEmailOptInRequest request) {
@@ -65,10 +56,6 @@ public class UserController {
     return ApiResponse.success(userService.updateEmailOptIn(userId, request));
   }
 
-  @Operation(summary = "회원 탈퇴", description = "로그인한 사용자의 계정을 탈퇴 처리합니다.")
-  @ApiResponses({
-      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "탈퇴 성공")
-  })
   @DeleteMapping("/profile")
   public ApiResponse<Map<String, Object>> deleteProfile() {
     Long userId = authenticatedUserProvider.getCurrentUserId();
