@@ -6,6 +6,8 @@ import TradeHistory from "./components/TradeHistory";
 import ReturnChart from "./components/ReturnChart";
 import BacktestResults from "./components/BacktestResults";
 import CommitteeDiscussion from "./components/CommitteeDiscussion";
+// TODO(#186): Replace direct mock import with API hook (usePortfolioStockDetailQuery or similar)
+// once the API integration layer (api/ + hooks/) is implemented for this route.
 import { mockStockDetail } from "./utils/mockData";
 import ProtectedPage from "@/shared/components/ProtectedPage";
 
