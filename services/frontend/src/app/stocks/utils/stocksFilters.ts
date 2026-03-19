@@ -1,7 +1,8 @@
 import { MARKET_CATEGORIES, formatCategoryDisplayName, normalizeCategoryKey } from "@/shared/lib/marketCategories";
 import type { StockRankingMetric, StocksApiSort } from "../types/stocks";
 
-export const STOCK_PAGE_SIZE = 50;
+export const STOCK_PAGE_SIZE = 30;
+export const STOCK_TOTAL_COUNT = 200;
 export const ALL_SECTOR = "전체";
 
 export const STOCK_SECTOR_OPTIONS = [ALL_SECTOR, ...MARKET_CATEGORIES.map((category) => category.name)] as const;
@@ -77,9 +78,16 @@ export function isMatchedStockSector(selectedSector: string, stockSector: string
 }
 
 export function getApiSortForRankingMetric(metric: StockRankingMetric): StocksApiSort {
-  if (metric === "RETURN") {
-    return "CHANGE";
+  switch (metric) {
+    case "TURNOVER":
+      return "TRADING_VALUE";
+    case "VOLUME":
+      return "TRADING_VOLUME";
+    case "DIVIDEND":
+      return "DIVIDEND_YIELD";
+    case "RETURN":
+      return "CHANGE";
+    default:
+      return "TRADING_VALUE";
   }
-
-  return "MARKET_CAP";
 }
