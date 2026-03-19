@@ -57,6 +57,10 @@ public class MarketCacheTtlPolicy {
     return !endDate.isBefore(today) ? Duration.ofSeconds(30) : Duration.ofHours(6);
   }
 
+  public Duration bulkQuoteTtl() {
+    return Duration.ofMinutes(2);
+  }
+
   public Duration realtimeTickTtl() {
     return Duration.ofMinutes(15);
   }

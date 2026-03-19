@@ -75,6 +75,7 @@ class StockApiControllerTest {
         .willReturn(RateLimitResult.allowed(100, 99, 60));
     given(stockTopListService.getTopStocks(any(), any(), any(), any(), any(), any(), any(), any()))
         .willReturn(new StockListResponse(
+            2,
             new StockListFilterCountsResponse(2, 1, 1),
             java.util.List.of(
                 new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, 7_030_000_000L, 100_000L, null, "BUY", 87, true),

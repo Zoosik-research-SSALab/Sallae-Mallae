@@ -306,19 +306,6 @@ final class StockTopListSupport {
     TRADING_VOLUME,
     DIVIDEND_YIELD;
 
-    boolean usesLocalUniverse() {
-      return this == MARKET_CAP
-          || this == TRADING_VALUE
-          || this == TRADING_VOLUME
-          || this == DIVIDEND_YIELD;
-    }
-
-    boolean requiresVisibleQuoteEnrichment() {
-      return this == TRADING_VALUE
-          || this == TRADING_VOLUME
-          || this == DIVIDEND_YIELD;
-    }
-
     static SortFilter from(String value) {
       if (value == null || value.isBlank()) {
         return CHANGE;
