@@ -13,7 +13,7 @@ public record StockListItemResponse(
     Long id,
     @Schema(description = "Stock ticker", example = "005930")
     String ticker,
-    @Schema(description = "Stock name", example = "삼성전자")
+    @Schema(description = "Stock name", example = "Samsung Electronics")
     String name,
     @Schema(description = "GICS sector or mapped sector label", example = "Information Technology", nullable = true)
     String gicsSector,
@@ -21,6 +21,12 @@ public record StockListItemResponse(
     Integer price,
     @Schema(description = "Fluctuation rate", example = "2.15")
     Float fluctuationRate,
+    @Schema(description = "Trading value", example = "582000000000", nullable = true)
+    Long tradingValue,
+    @Schema(description = "Trading volume", example = "3450000", nullable = true)
+    Long tradingVolume,
+    @Schema(description = "Dividend yield", example = "1.85", nullable = true)
+    Float dividendYield,
     @Schema(description = "Derived trading signal", example = "BUY")
     String signal,
     @Schema(description = "Derived confidence score", example = "87")

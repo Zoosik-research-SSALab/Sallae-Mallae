@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sallaemallae.backend.infra.kis.cache.MarketCacheKeyFactory;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,8 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class KisTokenManager {
+
+  private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
 
   private final KisAuthClient kisAuthClient;
   private final KisProperties properties;
@@ -55,7 +58,12 @@ public class KisTokenManager {
 
   private boolean isValid(CachedSecret secret) {
     return secret != null
-        && OffsetDateTime.now().plusSeconds(properties.getRefreshMarginSeconds()).isBefore(secret.expiresAt());
+        && secret.value() != null
+        && !secret.value().isBlank()
+        && secret.expiresAt() != null
+        && OffsetDateTime.now(ZONE_ID)
+            .plusSeconds(properties.getRefreshMarginSeconds())
+            .isBefore(secret.expiresAt());
   }
 
   private Optional<CachedSecret> readFromRedis() {
@@ -75,8 +83,11 @@ public class KisTokenManager {
   private void writeToRedis(CachedSecret secret) {
     String key = cacheKeyFactory.accessToken();
     try {
+      if (secret == null || secret.expiresAt() == null || secret.value() == null || secret.value().isBlank()) {
+        return;
+      }
       Duration ttl = Duration.between(
-          OffsetDateTime.now(),
+          OffsetDateTime.now(ZONE_ID),
           secret.expiresAt().minusSeconds(properties.getRefreshMarginSeconds())
       );
       if (ttl.isNegative() || ttl.isZero()) {

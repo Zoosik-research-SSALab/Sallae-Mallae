@@ -22,6 +22,7 @@ import com.sallaemallae.backend.infra.kis.stock.KisQuoteData;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockData;
 import com.sallaemallae.backend.infra.kis.stock.KisTopInterestStockItem;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +46,7 @@ public class StockTopListServiceImpl implements StockTopListService {
   private final StockRepository stockRepository;
   private final StockPriceDailyRepository stockPriceDailyRepository;
   private final WatchlistService watchlistService;
+  private final StockDividendYieldSnapshotService stockDividendYieldSnapshotService;
 
   @Override
   public StockListResponse getTopStocks(
@@ -58,6 +60,10 @@ public class StockTopListServiceImpl implements StockTopListService {
       Integer limit
   ) {
     StockTopListQuery query = StockTopListQuery.of(signal, sector, marketCap, sort, keyword, offset, limit);
+    Map<String, Float> dividendYieldMap = loadDividendYieldMap();
+    if (query.sort() == StockTopListSupport.SortFilter.MARKET_CAP) {
+      return buildMarketCapResponse(userId, query, dividendYieldMap);
+    }
 
     try {
       CachedResult<KisTopInterestStockData> rankingResult = cachedKisDomesticStockGateway.getTopInterestStocks(
@@ -66,31 +72,77 @@ public class StockTopListServiceImpl implements StockTopListService {
       );
       KisTopInterestStockData ranking = rankingResult.value();
       Map<String, Stock> stockMetadata = loadStockMetadata(ranking.items());
+      Map<Long, Float> dbDividendYieldByStockId = loadDbDividendYieldByStockIds(stockMetadata.values());
       Set<Long> watchlistedStockIds = loadWatchlistedStockIds(userId);
 
       List<StockTopListCandidate> candidates = ranking.items().stream()
-          .map(item -> toCandidate(item, stockMetadata.get(item.ticker()), watchlistedStockIds))
+          .map(item -> toCandidate(
+              item,
+              stockMetadata.get(item.ticker()),
+              watchlistedStockIds,
+              dbDividendYieldByStockId,
+              dividendYieldMap
+          ))
           .filter(candidate -> StockTopListSupport.matchesKeyword(candidate, query.keyword()))
           .filter(candidate -> StockTopListSupport.matchesSector(candidate, query.sector()))
           .filter(candidate -> StockTopListSupport.matchesMarketCap(candidate, query.marketCap()))
           .sorted(StockTopListSupport.comparator(query.sort()))
           .toList();
 
-      List<StockTopListCandidate> signalFiltered = candidates.stream()
-          .filter(candidate -> query.signal() == null || candidate.signal() == query.signal())
-          .toList();
-
-      List<StockListItemResponse> responseItems = paginate(signalFiltered, query);
-      return new StockListResponse(StockTopListSupport.countSignals(candidates), responseItems);
+      List<StockTopListCandidate> signalFiltered = filterSignalCandidates(candidates, query);
+      return new StockListResponse(
+          StockTopListSupport.countSignals(candidates),
+          paginate(signalFiltered, query)
+      );
     } catch (KisApiException e) {
       log.warn("Failed to fetch KIS top stock list. code={}", e.getCode(), e);
-      return buildLocalFallbackResponse(userId, query);
+      return buildLocalFallbackResponse(userId, query, dividendYieldMap);
     }
   }
 
-  private StockListResponse buildLocalFallbackResponse(Long userId, StockTopListQuery query) {
+  private StockListResponse buildMarketCapResponse(
+      Long userId,
+      StockTopListQuery query,
+      Map<String, Float> dividendYieldMap
+  ) {
+    List<StockTopListCandidate> candidates = buildLocalCandidates(userId, dividendYieldMap);
+    List<StockTopListCandidate> filtered = filterAndSortCandidates(candidates, query);
+    List<StockTopListCandidate> signalFiltered = filterSignalCandidates(filtered, query);
+
+    return new StockListResponse(
+        StockTopListSupport.countSignals(filtered),
+        toResponses(paginateCandidates(signalFiltered, query), query.offset())
+    );
+  }
+
+  private StockListResponse buildLocalFallbackResponse(
+      Long userId,
+      StockTopListQuery query,
+      Map<String, Float> dividendYieldMap
+  ) {
+    List<StockTopListCandidate> candidates = buildLocalCandidates(userId, dividendYieldMap);
+    List<StockTopListCandidate> filtered = filterAndSortCandidates(candidates, query);
+    List<StockTopListCandidate> signalFiltered = filterSignalCandidates(filtered, query);
+
+    log.info(
+        "Serving stock top list from local fallback. totalCandidates={}, filteredCandidates={}",
+        candidates.size(),
+        signalFiltered.size()
+    );
+
+    List<StockTopListCandidate> visibleCandidates = paginateCandidates(signalFiltered, query);
+    List<StockTopListCandidate> enrichedVisibleCandidates = enrichCandidatesWithQuotes(visibleCandidates);
+
+    return new StockListResponse(
+        StockTopListSupport.countSignals(filtered),
+        toResponses(enrichedVisibleCandidates, query.offset())
+    );
+  }
+
+  private List<StockTopListCandidate> buildLocalCandidates(Long userId, Map<String, Float> dividendYieldMap) {
     List<Stock> activeStocks = loadActiveStocks();
     Map<Long, StockPriceDaily> latestDailyPrices = loadLatestDailyPrices(activeStocks);
+    Map<Long, Float> dbDividendYieldByStockId = loadDbDividendYieldByStockIds(activeStocks);
     Set<Long> watchlistedStockIds = loadWatchlistedStockIds(userId);
 
     List<StockTopListCandidate> candidates = new ArrayList<>();
@@ -99,6 +151,8 @@ public class StockTopListServiceImpl implements StockTopListService {
       StockPriceDaily latestPrice = latestDailyPrices.get(stock.getId());
       Float fluctuationRate = latestPrice != null ? latestPrice.getFluctuationRate() : null;
       Integer price = latestPrice != null ? latestPrice.getClosePrice() : null;
+      Long tradingVolume = latestPrice != null ? latestPrice.getVolume() : null;
+      Long tradingValue = resolveTradingValue(price, tradingVolume, null);
       SignalFilter signal = StockTopListSupport.resolveSignal(fluctuationRate);
 
       candidates.add(new StockTopListCandidate(
@@ -109,6 +163,9 @@ public class StockTopListServiceImpl implements StockTopListService {
           stock.getGicsSector(),
           price,
           fluctuationRate,
+          tradingValue,
+          tradingVolume,
+          resolveDividendYield(stock.getId(), stock.getTicker(), dbDividendYieldByStockId, dividendYieldMap),
           signal,
           StockTopListSupport.resolveConfidence(sourceRank, fluctuationRate, signal),
           watchlistedStockIds.contains(stock.getId()),
@@ -118,30 +175,28 @@ public class StockTopListServiceImpl implements StockTopListService {
       sourceRank++;
     }
 
-    List<StockTopListCandidate> filtered = candidates.stream()
+    return candidates;
+  }
+
+  private List<StockTopListCandidate> filterAndSortCandidates(
+      List<StockTopListCandidate> candidates,
+      StockTopListQuery query
+  ) {
+    return candidates.stream()
         .filter(candidate -> StockTopListSupport.matchesKeyword(candidate, query.keyword()))
         .filter(candidate -> StockTopListSupport.matchesSector(candidate, query.sector()))
         .filter(candidate -> StockTopListSupport.matchesMarketCap(candidate, query.marketCap()))
         .sorted(StockTopListSupport.comparator(query.sort()))
         .toList();
+  }
 
-    List<StockTopListCandidate> signalFiltered = filtered.stream()
+  private List<StockTopListCandidate> filterSignalCandidates(
+      List<StockTopListCandidate> candidates,
+      StockTopListQuery query
+  ) {
+    return candidates.stream()
         .filter(candidate -> query.signal() == null || candidate.signal() == query.signal())
         .toList();
-
-    log.info(
-        "Serving stock top list from local fallback. totalCandidates={}, filteredCandidates={}",
-        candidates.size(),
-        signalFiltered.size()
-    );
-
-    List<StockTopListCandidate> visibleCandidates = paginateCandidates(signalFiltered, query);
-    List<StockTopListCandidate> enrichedVisibleCandidates = enrichFallbackCandidates(visibleCandidates);
-
-    return new StockListResponse(
-        StockTopListSupport.countSignals(filtered),
-        toResponses(enrichedVisibleCandidates, query.offset())
-    );
   }
 
   private List<Stock> loadActiveStocks() {
@@ -206,7 +261,9 @@ public class StockTopListServiceImpl implements StockTopListService {
   private StockTopListCandidate toCandidate(
       KisTopInterestStockItem item,
       Stock stock,
-      Set<Long> watchlistedStockIds
+      Set<Long> watchlistedStockIds,
+      Map<Long, Float> dbDividendYieldByStockId,
+      Map<String, Float> dividendYieldMap
   ) {
     SectorFilter sectorFilter = resolveSectorFilter(stock, item.name());
     String sectorLabel = stock != null && stock.getGicsSector() != null && !stock.getGicsSector().isBlank()
@@ -224,6 +281,9 @@ public class StockTopListServiceImpl implements StockTopListService {
         sectorLabel,
         item.price(),
         item.fluctuationRate(),
+        resolveTradingValue(item.price(), item.volume(), item.tradingValue()),
+        item.volume(),
+        resolveDividendYield(stockId, item.ticker(), dbDividendYieldByStockId, dividendYieldMap),
         signal,
         confidence,
         stockId != null && watchlistedStockIds.contains(stockId),
@@ -254,10 +314,57 @@ public class StockTopListServiceImpl implements StockTopListService {
     return responseItems;
   }
 
-  private List<StockTopListCandidate> enrichFallbackCandidates(List<StockTopListCandidate> candidates) {
+  private Map<String, Float> loadDividendYieldMap() {
+    try {
+      Map<String, Float> dividendYieldMap = stockDividendYieldSnapshotService.getDividendYieldMap();
+      return dividendYieldMap == null ? Map.of() : dividendYieldMap;
+    } catch (RuntimeException e) {
+      log.warn("Failed to load dividend yield snapshot for stock top list.", e);
+      return Map.of();
+    }
+  }
+
+  private Map<Long, Float> loadDbDividendYieldByStockIds(Collection<Stock> stocks) {
+    List<Long> stockIds = stocks.stream()
+        .map(Stock::getId)
+        .filter(Objects::nonNull)
+        .distinct()
+        .toList();
+    if (stockIds.isEmpty()) {
+      return Map.of();
+    }
+
+    try {
+      Map<Long, Float> dividendYieldMap = stockDividendYieldSnapshotService.getLatestDividendYieldByStockIds(stockIds);
+      return dividendYieldMap == null ? Map.of() : dividendYieldMap;
+    } catch (RuntimeException e) {
+      log.warn("Failed to load dividend yield snapshots from DB for stock top list.", e);
+      return Map.of();
+    }
+  }
+
+  private Float resolveDividendYield(
+      Long stockId,
+      String ticker,
+      Map<Long, Float> dbDividendYieldByStockId,
+      Map<String, Float> cachedDividendYieldByTicker
+  ) {
+    if (stockId != null) {
+      Float dbValue = dbDividendYieldByStockId.get(stockId);
+      if (dbValue != null) {
+        return dbValue;
+      }
+    }
+    return ticker == null ? null : cachedDividendYieldByTicker.get(ticker);
+  }
+
+  private List<StockTopListCandidate> enrichCandidatesWithQuotes(List<StockTopListCandidate> candidates) {
     List<StockTopListCandidate> enriched = new ArrayList<>(candidates.size());
     for (StockTopListCandidate candidate : candidates) {
-      if (candidate.price() != null && candidate.fluctuationRate() != null) {
+      if (candidate.price() != null
+          && candidate.fluctuationRate() != null
+          && candidate.tradingVolume() != null
+          && candidate.tradingValue() != null) {
         enriched.add(candidate);
         continue;
       }
@@ -277,6 +384,9 @@ public class StockTopListServiceImpl implements StockTopListService {
             candidate.gicsSector(),
             quote.currentPrice(),
             quote.changeRate(),
+            resolveTradingValue(quote.currentPrice(), quote.volume(), candidate.tradingValue()),
+            quote.volume(),
+            candidate.dividendYield(),
             signal,
             StockTopListSupport.resolveConfidence(candidate.sourceRank(), quote.changeRate(), signal),
             candidate.isWatchlisted(),
@@ -284,7 +394,11 @@ public class StockTopListServiceImpl implements StockTopListService {
             candidate.sectorFilter()
         ));
       } catch (KisApiException e) {
-        log.warn("Failed to enrich fallback stock list with KIS quote. ticker={}, code={}", candidate.ticker(), e.getCode());
+        log.warn(
+            "Failed to enrich fallback stock list with KIS quote. ticker={}, code={}",
+            candidate.ticker(),
+            e.getCode()
+        );
         enriched.add(candidate);
       } catch (RuntimeException e) {
         log.warn("Failed to enrich fallback stock list with KIS quote. ticker={}", candidate.ticker(), e);
@@ -313,6 +427,21 @@ public class StockTopListServiceImpl implements StockTopListService {
     }
   }
 
+  private Long resolveTradingValue(Integer price, Long tradingVolume, Long sourceTradingValue) {
+    if (sourceTradingValue != null) {
+      return sourceTradingValue;
+    }
+    if (price == null || tradingVolume == null) {
+      return null;
+    }
+    try {
+      return Math.multiplyExact(price.longValue(), tradingVolume);
+    } catch (ArithmeticException e) {
+      log.warn("Trading value overflow while building top stock list. price={}, volume={}", price, tradingVolume, e);
+      return null;
+    }
+  }
+
   private SectorFilter resolveSectorFilter(Stock stock, String fallbackName) {
     String text = StockTopListSupport.normalize(String.join(
         " ",
@@ -322,19 +451,66 @@ public class StockTopListServiceImpl implements StockTopListService {
         fallbackName != null ? fallbackName : ""
     ));
 
-    if (containsAny(text, "information technology", "semiconductor", "software", "it", "반도체", "전자", "internet")) {
+    if (containsAny(
+        text,
+        "information technology",
+        "semiconductor",
+        "software",
+        "it",
+        "internet",
+        "\uBC18\uB3C4\uCCB4",
+        "\uC804\uC790"
+    )) {
       return SectorFilter.IT;
     }
-    if (containsAny(text, "financial", "finance", "bank", "insurance", "securities", "금융", "증권", "보험")) {
+    if (containsAny(
+        text,
+        "financial",
+        "finance",
+        "bank",
+        "insurance",
+        "securities",
+        "\uAE08\uC735",
+        "\uC99D\uAD8C",
+        "\uBCF4\uD5D8"
+    )) {
       return SectorFilter.FINANCE;
     }
-    if (containsAny(text, "automobile", "auto", "motor", "자동차", "모빌리티", "기아", "현대")) {
+    if (containsAny(
+        text,
+        "automobile",
+        "auto",
+        "motor",
+        "mobility",
+        "\uC790\uB3D9\uCC28",
+        "\uBAA8\uBE4C\uB9AC\uD2F0",
+        "\uAE30\uC544",
+        "\uD604\uB300"
+    )) {
       return SectorFilter.AUTO;
     }
-    if (containsAny(text, "health care", "bio", "biotech", "pharma", "제약", "바이오", "헬스")) {
+    if (containsAny(
+        text,
+        "health care",
+        "bio",
+        "biotech",
+        "pharma",
+        "\uC81C\uC57D",
+        "\uBC14\uC774\uC624",
+        "\uD5EC\uC2A4"
+    )) {
       return SectorFilter.BIO;
     }
-    if (containsAny(text, "battery", "secondary battery", "2차전지", "에너지저장", "양극재", "음극재")) {
+    if (containsAny(
+        text,
+        "battery",
+        "secondary battery",
+        "\uBC30\uD130\uB9AC",
+        "2\uCC28\uC804\uC9C0",
+        "\uC5D0\uB108\uC9C0\uC194\uB8E8\uC158",
+        "\uC591\uADF9\uC7AC",
+        "\uC74C\uADF9\uC7AC"
+    )) {
       return SectorFilter.BATTERY;
     }
     return null;

@@ -58,6 +58,9 @@ public class KisApprovalKeyManager {
 
   private boolean isValid(CachedSecret secret) {
     return secret != null
+        && secret.value() != null
+        && !secret.value().isBlank()
+        && secret.expiresAt() != null
         && OffsetDateTime.now(ZONE_ID)
             .plusSeconds(properties.getRefreshMarginSeconds())
             .isBefore(secret.expiresAt());
@@ -80,6 +83,9 @@ public class KisApprovalKeyManager {
   private void writeToRedis(CachedSecret secret) {
     String key = cacheKeyFactory.approvalKey();
     try {
+      if (secret == null || secret.expiresAt() == null || secret.value() == null || secret.value().isBlank()) {
+        return;
+      }
       Duration ttl = Duration.between(
           OffsetDateTime.now(ZONE_ID),
           secret.expiresAt().minusSeconds(properties.getRefreshMarginSeconds())

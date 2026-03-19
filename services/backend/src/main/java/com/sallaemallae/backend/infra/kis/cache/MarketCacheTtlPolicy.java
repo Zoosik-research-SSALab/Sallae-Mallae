@@ -48,6 +48,10 @@ public class MarketCacheTtlPolicy {
     return isMarketOpen() ? Duration.ofMinutes(30) : Duration.ofHours(6);
   }
 
+  public Duration dividendYieldSnapshotTtl() {
+    return Duration.ofDays(8);
+  }
+
   public Duration periodTtl(LocalDate endDate) {
     LocalDate today = ZonedDateTime.now(clock).withZoneSameInstant(ZONE_ID).toLocalDate();
     return !endDate.isBefore(today) ? Duration.ofSeconds(30) : Duration.ofHours(6);
