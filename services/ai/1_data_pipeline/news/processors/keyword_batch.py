@@ -128,7 +128,7 @@ async def extract_keywords_batch(
 # ---------------------------------------------------------------------------
 def cluster_keywords(
     raw_keywords: list[str],
-    threshold: float = 0.85,
+    threshold: float = 0.97,
 ) -> tuple[dict[str, str], dict[str, list[float]]]:
     """
     원시 키워드를 임베딩 유사도 기반으로 클러스터링.
@@ -160,11 +160,18 @@ def cluster_keywords(
     # E5 모델은 "query: " prefix 필요
     texts = [f"query: {k}" for k in unique_keywords]
 
+    # 배치 단위로 임베딩 (한번에 너무 많으면 패딩으로 벡터 품질 저하)
+    embed_batch_size = 256
+    all_embs = []
     with torch.no_grad():
-        encoded = tokenizer(texts, padding=True, truncation=True, max_length=64, return_tensors="pt")
-        encoded = {k: v.to(device) for k, v in encoded.items()}
-        output = model(**encoded)
-        embs = output.last_hidden_state[:, 0, :].cpu().numpy()
+        for start in range(0, len(texts), embed_batch_size):
+            batch_texts = texts[start:start + embed_batch_size]
+            encoded = tokenizer(batch_texts, padding=True, truncation=True, max_length=64, return_tensors="pt")
+            encoded = {k: v.to(device) for k, v in encoded.items()}
+            output = model(**encoded)
+            batch_embs = output.last_hidden_state[:, 0, :].cpu().numpy()
+            all_embs.append(batch_embs)
+    embs = np.concatenate(all_embs, axis=0)
 
     # L2 정규화
     norms = np.linalg.norm(embs, axis=1, keepdims=True)
@@ -232,12 +239,28 @@ def save_keywords_to_db(
             for kw in existing:
                 keyword_cache[kw.name] = kw.id
 
+            # 기존 매핑을 인메모리 캐시로 로드 (DB 쿼리 중복 체크 대체)
+            existing_mappings: set[tuple[int, int]] = set()
+            news_ids = list(news_keywords.keys())
+            if news_ids:
+                for row in (
+                    session.query(NewsKeywordMap.news_id, NewsKeywordMap.keyword_id)
+                    .filter(NewsKeywordMap.news_id.in_(news_ids))
+                    .all()
+                ):
+                    existing_mappings.add((row.news_id, row.keyword_id))
+
             for news_id, raw_keywords in news_keywords.items():
+                # 같은 뉴스 내 키워드 중복 제거
+                seen_in_news: set[str] = set()
                 for raw_kw in raw_keywords:
                     # canonical 키워드로 정규화
                     canonical = canonical_map.get(raw_kw, raw_kw)
                     if not canonical or len(canonical) > 20:
                         continue
+                    if canonical in seen_in_news:
+                        continue
+                    seen_in_news.add(canonical)
 
                     # 키워드가 없으면 생성
                     if canonical not in keyword_cache:
@@ -249,17 +272,11 @@ def save_keywords_to_db(
 
                     keyword_id = keyword_cache[canonical]
 
-                    # 매핑 중복 체크
-                    exists = (
-                        session.query(NewsKeywordMap)
-                        .filter(
-                            NewsKeywordMap.news_id == news_id,
-                            NewsKeywordMap.keyword_id == keyword_id,
-                        )
-                        .first()
-                    )
-                    if not exists:
+                    # 매핑 중복 체크 (인메모리)
+                    mapping_key = (news_id, keyword_id)
+                    if mapping_key not in existing_mappings:
                         session.add(NewsKeywordMap(news_id=news_id, keyword_id=keyword_id))
+                        existing_mappings.add(mapping_key)
                         stats["mappings_created"] += 1
 
             # 임베딩 벡터 저장 (keyword_embeddings 테이블)
