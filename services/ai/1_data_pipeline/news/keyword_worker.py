@@ -1,14 +1,14 @@
 """
-키워드 추출 데스크탑 워커 — DB 폴링 방식
+키워드 추출 데스크탑 워커 — 미처리 뉴스 폴링 방식
 
-EC2 스케줄러(scheduler.py)가 크롤링+DB적재 완료 후
-pipeline_signals 테이블에 신호를 남기면, 이 워커가 감지하여:
+EC2 크롤러가 종목별로 DB에 즉시 적재하면,
+이 워커가 미처리 뉴스(news_keyword_map 매핑 없는 기사)를 감지하여:
   1. vLLM (Qwen2.5-7B-Instruct-AWQ)으로 키워드 추출
   2. e5-small 임베딩 생성
   3. K-means 클러스터링
 
-17:30부터 5분 간격으로 DB를 폴링하고, 신호를 처리하면 다음 날까지 대기.
-실패 시 최대 5회 재시도. 워커 재시작 시 중단된 신호 자동 복구.
+16:30부터 5분 간격으로 미처리 뉴스를 폴링하고,
+연속 빈 폴링이 일정 횟수 넘으면 당일 처리 완료로 판단.
 
 실행 환경: WSL2 Ubuntu (vLLM이 Linux 전용)
 GPU: RTX 5060 8GB — AWQ 양자화 모델 사용 (FP16 7B는 VRAM 초과)
@@ -17,10 +17,10 @@ GPU: RTX 5060 8GB — AWQ 양자화 모델 사용 (FP16 7B는 VRAM 초과)
   # SSH 터널 + vLLM 서버가 실행 중인 상태에서:
   python3 keyword_worker.py
 
-  # 즉시 1회 실행 (신호 무시, 미처리 뉴스 있으면 바로 처리)
+  # 즉시 1회 실행 (미처리 뉴스 있으면 바로 처리)
   python3 keyword_worker.py --run-now
 
-  # 감시 시작 시각 변경 (기본: 17:30)
+  # 감시 시작 시각 변경 (기본: 16:30)
   python3 keyword_worker.py --watch-from 16:30
 
   # 폴링 간격 변경 (기본: 300초)
@@ -34,7 +34,7 @@ import logging
 import time
 
 from db import get_session
-from models import PipelineSignal
+from models import PipelineSignal, StockNews, NewsKeywordMap
 
 logger = logging.getLogger(__name__)
 
@@ -42,65 +42,38 @@ MAX_RETRIES = 5
 
 
 # ---------------------------------------------------------------------------
-# 신호 감지 + 복구
+# 미처리 뉴스 감지
 # ---------------------------------------------------------------------------
-def recover_stale_signals() -> int:
-    """워커 재시작 시 PROCESSING 상태로 남은 신호를 PENDING으로 복구. 복구 건수 반환."""
+def count_unprocessed_news(days: int = 2) -> int:
+    """키워드 매핑이 없는 최근 뉴스 건수를 반환."""
     with get_session() as session:
-        try:
-            stale = (
-                session.query(PipelineSignal)
-                .filter(
-                    PipelineSignal.signal_type == "NEWS_CRAWL_DONE",
-                    PipelineSignal.status == "PROCESSING",
-                )
-                .all()
-            )
-            for signal in stale:
-                signal.status = "PENDING"
-            session.commit()
-            return len(stale)
-        except Exception:
-            session.rollback()
-            raise
+        cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
+        count = (
+            session.query(StockNews)
+            .outerjoin(NewsKeywordMap, StockNews.id == NewsKeywordMap.news_id)
+            .filter(NewsKeywordMap.news_id.is_(None))
+            .filter(StockNews.published_at >= cutoff)
+            .count()
+        )
+    return count
 
 
-def check_pending_signal() -> PipelineSignal | None:
-    """PENDING 또는 재시도 가능한 FAILED 신호를 반환."""
+# ---------------------------------------------------------------------------
+# 크롤링 완료 신호 확인
+# ---------------------------------------------------------------------------
+def check_crawl_done_signal() -> bool:
+    """오늘 날짜의 NEWS_CRAWL_DONE 신호가 있는지 확인."""
     with get_session() as session:
+        today_start = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         signal = (
             session.query(PipelineSignal)
             .filter(
                 PipelineSignal.signal_type == "NEWS_CRAWL_DONE",
-                PipelineSignal.status.in_(["PENDING", "FAILED"]),
-                PipelineSignal.retry_count < MAX_RETRIES,
+                PipelineSignal.created_at >= today_start,
             )
-            .order_by(PipelineSignal.created_at.desc())
             .first()
         )
-        if signal:
-            session.expunge(signal)
-            return signal
-    return None
-
-
-def update_signal_status(signal_id: int, status: str) -> None:
-    """신호 상태를 업데이트. FAILED 시 retry_count 증가."""
-    with get_session() as session:
-        try:
-            signal = session.query(PipelineSignal).filter(PipelineSignal.id == signal_id).first()
-            if signal:
-                signal.status = status
-                if status == "DONE":
-                    signal.processed_at = datetime.datetime.now()
-                elif status == "FAILED":
-                    signal.retry_count += 1
-                    if signal.retry_count >= MAX_RETRIES:
-                        logger.error("최대 재시도 횟수(%d) 초과 — 더 이상 재시도하지 않음", MAX_RETRIES)
-                session.commit()
-        except Exception:
-            session.rollback()
-            raise
+        return signal is not None
 
 
 # ---------------------------------------------------------------------------
@@ -203,25 +176,25 @@ def check_weekly_recluster() -> None:
             logger.error("전체 재클러스터링 실패: %s", e)
 
 
-def start_worker(watch_from: str = "18:30", interval: int = 300, max_polls: int = 10) -> None:
-    """DB 폴링 워커를 시작."""
+def start_worker(watch_from: str = "16:30", interval: int = 300, max_empty: int = 3) -> None:
+    """하이브리드 워커: 미처리 뉴스 선처리 + 크롤링 완료 신호 후 종료.
+
+    동작 방식:
+      - 신호 전: 5분마다 미처리 뉴스 확인 → 있으면 처리, 없으면 계속 대기
+      - 신호 후: 잔여 뉴스 처리 → 연속 max_empty회 빈 폴링이면 당일 종료
+    """
     hour, minute = map(int, watch_from.split(":"))
 
-    logger.info("키워드 워커 시작 | 감시 시작: %s | 폴링 간격: %d초 | 최대 폴링: %d회 | 최대 재시도: %d회",
-                watch_from, interval, max_polls, MAX_RETRIES)
+    logger.info("키워드 워커 시작 | 감시: %s | 간격: %d초 | 신호 후 빈 폴링 종료: %d회 | 최대 재시도: %d회",
+                watch_from, interval, max_empty, MAX_RETRIES)
     logger.info("주간 전체 재클러스터링: 매주 토요일 20:00")
-
-    # 워커 재시작 시 PROCESSING 상태로 남은 신호 복구
-    recovered = recover_stale_signals()
-    if recovered:
-        logger.info("중단된 신호 %d건 복구 (PROCESSING → PENDING)", recovered)
 
     try:
         while True:
             # 토요일 20시 전체 재클러스터링 체크
             check_weekly_recluster()
 
-            # 주말(토/일)에는 크롤링이 없으므로 신호 감시 스킵
+            # 주말(토/일)에는 크롤링이 없으므로 감시 스킵
             if datetime.datetime.now().weekday() >= 5:
                 time.sleep(interval)
                 continue
@@ -229,16 +202,24 @@ def start_worker(watch_from: str = "18:30", interval: int = 300, max_polls: int 
             # 매일 감시 시작 시각까지 대기
             wait_until(hour, minute)
 
-            logger.info("신호 감시 시작 (최대 %d회 폴링)", max_polls)
-            processed_today = False
-            poll_count = 0
+            logger.info("미처리 뉴스 감시 시작")
+            crawl_done = False
+            empty_count = 0
+            retry_count = 0
 
-            while not processed_today:
-                signal = check_pending_signal()
+            while True:
+                # 크롤링 완료 신호 확인
+                if not crawl_done:
+                    crawl_done = check_crawl_done_signal()
+                    if crawl_done:
+                        logger.info("크롤링 완료 신호 수신 — 잔여 처리 후 종료 카운트다운 시작")
 
-                if signal:
-                    logger.info("신호 감지! (id=%d, retry=%d/%d, created_at=%s)",
-                                signal.id, signal.retry_count, MAX_RETRIES, signal.created_at)
+                # 미처리 뉴스 확인
+                unprocessed = count_unprocessed_news(days=2)
+
+                if unprocessed > 0:
+                    empty_count = 0
+                    logger.info("미처리 뉴스 %d건 감지 → 키워드 파이프라인 실행", unprocessed)
 
                     # vLLM 서버 확인
                     if not check_vllm_health():
@@ -246,33 +227,29 @@ def start_worker(watch_from: str = "18:30", interval: int = 300, max_polls: int 
                         time.sleep(60)
                         continue
 
-                    # 신호 상태 → PROCESSING
-                    update_signal_status(signal.id, "PROCESSING")
-
                     try:
                         asyncio.run(run_keyword_pipeline())
-                        update_signal_status(signal.id, "DONE")
-                        logger.info("처리 완료 — 내일까지 대기")
-                        processed_today = True
+                        logger.info("키워드 파이프라인 완료 — 다음 폴링까지 대기")
+                        retry_count = 0
                     except Exception as e:
-                        logger.error("파이프라인 실행 실패 (retry=%d/%d): %s",
-                                     signal.retry_count + 1, MAX_RETRIES, e)
-                        update_signal_status(signal.id, "FAILED")
-                        # 재시도 횟수 남아있으면 다음 폴링에서 재시도
-                        if signal.retry_count + 1 >= MAX_RETRIES:
-                            logger.error("최대 재시도 초과 — 내일까지 대기")
-                            processed_today = True
-                        else:
-                            logger.info("다음 폴링에서 재시도 예정")
-                            time.sleep(interval)
+                        retry_count += 1
+                        logger.error("파이프라인 실패 (retry=%d/%d): %s", retry_count, MAX_RETRIES, e)
+                        if retry_count >= MAX_RETRIES:
+                            logger.error("최대 재시도 초과 — 당일 처리 종료")
+                            break
                 else:
-                    poll_count += 1
-                    if poll_count >= max_polls:
-                        logger.info("최대 폴링 횟수(%d회) 도달 — 신호 없이 하루 종료", max_polls)
-                        processed_today = True
+                    if crawl_done:
+                        # 신호 수신 후에만 빈 폴링 카운트다운
+                        empty_count += 1
+                        logger.info("미처리 뉴스 없음 (%d/%d) — %d초 후 재확인", empty_count, max_empty, interval)
+                        if empty_count >= max_empty:
+                            logger.info("신호 수신 + 빈 폴링 %d회 — 당일 처리 완료", max_empty)
+                            break
                     else:
-                        logger.info("신호 없음 (%d/%d) — %d초 후 재확인", poll_count, max_polls, interval)
-                        time.sleep(interval)
+                        # 신호 전에는 계속 대기 (크롤링 진행 중)
+                        logger.info("미처리 뉴스 없음, 크롤링 완료 신호 대기 중 — %d초 후 재확인", interval)
+
+                time.sleep(interval)
 
             # 다음 날 감시를 위해 자정+1분까지 대기
             now = datetime.datetime.now()
@@ -298,15 +275,15 @@ def main():
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    parser = argparse.ArgumentParser(description="키워드 추출 데스크탑 워커 (DB 폴링)")
+    parser = argparse.ArgumentParser(description="키워드 추출 데스크탑 워커 (미처리 뉴스 폴링)")
     parser.add_argument("--run-now", action="store_true",
-                        help="신호 무시, 즉시 1회 실행 후 종료")
-    parser.add_argument("--watch-from", default="18:30",
-                        help="감시 시작 시각 (기본: 18:30)")
+                        help="즉시 1회 실행 후 종료")
+    parser.add_argument("--watch-from", default="16:30",
+                        help="감시 시작 시각 (기본: 16:30)")
     parser.add_argument("--interval", type=int, default=300,
                         help="폴링 간격 초 (기본: 300)")
-    parser.add_argument("--max-polls", type=int, default=10,
-                        help="최대 폴링 횟수 (기본: 10)")
+    parser.add_argument("--max-empty", type=int, default=3,
+                        help="신호 수신 후 연속 빈 폴링 종료 횟수 (기본: 3, 즉 15분간 미처리 뉴스 없으면 종료)")
     args = parser.parse_args()
 
     if args.run_now:
@@ -318,7 +295,7 @@ def main():
         logger.info("--run-now: 실행 완료")
         return
 
-    start_worker(watch_from=args.watch_from, interval=args.interval, max_polls=args.max_polls)
+    start_worker(watch_from=args.watch_from, interval=args.interval, max_empty=args.max_empty)
 
 
 if __name__ == "__main__":

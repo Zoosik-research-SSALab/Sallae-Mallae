@@ -134,7 +134,7 @@ def _run_step(step_name: str, cmd: list[str]) -> bool:
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=7200,  # 2시간 타임아웃
+            timeout=14400,  # 4시간 타임아웃
         )
         if result.stdout:
             for line in result.stdout.strip().split("\n")[-10:]:
@@ -148,7 +148,7 @@ def _run_step(step_name: str, cmd: list[str]) -> bool:
         logger.info("[%s] 완료", step_name)
         return True
     except subprocess.TimeoutExpired:
-        logger.error("[%s] 타임아웃 (2시간 초과)", step_name)
+        logger.error("[%s] 타임아웃 (4시간 초과)", step_name)
         return False
     except Exception as exc:
         logger.error("[%s] 실행 오류: %s", step_name, exc)
@@ -180,7 +180,7 @@ def _send_pipeline_signal() -> None:
 
 
 def run_daily_pipeline() -> None:
-    """4단계 뉴스 파이프라인을 순서대로 실행."""
+    """뉴스 크롤링 + DB 적재 파이프라인 실행. 종목별 즉시 적재로 키워드 워커와 병렬 처리."""
     today = datetime.date.today()
     logger.info("=" * 60)
     logger.info("뉴스 파이프라인 시작 | %s", today.isoformat())
@@ -192,44 +192,20 @@ def run_daily_pipeline() -> None:
 
     python = sys.executable
 
-    # 1단계: 크롤링 → CSV (전날~당일만 수집)
+    # 크롤링 + 필터링 + DB 적재 (종목별 즉시 적재 — 키워드 워커가 병렬 처리 가능)
     yesterday = (today - datetime.timedelta(days=1)).isoformat()
     today_str = today.isoformat()
-    ok = _run_step("크롤링", [
-        python, "-m", "crawlers.daily", "--csv-only",
+    ok = _run_step("크롤링+적재", [
+        python, "-m", "crawlers.daily",
         "--start-date", yesterday, "--end-date", today_str,
     ])
+
     if not ok:
-        logger.error("크롤링 실패 — 파이프라인 중단")
-        return
+        logger.warning("크롤링+적재 비정상 종료 (타임아웃 등) — 적재된 데이터는 키워드 워커가 처리 예정")
 
-    # 크롤링 결과 디렉토리 찾기
-    daily_dir = _find_latest_dir(DAILY_OUTPUT_PREFIX)
-    if not daily_dir:
-        logger.error("크롤링 출력 디렉토리를 찾을 수 없음 — 파이프라인 중단")
-        return
-
-    # 2단계: 필터링
-    ok = _run_step("필터링", [python, "-m", "processors.clean_articles", daily_dir])
-    if not ok:
-        logger.error("필터링 실패 — 파이프라인 중단")
-        return
-
-    # 필터링 결과 디렉토리 찾기
-    filtered_dir = _find_latest_dir(FILTERED_OUTPUT_PREFIX)
-    if not filtered_dir:
-        logger.error("필터링 출력 디렉토리를 찾을 수 없음 — 파이프라인 중단")
-        return
-
-    # 3단계: DB 적재
-    ok = _run_step("DB적재", [python, "-m", "loaders.csv_loader", filtered_dir])
-    if not ok:
-        logger.error("DB 적재 실패 — 파이프라인 중단")
-        return
-
-    # 4단계: 키워드 추출 신호 전송 (데스크탑 GPU 워커가 감지하여 처리)
+    # 크롤링 완료 신호 전송 (키워드 워커가 종료 타이밍 판단에 사용)
     _send_pipeline_signal()
-    logger.info("[키워드] 파이프라인 신호 전송 완료 — 데스크탑 워커가 키워드 추출 수행 예정")
+    logger.info("[신호] NEWS_CRAWL_DONE 전송 — 키워드 워커 종료 카운트다운 시작")
 
     # 성공 기록
     _save_last_run_date(today)
@@ -278,7 +254,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="뉴스 파이프라인 자동 스케줄러")
     parser.add_argument("--run-now", action="store_true", help="즉시 1회 실행 후 종료")
-    parser.add_argument("--time", default="17:00", help="실행 시각 (기본: 17:00, KST)")
+    parser.add_argument("--time", default="16:00", help="실행 시각 (기본: 16:00, KST)")
     args = parser.parse_args()
 
     if args.run_now:

@@ -27,6 +27,8 @@ import logging
 import random
 import re
 import sys
+import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 
 import aiohttp
@@ -50,10 +52,69 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 DAILY_MAX_PAGES = 10
 DAILY_PAGE_DELAY = (0.3, 0.8)
-DAILY_STOCK_COOLDOWN = 1
+DAILY_STOCK_COOLDOWN = 20
 DAILY_BATCH_COOLDOWN = 10
 DAILY_BATCH_SIZE = 50
 DAILY_SEMAPHORE_LIMIT = 8
+
+# ---------------------------------------------------------------------------
+# 인라인 필터링 패턴 (clean_articles.py 경량 버전)
+# ---------------------------------------------------------------------------
+_NOISE_TITLE_RE = re.compile(
+    r"^언론사 선정|네이버 메인에서 보고 싶은|^관련뉴스|^Keep에"
+)
+_AD_KEYWORDS_RE = re.compile(
+    "|".join(re.escape(kw) for kw in [
+        "무료 상담", "수익률 보장", "카카오톡 상담", "텔레그램 추천",
+        "주식리딩방", "종목추천방", "무료체험", "수익인증",
+        "원금보장", "100% 수익", "VIP 추천", "선착순 모집",
+    ])
+)
+_MIN_BODY_LENGTH = 20
+
+
+def _filter_articles(df: pd.DataFrame) -> pd.DataFrame:
+    """광고/노이즈 필터링 + 중복 제거 (임베딩 없는 경량 버전)."""
+    if df.empty:
+        return df
+
+    # URL 중복 제거
+    df = df.drop_duplicates(subset=["article_url"], keep="first")
+
+    # 노이즈 제목 제거
+    mask = df["title"].fillna("").str.contains(_NOISE_TITLE_RE, regex=True, na=False)
+    df = df[~mask]
+
+    # 광고 제거
+    body_col = df.get("full_body", df.get("body", pd.Series("", index=df.index))).fillna("")
+    search_col = df["title"].fillna("") + " " + body_col
+    mask = search_col.str.contains(_AD_KEYWORDS_RE, regex=True, na=False)
+    df = df[~mask]
+
+    # 짧은 본문 제거
+    body_col = df.get("full_body", df.get("body", pd.Series("", index=df.index))).fillna("")
+    df = df[body_col.str.len() >= _MIN_BODY_LENGTH]
+
+    # 정규화 제목 중복 제거
+    def _norm(t):
+        if not isinstance(t, str):
+            return ""
+        t = unicodedata.normalize("NFC", t)
+        t = re.sub(r"[^\w가-힣a-zA-Z0-9]", "", t)
+        return re.sub(r"\s+", "", t).lower()
+
+    df["_norm"] = df["title"].apply(_norm)
+    df = df.drop_duplicates(subset=["_norm"], keep="first").drop(columns=["_norm"])
+
+    return df.reset_index(drop=True)
+
+
+def _filter_and_save_to_db(df: pd.DataFrame) -> int:
+    """필터링 후 DB에 저장한다. ThreadPoolExecutor에서 호출."""
+    df = _filter_articles(df)
+    if df.empty:
+        return 0
+    return save_to_db(df)
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +174,7 @@ async def crawl_stock(
         for a in articles:
             a["name"] = name
 
-        # 날짜 범위 밖 기사가 있으면 필터링 후 조기 종료
+        # 날짜 범위 밖 기사가 있으면 해당 기사 제외 후 즉시 종목 크롤링 종료
         has_old = False
         if start_date:
             start_dt = datetime.combine(start_date, datetime.min.time())
@@ -126,20 +187,20 @@ async def crawl_stock(
                     filtered.append(a)
             articles = filtered
             if has_old:
-                logger.info("  [%s] 페이지 %d: 날짜 범위 이전 기사 감지 → 조기 종료", code, page)
+                logger.info("  [%s] 페이지 %d: 날짜 범위 이전 기사 감지 → 즉시 종료", code, page)
 
         if not articles:
             if has_old:
                 break
             continue
 
-        # 본문 스니펫 수집
+        # 본문 스니펫 수집 (범위 내 기사만)
         snippet_tasks = [extract_news_snippet(session, art) for art in articles]
         completed = await asyncio.gather(*snippet_tasks, return_exceptions=True)
         valid = [r for r in completed if isinstance(r, dict)]
         all_articles.extend(valid)
 
-        # 날짜 범위 이전 기사가 있었으면 더 이상 페이지 탐색 불필요
+        # 날짜 범위 이전 기사가 감지됐으면 다음 페이지 탐색 없이 즉시 종료
         if has_old:
             break
 
@@ -229,14 +290,23 @@ async def run_daily_crawl(
     start_date: date | None = None,
     end_date: date | None = None,
 ) -> None:
-    """전체 종목 일일 크롤링 실행."""
+    """전체 종목 일일 크롤링 실행.
+    csv_only=False(기본)일 때 종목별 크롤링 완료 즉시 필터링+DB 적재를 백그라운드 스레드로 실행.
+    """
     set_semaphore_limit(DAILY_SEMAPHORE_LIMIT)
 
     logger.info(
-        "일일 크롤링 시작 | 종목: %d개 | 페이지: %d | 기간: %s ~ %s",
+        "일일 크롤링 시작 | 종목: %d개 | 페이지: %d | 기간: %s ~ %s | 모드: %s",
         len(stocks_df), max_pages,
         start_date or "전체", end_date or "전체",
+        "CSV" if csv_only else "DB 직접 적재",
     )
+
+    # DB 적재용 스레드풀 (크롤링과 병렬로 DB 저장)
+    executor = ThreadPoolExecutor(max_workers=2) if not csv_only else None
+    db_futures: list = []
+    loop = asyncio.get_event_loop()
+    total_saved = 0
 
     connector = aiohttp.TCPConnector(limit=DAILY_SEMAPHORE_LIMIT * 2)
     async with aiohttp.ClientSession(connector=connector) as session:
@@ -254,7 +324,7 @@ async def run_daily_crawl(
 
                 if not df.empty:
                     if csv_only:
-                        # 날짜별 디렉토리에 저장 (스케줄러 연동)
+                        # 날짜별 디렉토리에 저장 (백업/디버그용)
                         today_str = date.today().strftime("%Y%m%d")
                         daily_dir = OUTPUT_DIR / f"daily_{today_str}"
                         daily_dir.mkdir(parents=True, exist_ok=True)
@@ -262,8 +332,10 @@ async def run_daily_crawl(
                         df.to_csv(csv_path, index=False, encoding="utf-8-sig")
                         logger.info("  CSV 저장: %s (%d건)", csv_path, len(df))
                     else:
-                        saved = save_to_db(df)
-                        logger.info("  DB 저장: %d건", saved)
+                        # 필터링 + DB 적재를 백그라운드 스레드로 실행 (크롤링 블로킹 안 함)
+                        future = loop.run_in_executor(executor, _filter_and_save_to_db, df.copy())
+                        db_futures.append((code, name, future))
+                        logger.info("  DB 적재 제출: %d건 → 백그라운드", len(df))
                 else:
                     logger.info("  수집된 뉴스 없음")
 
@@ -279,7 +351,20 @@ async def run_daily_crawl(
                 logger.info("  배치 쿨다운 %d초...", DAILY_BATCH_COOLDOWN)
                 await asyncio.sleep(DAILY_BATCH_COOLDOWN)
 
-    logger.info("일일 크롤링 완료")
+    # 모든 DB 적재 완료 대기
+    if db_futures:
+        logger.info("DB 적재 완료 대기 중... (%d건)", len(db_futures))
+        for code, name, future in db_futures:
+            try:
+                saved = await asyncio.wrap_future(future)
+                total_saved += saved
+            except Exception as e:
+                logger.error("  [%s(%s)] DB 적재 실패: %s", name, code, e)
+
+    if executor:
+        executor.shutdown(wait=False)
+
+    logger.info("일일 크롤링 완료 | DB 적재: %d건", total_saved)
 
 
 # ---------------------------------------------------------------------------
