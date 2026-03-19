@@ -15,7 +15,7 @@ export function MSWComponent() {
         })();
       }
     }
-  });
+  }, []);
 
   return null;
 }

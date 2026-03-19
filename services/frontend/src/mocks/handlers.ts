@@ -35,7 +35,7 @@ import {
   NEWS_PAGE_SIZE,
 } from "@/app/news/utils/mockNewsData";
 import { parseNewsNumberParam } from "@/app/news/utils/newsQueryUtils";
-import { snakelizeKeys } from "@/shared/utils/case";
+import { camelizeKeys, snakelizeKeys } from "@/shared/utils/case";
 import { ALL_SECTOR, STOCK_PAGE_SIZE } from "@/app/stocks/utils/stocksFilters";
 import type { StocksApiSort, StocksQueryParams } from "@/app/stocks/types/stocks";
 import type {
@@ -326,7 +326,8 @@ export const handlers = [
     let body: { stockId?: number } = {};
 
     try {
-      body = (await request.json()) as { stockId?: number };
+      const raw = (await request.json()) as Record<string, unknown>;
+      body = camelizeKeys<{ stockId?: number }>(raw);
     } catch {
       body = {};
     }
