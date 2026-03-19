@@ -15,7 +15,7 @@ export default function StockInfoSection({
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         {isAiPortfolio && (
-          <span className="inline-flex items-center px-2 py-1 rounded-md typo-body-sm font-semibold bg-(--color-bg-info-subtle) text-(--color-text-info)">
+          <span className="inline-flex items-center px-2 py-1 rounded-md typo-body-sm font-semibold bg-bg-info-subtle text-text-info">
             AI 포트폴리오 편입 종목
           </span>
         )}

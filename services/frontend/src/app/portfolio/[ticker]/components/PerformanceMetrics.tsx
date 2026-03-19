@@ -56,7 +56,7 @@ export default function PerformanceMetrics({
               현재 수익률
             </p>
             <p
-              className=" text-[32px] font-black tracking-[-0.32px] leading-[32px]"
+              className=" text-[32px] font-black tracking-[-0.32px] leading-8"
               style={{ color: pnlColor }}
             >
               {sign}

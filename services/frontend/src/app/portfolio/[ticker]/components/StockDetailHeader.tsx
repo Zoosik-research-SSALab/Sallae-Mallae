@@ -15,7 +15,7 @@ export default function StockDetailHeader({
   portfolioLabel,
 }: Props) {
   return (
-    <div className="flex flex-col justify-between gap-6 px-3 py-6 md:flex-row md:items-center md:border-b md:border-border-primary">
+    <div className="flex flex-col justify-between gap-6 px-3 py-6 md:flex-row md:items-center md:max-w-6xl md:mx-auto">
       {/* Left: back arrow + breadcrumb */}
       <div className="flex items-center gap-6">
         <Link

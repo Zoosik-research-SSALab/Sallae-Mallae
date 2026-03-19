@@ -14,20 +14,20 @@ const ITEMS_PER_PAGE = 4;
 function StatusBadge({ status }: { status: TradeEntry["status"] }) {
   if (status === "holding") {
     return (
-      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-[color:var(--color-bg-info-subtle)] text-[color:var(--color-text-info)]">
+      <span className="inline-flex items-center px-2 py-1 rounded typo-body-sm font-semibold bg-bg-info-subtle text-text-info">
         보유 중
       </span>
     );
   }
   if (status === "best") {
     return (
-      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger-bold)]">
+      <span className="inline-flex items-center px-2 py-1 rounded typo-body-sm font-semibold bg-bg-danger-subtle text-text-danger-bold">
         BEST
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger-bold)]">
+    <span className="inline-flex items-center px-2 py-1 rounded typo-body-sm font-semibold bg-bg-danger-subtle text-text-danger-bold">
       수익 실현
     </span>
   );
@@ -112,25 +112,25 @@ export default function TradeHistory({ trades }: Props) {
       {/* ===== Desktop: table layout ===== */}
       <div className="hidden md:block">
         {/* Table header */}
-        <div className="flex gap-6 border-b border-[color:var(--color-border-primary)] pb-3">
+        <div className="flex gap-6 border-b border-border-primary pb-3">
           <div className="flex-1">
-            <p className="text-base font-semibold text-[color:var(--color-text-secondary)]">
+            <p className="typo-body-lg font-semibold text-text-secondary">
               상태 / 매매 기간
             </p>
           </div>
           <div className="flex-1 text-center">
-            <p className="text-base font-semibold text-[color:var(--color-text-secondary)]">
+            <p className="typo-body-lg font-semibold text-text-secondary">
               매수 단가 → 매도 단가
             </p>
           </div>
           <div className="flex-1 flex gap-4">
             <div className="flex-1 text-right">
-              <p className="text-base font-semibold text-[color:var(--color-text-secondary)]">
+              <p className="typo-body-lg font-semibold text-text-secondary">
                 보유 기간
               </p>
             </div>
             <div className="flex-1 text-right">
-              <p className="text-base font-semibold text-[color:var(--color-text-secondary)]">
+              <p className="typo-body-lg font-semibold text-text-secondary">
                 수익률
               </p>
             </div>
@@ -151,21 +151,21 @@ export default function TradeHistory({ trades }: Props) {
               {/* Col 1: status + date */}
               <div className="flex flex-1 items-center gap-2">
                 <StatusBadge status={trade.status} />
-                <span className="text-sm font-semibold text-[color:var(--color-text-primary)] tracking-tight">
+                <span className="typo-body-md font-semibold text-text-primary tracking-tight">
                   {trade.dateRange}
                 </span>
               </div>
 
               {/* Col 2: buy → sell price */}
               <div className="flex flex-1 items-center justify-center gap-2">
-                <span className="text-sm font-medium text-[color:var(--color-text-secondary)]">
+                <span className="typo-body-md font-medium text-text-secondary">
                   {formatPrice(trade.buyPrice)}
                 </span>
                 <IoArrowForward
                   size={14}
-                  className="text-[color:var(--color-text-tertiary)] shrink-0"
+                  className="text-text-tertiary shrink-0"
                 />
-                <span className="text-sm font-semibold text-[color:var(--color-text-primary)]">
+                <span className="typo-body-md font-semibold text-text-primary">
                   {rightPrice ? formatPrice(rightPrice) : "-"}
                 </span>
               </div>
@@ -173,13 +173,13 @@ export default function TradeHistory({ trades }: Props) {
               {/* Col 3: duration + return rate */}
               <div className="flex flex-1 gap-4">
                 <div className="flex-1 text-right">
-                  <span className="text-sm font-medium text-[color:var(--color-text-secondary)]">
+                  <span className="typo-body-md font-medium text-text-secondary tracking-tight">
                     {trade.durationLabel}
                   </span>
                 </div>
                 <div className="flex-1 text-right">
                   <span
-                    className="text-base font-semibold"
+                    className="typo-body-lg font-semibold"
                     style={{ color: returnColor }}
                   >
                     {sign}
