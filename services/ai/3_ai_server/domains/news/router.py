@@ -1,20 +1,21 @@
+from __future__ import annotations
+
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from core.auth import verify_internal_api_key
 from core.config import get_session
 from core.response import ApiResponse, success_response
 from domains.news.schemas import (
-    KeywordListResponse,
+    DebateNewsDataResponse,
     NewsInferRequest,
     NewsInferResponse,
-    NewsListResponse,
-    SimilarKeywordResponse,
 )
 from domains.news.service import (
-    get_keywords_by_stock_code,
-    get_news_by_stock_code,
+    get_debate_news_data,
     infer_news,
-    search_similar_keywords,
 )
 
 router = APIRouter()
@@ -29,32 +30,28 @@ def infer(
     return success_response(data=infer_news(payload))
 
 
-@router.get("/keywords/similar", response_model=ApiResponse[SimilarKeywordResponse])
-def similar_keywords(
-    q: str = Query(..., min_length=1, description="검색할 키워드"),
-    top_k: int = Query(10, ge=1, le=50, description="반환할 최대 개수"),
+@router.get(
+    "/debate-data",
+    response_model=ApiResponse[DebateNewsDataResponse],
+    dependencies=[Depends(verify_internal_api_key)],
+)
+def debate_news_data(
+    report_date: date = Query(..., description="리포트 날짜 (YYYY-MM-DD)"),
+    top_k: int = Query(3, ge=1, le=10, description="상위 키워드 수"),
+    news_per_keyword: int = Query(2, ge=1, le=5, description="키워드당 뉴스 수"),
     db: Session = Depends(get_session),
 ):
-    """유사 키워드 검색 (임베딩 코사인 유사도 기반)"""
-    return success_response(data=search_similar_keywords(db, query=q, top_k=top_k))
+    """
+    뉴스 에이전트에게 전달할 디베이트 데이터를 조회한다.
 
-
-@router.get("/keywords/{code}", response_model=ApiResponse[KeywordListResponse])
-def keywords_by_stock(
-    code: str,
-    limit: int = Query(50, ge=1, le=200, description="반환할 최대 키워드 수"),
-    db: Session = Depends(get_session),
-):
-    """종목별 키워드 조회 (빈도순)"""
-    return success_response(data=get_keywords_by_stock_code(db, code=code, limit=limit))
-
-
-@router.get("/{code}", response_model=ApiResponse[NewsListResponse])
-def news_by_stock(
-    code: str,
-    limit: int = Query(50, ge=1, le=200, description="반환할 최대 뉴스 수"),
-    offset: int = Query(0, ge=0, description="오프셋 (페이지네이션)"),
-    db: Session = Depends(get_session),
-):
-    """종목별 뉴스 조회 (최신순)"""
-    return success_response(data=get_news_by_stock_code(db, code=code, limit=limit, offset=offset))
+    - 당일+전날 키워드 중 언급 횟수 상위 top_k개 + 각각 뉴스 원문/URL
+    - 종목별 감성 지수 (sentiment_score/label 집계)
+    """
+    return success_response(
+        data=get_debate_news_data(
+            db,
+            report_date=report_date,
+            top_k=top_k,
+            news_per_keyword=news_per_keyword,
+        )
+    )
