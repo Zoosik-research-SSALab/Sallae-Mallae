@@ -12,6 +12,9 @@ import com.sallaemallae.backend.domain.user.service.UserService;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Watchlist", description = "관심종목 API")
 @RestController
 @RequestMapping("/api/users/watchlist")
 @RequiredArgsConstructor
@@ -33,40 +37,45 @@ public class WatchlistController {
   private final UserService userService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
 
+  @Operation(summary = "관심종목 목록 조회", description = "로그인한 사용자의 관심종목 목록을 조회합니다.")
   @GetMapping
   public ApiResponse<WatchlistListResponse> getWatchlist() {
     return ApiResponse.success(userService.getWatchlist(getAuthenticatedUserId()));
   }
 
+  @Operation(summary = "관심종목 등록 여부 조회", description = "특정 종목이 관심종목에 등록되어 있는지 확인합니다.")
   @GetMapping("/{stockId}")
   public ApiResponse<WatchlistStatusResponse> getWatchlistStatus(
-      @PathVariable Long stockId) {
+      @Parameter(description = "종목 ID") @PathVariable Long stockId) {
     return ApiResponse.success(userService.getWatchlistStatus(getAuthenticatedUserId(), stockId));
   }
 
+  @Operation(summary = "관심종목 추가", description = "종목을 관심종목에 추가합니다.")
   @PostMapping
   public ApiResponse<WatchlistAddResponse> addWatchlist(
       @Valid @RequestBody WatchlistCreateRequest request) {
     return ApiResponse.success(userService.addWatchlist(getAuthenticatedUserId(), request));
   }
 
+  @Operation(summary = "관심종목 삭제", description = "종목을 관심종목에서 삭제합니다.")
   @DeleteMapping("/{stockId}")
   public ApiResponse<WatchlistRemoveResponse> removeWatchlist(
-      @PathVariable Long stockId) {
+      @Parameter(description = "종목 ID") @PathVariable Long stockId) {
     return ApiResponse.success(userService.removeWatchlist(getAuthenticatedUserId(), stockId));
   }
 
+  @Operation(summary = "관심종목 알림 토글", description = "관심종목의 알림 수신 여부를 변경합니다.")
   @PatchMapping("/{stockId}")
   public ApiResponse<WatchlistAlertToggleResponse> toggleWatchlistAlert(
-      @PathVariable Long stockId,
+      @Parameter(description = "종목 ID") @PathVariable Long stockId,
       @Valid @RequestBody WatchlistAlertToggleRequest request) {
     return ApiResponse.success(userService.toggleWatchlistAlert(getAuthenticatedUserId(), stockId, request));
   }
 
-  // FS-WATCH-006: 관심종목 관련 최신 뉴스 조회
+  @Operation(summary = "관심종목 뉴스 조회", description = "관심종목에 등록된 종목들의 최신 뉴스를 조회합니다.")
   @GetMapping("/news")
   public ApiResponse<WatchlistNewsResponse> getWatchlistNews(
-      @RequestParam(defaultValue = "3") int limit) {
+      @Parameter(description = "종목당 뉴스 개수 (기본값: 3)") @RequestParam(defaultValue = "3") int limit) {
     return ApiResponse.success(watchlistService.getWatchlistNews(getAuthenticatedUserId(), limit));
   }
 
