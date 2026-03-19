@@ -14,10 +14,9 @@ from domains.signal.chairman_portfolio_builder import ChairmanPortfolioBuilder
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="ai_debate_reports를 replay해서 의장 포트폴리오를 재생성합니다.")
-    parser.add_argument("--start-date", required=True, help="백필 시작일 (YYYY-MM-DD)")
-    parser.add_argument("--end-date", required=True, help="백필 종료일 (YYYY-MM-DD)")
-    parser.add_argument("--debate-version", default=None, help="특정 debate_version만 replay할 때 사용")
+    parser = argparse.ArgumentParser(description="하루치 의장 토론 결과를 현재 포트폴리오 상태에 반영합니다.")
+    parser.add_argument("--report-date", required=True, help="반영할 기준일 (YYYY-MM-DD)")
+    parser.add_argument("--debate-version", default=None, help="특정 debate_version만 반영할 때 사용")
     parser.add_argument("--portfolio-name", default="의장 포트폴리오", help="생성/갱신할 포트폴리오 이름")
     parser.add_argument("--model-version", default="chairman-v1", help="파생 포트폴리오 model_version")
     return parser
@@ -25,10 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
-    start_date = date.fromisoformat(args.start_date)
-    end_date = date.fromisoformat(args.end_date)
-    if start_date > end_date:
-        raise ValueError("start-date는 end-date보다 이후일 수 없습니다.")
+    report_date = date.fromisoformat(args.report_date)
 
     session = SessionLocal()
     try:
@@ -37,15 +33,14 @@ def main() -> int:
             portfolio_name=args.portfolio_name,
             model_version=args.model_version,
         )
-        summary = builder.rebuild(
-            start_date=start_date,
-            end_date=end_date,
+        summary = builder.append_daily(
+            report_date=report_date,
             debate_version=args.debate_version,
         )
         print(
-            "chairman portfolio replay complete | "
+            "chairman portfolio daily update complete | "
             f"portfolio_id={summary.portfolio_id} "
-            f"processed_dates={summary.processed_dates} "
+            f"report_date={report_date} "
             f"inserted_trades={summary.inserted_trades} "
             f"final_holdings={summary.final_holdings} "
             f"cumulative_return={summary.cumulative_return:.2f} "
