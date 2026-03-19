@@ -22,6 +22,8 @@ import com.sallaemallae.backend.domain.user.dto.response.WatchlistStatusResponse
 import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
+import com.sallaemallae.backend.domain.storage.exception.StorageErrorCode;
+import com.sallaemallae.backend.domain.storage.service.FileStorageService;
 import com.sallaemallae.backend.domain.user.exception.UserErrorCode;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
@@ -47,6 +49,7 @@ public class UserServiceImpl implements UserService {
   private final RedisTokenService redisTokenService;
   private final WatchlistRepository watchlistRepository;
   private final StockRepository stockRepository;
+  private final FileStorageService fileStorageService;
 
   private static final int WATCHLIST_MAX_SIZE = 50;
 
@@ -144,7 +147,24 @@ public class UserServiceImpl implements UserService {
   @Override
   @Transactional
   public Map<String, Object> updateProfile(Long userId, UserProfileUpdateRequest request) {
-    return Map.of("userId", userId, "nickname", request.nickname(), "profileImageUrl", request.profileImageUrl());
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+    if (request.profileImageUrl() != null) {
+      if (fileStorageService.isMinioUrl(request.profileImageUrl())
+          && !fileStorageService.verifyObjectExists(request.profileImageUrl())) {
+        throw new BusinessException(StorageErrorCode.UPLOAD_NOT_VERIFIED);
+      }
+
+      String oldImageUrl = user.getProfileImageUrl();
+      if (fileStorageService.isMinioUrl(oldImageUrl)) {
+        fileStorageService.deleteObject(oldImageUrl);
+      }
+    }
+
+    user.updateProfile(request.nickname(), request.profileImageUrl());
+
+    return Map.of("message", "프로필이 수정되었습니다.");
   }
 
   @Override
