@@ -41,7 +41,7 @@ public class StockApiController {
 
   @Operation(
       summary = "Get top stock list",
-      description = "Returns a paginated Top200 list with live KIS ranking data and in-memory filters."
+      description = "Returns a paginated stock list backed by live KIS ranking data or local market snapshots depending on sort."
   )
   @GetMapping
   public ApiResponse<StockListResponse> getTopStocks(
@@ -51,7 +51,10 @@ public class StockApiController {
       @RequestParam(required = false) String sector,
       @Parameter(description = "Market cap filter. Allowed values: ALL, LARGE, MID", example = "ALL")
       @RequestParam(name = "market_cap", required = false) String marketCap,
-      @Parameter(description = "Sort order. Allowed values: MARKET_CAP, CHANGE", example = "CHANGE")
+      @Parameter(
+          description = "Sort order. Allowed values: MARKET_CAP, CHANGE, TRADING_VALUE, TRADING_VOLUME, DIVIDEND_YIELD",
+          example = "TRADING_VALUE"
+      )
       @RequestParam(required = false) String sort,
       @Parameter(description = "Keyword filter applied to ticker, name, and sector", example = "Samsung")
       @RequestParam(required = false) String keyword,

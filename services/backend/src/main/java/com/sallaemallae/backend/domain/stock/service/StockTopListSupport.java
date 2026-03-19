@@ -81,6 +81,27 @@ final class StockTopListSupport {
           .thenComparingInt(StockTopListCandidate::sourceRank);
     }
 
+    if (sort == SortFilter.TRADING_VALUE) {
+      return Comparator
+          .comparing(StockTopListCandidate::tradingValue, Comparator.nullsLast(Comparator.reverseOrder()))
+          .thenComparing(StockTopListCandidate::fluctuationMagnitude, Comparator.reverseOrder())
+          .thenComparingInt(StockTopListCandidate::sourceRank);
+    }
+
+    if (sort == SortFilter.TRADING_VOLUME) {
+      return Comparator
+          .comparing(StockTopListCandidate::tradingVolume, Comparator.nullsLast(Comparator.reverseOrder()))
+          .thenComparing(StockTopListCandidate::fluctuationMagnitude, Comparator.reverseOrder())
+          .thenComparingInt(StockTopListCandidate::sourceRank);
+    }
+
+    if (sort == SortFilter.DIVIDEND_YIELD) {
+      return Comparator
+          .comparing(StockTopListCandidate::dividendYield, Comparator.nullsLast(Comparator.reverseOrder()))
+          .thenComparing(StockTopListCandidate::fluctuationMagnitude, Comparator.reverseOrder())
+          .thenComparingInt(StockTopListCandidate::sourceRank);
+    }
+
     return Comparator
         .comparing(StockTopListCandidate::fluctuationMagnitude, Comparator.reverseOrder())
         .thenComparingInt(StockTopListCandidate::sourceRank);
@@ -280,7 +301,23 @@ final class StockTopListSupport {
 
   enum SortFilter {
     MARKET_CAP,
-    CHANGE;
+    CHANGE,
+    TRADING_VALUE,
+    TRADING_VOLUME,
+    DIVIDEND_YIELD;
+
+    boolean usesLocalUniverse() {
+      return this == MARKET_CAP
+          || this == TRADING_VALUE
+          || this == TRADING_VOLUME
+          || this == DIVIDEND_YIELD;
+    }
+
+    boolean requiresVisibleQuoteEnrichment() {
+      return this == TRADING_VALUE
+          || this == TRADING_VOLUME
+          || this == DIVIDEND_YIELD;
+    }
 
     static SortFilter from(String value) {
       if (value == null || value.isBlank()) {
