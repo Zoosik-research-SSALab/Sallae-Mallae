@@ -57,7 +57,15 @@ public class StockTopListServiceImpl implements StockTopListService {
         StockMarketConstants.DOMESTIC_MARKET_CODE,
         activeStocks.stream().map(Stock::getTicker).toList()
     );
-    Map<Long, StockPriceDaily> latestDailyPrices = loadLatestDailyPrices(activeStocks);
+
+    // Redis 캐시에 없는 종목만 DB fallback
+    List<Stock> uncachedStocks = activeStocks.stream()
+        .filter(stock -> !quoteCache.containsKey(stock.getTicker()))
+        .toList();
+    Map<Long, StockPriceDaily> latestDailyPrices = uncachedStocks.isEmpty()
+        ? Map.of()
+        : loadLatestDailyPrices(uncachedStocks);
+
     Map<Long, Float> dbDividendYieldByStockId = loadDbDividendYieldByStockIds(activeStocks);
     Set<Long> watchlistedStockIds = loadWatchlistedStockIds(userId);
 
