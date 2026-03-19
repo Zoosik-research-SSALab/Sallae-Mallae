@@ -1,7 +1,7 @@
 import { camelizeKeys, snakelizeKeys } from "@/shared/utils/case";
 import { readAccessToken } from "@/shared/lib/authStore";
 
-type ApiRequestOptions<TBody> = Omit<RequestInit, "body"> & {
+export type ApiRequestOptions<TBody> = Omit<RequestInit, "body"> & {
   body?: TBody;
   useBaseUrl?: boolean;
   withAuth?: boolean;

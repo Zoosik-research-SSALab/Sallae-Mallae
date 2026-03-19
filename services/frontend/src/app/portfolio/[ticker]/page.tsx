@@ -4,6 +4,7 @@ import { getStockReport } from "./api/getStockReport";
 import { getStockPerformance } from "./api/getStockPerformance";
 import { getStockTrades } from "./api/getStockTrades";
 import PortfolioStockDetailClient from "./PortfolioStockDetailClient";
+import ProtectedPage from "@/shared/components/ProtectedPage";
 
 type PageProps = {
   params: Promise<{ ticker: string }>;
@@ -29,8 +30,10 @@ export default async function PortfolioStockDetailPage({ params }: PageProps) {
   ]);
 
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <PortfolioStockDetailClient ticker={ticker} />
-    </HydrationBoundary>
+    <ProtectedPage>
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <PortfolioStockDetailClient ticker={ticker} />
+      </HydrationBoundary>
+    </ProtectedPage>
   );
 }

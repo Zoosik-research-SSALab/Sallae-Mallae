@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMockStocksResponse, isSupportedStockSector } from "@/app/stocks/utils/mockStocksData";
+import { getMockStocksResponse } from "@/app/stocks/utils/mockStocksData";
 import type { StocksApiSort, StocksQueryParams } from "@/app/stocks/types/stocks";
-import { ALL_SECTOR, STOCK_PAGE_SIZE } from "@/app/stocks/utils/stocksFilters";
+import {
+  ALL_SECTOR,
+  STOCK_PAGE_SIZE,
+  fromStockSectorRequestValue,
+  isSupportedStockSectorRequestValue,
+} from "@/app/stocks/utils/stocksFilters";
 import { snakelizeKeys } from "@/shared/utils/case";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +21,14 @@ function parseNumber(value: string | null, fallback: number) {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const sort = searchParams.get("sort");
-  const sector = searchParams.get("sector")?.trim() ?? "";
+  const sectors = searchParams
+    .getAll("sector")
+    .map((sector) => sector.trim())
+    .filter((sector) => sector && isSupportedStockSectorRequestValue(sector))
+    .map(fromStockSectorRequestValue);
 
   const params: StocksQueryParams = {
-    sector: sector && isSupportedStockSector(sector) ? sector : ALL_SECTOR,
+    sectors: sectors.length > 0 ? sectors : [ALL_SECTOR],
     sort: validSorts.has(sort as StocksApiSort) ? (sort as StocksApiSort) : "TRADING_VALUE",
     offset: parseNumber(searchParams.get("offset"), 0),
     limit: Math.max(1, parseNumber(searchParams.get("limit"), STOCK_PAGE_SIZE)),

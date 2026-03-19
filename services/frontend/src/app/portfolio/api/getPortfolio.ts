@@ -1,5 +1,5 @@
 import type { PortfolioPageData } from "../types/portfolio";
-import { apiFetch } from "@/shared/lib/apiClient";
+import { authApiFetch } from "@/shared/lib/authApiClient";
 
 type ApiResponse<T> = {
   success: boolean;
@@ -8,7 +8,7 @@ type ApiResponse<T> = {
 };
 
 export async function getPortfolio() {
-  const payload = await apiFetch<ApiResponse<PortfolioPageData>>("/api/portfolio", {
+  const payload = await authApiFetch<ApiResponse<PortfolioPageData>>("/api/portfolio", {
     cache: "no-store",
   });
 

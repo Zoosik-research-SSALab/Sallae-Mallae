@@ -33,7 +33,7 @@ export async function getNotifications(cursor?: number | null, size = 6): Promis
     search.set("cursor", String(cursor));
   }
 
-  const payload = await apiFetch<ApiResponse<CursorPage<NotificationItem>>>(`/api/v1/notifications?${search.toString()}`, {
+  const payload = await apiFetch<ApiResponse<CursorPage<NotificationItem>>>(`/api/notifications?${search.toString()}`, {
     headers: {
       "X-User-Id": "1",
     },

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import AppNav from "@/shared/components/AppNav";
 import AppProviders from "@/shared/components/AppProviders";
+import { MSWComponent } from "@/shared/components/MSWProvider";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 
 import "./globals.css";
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className={pretendard.variable} suppressHydrationWarning>
       <body>
+        <MSWComponent />
         <AppProviders>
           <AppNav />
           <ThemeToggle />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMockNewsResponse, NEWS_PAGE_SIZE } from "@/app/news/utils/mockNewsData";
+import { getMockNewsResponse } from "@/app/news/utils/mockNewsData";
+import { NEWS_PAGE_SIZE } from "@/app/news/utils/newsConstants";
 import { parseNewsNumberParam } from "@/app/news/utils/newsQueryUtils";
 import { snakelizeKeys } from "@/shared/utils/case";
 import type { NewsQueryParams } from "@/app/news/types/news";
