@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { type ReactNode, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { type ReactNode, useCallback, useEffect } from "react";
 import { getMe } from "@/shared/lib/authApi";
 import { useAuthStore } from "@/shared/lib/authStore";
 
@@ -13,11 +13,17 @@ type Props = {
 export default function ProtectedPage({ children }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const authStatus = useAuthStore((state) => state.status);
   const clearAuth = useAuthStore((state) => state.clearAuth);
-  const search = searchParams.toString();
-  const redirectPath = search ? `${pathname}?${search}` : pathname;
+
+  const getRedirectPath = useCallback(() => {
+    if (typeof window === "undefined") {
+      return pathname;
+    }
+
+    const search = window.location.search;
+    return search ? `${pathname}${search}` : pathname;
+  }, [pathname]);
 
   const {
     isLoading: isAuthCheckLoading,
@@ -36,9 +42,10 @@ export default function ProtectedPage({ children }: Props) {
     }
 
     if (authStatus === "unauthenticated") {
+      const redirectPath = getRedirectPath();
       router.replace(`/auth/login?redirect=${encodeURIComponent(redirectPath)}`);
     }
-  }, [authStatus, redirectPath, router]);
+  }, [authStatus, getRedirectPath, router]);
 
   useEffect(() => {
     if (!isAuthCheckError) {
@@ -46,8 +53,9 @@ export default function ProtectedPage({ children }: Props) {
     }
 
     clearAuth();
+    const redirectPath = getRedirectPath();
     router.replace(`/auth/login?redirect=${encodeURIComponent(redirectPath)}`);
-  }, [clearAuth, isAuthCheckError, redirectPath, router]);
+  }, [clearAuth, getRedirectPath, isAuthCheckError, router]);
 
   if (authStatus !== "authenticated" || isAuthCheckLoading) {
     return (
