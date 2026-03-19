@@ -19,7 +19,7 @@ public interface StockPriceDailyRepository extends JpaRepository<StockPriceDaily
         and p.tradeDate = (
           select max(p2.tradeDate)
           from StockPriceDaily p2
-          where p2.stockId = p.stockId
+          where p2.stockId in :stockIds
         )
       """)
   List<StockPriceDaily> findLatestByStockIdIn(@Param("stockIds") Collection<Long> stockIds);
