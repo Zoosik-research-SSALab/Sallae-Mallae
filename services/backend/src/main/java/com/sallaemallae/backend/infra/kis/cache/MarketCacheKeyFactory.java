@@ -47,6 +47,10 @@ public class MarketCacheKeyFactory {
     return "KIS:WS:MINUTE:RECENT:%s:%s:V1".formatted(marketCode, ticker);
   }
 
+  public String bulkQuote(String marketCode, String ticker) {
+    return "KIS:BULK_QUOTE:%s:%s:V1".formatted(marketCode, ticker);
+  }
+
   public String period(
       String marketCode,
       String ticker,
