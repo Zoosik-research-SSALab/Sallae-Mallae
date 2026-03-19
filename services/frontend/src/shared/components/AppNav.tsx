@@ -24,6 +24,7 @@ import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { clearSessionUser } from "@/shared/lib/authSession";
 import { useAuthStore } from "@/shared/lib/authStore";
 import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
+import { updateUserProfile } from "@/shared/lib/userProfileApi";
 
 type NavItem = {
   href: string;
@@ -71,7 +72,7 @@ export default function AppNav() {
   const authStatus = useAuthStore((state) => state.status);
   const currentUser = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
-  const updateSessionUser = useAuthStore((state) => state.updateSessionUser);
+  const setUser = useAuthStore((state) => state.setUser);
   const showLoginModal = useAuthModalStore((state) => state.openLoginModal);
   const requireAuthAction = useRequireAuthAction();
 
@@ -240,10 +241,16 @@ export default function AppNav() {
   };
 
   const handleSaveProfile = async (nickname: string) => {
-    updateSessionUser({
-      nickname,
-    });
-    setIsProfileEditModalOpen(false);
+    try {
+      const user = await updateUserProfile({
+        nickname,
+      });
+
+      setUser(user);
+      setIsProfileEditModalOpen(false);
+    } catch (error) {
+      window.alert(getAuthErrorMessage(error, "내 정보 수정에 실패했습니다."));
+    }
   };
 
   const handleOpenWatchlist = () => {
