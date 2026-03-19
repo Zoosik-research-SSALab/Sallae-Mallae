@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { NewsItem } from "../types/news";
 import { formatNewsRelativeTime } from "../utils/newsFormatters";
-import { getNewsStockTicker } from "../utils/mockNewsData";
+import { getNewsStockTicker } from "../utils/newsConstants";
 
 type Props = {
   item: NewsItem;

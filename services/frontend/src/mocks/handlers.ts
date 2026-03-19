@@ -15,10 +15,7 @@ import {
   toggleMockWatchlistNotification,
 } from "@/shared/lib/mockWatchlistStore";
 import { getMockPortfolioPage } from "@/app/portfolio/utils/mockPortfolioData";
-import {
-  getMockStocksResponse,
-  isSupportedStockSector,
-} from "@/app/stocks/utils/mockStocksData";
+import { getMockStocksResponse } from "@/app/stocks/utils/mockStocksData";
 import {
   getMockAnnouncementDetail,
   getMockAnnouncements,
@@ -133,10 +130,13 @@ export const handlers = [
   http.get("/api/stocks", ({ request }) => {
     const searchParams = new URL(request.url).searchParams;
     const sort = searchParams.get("sort");
-    const sector = searchParams.get("sector")?.trim() ?? "";
+    const sectorsRaw = searchParams.get("sectors")?.trim() ?? "";
+    const sectors = sectorsRaw
+      ? sectorsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+      : [ALL_SECTOR];
 
     const params: StocksQueryParams = {
-      sector: sector && isSupportedStockSector(sector) ? sector : ALL_SECTOR,
+      sectors,
       sort: validStockSorts.has(sort as StocksApiSort)
         ? (sort as StocksApiSort)
         : "TRADING_VALUE",
