@@ -1,9 +1,16 @@
 import type { NewsItem, NewsPayload, NewsQueryParams, NewsSearchPayload } from "../types/news";
 import { normalizeNewsKeyword } from "./newsQueryUtils";
+import { NEWS_PAGE_SIZE } from "./newsConstants";
 
-type MockNewsSeed = NewsItem & {
-  views: number;
-};
+export { NEWS_PAGE_SIZE };
+
+// ─── Mock-only constants ────────────────────────────────────────────────────
+
+export const WATCHLIST_NEWS_STOCKS = ["삼성전자", "SK하이닉스", "NAVER", "현대차", "기아", "셀트리온"];
+
+// ─── Mock news seed generation ──────────────────────────────────────────────
+
+type MockNewsSeed = NewsItem & { views: number };
 
 type NewsTemplate = {
   title: string;
@@ -12,30 +19,9 @@ type NewsTemplate = {
 };
 
 const NEWS_PUBLISHED_OFFSETS_MINUTES = [
-  1,
-  15,
-  60,
-  120,
-  180,
-  240,
-  360,
-  720,
-  1_440,
-  2_880,
-  4_320,
-  5_760,
-  10_080,
-  14_400,
-  20_160,
-  28_800,
-  36_000,
-  43_200,
-  50_400,
-  57_600,
-  64_800,
-  72_000,
-  79_200,
-  86_400,
+  1, 15, 60, 120, 180, 240, 360, 720, 1_440, 2_880, 4_320, 5_760, 10_080,
+  14_400, 20_160, 28_800, 36_000, 43_200, 50_400, 57_600, 64_800, 72_000,
+  79_200, 86_400,
 ];
 
 const NEWS_TITLE_SUFFIXES = ["", " 투자 시선 확대", " 시장 반응 점검", " 후속 분석"];
@@ -103,60 +89,6 @@ const NEWS_TEMPLATES: NewsTemplate[] = [
   },
 ];
 
-export const NEWS_PAGE_SIZE = 6;
-export const NEWS_FETCH_LIMIT = 60;
-export const WATCHLIST_NEWS_STOCKS = ["삼성전자", "SK하이닉스", "NAVER", "현대차", "기아", "셀트리온"];
-
-export const NEWS_STOCK_TICKER_BY_NAME: Record<string, string> = {
-  삼성전자: "005930",
-  SK하이닉스: "000660",
-  한미반도체: "042700",
-  NAVER: "035420",
-  카카오: "035720",
-  KB금융: "105560",
-  신한지주: "055550",
-  하나금융지주: "086790",
-  현대차: "005380",
-  기아: "000270",
-  셀트리온: "068270",
-  삼성바이오로직스: "207940",
-  ISC: "095340",
-  리노공업: "058470",
-  에코프로: "086520",
-  포스코퓨처엠: "003670",
-  LG에너지솔루션: "373220",
-  HD한국조선해양: "009540",
-  한화오션: "042660",
-  삼성중공업: "010140",
-  한화에어로스페이스: "012450",
-  LIG넥스원: "079550",
-  현대로템: "064350",
-  하이브: "352820",
-  "JYP Ent.": "035900",
-  에스엠: "041510",
-  두산에너빌리티: "034020",
-  씨에스윈드: "112610",
-  대명에너지: "389260",
-};
-
-const NEWS_SEARCH_KEYWORDS = [
-  "삼성전자",
-  "SK하이닉스",
-  "NAVER",
-  "카카오",
-  "현대차",
-  "기아",
-  "셀트리온",
-  "삼성바이오로직스",
-  "한미반도체",
-  "밸류업",
-  "금리 인하",
-  "AI 랠리",
-  "2차전지",
-  "조선",
-  "방산",
-];
-
 function buildMockNewsUrl(id: number) {
   return `https://news.sallaemallae.mock/articles/${id}`;
 }
@@ -180,19 +112,23 @@ function buildMockNewsSeeds(): MockNewsSeed[] {
   });
 }
 
-export function getMockNewsSeeds() {
+export function getMockNewsSeeds(): MockNewsSeed[] {
   return buildMockNewsSeeds();
 }
+
+// ─── Mock API response builders ─────────────────────────────────────────────
+
+const NEWS_SEARCH_KEYWORDS = [
+  "삼성전자", "SK하이닉스", "NAVER", "카카오", "현대차", "기아", "셀트리온",
+  "삼성바이오로직스", "한미반도체", "밸류업", "금리 인하", "AI 랠리", "2차전지", "조선", "방산",
+];
 
 export function getMockNewsResponse(params: NewsQueryParams): NewsPayload {
   const normalizedKeyword = normalizeNewsKeyword(params.keyword);
 
-  const filteredNews = buildMockNewsSeeds()
+  const filteredNews = getMockNewsSeeds()
     .filter((item) => {
-      if (!normalizedKeyword) {
-        return true;
-      }
-
+      if (!normalizedKeyword) return true;
       const haystack = [item.title, item.publisher, ...item.relatedStocks].join(" ").toLowerCase();
       return haystack.includes(normalizedKeyword);
     })
@@ -202,12 +138,7 @@ export function getMockNewsResponse(params: NewsQueryParams): NewsPayload {
     news: filteredNews
       .slice(params.offset, params.offset + params.limit)
       .map(({ id, title, publisher, publishedAt, relatedStocks, url }) => ({
-        id,
-        title,
-        publisher,
-        publishedAt,
-        relatedStocks,
-        url,
+        id, title, publisher, publishedAt, relatedStocks, url,
       })),
   };
 }
@@ -216,18 +147,9 @@ export function getMockNewsSearchResponse(keyword: string, limit: number): NewsS
   const normalizedKeyword = normalizeNewsKeyword(keyword);
 
   const matchedKeywords = NEWS_SEARCH_KEYWORDS.filter((item) => {
-    if (!normalizedKeyword) {
-      return true;
-    }
-
+    if (!normalizedKeyword) return true;
     return item.toLowerCase().includes(normalizedKeyword);
   }).slice(0, limit);
 
-  return {
-    keywords: matchedKeywords,
-  };
-}
-
-export function getNewsStockTicker(stockName: string) {
-  return NEWS_STOCK_TICKER_BY_NAME[stockName];
+  return { keywords: matchedKeywords };
 }

@@ -8,7 +8,7 @@ import NewsKeywordSidebar from "./NewsKeywordSidebar";
 import { useNewsQuery } from "../hooks/useNewsQuery";
 import type { NewsPeriodOption, NewsSortOption, NewsTab } from "../types/news";
 import { buildRankedNewsKeywords, filterNewsByPeriod, filterNewsByTab, sortNewsItems } from "../utils/newsFormatters";
-import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/mockNewsData";
+import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/newsConstants";
 import Button from "@/shared/ui/Button";
 import Pagination from "@/shared/ui/Pagination";
 
