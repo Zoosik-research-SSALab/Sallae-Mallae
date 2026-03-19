@@ -144,6 +144,23 @@ async def run_keyword_pipeline() -> None:
     logger.info("=" * 60)
     assign_to_nearest_cluster()
 
+    # 4. 종목별 뉴스 에이전트 데이터 생성 (DB + Redis 저장)
+    logger.info("=" * 60)
+    logger.info("  [4/4] 뉴스 에이전트 데이터 생성 시작")
+    logger.info("=" * 60)
+    try:
+        import sys
+        from pathlib import Path
+        # 3_ai_server를 import 경로에 추가
+        ai_server_path = str(Path(__file__).resolve().parent.parent.parent / "3_ai_server")
+        if ai_server_path not in sys.path:
+            sys.path.insert(0, ai_server_path)
+        from domains.news.agent_data_builder import run_build_all
+        result = run_build_all()
+        logger.info("뉴스 에이전트 데이터: %d개 저장, %d개 건너뜀", result["processed"], result["skipped"])
+    except Exception as e:
+        logger.error("뉴스 에이전트 데이터 생성 실패 (비치명적): %s", e)
+
     logger.info("=" * 60)
     logger.info("  키워드 파이프라인 전체 완료")
     logger.info("=" * 60)

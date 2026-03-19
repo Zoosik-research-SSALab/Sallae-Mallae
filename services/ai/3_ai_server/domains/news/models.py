@@ -61,3 +61,14 @@ class KeywordEmbedding(Base):
     keyword_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     # pgvector 타입은 Text로 매핑 (읽기 전용)
     embedding: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class NewsAgentStockData(Base):
+    __tablename__ = "news_agent_stock_data"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    report_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    top_keywords: Mapped[str] = mapped_column(Text, nullable=False)   # JSONB → Text 매핑
+    sentiment: Mapped[str] = mapped_column(Text, nullable=False)      # JSONB → Text 매핑
+    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

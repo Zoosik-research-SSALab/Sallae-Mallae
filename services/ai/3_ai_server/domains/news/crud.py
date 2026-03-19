@@ -33,10 +33,12 @@ def get_top_keywords_by_date_range(
     start_date: date,
     end_date: date,
     top_k: int = 3,
+    stock_id: int | None = None,
 ) -> list[dict]:
     """
     지정된 날짜 범위의 뉴스에서 가장 많이 언급된 키워드 상위 N개를 조회한다.
     클러스터 기반으로 유사 키워드를 그룹핑하여 카운트한다.
+    stock_id 지정 시 해당 종목 관련 뉴스로 한정한다.
 
     반환: [{"keyword_id": int, "name": str, "count": int}]
     """
@@ -51,6 +53,16 @@ def get_top_keywords_by_date_range(
         .join(StockNews, StockNews.id == NewsKeywordMap.news_id)
         .where(StockNews.published_at >= start_dt)
         .where(StockNews.published_at < end_dt)
+    )
+    # 종목 필터: stock_news_map을 통해 해당 종목 뉴스만
+    if stock_id is not None:
+        stmt = (
+            stmt
+            .join(StockNewsMap, StockNewsMap.news_id == StockNews.id)
+            .where(StockNewsMap.stock_id == stock_id)
+        )
+    stmt = (
+        stmt
         .group_by(func.coalesce(Keyword.cluster_id, Keyword.id))
         .order_by(desc("mention_count"))
         .limit(top_k)
@@ -69,6 +81,15 @@ def get_top_keywords_by_date_range(
             .where(
                 func.coalesce(Keyword.cluster_id, Keyword.id) == group_id
             )
+        )
+        if stock_id is not None:
+            repr_stmt = (
+                repr_stmt
+                .join(StockNewsMap, StockNewsMap.news_id == StockNews.id)
+                .where(StockNewsMap.stock_id == stock_id)
+            )
+        repr_stmt = (
+            repr_stmt
             .group_by(Keyword.id, Keyword.name)
             .order_by(desc(func.count(NewsKeywordMap.news_id)))
             .limit(1)
@@ -90,10 +111,12 @@ def get_news_by_keyword(
     start_date: date,
     end_date: date,
     limit: int = 2,
+    stock_id: int | None = None,
 ) -> list[dict]:
     """
     특정 키워드에 연결된 뉴스를 최신순으로 조회한다.
     클러스터가 같은 키워드들의 뉴스도 포함한다.
+    stock_id 지정 시 해당 종목 관련 뉴스로 한정한다.
 
     반환: [{"news_id", "title", "snippet", "url", "published_at"}]
     """
@@ -107,7 +130,6 @@ def get_news_by_keyword(
     cluster_id = kw[0] if kw else None
 
     if cluster_id:
-        # 같은 클러스터의 모든 키워드 ID
         kw_ids_stmt = (
             select(Keyword.id)
             .where(Keyword.cluster_id == cluster_id)
@@ -128,6 +150,16 @@ def get_news_by_keyword(
         .where(NewsKeywordMap.keyword_id.in_(keyword_ids))
         .where(StockNews.published_at >= start_dt)
         .where(StockNews.published_at < end_dt)
+    )
+    # 종목 필터
+    if stock_id is not None:
+        stmt = (
+            stmt
+            .join(StockNewsMap, StockNewsMap.news_id == StockNews.id)
+            .where(StockNewsMap.stock_id == stock_id)
+        )
+    stmt = (
+        stmt
         .order_by(desc(StockNews.published_at))
         .distinct()
         .limit(limit)
@@ -144,6 +176,59 @@ def get_news_by_keyword(
         }
         for r in rows
     ]
+
+
+def get_sentiment_by_stock(
+    db: Session,
+    stock_id: int,
+    start_date: date,
+    end_date: date,
+) -> dict:
+    """
+    특정 종목의 감성 지수를 조회한다.
+
+    반환: {"avg_score", "positive", "negative", "neutral", "total"}
+    """
+    start_dt, end_dt = _date_to_range(start_date, end_date)
+
+    stmt = (
+        select(
+            func.avg(StockNewsMap.sentiment_score).label("avg_score"),
+            func.sum(
+                case((StockNewsMap.sentiment_label == "POSITIVE", 1), else_=0)
+            ).label("positive_count"),
+            func.sum(
+                case((StockNewsMap.sentiment_label == "NEGATIVE", 1), else_=0)
+            ).label("negative_count"),
+            func.sum(
+                case((StockNewsMap.sentiment_label == "NEUTRAL", 1), else_=0)
+            ).label("neutral_count"),
+            func.count(StockNewsMap.news_id).label("total_count"),
+        )
+        .join(StockNews, StockNews.id == StockNewsMap.news_id)
+        .where(StockNewsMap.stock_id == stock_id)
+        .where(StockNews.published_at >= start_dt)
+        .where(StockNews.published_at < end_dt)
+        .where(StockNewsMap.sentiment_label.isnot(None))
+    )
+    row = db.execute(stmt).first()
+
+    if row is None or row[4] == 0:
+        return {
+            "avg_score": None,
+            "positive": 0,
+            "negative": 0,
+            "neutral": 0,
+            "total": 0,
+        }
+
+    return {
+        "avg_score": float(row[0]) if row[0] is not None else None,
+        "positive": int(row[1] or 0),
+        "negative": int(row[2] or 0),
+        "neutral": int(row[3] or 0),
+        "total": int(row[4] or 0),
+    }
 
 
 def get_sentiment_indices_by_date_range(
@@ -199,3 +284,24 @@ def get_sentiment_indices_by_date_range(
         }
         for r in rows
     ]
+
+
+def get_all_stock_ids_with_news(
+    db: Session,
+    start_date: date,
+    end_date: date,
+) -> list[int]:
+    """
+    날짜 범위에 뉴스가 있는 종목 ID 목록을 조회한다.
+    """
+    start_dt, end_dt = _date_to_range(start_date, end_date)
+
+    stmt = (
+        select(StockNewsMap.stock_id)
+        .join(StockNews, StockNews.id == StockNewsMap.news_id)
+        .where(StockNews.published_at >= start_dt)
+        .where(StockNews.published_at < end_dt)
+        .distinct()
+    )
+    rows = db.execute(stmt).all()
+    return [r[0] for r in rows]
