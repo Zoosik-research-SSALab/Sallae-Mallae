@@ -152,7 +152,8 @@ def cluster_keywords(
     logger.info("  임베딩 모델 로딩: %s", EMBEDDING_MODEL_NAME)
     tokenizer = AutoTokenizer.from_pretrained(EMBEDDING_MODEL_NAME)
     model = AutoModel.from_pretrained(EMBEDDING_MODEL_NAME)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # vLLM이 GPU를 점유하므로 e5-small은 CPU에서 실행 (33M 파라미터라 CPU로 충분)
+    device = "cpu"
     model.to(device)
     model.eval()
 
