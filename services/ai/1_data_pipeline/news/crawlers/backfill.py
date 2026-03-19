@@ -20,6 +20,9 @@
 
   # 월당 최대 페이지 수 조절
   python -m crawlers.backfill --start-date 2025-01-01 --max-pages 10
+
+  # 일별 크롤링 (하루당 5페이지, 커버리지 향상)
+  python -m crawlers.backfill --start-date 2025-01-01 --daily --max-pages 5
 """
 import argparse
 import asyncio
@@ -115,6 +118,16 @@ def generate_month_ranges(start: date, end: date) -> list[tuple[date, date]]:
         months.append((cur, min(month_end, end)))
         cur = date(cur.year + (cur.month // 12), (cur.month % 12) + 1, 1)
     return months
+
+
+def generate_day_ranges(start: date, end: date) -> list[tuple[date, date]]:
+    """시작~종료를 일 단위 (당일, 당일) 튜플 리스트로 분할."""
+    days = []
+    cur = start
+    while cur <= end:
+        days.append((cur, cur))
+        cur += timedelta(days=1)
+    return days
 
 
 # ---------------------------------------------------------------------------
@@ -321,14 +334,22 @@ async def run_backfill(
     start_date: date,
     end_date: date,
     max_pages: int = BACKFILL_MAX_PAGES_PER_MONTH,
+    daily: bool = False,
 ) -> None:
     """여러 종목에 대해 백필을 순차 실행한다.
     각 종목 완료 시마다 개별 CSV 저장.
+    daily=True이면 월 단위 대신 일 단위로 분할하여 크롤링.
     """
     global _semaphore
     _semaphore = asyncio.Semaphore(BACKFILL_SEMAPHORE_LIMIT)
 
-    month_ranges = generate_month_ranges(start_date, end_date)
+    if daily:
+        date_ranges = generate_day_ranges(start_date, end_date)
+        range_label = f"{len(date_ranges)}일"
+    else:
+        date_ranges = generate_month_ranges(start_date, end_date)
+        range_label = f"{len(date_ranges)}개월"
+
     stock_codes = stocks_df["code"].tolist()
     checkpoint = create_checkpoint(run_id, stock_codes)
     pending = get_pending_stocks(checkpoint)
@@ -344,8 +365,9 @@ async def run_backfill(
     os.makedirs(backfill_dir, exist_ok=True)
 
     logger.info(
-        "백필 시작 | Run: %s | 기간: %s ~ %s (%d개월) | 대상: %d/%d종목",
-        run_id, start_date, end_date, len(month_ranges), len(pending), len(stock_codes),
+        "백필 시작 | Run: %s | 기간: %s ~ %s (%s) | 대상: %d/%d종목 | %s당 최대 %d페이지",
+        run_id, start_date, end_date, range_label, len(pending), len(stock_codes),
+        "일" if daily else "월", max_pages,
     )
 
     connector = aiohttp.TCPConnector(limit=BACKFILL_SEMAPHORE_LIMIT * 2)
@@ -356,7 +378,7 @@ async def run_backfill(
 
             try:
                 df = await backfill_stock(
-                    session, code, name, month_ranges, checkpoint,
+                    session, code, name, date_ranges, checkpoint,
                     max_pages=max_pages,
                 )
 
@@ -399,7 +421,8 @@ def main():
     parser.add_argument("--codes", nargs="+", default=None, help="특정 종목 코드 (예: 005930 000660)")
     parser.add_argument("--start-idx", type=int, default=0, help="KOSPI200 리스트 시작 인덱스 (0-based)")
     parser.add_argument("--end-idx", type=int, default=None, help="KOSPI200 리스트 종료 인덱스 (exclusive)")
-    parser.add_argument("--max-pages", type=int, default=BACKFILL_MAX_PAGES_PER_MONTH, help=f"월당 최대 페이지 수 (기본: {BACKFILL_MAX_PAGES_PER_MONTH})")
+    parser.add_argument("--max-pages", type=int, default=BACKFILL_MAX_PAGES_PER_MONTH, help=f"구간당 최대 페이지 수 (기본: {BACKFILL_MAX_PAGES_PER_MONTH})")
+    parser.add_argument("--daily", action="store_true", help="월 단위 대신 일 단위로 크롤링 (커버리지 향상)")
     parser.add_argument("--run-id", type=str, default=None, help="세션 ID (같은 ID로 재실행하면 이어서 진행)")
     args = parser.parse_args()
 
@@ -428,9 +451,10 @@ def main():
     else:
         run_id = f"backfill_{s_date.strftime('%Y%m%d')}_{e_date.strftime('%Y%m%d')}"
 
-    logger.info("대상 종목 %d개 | 기간: %s ~ %s | Run ID: %s", len(stocks_df), s_date, e_date, run_id)
+    mode = "일별" if args.daily else "월별"
+    logger.info("대상 종목 %d개 | 기간: %s ~ %s | %s | Run ID: %s", len(stocks_df), s_date, e_date, mode, run_id)
 
-    asyncio.run(run_backfill(stocks_df, run_id, s_date, e_date, max_pages=args.max_pages))
+    asyncio.run(run_backfill(stocks_df, run_id, s_date, e_date, max_pages=args.max_pages, daily=args.daily))
 
 
 if __name__ == "__main__":
