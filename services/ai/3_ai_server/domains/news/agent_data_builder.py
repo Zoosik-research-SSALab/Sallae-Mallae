@@ -112,7 +112,7 @@ def save_to_db(db: Session, stock_id: int, report_date: date, data: dict) -> Non
     """종목별 에이전트 데이터를 news_agent_stock_data 테이블에 저장한다. (upsert)"""
     stmt = text("""
         INSERT INTO news_agent_stock_data (stock_id, report_date, top_keywords, sentiment, created_at)
-        VALUES (:stock_id, :report_date, :top_keywords::jsonb, :sentiment::jsonb, now())
+        VALUES (:stock_id, :report_date, CAST(:top_keywords AS jsonb), CAST(:sentiment AS jsonb), now())
         ON CONFLICT (stock_id, report_date)
         DO UPDATE SET
             top_keywords = EXCLUDED.top_keywords,
