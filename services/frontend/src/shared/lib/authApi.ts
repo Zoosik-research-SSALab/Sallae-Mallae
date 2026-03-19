@@ -115,6 +115,7 @@ export async function refreshAccessToken() {
     method: "POST",
     useBaseUrl: false,
     credentials: "include",
+    headers: createDeviceIdHeader(),
   });
 
   const unwrapped = unwrapAuthApiResponse(payload, "Refresh response is invalid.");
@@ -156,6 +157,39 @@ export async function logoutFromApp() {
     useBaseUrl: false,
     credentials: "include",
     withAuth: true,
+    headers: createDeviceIdHeader(),
+  });
+}
+
+export async function logoutFromAllDevices() {
+  return apiFetch<void>("/api/auth/logout/all", {
+    method: "POST",
+    useBaseUrl: false,
+    credentials: "include",
+    withAuth: true,
+    headers: createDeviceIdHeader(),
+  });
+}
+
+export async function getAuthSessions() {
+  const payload = await apiFetch<unknown | AuthApiEnvelope<unknown>>("/api/auth/sessions", {
+    method: "GET",
+    useBaseUrl: false,
+    credentials: "include",
+    withAuth: true,
+    headers: createDeviceIdHeader(),
+  });
+
+  return unwrapAuthApiResponse(payload, "Sessions response is invalid.");
+}
+
+export async function revokeAuthSession(targetDeviceId: string) {
+  return apiFetch<void>(`/api/auth/sessions/${encodeURIComponent(targetDeviceId)}`, {
+    method: "DELETE",
+    useBaseUrl: false,
+    credentials: "include",
+    withAuth: true,
+    headers: createDeviceIdHeader(),
   });
 }
 
