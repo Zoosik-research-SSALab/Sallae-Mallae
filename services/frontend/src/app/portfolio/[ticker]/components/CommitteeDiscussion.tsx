@@ -112,7 +112,7 @@ export default function CommitteeDiscussion({
       </div>
 
       {/* Discussion cards */}
-      <div className="flex flex-col gap-8 pb-4">
+      <div className="flex flex-col gap-8 pb-8">
         {members.map((member) => (
           <ChatBubble key={member.role} member={member} />
         ))}
