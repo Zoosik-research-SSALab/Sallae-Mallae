@@ -351,6 +351,43 @@ class ChairmanPortfolioBuilder:
             winning_trades=winning_trades,
         )
 
+    def ensure_portfolio_row(self) -> int:
+        return self._ensure_portfolio_row()
+
+    def reset_portfolio_state(self, portfolio_id: int) -> None:
+        self._reset_portfolio_state(portfolio_id)
+
+    def list_replay_dates(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+        debate_version: str | None = None,
+    ) -> list[date]:
+        params: dict[str, object] = {"start_date": start_date, "end_date": end_date}
+        version_filter = ""
+        if debate_version:
+            params["debate_version"] = debate_version
+            version_filter = "AND debate_version = :debate_version"
+
+        rows = self.db.execute(
+            text(
+                f"""
+                SELECT DISTINCT report_date
+                FROM ai_debate_reports
+                WHERE report_date BETWEEN :start_date AND :end_date
+                  AND chairman_signal IS NOT NULL
+                  {version_filter}
+                ORDER BY report_date ASC
+                """
+            ),
+            params,
+        ).scalars().all()
+        return list(rows)
+
+    def get_last_record_date(self, portfolio_id: int) -> date | None:
+        return self._load_last_record_date(portfolio_id)
+
     def _ensure_portfolio_row(self) -> int:
         existing_id = self.db.execute(
             text(
@@ -383,6 +420,14 @@ class ChairmanPortfolioBuilder:
         self.db.execute(text("DELETE FROM ai_portfolio_holdings WHERE portfolio_id = :portfolio_id"), {"portfolio_id": portfolio_id})
         self.db.execute(text("DELETE FROM ai_daily_performance WHERE portfolio_id = :portfolio_id"), {"portfolio_id": portfolio_id})
         self.db.execute(text("DELETE FROM ai_trading_history WHERE portfolio_id = :portfolio_id"), {"portfolio_id": portfolio_id})
+        self._update_portfolio_row(
+            portfolio_id=portfolio_id,
+            cumulative_return=0.0,
+            total_trades=0,
+            winning_trades=0,
+            updated_at=datetime.now(KST),
+            debate_version=None,
+        )
 
     def _load_decisions(
         self,
