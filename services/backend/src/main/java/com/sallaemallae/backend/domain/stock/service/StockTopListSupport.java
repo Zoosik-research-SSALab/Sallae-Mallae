@@ -15,10 +15,6 @@ final class StockTopListSupport {
   private static final int DEFAULT_LIMIT = 6;
   private static final int MAX_LIMIT = 30;
   private static final String ALL_KOREAN = "\uC804\uCCB4";
-  private static final String FINANCE_KOREAN = "\uAE08\uC735";
-  private static final String AUTO_KOREAN = "\uC790\uB3D9\uCC28";
-  private static final String BIO_KOREAN = "\uBC14\uC774\uC624";
-  private static final String BATTERY_KOREAN = "2\uCC28\uC804\uC9C0";
 
   private StockTopListSupport() {
   }
@@ -222,20 +218,36 @@ final class StockTopListSupport {
   }
 
   enum SectorFilter {
-    IT("IT"),
-    FINANCE(FINANCE_KOREAN),
-    AUTO(AUTO_KOREAN),
-    BIO(BIO_KOREAN),
-    BATTERY(BATTERY_KOREAN);
+    ENERGY("\uC5D0\uB108\uC9C0"),
+    GREEN_CARBON("\uCE5C\uD658\uACBD / \uD0C4\uC18C"),
+    MATERIALS("\uC18C\uC7AC"),
+    SEMICONDUCTOR("\uBC18\uB3C4\uCCB4"),
+    DISPLAY("\uB514\uC2A4\uD50C\uB808\uC774"),
+    ELECTRONIC_COMPONENTS("\uC804\uC790\uBD80\uD488"),
+    IT_PLATFORM_SOFTWARE("IT\uD50C\uB7AB\uD3FC / \uC18C\uD504\uD2B8\uC6E8\uC5B4"),
+    GAME_DIGITAL_CONTENT("\uAC8C\uC784 / \uB514\uC9C0\uD138\uCF58\uD150\uCE20"),
+    SECONDARY_BATTERY("2\uCC28\uC804\uC9C0"),
+    SMART_DEVICES("\uC2A4\uB9C8\uD2B8\uAE30\uAE30"),
+    MACHINERY_INDUSTRIAL_EQUIPMENT("\uAE30\uACC4 / \uC0B0\uC5C5\uC7A5\uBE44"),
+    CONSTRUCTION_INFRA("\uAC74\uC124 / \uC778\uD504\uB77C"),
+    SHIPBUILDING("\uC870\uC120"),
+    DEFENSE("\uBC29\uC0B0"),
+    TRANSPORT_LOGISTICS("\uC6B4\uC1A1 / \uBB3C\uB958"),
+    CONSUMER_DURABLES("\uC18C\uBE44\uB0B4\uAD6C\uC7AC"),
+    CONSUMER_STAPLES("\uD544\uC218\uC18C\uBE44\uC7AC"),
+    FASHION_BEAUTY("\uD328\uC158 / \uBDF0\uD2F0"),
+    RETAIL_SERVICES("\uC720\uD1B5 / \uC11C\uBE44\uC2A4"),
+    FINANCE_HEALTHCARE("\uAE08\uC735 / \uD5EC\uC2A4\uCF00\uC5B4"),
+    ETC("\uAE30\uD0C0");
 
-    private final String label;
+    private final String category;
 
-    SectorFilter(String label) {
-      this.label = label;
+    SectorFilter(String category) {
+      this.category = category;
     }
 
-    String label() {
-      return label;
+    String category() {
+      return category;
     }
 
     static SectorFilter from(String value) {
@@ -248,20 +260,30 @@ final class StockTopListSupport {
         return null;
       }
 
-      return switch (trimmed.toUpperCase(Locale.ROOT)) {
-        case "IT" -> IT;
-        case "FINANCE" -> FINANCE;
-        case "AUTO", "MOBILITY" -> AUTO;
-        case "BIO" -> BIO;
-        case "BATTERY" -> BATTERY;
-        default -> switch (trimmed) {
-          case FINANCE_KOREAN -> FINANCE;
-          case AUTO_KOREAN -> AUTO;
-          case BIO_KOREAN -> BIO;
-          case BATTERY_KOREAN -> BATTERY;
-          default -> throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
-        };
-      };
+      try {
+        return SectorFilter.valueOf(trimmed.toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException e) {
+        // 한글 category 값으로도 매칭 시도
+        for (SectorFilter filter : values()) {
+          if (filter.category.equals(trimmed)) {
+            return filter;
+          }
+        }
+        throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
+      }
+    }
+
+    static SectorFilter fromCategory(String category) {
+      if (category == null || category.isBlank()) {
+        return null;
+      }
+      String trimmed = category.trim();
+      for (SectorFilter filter : values()) {
+        if (filter.category.equals(trimmed)) {
+          return filter;
+        }
+      }
+      return null;
     }
   }
 

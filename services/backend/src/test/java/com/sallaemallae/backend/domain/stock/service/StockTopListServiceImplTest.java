@@ -59,9 +59,9 @@ class StockTopListServiceImplTest {
   void getTopStocks_returnsPaginatedListAndCountsFromRedisCache() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
-    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
-    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "IT\uD50C\uB7AB\uD3FC / \uC18C\uD504\uD2B8\uC6E8\uC5B4", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "\uBC18\uB3C4\uCCB4", 728_002_365L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
@@ -89,14 +89,14 @@ class StockTopListServiceImplTest {
   void getTopStocks_skipsWatchlistLookupWhenUnauthenticated() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
     StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f, 1_000_000L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of());
     given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(1L))).willReturn(List.of(samsungPrice));
 
-    StockListResponse response = service.getTopStocks(null, "BUY", "IT", "LARGE", "MARKET_CAP", "samsung", 0, 10);
+    StockListResponse response = service.getTopStocks(null, "BUY", "SEMICONDUCTOR", "LARGE", "MARKET_CAP", "samsung", 0, 10);
 
     assertThat(response.filterCounts().buy()).isEqualTo(1);
     assertThat(response.stocks()).hasSize(1);
@@ -120,8 +120,8 @@ class StockTopListServiceImplTest {
   void getTopStocks_fallsBackToDbWhenRedisCacheEmpty() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
-    Stock hynix = stock(2L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
+    Stock hynix = stock(2L, "000660", "SK hynix", "Information Technology", "\uBC18\uB3C4\uCCB4", 728_002_365L);
     StockPriceDaily samsungPrice = dailyPrice(1L, 70300, 2.15f, 1_000_000L);
     StockPriceDaily hynixPrice = dailyPrice(2L, 182000, -1.75f, 700_000L);
 
@@ -146,7 +146,7 @@ class StockTopListServiceImplTest {
     List<Stock> stocks = new ArrayList<>();
     for (int i = 1; i <= 40; i++) {
       String ticker = "%06d".formatted(i);
-      stocks.add(stock((long) i, ticker, "Stock " + i, "Information Technology", "Category", 1_000_000L));
+      stocks.add(stock((long) i, ticker, "Stock " + i, "Information Technology", "\uAE30\uD0C0", 1_000_000L));
     }
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(stocks);
@@ -161,9 +161,9 @@ class StockTopListServiceImplTest {
   void getTopStocks_sortsByMarketCap() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
-    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
-    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "IT\uD50C\uB7AB\uD3FC / \uC18C\uD504\uD2B8\uC6E8\uC5B4", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "\uBC18\uB3C4\uCCB4", 728_002_365L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
@@ -181,9 +181,9 @@ class StockTopListServiceImplTest {
   void getTopStocks_sortsByTradingValue() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
-    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
-    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "IT\uD50C\uB7AB\uD3FC / \uC18C\uD504\uD2B8\uC6E8\uC5B4", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "\uBC18\uB3C4\uCCB4", 728_002_365L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
@@ -203,9 +203,9 @@ class StockTopListServiceImplTest {
   void getTopStocks_sortsByTradingVolume() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
-    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
-    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "IT\uD50C\uB7AB\uD3FC / \uC18C\uD504\uD2B8\uC6E8\uC5B4", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "\uBC18\uB3C4\uCCB4", 728_002_365L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
@@ -225,9 +225,9 @@ class StockTopListServiceImplTest {
   void getTopStocks_sortsByDividendYield() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
-    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
-    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "IT\uD50C\uB7AB\uD3FC / \uC18C\uD504\uD2B8\uC6E8\uC5B4", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "\uBC18\uB3C4\uCCB4", 728_002_365L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
@@ -249,7 +249,7 @@ class StockTopListServiceImplTest {
   void getTopStocks_prefersRedisCacheOverDbDailyPrice() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
@@ -268,9 +268,9 @@ class StockTopListServiceImplTest {
   void getTopStocks_appliesOffsetToDisplayRank() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
-    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "Internet", 164_263_395L);
-    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "Semiconductor", 728_002_365L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "IT\uD50C\uB7AB\uD3FC / \uC18C\uD504\uD2B8\uC6E8\uC5B4", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "\uBC18\uB3C4\uCCB4", 728_002_365L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
@@ -289,7 +289,7 @@ class StockTopListServiceImplTest {
   void getTopStocks_mergesDividendYieldFromSnapshot() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
@@ -308,7 +308,7 @@ class StockTopListServiceImplTest {
   void getTopStocks_prefersLatestDbDividendYieldOverRedisSnapshot() {
     StockTopListServiceImpl service = createService();
 
-    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
 
     given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
