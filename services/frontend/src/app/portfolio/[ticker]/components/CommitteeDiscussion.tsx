@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { CommitteeMember } from "../types/portfolioStockDetail";
 
 type Props = {
@@ -7,17 +8,32 @@ type Props = {
   members: CommitteeMember[];
 };
 
+const AVATAR_MAP: Record<string, string> = {
+  차트: "/images/chart_talk.png",
+  펀더멘탈: "/images/fund_talk.png",
+  센티멘트: "/images/news_talk.png",
+  의장: "/images/judge_talk.png",
+};
+
+function getAvatarSrc(role: string): string {
+  for (const [keyword, src] of Object.entries(AVATAR_MAP)) {
+    if (role.includes(keyword)) return src;
+  }
+  return "/images/profile-placeholder.svg";
+}
+
 function Avatar({ role }: { role: string }) {
   return (
     <div
-      className="shrink-0 rounded-xl overflow-hidden bg-bg-tertiary flex items-end justify-center"
+      className="shrink-0 rounded-xl overflow-hidden flex items-end justify-center relative"
       style={{ width: 100, height: 150 }}
     >
-      <div className="w-full bg-black/50 px-2 py-1">
-        <p className="text-[10px] text-white text-center font-semibold truncate leading-tight">
-          {role}
-        </p>
-      </div>
+      <Image
+        src={getAvatarSrc(role)}
+        alt={role}
+        fill
+        className="object-cover"
+      />
     </div>
   );
 }
