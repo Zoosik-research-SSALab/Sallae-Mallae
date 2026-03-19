@@ -13,6 +13,7 @@ import com.sallaemallae.backend.domain.stock.service.StockRealtimeMinuteService;
 import com.sallaemallae.backend.domain.stock.service.StockService;
 import com.sallaemallae.backend.domain.stock.service.StockTopListService;
 import com.sallaemallae.backend.global.response.ApiResponse;
+import java.util.List;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -47,8 +48,8 @@ public class StockApiController {
   public ApiResponse<StockListResponse> getTopStocks(
       @Parameter(description = "Signal filter. Allowed values: BUY, SELL, HOLD", example = "BUY")
       @RequestParam(required = false) String signal,
-      @Parameter(description = "Sector filter. Example values: IT, Finance, Mobility, Bio", example = "IT")
-      @RequestParam(required = false) String sector,
+      @Parameter(description = "Sector filter. Multiple values allowed. Example: SEMICONDUCTOR, ENERGY", example = "SEMICONDUCTOR")
+      @RequestParam(required = false) List<String> sector,
       @Parameter(description = "Market cap filter. Allowed values: ALL, LARGE, MID", example = "ALL")
       @RequestParam(name = "market_cap", required = false) String marketCap,
       @Parameter(
