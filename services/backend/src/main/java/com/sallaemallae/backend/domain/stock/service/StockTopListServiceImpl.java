@@ -108,12 +108,10 @@ public class StockTopListServiceImpl implements StockTopListService {
     List<StockTopListCandidate> candidates = buildLocalCandidates(userId, dividendYieldMap);
     List<StockTopListCandidate> filtered = filterAndSortCandidates(candidates, query);
     List<StockTopListCandidate> signalFiltered = filterSignalCandidates(filtered, query);
-    List<StockTopListCandidate> visibleCandidates = paginateCandidates(signalFiltered, query);
-    List<StockTopListCandidate> enrichedVisibleCandidates = enrichCandidatesWithQuotes(visibleCandidates);
 
     return new StockListResponse(
         StockTopListSupport.countSignals(filtered),
-        toResponses(enrichedVisibleCandidates, query.offset())
+        toResponses(paginateCandidates(signalFiltered, query), query.offset())
     );
   }
 

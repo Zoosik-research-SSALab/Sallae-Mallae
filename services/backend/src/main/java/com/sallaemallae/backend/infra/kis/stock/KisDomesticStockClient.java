@@ -146,21 +146,14 @@ public class KisDomesticStockClient {
       LocalDate toDate
   ) {
     List<KisDividendRateItem> items = new ArrayList<>();
-    String query = "CTS_AREA="
-        + "&GB1=" + marketGroup
-        + "&UPJONG=" + upjong
-        + "&GB2=0"
-        + "&GB3=2"
-        + "&F_DT=" + fromDate.format(BASIC_DATE)
-        + "&T_DT=" + toDate.format(BASIC_DATE)
-        + "&GB4=0";
+    String ctsArea = "";
     String trCont = "";
 
     for (int page = 1; page <= MAX_DIVIDEND_RATE_PAGE; page++) {
       KisApiResponse response = getResponse(
           "/uapi/domestic-stock/v1/ranking/dividend-rate",
           "HHKDB13470100",
-          query,
+          buildDividendRateQuery(ctsArea, marketGroup, upjong, fromDate, toDate),
           trCont
       );
 
@@ -175,7 +168,8 @@ public class KisDomesticStockClient {
             nullableText(row, "sht_cd"),
             toDate(row.path("record_date")),
             toFloat(row.path("divi_rate")),
-            nullableText(row, "divi_kind")
+            nullableText(row, "divi_kind"),
+            KisDividendRateItem.DividendType.CASH
         ));
       }
 
@@ -183,6 +177,7 @@ public class KisDomesticStockClient {
       if (!"M".equalsIgnoreCase(nextTrCont != null ? nextTrCont.trim() : null)) {
         break;
       }
+      ctsArea = continuationArea(response);
       trCont = "N";
     }
 
@@ -275,6 +270,23 @@ public class KisDomesticStockClient {
 
   private JsonNode get(String path, String trId, String query) {
     return getResponse(path, trId, query, null).body();
+  }
+
+  private String buildDividendRateQuery(
+      String ctsArea,
+      String marketGroup,
+      String upjong,
+      LocalDate fromDate,
+      LocalDate toDate
+  ) {
+    return "CTS_AREA=" + (ctsArea == null ? "" : ctsArea)
+        + "&GB1=" + marketGroup
+        + "&UPJONG=" + upjong
+        + "&GB2=0"
+        + "&GB3=2"
+        + "&F_DT=" + fromDate.format(BASIC_DATE)
+        + "&T_DT=" + toDate.format(BASIC_DATE)
+        + "&GB4=0";
   }
 
   private KisApiResponse getResponse(String path, String trId, String query, String trCont) {
@@ -437,6 +449,15 @@ public class KisDomesticStockClient {
       return output;
     }
     return body.path("output");
+  }
+
+  private String continuationArea(KisApiResponse response) {
+    String bodyCursor = nullableText(response.body(), "cts_area", "CTS_AREA", "ctx_area");
+    if (bodyCursor != null) {
+      return bodyCursor;
+    }
+    String headerCursor = response.headers().getFirst("cts_area");
+    return headerCursor == null ? "" : headerCursor.trim();
   }
 
   private LocalDate toDate(JsonNode node) {

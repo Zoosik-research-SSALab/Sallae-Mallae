@@ -7,6 +7,20 @@ public record KisDividendRateItem(
     String ticker,
     LocalDate recordDate,
     Float dividendYield,
-    String dividendKind
+    String dividendKind,
+    DividendType dividendType
 ) {
+
+  public boolean isCashDividend() {
+    return dividendType == DividendType.CASH;
+  }
+
+  public boolean isStockDividend() {
+    return dividendType == DividendType.STOCK;
+  }
+
+  public enum DividendType {
+    CASH,
+    STOCK
+  }
 }

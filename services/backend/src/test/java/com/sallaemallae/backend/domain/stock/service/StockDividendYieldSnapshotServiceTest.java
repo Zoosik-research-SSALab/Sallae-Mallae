@@ -18,6 +18,7 @@ import com.sallaemallae.backend.infra.kis.cache.DividendYieldSnapshotRepository.
 import com.sallaemallae.backend.infra.kis.cache.MarketCacheTtlPolicy;
 import com.sallaemallae.backend.infra.kis.stock.KisDividendRateData;
 import com.sallaemallae.backend.infra.kis.stock.KisDividendRateItem;
+import com.sallaemallae.backend.infra.kis.stock.KisDividendRateItem.DividendType;
 import com.sallaemallae.backend.infra.kis.stock.KisDomesticStockClient;
 import java.time.Clock;
 import java.time.Duration;
@@ -32,6 +33,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class StockDividendYieldSnapshotServiceTest {
@@ -92,8 +95,8 @@ class StockDividendYieldSnapshotServiceTest {
             LocalDate.parse("2026-03-18"),
             OffsetDateTime.parse("2026-03-18T09:00:00+09:00"),
             List.of(
-                new KisDividendRateItem(5, "005930", LocalDate.parse("2025-12-30"), 2.10f, "cash"),
-                new KisDividendRateItem(1, "005930", LocalDate.parse("2024-12-30"), 9.99f, "cash")
+                new KisDividendRateItem(5, "005930", LocalDate.parse("2025-12-30"), 2.10f, "결산", DividendType.CASH),
+                new KisDividendRateItem(1, "005930", LocalDate.parse("2024-12-30"), 9.99f, "결산", DividendType.CASH)
             ),
             "KIS"
         ));
@@ -104,7 +107,7 @@ class StockDividendYieldSnapshotServiceTest {
             LocalDate.parse("2025-02-11"),
             LocalDate.parse("2026-03-18"),
             OffsetDateTime.parse("2026-03-18T09:00:00+09:00"),
-            List.of(new KisDividendRateItem(3, "000660", LocalDate.parse("2025-12-30"), 1.45f, "cash")),
+            List.of(new KisDividendRateItem(3, "000660", LocalDate.parse("2025-12-30"), 1.45f, "분기", DividendType.CASH)),
             "KIS"
         ));
     Stock samsung = mock(Stock.class);
@@ -126,6 +129,67 @@ class StockDividendYieldSnapshotServiceTest {
     assertThat(snapshotCaptor.getValue().yields())
         .containsEntry("005930", 2.10f)
         .containsEntry("000660", 1.45f);
+  }
+
+  @Test
+  void refreshSnapshot_writesRedisAfterCommitWhenSynchronizationIsActive() {
+    MarketCacheTtlPolicy ttlPolicy = new MarketCacheTtlPolicy(
+        Clock.fixed(OffsetDateTime.parse("2026-03-18T09:00:00+09:00").toInstant(), ZoneId.of("Asia/Seoul")),
+        java.util.Set.of()
+    );
+    StockDividendYieldSnapshotService service = new StockDividendYieldSnapshotService(
+        kisProperties,
+        kisDomesticStockClient,
+        snapshotRepository,
+        stockDividendYieldSnapshotRepository,
+        stockRepository,
+        ttlPolicy
+    );
+
+    given(kisProperties.isConfigured()).willReturn(true);
+    given(kisDomesticStockClient.getCashDividendRateRanking(eq("1"), eq("0001"), any(LocalDate.class), any(LocalDate.class)))
+        .willReturn(new KisDividendRateData(
+            "1",
+            "0001",
+            LocalDate.parse("2025-02-11"),
+            LocalDate.parse("2026-03-18"),
+            OffsetDateTime.parse("2026-03-18T09:00:00+09:00"),
+            List.of(new KisDividendRateItem(1, "005930", LocalDate.parse("2025-12-30"), 2.10f, "결산", DividendType.CASH)),
+            "KIS"
+        ));
+    given(kisDomesticStockClient.getCashDividendRateRanking(eq("3"), eq("1001"), any(LocalDate.class), any(LocalDate.class)))
+        .willReturn(new KisDividendRateData(
+            "3",
+            "1001",
+            LocalDate.parse("2025-02-11"),
+            LocalDate.parse("2026-03-18"),
+            OffsetDateTime.parse("2026-03-18T09:00:00+09:00"),
+            List.of(),
+            "KIS"
+        ));
+
+    Stock samsung = mock(Stock.class);
+    given(samsung.getId()).willReturn(1L);
+    given(samsung.getTicker()).willReturn("005930");
+    given(stockRepository.findAllByTickerInAndIsActiveTrue(any())).willReturn(List.of(samsung));
+    given(stockDividendYieldSnapshotRepository.findAllByStockIdInAndIsLatestTrue(any())).willReturn(List.of());
+    given(stockDividendYieldSnapshotRepository.findAllByStockIdInAndAsOfDateAndSource(any(), any(LocalDate.class), any()))
+        .willReturn(List.of());
+
+    TransactionSynchronizationManager.initSynchronization();
+    try {
+      service.refreshSnapshot();
+
+      verify(snapshotRepository, never()).saveSnapshot(any(), any());
+
+      for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+        synchronization.afterCommit();
+      }
+    } finally {
+      TransactionSynchronizationManager.clearSynchronization();
+    }
+
+    verify(snapshotRepository).saveSnapshot(any(), any());
   }
 
   @Test
@@ -151,7 +215,7 @@ class StockDividendYieldSnapshotServiceTest {
             LocalDate.parse("2025-02-11"),
             LocalDate.parse("2026-03-18"),
             OffsetDateTime.parse("2026-03-18T09:00:00+09:00"),
-            List.of(new KisDividendRateItem(1, "005930", LocalDate.parse("2025-12-30"), 2.10f, "cash")),
+            List.of(new KisDividendRateItem(1, "005930", LocalDate.parse("2025-12-30"), 2.10f, "결산", DividendType.CASH)),
             "KIS"
         ));
     given(kisDomesticStockClient.getCashDividendRateRanking(eq("3"), eq("1001"), any(LocalDate.class), any(LocalDate.class)))
@@ -180,6 +244,63 @@ class StockDividendYieldSnapshotServiceTest {
   }
 
   @Test
+  void refreshSnapshot_exposesOnlyCashDividendYield() {
+    MarketCacheTtlPolicy ttlPolicy = new MarketCacheTtlPolicy(
+        Clock.fixed(OffsetDateTime.parse("2026-03-18T09:00:00+09:00").toInstant(), ZoneId.of("Asia/Seoul")),
+        java.util.Set.of()
+    );
+    StockDividendYieldSnapshotService service = new StockDividendYieldSnapshotService(
+        kisProperties,
+        kisDomesticStockClient,
+        snapshotRepository,
+        stockDividendYieldSnapshotRepository,
+        stockRepository,
+        ttlPolicy
+    );
+
+    given(kisProperties.isConfigured()).willReturn(true);
+    given(kisDomesticStockClient.getCashDividendRateRanking(eq("1"), eq("0001"), any(LocalDate.class), any(LocalDate.class)))
+        .willReturn(new KisDividendRateData(
+            "1",
+            "0001",
+            LocalDate.parse("2025-02-11"),
+            LocalDate.parse("2026-03-18"),
+            OffsetDateTime.parse("2026-03-18T09:00:00+09:00"),
+            List.of(new KisDividendRateItem(1, "005930", LocalDate.parse("2025-12-30"), 2.10f, "결산", DividendType.CASH)),
+            "KIS"
+        ));
+    given(kisDomesticStockClient.getCashDividendRateRanking(eq("3"), eq("1001"), any(LocalDate.class), any(LocalDate.class)))
+        .willReturn(new KisDividendRateData(
+            "3",
+            "1001",
+            LocalDate.parse("2025-02-11"),
+            LocalDate.parse("2026-03-18"),
+            OffsetDateTime.parse("2026-03-18T09:00:00+09:00"),
+            List.of(new KisDividendRateItem(1, "000660", LocalDate.parse("2025-12-30"), 1.45f, "결산", DividendType.STOCK)),
+            "KIS"
+        ));
+
+    Stock samsung = mock(Stock.class);
+    given(samsung.getId()).willReturn(1L);
+    given(samsung.getTicker()).willReturn("005930");
+    Stock hynix = mock(Stock.class);
+    given(hynix.getId()).willReturn(2L);
+    given(hynix.getTicker()).willReturn("000660");
+    given(stockRepository.findAllByTickerInAndIsActiveTrue(any())).willReturn(List.of(samsung, hynix));
+    given(stockDividendYieldSnapshotRepository.findAllByStockIdInAndIsLatestTrue(any())).willReturn(List.of());
+    given(stockDividendYieldSnapshotRepository.findAllByStockIdInAndAsOfDateAndSource(any(), any(LocalDate.class), any()))
+        .willReturn(List.of());
+
+    service.refreshSnapshot();
+
+    ArgumentCaptor<DividendYieldSnapshot> snapshotCaptor = ArgumentCaptor.forClass(DividendYieldSnapshot.class);
+    verify(snapshotRepository).saveSnapshot(snapshotCaptor.capture(), eq(Duration.ofDays(8)));
+    assertThat(snapshotCaptor.getValue().yields())
+        .containsEntry("005930", 2.10f)
+        .doesNotContainKey("000660");
+  }
+
+  @Test
   void getLatestDividendYieldByStockIds_returnsLatestDbValues() {
     MarketCacheTtlPolicy ttlPolicy = mock(MarketCacheTtlPolicy.class);
     StockDividendYieldSnapshotService service = new StockDividendYieldSnapshotService(
@@ -199,7 +320,7 @@ class StockDividendYieldSnapshotServiceTest {
                 LocalDate.parse("2025-12-30"),
                 2.1f,
                 null,
-                "cash",
+                "결산",
                 "KIS dividend-rate",
                 LocalDate.parse("2025-02-11"),
                 LocalDate.parse("2026-03-18"),

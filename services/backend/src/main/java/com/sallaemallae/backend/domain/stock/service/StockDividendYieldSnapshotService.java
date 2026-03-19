@@ -29,6 +29,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
@@ -138,25 +139,24 @@ public class StockDividendYieldSnapshotService {
       return;
     }
 
-    redisSnapshotRepository.saveSnapshot(
-        new DividendYieldSnapshot(
-            OffsetDateTime.now(ZONE_ID),
-            fromDate,
-            toDate,
-            sourceItems.size(),
-            yieldByTicker,
-            SNAPSHOT_SOURCE
-        ),
-        ttlPolicy.dividendYieldSnapshotTtl()
-    );
-
-    log.info(
-        "Dividend yield snapshot refreshed. tickers={}, sourceItems={}, fromDate={}, toDate={}",
-        yieldByTicker.size(),
-        sourceItems.size(),
+    DividendYieldSnapshot snapshot = new DividendYieldSnapshot(
+        OffsetDateTime.now(ZONE_ID),
         fromDate,
-        toDate
+        toDate,
+        sourceItems.size(),
+        yieldByTicker,
+        SNAPSHOT_SOURCE
     );
+    runAfterCommitOrNow(() -> {
+      redisSnapshotRepository.saveSnapshot(snapshot, ttlPolicy.dividendYieldSnapshotTtl());
+      log.info(
+          "Dividend yield snapshot refreshed. tickers={}, sourceItems={}, fromDate={}, toDate={}",
+          yieldByTicker.size(),
+          sourceItems.size(),
+          fromDate,
+          toDate
+      );
+    });
   }
 
   private List<KisDividendRateItem> fetchMarket(
@@ -188,6 +188,9 @@ public class StockDividendYieldSnapshotService {
   private Map<String, Float> toYieldMap(Map<String, KisDividendRateItem> latestItemsByTicker) {
     Map<String, Float> yieldByTicker = new HashMap<>();
     for (KisDividendRateItem item : latestItemsByTicker.values()) {
+      if (!item.isCashDividend()) {
+        continue;
+      }
       yieldByTicker.put(item.ticker(), item.dividendYield());
     }
     return Map.copyOf(yieldByTicker);
@@ -237,14 +240,17 @@ public class StockDividendYieldSnapshotService {
         continue;
       }
 
+      Float cashDividendYield = item.isCashDividend() ? item.dividendYield() : null;
+      Float stockDividendYield = item.isStockDividend() ? item.dividendYield() : null;
+
       StockDividendYieldSnapshot snapshot = sameDayByStockId.get(stock.getId());
       if (snapshot == null) {
         snapshot = StockDividendYieldSnapshot.create(
             stock.getId(),
             toDate,
             item.recordDate(),
-            item.dividendYield(),
-            null,
+            cashDividendYield,
+            stockDividendYield,
             item.dividendKind(),
             SNAPSHOT_SOURCE,
             fromDate,
@@ -255,8 +261,8 @@ public class StockDividendYieldSnapshotService {
       } else {
         snapshot.applySnapshot(
             item.recordDate(),
-            item.dividendYield(),
-            null,
+            cashDividendYield,
+            stockDividendYield,
             item.dividendKind(),
             fromDate,
             toDate,
@@ -284,10 +290,28 @@ public class StockDividendYieldSnapshotService {
       return candidate;
     }
 
+    if (candidate.isCashDividend() != current.isCashDividend()) {
+      return candidate.isCashDividend() ? candidate : current;
+    }
+
     if (candidate.rank() != null && current.rank() != null) {
       return candidate.rank() < current.rank() ? candidate : current;
     }
     return candidate.rank() != null ? candidate : current;
+  }
+
+  private void runAfterCommitOrNow(Runnable task) {
+    if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+      task.run();
+      return;
+    }
+
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+      @Override
+      public void afterCommit() {
+        task.run();
+      }
+    });
   }
 
   private void markRollbackOnlyIfActive() {

@@ -257,6 +257,29 @@ class StockTopListServiceImplTest {
   }
 
   @Test
+  void getTopStocks_doesNotQuoteEnrichMarketCapResultsWhenDailyPriceIsMissing() {
+    StockTopListServiceImpl service = new StockTopListServiceImpl(
+        cachedKisDomesticStockGateway,
+        stockRepository,
+        stockPriceDailyRepository,
+        watchlistService,
+        stockDividendYieldSnapshotService
+    );
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "Semiconductor", 5_919_637_922L);
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
+    given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(1L))).willReturn(List.of());
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "MARKET_CAP", null, 0, 10);
+
+    assertThat(response.stocks()).hasSize(1);
+    assertThat(response.stocks().getFirst().price()).isNull();
+    assertThat(response.stocks().getFirst().signal()).isEqualTo("HOLD");
+    assertThat(response.filterCounts().hold()).isEqualTo(1);
+    verifyNoInteractions(cachedKisDomesticStockGateway);
+  }
+
+  @Test
   void getTopStocks_enrichesFallbackPageWithKisQuotesWhenDailyPriceMissing() {
     StockTopListServiceImpl service = new StockTopListServiceImpl(
         cachedKisDomesticStockGateway,
