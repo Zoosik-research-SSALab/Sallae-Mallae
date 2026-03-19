@@ -150,21 +150,21 @@ public class ChairmanPortfolioQueryRepository {
     String sql = """
         WITH latest_report_date AS (
             SELECT MAX(report_date) AS report_date
-            FROM ai_ml_reports
+            FROM ai_debate_reports
             WHERE report_date <= CURRENT_DATE
         ),
         latest_reports AS (
             SELECT DISTINCT ON (r.stock_id)
                    r.stock_id,
-                   r.ml_signal
-            FROM ai_ml_reports r
+                   r.chairman_signal AS signal
+            FROM ai_debate_reports r
             JOIN latest_report_date d ON r.report_date = d.report_date
             ORDER BY r.stock_id, r.created_at DESC, r.id DESC
         )
-        SELECT COALESCE(SUM(CASE WHEN ml_signal = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
-               COALESCE(SUM(CASE WHEN ml_signal = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count,
-               COALESCE(SUM(CASE WHEN ml_signal = 'HOLD' THEN 1 ELSE 0 END), 0) AS hold_count,
-               COALESCE(SUM(CASE WHEN ml_signal = 'STAY' THEN 1 ELSE 0 END), 0) AS watch_count
+        SELECT COALESCE(SUM(CASE WHEN signal = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
+               COALESCE(SUM(CASE WHEN signal = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count,
+               COALESCE(SUM(CASE WHEN signal = 'HOLD' THEN 1 ELSE 0 END), 0) AS hold_count,
+               COALESCE(SUM(CASE WHEN signal = 'STAY' THEN 1 ELSE 0 END), 0) AS watch_count
         FROM latest_reports
         """;
 
@@ -181,16 +181,16 @@ public class ChairmanPortfolioQueryRepository {
     String sql = """
         WITH latest_report_date AS (
             SELECT MAX(report_date) AS report_date
-            FROM ai_ml_reports
+            FROM ai_debate_reports
             WHERE report_date <= CURRENT_DATE
         ),
         latest_reports AS (
             SELECT DISTINCT ON (r.stock_id)
                    r.stock_id,
-                   r.ml_signal,
-                   r.ml_confidence,
+                   r.chairman_signal AS signal,
+                   r.debate_confidence AS confidence,
                    r.created_at
-            FROM ai_ml_reports r
+            FROM ai_debate_reports r
             JOIN latest_report_date d ON r.report_date = d.report_date
             ORDER BY r.stock_id, r.created_at DESC, r.id DESC
         )
@@ -198,7 +198,7 @@ public class ChairmanPortfolioQueryRepository {
                s.ticker,
                s.name,
                p.close_price,
-               lr.ml_signal
+               lr.signal
         FROM latest_reports lr
         JOIN stocks s ON s.id = lr.stock_id
         LEFT JOIN LATERAL (
@@ -210,7 +210,7 @@ public class ChairmanPortfolioQueryRepository {
             LIMIT 1
         ) p ON true
         WHERE s.is_active = true
-        ORDER BY lr.ml_confidence DESC NULLS LAST, lr.created_at DESC, s.id ASC
+        ORDER BY lr.confidence DESC NULLS LAST, lr.created_at DESC, s.id ASC
         LIMIT :limit
         """;
 
@@ -227,7 +227,7 @@ public class ChairmanPortfolioQueryRepository {
           row.get("ticker", String.class),
           row.get("name", String.class),
           toInteger(row.get("close_price")),
-          row.get("ml_signal", String.class)
+          row.get("signal", String.class)
       ));
     }
     return items;
