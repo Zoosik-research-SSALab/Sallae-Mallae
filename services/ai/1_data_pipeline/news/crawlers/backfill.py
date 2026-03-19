@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 # 백필 설정
 # ---------------------------------------------------------------------------
 BACKFILL_SEMAPHORE_LIMIT = 6
-BACKFILL_PAGE_DELAY = (1.2, 2.5)
+BACKFILL_PAGE_DELAY = (2.0, 4.0)
 BACKFILL_STOCK_COOLDOWN = 5
 BACKFILL_BATCH_COOLDOWN = 60
 BACKFILL_MAX_PAGES_PER_MONTH = 5
@@ -88,9 +88,9 @@ async def fetch_html(
                 ) as resp:
                     if resp.status == 200:
                         return await resp.text()
-                    elif resp.status == 429:
-                        wait = (2 ** attempt) + 1
-                        logger.warning("[429] %s — %d초 대기", url, wait)
+                    elif resp.status in (429, 403):
+                        wait = (2 ** attempt) + 2
+                        logger.warning("[%d] %s — %d초 대기", resp.status, url, wait)
                         await asyncio.sleep(wait)
                         continue
                     else:
