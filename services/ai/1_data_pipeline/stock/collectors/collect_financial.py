@@ -9,7 +9,8 @@ Point-in-Time 설계:
 
 저장 경로: RAW_FINANCIAL_PATH/{ticker}_{YYYYMMDD}.parquet
 컬럼: ticker, fiscal_year, fiscal_quarter, revenue, operating_income,
-      net_income, total_assets, total_equity, debt_ratio, roe, per, pbr,
+      net_income, total_assets, total_liabilities, total_equity,
+      operating_cash_flow, debt_ratio, roe, per, pbr,
       report_date, as_of_date
 
 Python 3.10+, Google Colab 호환.
@@ -66,6 +67,11 @@ _ACCOUNT_MAP: dict[str, str] = {
     # 자본총계
     "자본총계": "total_equity",
     "자본합계": "total_equity",
+    # 부채총계
+    "부채총계": "total_liabilities",
+    # 영업활동현금흐름
+    "영업활동현금흐름": "operating_cash_flow",
+    "영업활동으로인한현금흐름": "operating_cash_flow",
 }
 
 # API 호출 간 딜레이 (초) - 일일 호출 제한 준수
@@ -270,14 +276,19 @@ def parse_financial_data(
     # 파생 지표 계산
     total_assets = values.get("total_assets")
     total_equity = values.get("total_equity")
+    total_liabilities = values.get("total_liabilities")
     net_income = values.get("net_income")
+    operating_cash_flow = values.get("operating_cash_flow")
 
     debt_ratio: float | None = None
     roe: float | None = None
 
-    if total_assets and total_equity and total_assets != 0:
+    # debt_ratio: total_liabilities 직접 사용 (없으면 total_assets - total_equity 추정)
+    if total_liabilities is not None and total_equity and total_equity != 0:
+        debt_ratio = round(total_liabilities / total_equity * 100, 2)
+    elif total_assets and total_equity and total_assets != 0 and total_equity != 0:
         total_debt = total_assets - total_equity
-        debt_ratio = round(total_debt / total_equity * 100, 2) if total_equity != 0 else None
+        debt_ratio = round(total_debt / total_equity * 100, 2)
 
     if net_income is not None and total_equity and total_equity != 0:
         roe = round(net_income / total_equity * 100, 2)
@@ -292,7 +303,9 @@ def parse_financial_data(
         "operating_income": values.get("operating_income"),
         "net_income": net_income,
         "total_assets": total_assets,
+        "total_liabilities": total_liabilities,
         "total_equity": total_equity,
+        "operating_cash_flow": operating_cash_flow,
         "debt_ratio": debt_ratio,
         "roe": roe,
         "per": None,   # DART 재무제표에 미포함 - 별도 수집 필요

@@ -45,6 +45,7 @@ RAW_FUNDAMENTAL_PATH: Path = BASE_PATH / "raw" / "fundamental"
 # 가공 데이터 경로
 # ---------------------------------------------------------------------------
 PROCESSED_BASE_PATH: Path = BASE_PATH / "processed" / "base_features"
+PROCESSED_FUNDAMENTAL_PATH: Path = BASE_PATH / "processed" / "fundamental"
 
 # ---------------------------------------------------------------------------
 # 로그 경로
