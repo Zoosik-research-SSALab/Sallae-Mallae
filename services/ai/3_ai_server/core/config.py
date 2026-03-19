@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # DB 설정
     AI_DB_URL: str = 'postgresql+psycopg2://app_user:change_me_app@localhost:5432/app'
 
+    # Redis 설정
+    REDIS_URL: str = 'redis://localhost:6379/0'
+
     # Spring Boot 백엔드 서버 URL
     BACKEND_BASE_URL: str = 'http://localhost:8080'
 
