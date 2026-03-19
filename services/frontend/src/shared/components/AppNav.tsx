@@ -311,7 +311,7 @@ export default function AppNav() {
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-4 py-3 md:px-6 md:py-4 lg:px-8 xl:px-12">
           <div className="flex items-center gap-8 xl:gap-10">
             <Link href="/" className="inline-flex w-[136px] items-center md:w-[160px] lg:w-[192px]">
-              <Image src={logoSrc} alt="쌀래말래 의원회" width={392} height={78} priority className="h-auto w-full max-w-none" />
+              <Image src={logoSrc} alt="살래말래 위원회" width={392} height={78} priority className="h-auto w-full max-w-none" />
             </Link>
 
             <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
@@ -429,7 +429,7 @@ export default function AppNav() {
           <aside className="absolute right-0 top-0 inline-flex h-full w-[min(23.5rem,calc(100vw-12px))] max-w-full flex-col items-center justify-start overflow-hidden bg-[color:var(--color-bg-primary)] sm:w-[min(24rem,calc(100vw-16px))] md:w-[min(24.5rem,calc(100vw-20px))]">
             <div className="flex w-full flex-col items-start border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-6 py-4 backdrop-blur-[6px]">
               <div className="inline-flex w-full items-center justify-between">
-                <Image src={logoSrc} alt="쌀래말래 의원회" width={196} height={39} className="h-auto w-[136px] md:w-[160px]" />
+                <Image src={logoSrc} alt="살래말래 위원회" width={196} height={39} className="h-auto w-[136px] md:w-[160px]" />
                 <div className="h-6 flex-1 px-6" />
                 <button
                   type="button"
