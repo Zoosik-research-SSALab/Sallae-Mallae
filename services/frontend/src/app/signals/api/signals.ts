@@ -1,4 +1,4 @@
-import { apiFetch } from "@/shared/lib/apiClient";
+import { authApiFetch } from "@/shared/lib/authApiClient";
 import type { SignalResponse, SignalsQueryParams } from "../types/signals";
 
 function buildSignalsQueryString(params: SignalsQueryParams) {
@@ -25,7 +25,7 @@ function buildSignalsQueryString(params: SignalsQueryParams) {
 }
 
 export function getSignals(params: SignalsQueryParams) {
-  return apiFetch<SignalResponse>(`/api/signals?${buildSignalsQueryString(params)}`, {
+  return authApiFetch<SignalResponse>(`/api/signals?${buildSignalsQueryString(params)}`, {
     cache: "no-store",
   });
 }

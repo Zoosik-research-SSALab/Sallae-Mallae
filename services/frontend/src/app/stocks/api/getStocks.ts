@@ -1,5 +1,5 @@
 import type { StocksQueryParams, StocksResponse } from "../types/stocks";
-import { ALL_SECTOR } from "../utils/stocksFilters";
+import { ALL_SECTOR, toStockSectorRequestValue } from "../utils/stocksFilters";
 import { apiFetch } from "@/shared/lib/apiClient";
 
 type StocksApiEnvelope = {
@@ -22,7 +22,7 @@ function buildStocksQueryString(params: StocksQueryParams) {
 
   if (shouldAppendSectors) {
     normalizedSectors.forEach((sector) => {
-      searchParams.append("sector", sector);
+      searchParams.append("sector", toStockSectorRequestValue(sector));
     });
   }
 

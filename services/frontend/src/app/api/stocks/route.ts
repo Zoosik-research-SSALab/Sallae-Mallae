@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMockStocksResponse, isSupportedStockSector } from "@/app/stocks/utils/mockStocksData";
+import { getMockStocksResponse } from "@/app/stocks/utils/mockStocksData";
 import type { StocksApiSort, StocksQueryParams } from "@/app/stocks/types/stocks";
-import { ALL_SECTOR, STOCK_PAGE_SIZE } from "@/app/stocks/utils/stocksFilters";
+import {
+  ALL_SECTOR,
+  STOCK_PAGE_SIZE,
+  fromStockSectorRequestValue,
+  isSupportedStockSectorRequestValue,
+} from "@/app/stocks/utils/stocksFilters";
 import { snakelizeKeys } from "@/shared/utils/case";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +24,8 @@ export async function GET(request: NextRequest) {
   const sectors = searchParams
     .getAll("sector")
     .map((sector) => sector.trim())
-    .filter((sector) => sector && isSupportedStockSector(sector));
+    .filter((sector) => sector && isSupportedStockSectorRequestValue(sector))
+    .map(fromStockSectorRequestValue);
 
   const params: StocksQueryParams = {
     sectors: sectors.length > 0 ? sectors : [ALL_SECTOR],
