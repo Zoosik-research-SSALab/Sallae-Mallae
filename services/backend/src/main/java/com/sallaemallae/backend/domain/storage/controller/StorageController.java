@@ -1,7 +1,7 @@
 package com.sallaemallae.backend.domain.storage.controller;
 
-import com.sallaemallae.backend.domain.storage.dto.PresignedUrlRequest;
-import com.sallaemallae.backend.domain.storage.dto.PresignedUrlResponse;
+import com.sallaemallae.backend.domain.storage.dto.request.PresignedUrlRequest;
+import com.sallaemallae.backend.domain.storage.dto.response.PresignedUrlResponse;
 import com.sallaemallae.backend.domain.storage.service.FileStorageService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
