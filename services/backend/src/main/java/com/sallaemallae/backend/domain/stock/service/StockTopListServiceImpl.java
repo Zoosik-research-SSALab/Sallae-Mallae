@@ -91,7 +91,7 @@ public class StockTopListServiceImpl implements StockTopListService {
           StockTopListSupport.resolveConfidence(sourceRank, fluctuationRate, signalFilter),
           watchlistedStockIds.contains(stock.getId()),
           resolveMarketCap(stock, price),
-          resolveSectorFilter(stock, stock.getName())
+          resolveSectorFilter(stock)
       ));
       sourceRank++;
     }
@@ -253,86 +253,10 @@ public class StockTopListServiceImpl implements StockTopListService {
     }
   }
 
-  private SectorFilter resolveSectorFilter(Stock stock, String fallbackName) {
-    String text = StockTopListSupport.normalize(String.join(
-        " ",
-        stock != null && stock.getGicsSector() != null ? stock.getGicsSector() : "",
-        stock != null && stock.getCategory() != null ? stock.getCategory() : "",
-        stock != null && stock.getName() != null ? stock.getName() : "",
-        fallbackName != null ? fallbackName : ""
-    ));
-
-    if (containsAny(
-        text,
-        "information technology",
-        "semiconductor",
-        "software",
-        "it",
-        "internet",
-        "\uBC18\uB3C4\uCCB4",
-        "\uC804\uC790"
-    )) {
-      return SectorFilter.IT;
+  private SectorFilter resolveSectorFilter(Stock stock) {
+    if (stock == null || stock.getCategory() == null || stock.getCategory().isBlank()) {
+      return null;
     }
-    if (containsAny(
-        text,
-        "financial",
-        "finance",
-        "bank",
-        "insurance",
-        "securities",
-        "\uAE08\uC735",
-        "\uC99D\uAD8C",
-        "\uBCF4\uD5D8"
-    )) {
-      return SectorFilter.FINANCE;
-    }
-    if (containsAny(
-        text,
-        "automobile",
-        "auto",
-        "motor",
-        "mobility",
-        "\uC790\uB3D9\uCC28",
-        "\uBAA8\uBE4C\uB9AC\uD2F0",
-        "\uAE30\uC544",
-        "\uD604\uB300"
-    )) {
-      return SectorFilter.AUTO;
-    }
-    if (containsAny(
-        text,
-        "health care",
-        "bio",
-        "biotech",
-        "pharma",
-        "\uC81C\uC57D",
-        "\uBC14\uC774\uC624",
-        "\uD5EC\uC2A4"
-    )) {
-      return SectorFilter.BIO;
-    }
-    if (containsAny(
-        text,
-        "battery",
-        "secondary battery",
-        "\uBC30\uD130\uB9AC",
-        "2\uCC28\uC804\uC9C0",
-        "\uC5D0\uB108\uC9C0\uC194\uB8E8\uC158",
-        "\uC591\uADF9\uC7AC",
-        "\uC74C\uADF9\uC7AC"
-    )) {
-      return SectorFilter.BATTERY;
-    }
-    return null;
-  }
-
-  private boolean containsAny(String text, String... tokens) {
-    for (String token : tokens) {
-      if (text.contains(StockTopListSupport.normalize(token))) {
-        return true;
-      }
-    }
-    return false;
+    return SectorFilter.fromCategory(stock.getCategory());
   }
 }
