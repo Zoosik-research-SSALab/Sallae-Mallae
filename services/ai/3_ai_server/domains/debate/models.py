@@ -161,6 +161,7 @@ class AiTradingHistory(Base):
     portfolio_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     ml_report_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    debate_report_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     model_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
     trade_type: Mapped[str] = mapped_column(String(4), nullable=False)
     trade_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
