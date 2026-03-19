@@ -42,14 +42,14 @@ public class StockTopListServiceImpl implements StockTopListService {
   public StockListResponse getTopStocks(
       Long userId,
       String signal,
-      String sector,
+      List<String> sectors,
       String marketCap,
       String sort,
       String keyword,
       Integer offset,
       Integer limit
   ) {
-    StockTopListQuery query = StockTopListQuery.of(signal, sector, marketCap, sort, keyword, offset, limit);
+    StockTopListQuery query = StockTopListQuery.of(signal, sectors, marketCap, sort, keyword, offset, limit);
     Map<String, Float> dividendYieldMap = loadDividendYieldMap();
 
     List<Stock> activeStocks = loadActiveStocks();
@@ -81,7 +81,7 @@ public class StockTopListServiceImpl implements StockTopListService {
           stock.getId(),
           stock.getTicker(),
           stock.getName(),
-          stock.getGicsSector(),
+          stock.getCategory(),
           price,
           fluctuationRate,
           tradingValue,
@@ -98,7 +98,7 @@ public class StockTopListServiceImpl implements StockTopListService {
 
     List<StockTopListCandidate> filtered = candidates.stream()
         .filter(c -> StockTopListSupport.matchesKeyword(c, query.keyword()))
-        .filter(c -> StockTopListSupport.matchesSector(c, query.sector()))
+        .filter(c -> StockTopListSupport.matchesSector(c, query.sectors()))
         .filter(c -> StockTopListSupport.matchesMarketCap(c, query.marketCap()))
         .sorted(StockTopListSupport.comparator(query.sort()))
         .toList();

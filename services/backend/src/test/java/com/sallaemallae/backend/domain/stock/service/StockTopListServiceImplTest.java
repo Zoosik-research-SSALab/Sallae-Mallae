@@ -96,7 +96,7 @@ class StockTopListServiceImplTest {
     given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of());
     given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(1L))).willReturn(List.of(samsungPrice));
 
-    StockListResponse response = service.getTopStocks(null, "BUY", "SEMICONDUCTOR", "LARGE", "MARKET_CAP", "samsung", 0, 10);
+    StockListResponse response = service.getTopStocks(null, "BUY", List.of("SEMICONDUCTOR"), "LARGE", "MARKET_CAP", "samsung", 0, 10);
 
     assertThat(response.filterCounts().buy()).isEqualTo(1);
     assertThat(response.stocks()).hasSize(1);
@@ -172,7 +172,7 @@ class StockTopListServiceImplTest {
         "000660", quoteData("000660", 182000, -1.75f, 700_000L)
     ));
 
-    StockListResponse response = service.getTopStocks(null, null, "\uC804\uCCB4", null, "MARKET_CAP", null, 0, 3);
+    StockListResponse response = service.getTopStocks(null, null, null, null, "MARKET_CAP", null, 0, 3);
 
     assertThat(response.stocks()).extracting(item -> item.ticker()).containsExactly("005930", "000660", "035420");
   }
@@ -343,7 +343,6 @@ class StockTopListServiceImplTest {
     given(stock.getId()).willReturn(id);
     given(stock.getTicker()).willReturn(ticker);
     given(stock.getName()).willReturn(name);
-    given(stock.getGicsSector()).willReturn(gicsSector);
     given(stock.getCategory()).willReturn(category);
     given(stock.getOutstandingShares()).willReturn(outstandingShares);
     return stock;

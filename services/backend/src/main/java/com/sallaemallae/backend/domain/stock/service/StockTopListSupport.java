@@ -52,11 +52,11 @@ final class StockTopListSupport {
         || normalize(candidate.gicsSector()).contains(normalizedKeyword);
   }
 
-  static boolean matchesSector(StockTopListCandidate candidate, SectorFilter sector) {
-    if (sector == null) {
+  static boolean matchesSector(StockTopListCandidate candidate, List<SectorFilter> sectors) {
+    if (sectors == null || sectors.isEmpty()) {
       return true;
     }
-    return sector == candidate.sectorFilter();
+    return sectors.contains(candidate.sectorFilter());
   }
 
   static boolean matchesMarketCap(StockTopListCandidate candidate, MarketCapFilter marketCap) {
@@ -165,7 +165,7 @@ final class StockTopListSupport {
 
   record StockTopListQuery(
       SignalFilter signal,
-      SectorFilter sector,
+      List<SectorFilter> sectors,
       MarketCapFilter marketCap,
       SortFilter sort,
       String keyword,
@@ -175,7 +175,7 @@ final class StockTopListSupport {
 
     static StockTopListQuery of(
         String signal,
-        String sector,
+        List<String> sectors,
         String marketCap,
         String sort,
         String keyword,
@@ -188,9 +188,16 @@ final class StockTopListSupport {
         throw new BusinessException(StockErrorCode.STOCK_MARKET_INPUT_INVALID);
       }
 
+      List<SectorFilter> parsedSectors = sectors == null || sectors.isEmpty()
+          ? List.of()
+          : sectors.stream()
+              .map(SectorFilter::from)
+              .filter(f -> f != null)
+              .toList();
+
       return new StockTopListQuery(
           SignalFilter.from(signal),
-          SectorFilter.from(sector),
+          parsedSectors,
           MarketCapFilter.from(marketCap),
           SortFilter.from(sort),
           keyword == null ? null : keyword.trim(),
