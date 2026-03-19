@@ -1,14 +1,22 @@
-export function formatPrice(value: number) {
+export function formatPrice(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) {
+    return "-";
+  }
+
   return `${new Intl.NumberFormat("ko-KR").format(value)}원`;
 }
 
-export function formatSignedRate(value: number) {
+export function formatSignedRate(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) {
+    return "-";
+  }
+
   const sign = value > 0 ? "+" : value < 0 ? "" : "";
   return `${sign}${value.toFixed(2)}%`;
 }
 
-export function calculatePriceChange(price: number, rate: number) {
-  if (rate === 0) {
+export function calculatePriceChange(price: number, rate: number | null | undefined) {
+  if (rate == null || Number.isNaN(rate) || rate === 0) {
     return 0;
   }
 
@@ -16,8 +24,8 @@ export function calculatePriceChange(price: number, rate: number) {
   return Math.round(Math.abs(price - basePrice));
 }
 
-export function formatSignedPriceChange(price: number, rate: number) {
-  if (rate === 0) {
+export function formatSignedPriceChange(price: number, rate: number | null | undefined) {
+  if (rate == null || Number.isNaN(rate) || rate === 0) {
     return "-";
   }
 
@@ -55,7 +63,7 @@ export function formatSignalLabel(signal: string) {
     return "매도";
   }
 
-  return "관심";
+  return "관망";
 }
 
 export function getSignalTone(signal: string) {
@@ -72,7 +80,11 @@ export function getSignalTone(signal: string) {
   return "neutral" as const;
 }
 
-export function getRateTone(value: number) {
+export function getRateTone(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) {
+    return "neutral" as const;
+  }
+
   if (value > 0) {
     return "positive" as const;
   }
