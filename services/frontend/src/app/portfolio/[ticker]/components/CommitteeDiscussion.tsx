@@ -50,12 +50,12 @@ function ChatBubble({ member }: { member: CommitteeMember }) {
       : "rounded-bl-2xl rounded-br-2xl rounded-tl-2xl";
 
   const bubbleBg = isDark
-    ? "bg-[color:var(--color-bg-inverse-bolder)]"
-    : "bg-[color:var(--color-bg-tertiary)]";
+    ? "bg-bg-inverse-bolder"
+    : "bg-bg-tertiary";
 
   const textColor = isDark
-    ? "text-white"
-    : "text-[color:var(--color-text-secondary)]";
+    ? "text-text-base"
+    : "text-text-secondary";
 
   return (
     <div
