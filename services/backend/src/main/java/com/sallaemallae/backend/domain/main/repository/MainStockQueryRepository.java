@@ -15,7 +15,7 @@ public class MainStockQueryRepository {
 
     private final EntityManager entityManager;
 
-    /** 의장 confidence 상위 10종목 조회 (최근 거래일 기준) */
+    /** 의장 confidence 상위 10종목 조회 (종목별 최신 데이터 기준) */
     public List<TopStockItemResponse> getTopTenStocksToday() {
         String sql = """
             SELECT s.id AS stock_id, s.name AS stock_name,
@@ -26,15 +26,13 @@ public class MainStockQueryRepository {
                 SELECT chairman_signal, debate_confidence
                 FROM ai_debate_reports
                 WHERE stock_id = s.id
-                  AND report_date = (SELECT MAX(report_date) FROM ai_debate_reports WHERE report_date <= CURRENT_DATE)
-                ORDER BY created_at DESC LIMIT 1
+                ORDER BY report_date DESC, created_at DESC LIMIT 1
             ) r ON true
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
                 FROM stock_prices_daily
                 WHERE stock_id = s.id
-                  AND trade_date = (SELECT MAX(trade_date) FROM stock_prices_daily WHERE trade_date <= CURRENT_DATE)
-                LIMIT 1
+                ORDER BY trade_date DESC LIMIT 1
             ) sp ON true
             WHERE s.is_active = true
             ORDER BY r.debate_confidence DESC
@@ -68,7 +66,7 @@ public class MainStockQueryRepository {
         return getSignalsByType("SELL");
     }
 
-    /** 카테고리별 최신 가격 데이터 (최근 거래일 기준) */
+    /** 카테고리별 최신 가격 데이터 (종목별 최신 거래일 기준) */
     public List<Object[]> getCategoryStocksRaw() {
         String sql = """
             SELECT s.category, s.name, sp.close_price, sp.fluctuation_rate
@@ -77,8 +75,7 @@ public class MainStockQueryRepository {
                 SELECT close_price, fluctuation_rate
                 FROM stock_prices_daily
                 WHERE stock_id = s.id
-                  AND trade_date = (SELECT MAX(trade_date) FROM stock_prices_daily WHERE trade_date <= CURRENT_DATE)
-                LIMIT 1
+                ORDER BY trade_date DESC LIMIT 1
             ) sp ON true
             WHERE s.category IS NOT NULL
               AND s.is_active = true
@@ -102,8 +99,7 @@ public class MainStockQueryRepository {
                 SELECT close_price, fluctuation_rate
                 FROM stock_prices_daily
                 WHERE stock_id = s.id
-                  AND trade_date = (SELECT MAX(trade_date) FROM stock_prices_daily WHERE trade_date <= CURRENT_DATE)
-                LIMIT 1
+                ORDER BY trade_date DESC LIMIT 1
             ) sp ON true
             WHERE DATE(h.trade_time) = (
                 SELECT MAX(DATE(trade_time))
