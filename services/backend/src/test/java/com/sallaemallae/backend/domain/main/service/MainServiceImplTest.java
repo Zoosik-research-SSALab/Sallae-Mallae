@@ -62,6 +62,24 @@ class MainServiceImplTest {
         }
 
         @Test
+        @DisplayName("캐시 미스 시 DB 조회 후 캐시에 저장한다")
+        void cacheMiss_queriesDbAndSaves() {
+            given(cacheRepository.getTopStocks()).willReturn(Optional.empty());
+            List<TopStockItemResponse> items = List.of(
+                new TopStockItemResponse(1, 1L, "삼성전자", 70000, 1.5f, "BUY", 85)
+            );
+            given(queryRepository.getTopTenStocksToday()).willReturn(items);
+
+            SseEmitter emitter = mainService.streamTopStocks();
+
+            assertThat(emitter).isNotNull();
+            verify(cacheRepository).saveTopStocks(org.mockito.ArgumentMatchers.argThat(response ->
+                response.stocks().size() == 1
+                    && response.stocks().get(0).name().equals("삼성전자")
+            ));
+        }
+
+        @Test
         @DisplayName("캐시가 있으면 초기 데이터를 전송한다")
         void sendsInitialCachedData() {
             TopStocksResponse cached = new TopStocksResponse(List.of(
@@ -108,6 +126,23 @@ class MainServiceImplTest {
 
             assertThat(emitter).isNotNull();
             verify(sseManager).addEmitter("categories", emitter);
+        }
+
+        @Test
+        @DisplayName("캐시 미스 시 DB 조회 후 캐시에 저장한다")
+        void cacheMiss_queriesDbAndSaves() {
+            given(cacheRepository.getCategories()).willReturn(Optional.empty());
+            List<Object[]> raw = new ArrayList<>();
+            raw.add(new Object[]{"반도체", "삼성전자", 70000, 3.0f});
+            given(queryRepository.getCategoryStocksRaw()).willReturn(raw);
+
+            SseEmitter emitter = mainService.streamCategories();
+
+            assertThat(emitter).isNotNull();
+            verify(cacheRepository).saveCategories(org.mockito.ArgumentMatchers.argThat(response ->
+                response.categories().size() == 1
+                    && response.categories().get(0).name().equals("반도체")
+            ));
         }
     }
 
@@ -209,6 +244,41 @@ class MainServiceImplTest {
     @Nested
     @DisplayName("refreshCategories")
     class RefreshCategories {
+
+        @Test
+        @DisplayName("빈 데이터도 정상 처리한다")
+        void emptyResult_stillBroadcasts() {
+            given(queryRepository.getCategoryStocksRaw()).willReturn(new ArrayList<>());
+
+            mainService.refreshCategories();
+
+            verify(cacheRepository).saveCategories(org.mockito.ArgumentMatchers.argThat(response ->
+                response.categories().isEmpty()
+            ));
+            verify(sseManager).broadcast(
+                org.mockito.ArgumentMatchers.eq("categories"),
+                org.mockito.ArgumentMatchers.any(CategoryStocksResponse.class)
+            );
+        }
+
+        @Test
+        @DisplayName("동일 등락률 절대값인 종목도 안정적으로 2개를 선택한다")
+        void sameFluctuationRate_selectsTwo() {
+            List<Object[]> raw = new ArrayList<>();
+            raw.add(new Object[]{"반도체", "A종목", 70000, 3.0f});
+            raw.add(new Object[]{"반도체", "B종목", 80000, 3.0f});
+            raw.add(new Object[]{"반도체", "C종목", 90000, 3.0f});
+
+            given(queryRepository.getCategoryStocksRaw()).willReturn(raw);
+
+            mainService.refreshCategories();
+
+            verify(cacheRepository).saveCategories(org.mockito.ArgumentMatchers.argThat(response -> {
+                var semi = response.categories().stream()
+                    .filter(c -> c.name().equals("반도체")).findFirst().orElse(null);
+                return semi != null && semi.stocks().size() == 2;
+            }));
+        }
 
         @Test
         @DisplayName("카테고리별 등락률 절대값 상위 2개씩 그룹핑하여 broadcast")
