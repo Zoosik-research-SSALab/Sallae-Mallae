@@ -170,7 +170,7 @@ export function createErrorResponse(message: string, status = 500, deviceIdState
 type ProxyAuthRequestOptions = {
   request: NextRequest;
   path: string;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "DELETE";
   body?: unknown;
   includeDeviceId?: boolean;
   forwardAuthorization?: boolean;

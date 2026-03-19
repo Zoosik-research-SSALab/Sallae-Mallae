@@ -36,7 +36,7 @@ export function getMetricValue(item: StockItem, metric: StockRankingMetric) {
     case "RETURN":
       return item.fluctuationRate;
     case "DIVIDEND":
-      return item.dividendYield;
+      return item.dividendYield ?? Number.NEGATIVE_INFINITY;
     default:
       return item.rank;
   }
@@ -78,7 +78,7 @@ export function formatMetricValue(item: StockItem, metric: StockRankingMetric) {
     case "RETURN":
       return formatSignedRate(item.fluctuationRate);
     case "DIVIDEND":
-      return `${item.dividendYield.toFixed(2)}%`;
+      return item.dividendYield === null ? "-" : `${item.dividendYield.toFixed(2)}%`;
     default:
       return "-";
   }

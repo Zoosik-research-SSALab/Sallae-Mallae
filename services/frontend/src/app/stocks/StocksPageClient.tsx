@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import StocksDesktopTable from "./components/StocksDesktopTable";
 import StocksMobileList from "./components/StocksMobileList";
 import StocksSidebar from "./components/StocksSidebar";
 import { useStocksInfiniteQuery } from "./hooks/useStocksInfiniteQuery";
 import type { StockRankingMetric } from "./types/stocks";
-import { sortStocksByMetric } from "./utils/stockMetrics";
 import { ALL_SECTOR, getApiSortForRankingMetric } from "./utils/stocksFilters";
 import Badge from "@/shared/ui/Badge";
 
@@ -16,14 +15,9 @@ export default function StocksPageClient() {
 
   const { items, isLoading, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, pageSize, errorMessage } =
     useStocksInfiniteQuery({
-      signal: "ALL",
       sector: selectedSector,
-      marketCap: "ALL",
       sort: getApiSortForRankingMetric(activeMetric),
-      keyword: "",
     });
-
-  const sortedItems = useMemo(() => sortStocksByMetric(items, activeMetric), [items, activeMetric]);
 
   const handleLoadMore = () => {
     if (!hasNextPage || isFetchingNextPage) {
@@ -48,7 +42,7 @@ export default function StocksPageClient() {
             {errorMessage ? <Badge tone="danger">{errorMessage}</Badge> : null}
 
             <StocksMobileList
-              items={sortedItems}
+              items={items}
               activeMetric={activeMetric}
               onMetricChange={setActiveMetric}
               onLoadMore={handleLoadMore}
@@ -59,7 +53,7 @@ export default function StocksPageClient() {
             />
 
             <StocksDesktopTable
-              items={sortedItems}
+              items={items}
               activeMetric={activeMetric}
               onMetricChange={setActiveMetric}
               onLoadMore={handleLoadMore}

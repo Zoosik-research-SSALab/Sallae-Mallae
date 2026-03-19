@@ -1,8 +1,5 @@
 import type {
   StockItem,
-  StockMarketCapFilter,
-  StockSignal,
-  StockSignalFilter,
   StocksApiSort,
   StocksQueryParams,
   StocksResponse,
@@ -21,6 +18,10 @@ type SectorSeed = {
 };
 
 const WATCHLIST_SEED_IDS = new Set([4, 9, 16, 24, 31, 47, 55]);
+
+type MockStockItem = StockItem & {
+  marketCap: number;
+};
 
 const sectorSeeds: SectorSeed[] = [
   {
@@ -225,19 +226,13 @@ const sectorSeeds: SectorSeed[] = [
   },
 ];
 
-const signalCycle: StockSignal[] = ["BUY", "HOLD", "SELL"];
-
-function toMarketCapSize(value: number): Exclude<StockMarketCapFilter, "ALL"> {
-  return value >= 30_000_000_000_000 ? "LARGE" : "MID";
-}
-
 function createBaseRate(index: number, stockIndex: number) {
   const trend = ((index % 5) - 2) * 0.76;
   const offset = (stockIndex - 1) * 0.48;
   return Number((trend + offset).toFixed(2));
 }
 
-function createMockStocks() {
+function createMockStocks(): MockStockItem[] {
   return sectorSeeds.flatMap((seed, sectorIndex) =>
     seed.names.map((name, stockIndex) => {
       const id = sectorIndex * 3 + stockIndex + 1;
@@ -251,15 +246,12 @@ function createMockStocks() {
         gicsSector: seed.sector,
         price: seed.priceBase + stockIndex * 2100 + sectorIndex * 180,
         fluctuationRate: createBaseRate(sectorIndex, stockIndex),
-        signal: signalCycle[id % signalCycle.length],
-        confidence: 57 + ((sectorIndex * 7 + stockIndex * 11) % 37),
         isWatchlisted: WATCHLIST_SEED_IDS.has(id),
         tradingValue: seed.tradingValueBase - sectorIndex * 4_300_000_000 - stockIndex * 8_200_000_000,
         tradingVolume: seed.tradingVolumeBase + sectorIndex * 74_000 + stockIndex * 146_000,
         dividendYield: Number((seed.dividendBase + stockIndex * 0.26).toFixed(2)),
         marketCap,
-        marketCapSize: toMarketCapSize(marketCap),
-      } satisfies StockItem;
+      };
     }),
   );
 }
@@ -271,8 +263,7 @@ function getLiveWave(stockId: number) {
   return (((stockId * 13 + bucket * 7) % 9) - 4) * 0.18;
 }
 
-function applyLiveSnapshot(stock: StockItem): StockItem {
-  const bucket = Math.floor(Date.now() / 15_000);
+function applyLiveSnapshot(stock: MockStockItem): MockStockItem {
   const wave = getLiveWave(stock.id);
   const nextRate = Number((stock.fluctuationRate + wave).toFixed(2));
 
@@ -280,15 +271,26 @@ function applyLiveSnapshot(stock: StockItem): StockItem {
     ...stock,
     price: Math.max(1000, Math.round(stock.price * (1 + wave / 120))),
     fluctuationRate: nextRate,
-    confidence: Math.max(48, Math.min(99, stock.confidence + (((bucket + stock.id) % 3) - 1))),
     tradingValue: Math.max(10_000_000_000, Math.round(stock.tradingValue * (1 + wave / 55))),
     tradingVolume: Math.max(50_000, Math.round(stock.tradingVolume * (1 + Math.abs(wave) / 35))),
   };
 }
 
-function sortByApi(stocks: StockItem[], sort: StocksApiSort) {
-  if (sort === "MARKET_CAP") {
-    return [...stocks].sort((left, right) => right.marketCap - left.marketCap || right.tradingValue - left.tradingValue);
+function sortByApi(stocks: MockStockItem[], sort: StocksApiSort) {
+  if (sort === "TRADING_VALUE") {
+    return [...stocks].sort((left, right) => right.tradingValue - left.tradingValue || right.marketCap - left.marketCap);
+  }
+
+  if (sort === "TRADING_VOLUME") {
+    return [...stocks].sort(
+      (left, right) => right.tradingVolume - left.tradingVolume || right.tradingValue - left.tradingValue,
+    );
+  }
+
+  if (sort === "DIVIDEND_YIELD") {
+    return [...stocks].sort(
+      (left, right) => (right.dividendYield ?? Number.NEGATIVE_INFINITY) - (left.dividendYield ?? Number.NEGATIVE_INFINITY),
+    );
   }
 
   return [...stocks].sort(
@@ -296,28 +298,7 @@ function sortByApi(stocks: StockItem[], sort: StocksApiSort) {
   );
 }
 
-function filterBySignal(stocks: StockItem[], signal: StockSignalFilter) {
-  if (signal === "ALL") {
-    return stocks;
-  }
-
-  return stocks.filter((stock) => stock.signal === signal);
-}
-
-function filterByKeyword(stocks: StockItem[], keyword: string) {
-  const normalizedKeyword = keyword.trim().toLowerCase();
-
-  if (!normalizedKeyword) {
-    return stocks;
-  }
-
-  return stocks.filter((stock) => {
-    const normalizedName = stock.name.toLowerCase();
-    return normalizedName.includes(normalizedKeyword) || stock.ticker.includes(normalizedKeyword);
-  });
-}
-
-function filterBySector(stocks: StockItem[], sector: string) {
+function filterBySector(stocks: MockStockItem[], sector: string) {
   if (!sector || sector === ALL_SECTOR) {
     return stocks;
   }
@@ -325,38 +306,30 @@ function filterBySector(stocks: StockItem[], sector: string) {
   return stocks.filter((stock) => isMatchedStockSector(sector, stock.gicsSector));
 }
 
-function filterByMarketCap(stocks: StockItem[], marketCap: StockMarketCapFilter) {
-  if (marketCap === "ALL") {
-    return stocks;
-  }
-
-  return stocks.filter((stock) => stock.marketCapSize === marketCap);
-}
-
-function getFilterCounts(stocks: StockItem[]) {
+function toStockItem(stock: MockStockItem, rank: number): StockItem {
   return {
-    buy: stocks.filter((stock) => stock.signal === "BUY").length,
-    sell: stocks.filter((stock) => stock.signal === "SELL").length,
-    hold: stocks.filter((stock) => stock.signal === "HOLD").length,
+    rank,
+    id: stock.id,
+    ticker: stock.ticker,
+    name: stock.name,
+    gicsSector: stock.gicsSector,
+    price: stock.price,
+    fluctuationRate: stock.fluctuationRate,
+    isWatchlisted: stock.isWatchlisted,
+    tradingValue: stock.tradingValue,
+    tradingVolume: stock.tradingVolume,
+    dividendYield: stock.dividendYield,
   };
 }
 
 export function getMockStocksResponse(params: StocksQueryParams): StocksResponse {
   const liveStocks = MOCK_STOCKS.map(applyLiveSnapshot);
   const sectorScopedStocks = filterBySector(liveStocks, params.sector);
-  const marketCapScopedStocks = filterByMarketCap(sectorScopedStocks, params.marketCap);
-  const keywordScopedStocks = filterByKeyword(marketCapScopedStocks, params.keyword);
-  const filterCounts = getFilterCounts(keywordScopedStocks);
-  const signalScopedStocks = filterBySignal(keywordScopedStocks, params.signal);
-  const sortedStocks = sortByApi(signalScopedStocks, params.sort ?? "CHANGE");
+  const sortedStocks = sortByApi(sectorScopedStocks, params.sort ?? "CHANGE");
   const slicedStocks = sortedStocks.slice(params.offset, params.offset + params.limit);
 
   return {
-    filterCounts,
-    stocks: slicedStocks.map((stock, index) => ({
-      ...stock,
-      rank: params.offset + index + 1,
-    })),
+    stocks: slicedStocks.map((stock, index) => toStockItem(stock, params.offset + index + 1)),
   };
 }
 
