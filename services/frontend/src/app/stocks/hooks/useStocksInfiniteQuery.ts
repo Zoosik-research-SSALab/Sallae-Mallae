@@ -8,11 +8,16 @@ import { STOCK_PAGE_SIZE, STOCK_TOTAL_COUNT } from "../utils/stocksFilters";
 type BaseStocksQueryParams = Omit<StocksQueryParams, "offset" | "limit">;
 
 export function useStocksInfiniteQuery(params: BaseStocksQueryParams) {
+  const normalizedParams = {
+    ...params,
+    sectors: [...params.sectors].sort(),
+  };
+
   const query = useInfiniteQuery<StocksResponse>({
-    queryKey: ["stocks", params],
+    queryKey: ["stocks", normalizedParams],
     queryFn: ({ pageParam = 0 }) =>
       getStocks({
-        ...params,
+        ...normalizedParams,
         offset: Number(pageParam),
         limit: STOCK_PAGE_SIZE,
       }),

@@ -16,10 +16,13 @@ function parseNumber(value: string | null, fallback: number) {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const sort = searchParams.get("sort");
-  const sector = searchParams.get("sector")?.trim() ?? "";
+  const sectors = searchParams
+    .getAll("sector")
+    .map((sector) => sector.trim())
+    .filter((sector) => sector && isSupportedStockSector(sector));
 
   const params: StocksQueryParams = {
-    sector: sector && isSupportedStockSector(sector) ? sector : ALL_SECTOR,
+    sectors: sectors.length > 0 ? sectors : [ALL_SECTOR],
     sort: validSorts.has(sort as StocksApiSort) ? (sort as StocksApiSort) : "TRADING_VALUE",
     offset: parseNumber(searchParams.get("offset"), 0),
     limit: Math.max(1, parseNumber(searchParams.get("limit"), STOCK_PAGE_SIZE)),

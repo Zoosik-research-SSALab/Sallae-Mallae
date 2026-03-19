@@ -20,7 +20,7 @@ export type StocksResponse = {
 };
 
 export type StocksQueryParams = {
-  sector: string;
+  sectors: string[];
   sort?: StocksApiSort;
   offset: number;
   limit: number;

@@ -17,8 +17,13 @@ function buildStocksQueryString(params: StocksQueryParams) {
     limit: String(params.limit),
   });
 
-  if (params.sector && params.sector !== ALL_SECTOR) {
-    searchParams.set("sector", params.sector);
+  const normalizedSectors = params.sectors.filter(Boolean);
+  const shouldAppendSectors = normalizedSectors.length > 0 && !normalizedSectors.includes(ALL_SECTOR);
+
+  if (shouldAppendSectors) {
+    normalizedSectors.forEach((sector) => {
+      searchParams.append("sector", sector);
+    });
   }
 
   if (params.sort) {
