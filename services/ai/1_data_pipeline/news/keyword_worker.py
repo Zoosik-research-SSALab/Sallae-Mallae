@@ -94,32 +94,39 @@ def check_vllm_health(base_url: str = "http://localhost:8000") -> bool:
 # 파이프라인 실행
 # ---------------------------------------------------------------------------
 async def run_keyword_pipeline() -> None:
-    """키워드 추출 → 임베딩 → 증분 클러스터 배정."""
+    """키워드 추출 → 감성 분석 → 임베딩 → 증분 클러스터 배정."""
     from processors.keyword_batch import run_keyword_batch
+    from processors.sentiment_analyzer import run_sentiment_batch
     from processors.embed_keywords import run_embed_keywords
     from processors.cluster_keywords import assign_to_nearest_cluster
 
     # 1. 키워드 추출 (vLLM)
     logger.info("=" * 60)
-    logger.info("  [1/3] 키워드 추출 시작 (vLLM)")
+    logger.info("  [1/5] 키워드 추출 시작 (vLLM)")
     logger.info("=" * 60)
     await run_keyword_batch(days=2, backend="vllm", batch_size=100, delay=0.1)
 
-    # 2. 임베딩 생성
+    # 2. 감성 분석 (FinBERT) — DB에서 sentiment_label이 NULL인 뉴스 자동 처리
     logger.info("=" * 60)
-    logger.info("  [2/3] 키워드 임베딩 생성 시작 (e5-small)")
+    logger.info("  [2/5] 감성 분석 시작 (FinBERT)")
+    logger.info("=" * 60)
+    await run_sentiment_batch(days=2)
+
+    # 3. 임베딩 생성
+    logger.info("=" * 60)
+    logger.info("  [3/5] 키워드 임베딩 생성 시작 (e5-small)")
     logger.info("=" * 60)
     run_embed_keywords()
 
-    # 3. 증분 클러스터 배정 (새 키워드만 기존 클러스터에 배정, 전체 재클러스터링 안 함)
+    # 4. 증분 클러스터 배정 (새 키워드만 기존 클러스터에 배정, 전체 재클러스터링 안 함)
     logger.info("=" * 60)
-    logger.info("  [3/3] 증분 클러스터 배정 시작")
+    logger.info("  [4/5] 증분 클러스터 배정 시작")
     logger.info("=" * 60)
     assign_to_nearest_cluster()
 
-    # 4. 종목별 뉴스 에이전트 데이터 생성 (DB + Redis 저장)
+    # 5. 종목별 뉴스 에이전트 데이터 생성 (DB + Redis 저장)
     logger.info("=" * 60)
-    logger.info("  [4/4] 뉴스 에이전트 데이터 생성 시작")
+    logger.info("  [5/5] 뉴스 에이전트 데이터 생성 시작")
     logger.info("=" * 60)
     import sys
     from pathlib import Path
@@ -136,7 +143,7 @@ async def run_keyword_pipeline() -> None:
             logger.info("뉴스 에이전트 데이터: %d개 저장, %d개 건너뜀", result["processed"], result["skipped"])
             break
         except Exception as e:
-            logger.error("[4/4] 시도 %d/%d 실패: %s", attempt, STEP4_MAX_RETRIES, e)
+            logger.error("[5/5] 시도 %d/%d 실패: %s", attempt, STEP4_MAX_RETRIES, e)
             if attempt >= STEP4_MAX_RETRIES:
                 raise RuntimeError(f"뉴스 에이전트 데이터 생성 {STEP4_MAX_RETRIES}회 재시도 후 실패") from e
             import time
