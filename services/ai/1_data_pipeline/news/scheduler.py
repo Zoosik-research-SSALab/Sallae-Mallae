@@ -171,37 +171,25 @@ def _send_pipeline_signal() -> None:
 
 
 def run_daily_pipeline() -> None:
-    """뉴스 크롤링 + DB 적재 파이프라인 실행. 종목별 즉시 적재로 키워드 워커와 병렬 처리."""
+    """뉴스 파이프라인 (EC2) — 크롤링은 데스크탑으로 이전됨.
+
+    네이버 금융이 EC2(AWS) IP에서 뉴스 데이터를 차단하므로,
+    뉴스 크롤링은 데스크탑 워커(keyword_worker.py)에서 실행.
+    EC2에서는 거래일 기록만 수행.
+    """
     today = datetime.date.today()
     logger.info("=" * 60)
-    logger.info("뉴스 파이프라인 시작 | %s", today.isoformat())
+    logger.info("뉴스 스케줄러 체크 | %s", today.isoformat())
     logger.info("=" * 60)
 
     if not is_trading_day(today):
-        logger.info("비거래일 (%s) — 파이프라인 건너뜀", today.isoformat())
+        logger.info("비거래일 (%s) — 스킵", today.isoformat())
         return
 
-    python = sys.executable
-
-    # 크롤링 + 필터링 + DB 적재 (종목별 즉시 적재 — 키워드 워커가 병렬 처리 가능)
-    yesterday = (today - datetime.timedelta(days=1)).isoformat()
-    today_str = today.isoformat()
-    ok = _run_step("크롤링+적재", [
-        python, "-m", "crawlers.daily",
-        "--start-date", yesterday, "--end-date", today_str,
-    ])
-
-    if not ok:
-        logger.warning("크롤링+적재 비정상 종료 (타임아웃 등) — 적재된 데이터는 키워드 워커가 처리 예정")
-
-    # 크롤링 완료 신호 전송 (키워드 워커가 종료 타이밍 판단에 사용)
-    _send_pipeline_signal()
-    logger.info("[신호] NEWS_CRAWL_DONE 전송 — 키워드 워커 종료 카운트다운 시작")
+    logger.info("뉴스 크롤링은 데스크탑 워커에서 실행됩니다.")
 
     # 성공 기록
     _save_last_run_date(today)
-    logger.info("=" * 60)
-    logger.info("뉴스 파이프라인 완료 | %s", today.isoformat())
     logger.info("=" * 60)
 
 
