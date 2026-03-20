@@ -41,7 +41,7 @@ import time
 from datetime import date, timedelta
 
 from db import get_session
-from models import StockNews, NewsKeywordMap
+from models import PipelineSignal, StockNews, NewsKeywordMap
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,21 @@ def is_trading_day(d: date | None = None) -> bool:
     if d.strftime("%m-%d") in _FIXED_HOLIDAYS_MMDD:
         return False
     return True
+
+
+# ---------------------------------------------------------------------------
+# 파이프라인 완료 신호 DB 적재
+# ---------------------------------------------------------------------------
+def _send_pipeline_signal(signal_type: str) -> None:
+    """DB에 파이프라인 완료 신호를 기록하여 다른 스케줄러에게 알림."""
+    with get_session() as session:
+        try:
+            session.add(PipelineSignal(signal_type=signal_type, status="PENDING"))
+            session.commit()
+            logger.info("[신호] %s 전송 완료", signal_type)
+        except Exception as e:
+            session.rollback()
+            logger.error("[신호] %s 전송 실패: %s", signal_type, e)
 
 
 # ---------------------------------------------------------------------------
@@ -188,12 +203,18 @@ async def run_keyword_pipeline() -> None:
 # ---------------------------------------------------------------------------
 # 전체 파이프라인 (크롤링 + 키워드 병렬)
 # ---------------------------------------------------------------------------
-def _crawl_in_thread(start_date: date | None, end_date: date | None, done_event: threading.Event) -> None:
-    """백그라운드 스레드에서 크롤링 실행. 완료 시 done_event를 set."""
+def _crawl_in_thread(
+    start_date: date | None,
+    end_date: date | None,
+    done_event: threading.Event,
+    error_holder: list,
+) -> None:
+    """백그라운드 스레드에서 크롤링 실행. 완료 시 done_event set, 실패 시 error_holder에 예외 저장."""
     try:
         asyncio.run(run_news_crawl(start_date=start_date, end_date=end_date))
     except Exception as e:
         logger.error("크롤링 스레드 오류: %s", e)
+        error_holder.append(e)
     finally:
         done_event.set()
 
@@ -210,8 +231,12 @@ async def run_full_pipeline(
     메인에서는 poll_interval(기본 5분) 간격으로 미처리 뉴스를 확인하여
     감성 분석 + 키워드 추출 + 임베딩 + 클러스터링을 즉시 실행.
     크롤링 완료 후 최종 1회 키워드 처리.
+
+    주의: --start-date/--end-date로 2일 이전 백필 시, 감성/키워드는 days=2 기준이라
+    과거 뉴스가 후처리 대상에서 빠질 수 있음. 대량 백필은 backfill_loader.py 사용 권장.
     """
     crawl_done = threading.Event()
+    crawl_errors: list[Exception] = []
 
     if skip_crawl:
         crawl_done.set()
@@ -221,14 +246,20 @@ async def run_full_pipeline(
         logger.info("=" * 60)
         crawl_thread = threading.Thread(
             target=_crawl_in_thread,
-            args=(start_date, end_date, crawl_done),
+            args=(start_date, end_date, crawl_done, crawl_errors),
             daemon=True,
         )
         crawl_thread.start()
 
     # 키워드 파이프라인 폴링 루프
     keyword_runs = 0
+    crawl_error_logged = False
     while True:
+        # 크롤링 스레드 실패 확인 (1회만 로그)
+        if crawl_errors and not crawl_error_logged:
+            logger.error("크롤링 스레드가 실패했습니다 — 적재된 데이터까지만 후처리 진행")
+            crawl_error_logged = True
+
         unprocessed = count_unprocessed_news(days=2)
 
         if unprocessed > 0:
@@ -247,6 +278,13 @@ async def run_full_pipeline(
             break
 
         time.sleep(poll_interval)
+
+    # 크롤링 실패 시 경고 (적재된 데이터는 이미 처리됨)
+    if crawl_errors:
+        raise RuntimeError(f"크롤링 중 오류 발생: {crawl_errors[0]}") from crawl_errors[0]
+
+    # 전체 파이프라인 완료 신호 DB 적재 (다른 스케줄러가 조회 가능)
+    _send_pipeline_signal("NEWS_PIPELINE_DONE")
 
 
 # ---------------------------------------------------------------------------
