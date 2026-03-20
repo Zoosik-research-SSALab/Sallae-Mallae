@@ -30,7 +30,7 @@ from config import (
     PYKRX_DELAY,
     RAW_FINANCIAL_PATH,
 )
-from utils.drive_utils import ensure_dir, load_parquet, save_parquet
+from utils.drive_utils import ensure_dir, load_parquet, save_parquet  # noqa: F401 (load_parquet used in fallback)
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -59,21 +59,32 @@ def load_all_financial() -> pd.DataFrame:
         logger.warning("재무 parquet 파일 없음: %s", RAW_FINANCIAL_PATH)
         return pd.DataFrame()
 
-    frames: list[pd.DataFrame] = []
-    for fp in parquet_files:
-        try:
-            df = load_parquet(fp)
-            if df is not None and not df.empty:
-                frames.append(df)
-        except Exception as exc:
-            logger.debug("파일 로드 실패 (건너뜀): %s — %s", fp.name, exc)
+    # PyArrow dataset reader로 일괄 로드 (개별 I/O 대비 대폭 성능 향상)
+    try:
+        import pyarrow.parquet as pq
 
-    if not frames:
+        dataset = pq.ParquetDataset(RAW_FINANCIAL_PATH)
+        combined = dataset.read().to_pandas()
+        logger.info("재무 파일 %d개 로드 (PyArrow dataset), 총 %d행", len(parquet_files), len(combined))
+    except Exception as exc:
+        logger.warning("PyArrow dataset 로드 실패, 개별 로드로 폴백: %s", exc)
+        frames: list[pd.DataFrame] = []
+        for fp in parquet_files:
+            try:
+                df = load_parquet(fp)
+                if df is not None and not df.empty:
+                    frames.append(df)
+            except Exception as exc2:
+                logger.debug("파일 로드 실패 (건너뜀): %s — %s", fp.name, exc2)
+        if not frames:
+            logger.warning("유효한 재무 데이터 없음")
+            return pd.DataFrame()
+        combined = pd.concat(frames, ignore_index=True)
+        logger.info("재무 파일 %d개 로드 (개별), 총 %d행", len(frames), len(combined))
+
+    if combined.empty:
         logger.warning("유효한 재무 데이터 없음")
         return pd.DataFrame()
-
-    combined = pd.concat(frames, ignore_index=True)
-    logger.info("재무 파일 %d개 로드, 총 %d행", len(frames), len(combined))
 
     # 필수 컬럼 존재 확인
     key_cols = ["ticker", "fiscal_year", "fiscal_quarter"]
@@ -171,23 +182,33 @@ def compute_ratio_metrics(df: pd.DataFrame) -> pd.DataFrame:
 # 3. 성장률 계산
 # ---------------------------------------------------------------------------
 
+def _prev_quarter(year: int, quarter: int) -> tuple[int, int]:
+    """직전 분기의 (year, quarter)를 반환한다."""
+    if quarter == 1:
+        return year - 1, 4
+    return year, quarter - 1
+
+
 def compute_growth_rates(df: pd.DataFrame) -> pd.DataFrame:
     """
-    종목별 분기 정렬 후 YoY/QoQ 성장률을 계산한다.
+    종목별 YoY/QoQ 성장률을 key 기반 merge로 계산한다.
 
-    YoY: shift(4) — 4분기 전 = 전년 동분기
-    QoQ: shift(1) — 1분기 전 = 직전 분기
+    YoY: (ticker, fiscal_year-1, fiscal_quarter) 매칭 — 전년 동분기
+    QoQ: (ticker, prev_year, prev_quarter) 매칭 — 직전 분기
     growth = (current - prev) / abs(prev) * 100
     분모가 0 또는 NaN이면 NaN.
+
+    분기 누락이 있어도 정확한 비교를 보장한다 (positional shift 미사용).
     """
     df = df.copy()
-    df = df.sort_values(["ticker", "fiscal_year", "fiscal_quarter"]).reset_index(drop=True)
 
     metrics = {
         "revenue": ("revenue_yoy", "revenue_qoq"),
         "operating_income": ("operating_profit_yoy", "operating_profit_qoq"),
         "net_income": ("net_income_yoy", None),
     }
+
+    merge_keys = ["ticker", "fiscal_year", "fiscal_quarter"]
 
     for src_col, (yoy_col, qoq_col) in metrics.items():
         if src_col not in df.columns:
@@ -197,16 +218,34 @@ def compute_growth_rates(df: pd.DataFrame) -> pd.DataFrame:
                 df[qoq_col] = np.nan
             continue
 
-        grouped = df.groupby("ticker")[src_col]
+        # --- YoY: 전년 동분기 key 매칭 ---
+        prev_yoy = df[merge_keys + [src_col]].copy()
+        prev_yoy = prev_yoy.rename(columns={src_col: "_prev_yoy"})
+        prev_yoy["fiscal_year"] = prev_yoy["fiscal_year"] + 1  # 1년 뒤 행과 매칭
+        df = df.merge(prev_yoy, on=merge_keys, how="left")
+        df[yoy_col] = _safe_growth(df[src_col], df["_prev_yoy"])
+        df = df.drop(columns=["_prev_yoy"])
 
-        # YoY: 4분기 전
-        prev_yoy = grouped.shift(4)
-        df[yoy_col] = _safe_growth(df[src_col], prev_yoy)
-
-        # QoQ: 1분기 전
+        # --- QoQ: 직전 분기 key 매칭 ---
         if qoq_col:
-            prev_qoq = grouped.shift(1)
-            df[qoq_col] = _safe_growth(df[src_col], prev_qoq)
+            # 현재 행의 직전 분기 key를 계산하여 원본과 매칭
+            df["_prev_y"], df["_prev_q"] = zip(
+                *df.apply(
+                    lambda r: _prev_quarter(int(r["fiscal_year"]), int(r["fiscal_quarter"])),
+                    axis=1,
+                )
+            )
+            prev_qoq = df[["ticker", "fiscal_year", "fiscal_quarter", src_col]].copy()
+            prev_qoq = prev_qoq.rename(columns={
+                src_col: "_prev_qoq",
+                "fiscal_year": "_prev_y",
+                "fiscal_quarter": "_prev_q",
+            })
+            df = df.merge(
+                prev_qoq, on=["ticker", "_prev_y", "_prev_q"], how="left",
+            )
+            df[qoq_col] = _safe_growth(df[src_col], df["_prev_qoq"])
+            df = df.drop(columns=["_prev_y", "_prev_q", "_prev_qoq"])
 
     logger.info(
         "성장률 계산 완료: revenue_yoy/qoq, operating_profit_yoy/qoq, net_income_yoy",
@@ -214,7 +253,7 @@ def compute_growth_rates(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _safe_growth(current: pd.Series, prev: pd.Series) -> pd.Series:
+def _safe_growth(current: pd.Series, prev: pd.Series) -> np.ndarray:
     """(current - prev) / abs(prev) * 100. 분모 0 또는 NaN → NaN."""
     abs_prev = prev.abs()
     return np.where(
