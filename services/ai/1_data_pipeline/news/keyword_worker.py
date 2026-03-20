@@ -170,7 +170,7 @@ async def run_keyword_pipeline() -> None:
             logger.info("뉴스 에이전트 데이터: %d개 저장, %d개 건너뜀", result["processed"], result["skipped"])
             break
         except Exception as e:
-            logger.error("[4/4] 시도 %d/%d 실패: %s", attempt, STEP4_MAX_RETRIES, e)
+            logger.error("[5/5] 시도 %d/%d 실패: %s", attempt, STEP4_MAX_RETRIES, e)
             if attempt >= STEP4_MAX_RETRIES:
                 raise RuntimeError(f"뉴스 에이전트 데이터 생성 {STEP4_MAX_RETRIES}회 재시도 후 실패") from e
             import time
