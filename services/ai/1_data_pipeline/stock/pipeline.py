@@ -29,6 +29,7 @@ from config import (
     BASE_PATH,
     LOGS_PATH,
     PROCESSED_BASE_PATH,
+    PROCESSED_FUNDAMENTAL_PATH,
     RAW_FINANCIAL_PATH,
     RAW_MACRO_PATH,
     RAW_OHLCV_PATH,
@@ -211,6 +212,36 @@ def run_feature_engineering() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# 펀더멘탈 파생 지표 단계
+# ---------------------------------------------------------------------------
+
+def run_fundamental_metrics() -> bool:
+    """
+    재무 파생 지표(비율, 성장률) 생성 단계를 실행합니다.
+
+    raw/financial/ 데이터에서 operating_margin, net_margin, roa,
+    revenue_yoy/qoq, operating_profit_yoy/qoq, net_income_yoy 등을 계산하여
+    processed/fundamental/fundamental_metrics.parquet 로 저장합니다.
+
+    Returns:
+        성공 여부
+    """
+    logger.info("=== 펀더멘탈 파생 지표 생성 시작 ===")
+
+    try:
+        from processors.build_fundamental_metrics import main as fundamental_main
+        fundamental_main()
+        logger.info("=== 펀더멘탈 파생 지표 생성 완료 ===")
+        return True
+    except ImportError:
+        logger.warning("processors.build_fundamental_metrics 모듈 없음 - 건너뜀")
+        return False
+    except Exception as exc:
+        logger.error("펀더멘탈 파생 지표 생성 실패: %s", exc)
+        return False
+
+
+# ---------------------------------------------------------------------------
 # 품질 검증 단계
 # ---------------------------------------------------------------------------
 
@@ -255,6 +286,7 @@ def _check_drive_structure() -> None:
         RAW_MACRO_PATH,
         RAW_FINANCIAL_PATH,
         PROCESSED_BASE_PATH,
+        PROCESSED_FUNDAMENTAL_PATH,
         LOGS_PATH,
     ]
 
@@ -374,6 +406,18 @@ def run_full_pipeline(
         except Exception as exc:
             logger.error("피처 엔지니어링 단계 예외: %s", exc)
             step_results["feature_engineering"] = f"FAIL: {exc}"
+
+    # 3-1. 펀더멘탈 파생 지표
+    if skip_features:
+        logger.info("펀더멘탈 파생 지표 건너뜀 (--skip-features)")
+        step_results["fundamental_metrics"] = "SKIPPED"
+    else:
+        try:
+            fm_ok = run_fundamental_metrics()
+            step_results["fundamental_metrics"] = "OK" if fm_ok else "PARTIAL"
+        except Exception as exc:
+            logger.error("펀더멘탈 파생 지표 단계 예외: %s", exc)
+            step_results["fundamental_metrics"] = f"FAIL: {exc}"
 
     # 4. 품질 검증
     if skip_validation:
