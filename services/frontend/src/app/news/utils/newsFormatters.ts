@@ -1,4 +1,4 @@
-import type { NewsItem, NewsPeriodOption, NewsSortOption, NewsTab, RankedNewsKeyword } from "../types/news";
+import type { NewsItem, NewsPeriodFilter, NewsSortOption, NewsTab, NewsTrendingKeyword } from "../types/news";
 import { getMockNewsSeeds, WATCHLIST_NEWS_STOCKS } from "./mockNewsData";
 import { normalizeNewsKeyword } from "./newsQueryUtils";
 
@@ -6,6 +6,15 @@ const watchlistStockSet = new Set(WATCHLIST_NEWS_STOCKS);
 
 function getKoreanTimeDiff(value: number, unit: Intl.RelativeTimeFormatUnit) {
   return new Intl.RelativeTimeFormat("ko", { numeric: "auto" }).format(value, unit);
+}
+
+function getPublishedTimestamp(value: string | null) {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 function getRelevanceScore(item: NewsItem, keyword: string) {
@@ -32,8 +41,14 @@ function getRelevanceScore(item: NewsItem, keyword: string) {
   return score;
 }
 
-export function formatNewsRelativeTime(publishedAt: string) {
-  const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(publishedAt).getTime()) / 60_000));
+export function formatNewsRelativeTime(publishedAt: string | null) {
+  const publishedTimestamp = getPublishedTimestamp(publishedAt);
+
+  if (publishedTimestamp === 0) {
+    return "-";
+  }
+
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - publishedTimestamp) / 60_000));
 
   if (diffMinutes < 1) {
     return "방금 전";
@@ -70,11 +85,18 @@ export function filterNewsByTab(items: NewsItem[], tab: NewsTab) {
   return items.filter((item) => item.relatedStocks.some((stock) => watchlistStockSet.has(stock)));
 }
 
-export function filterNewsByPeriod(items: NewsItem[], period: NewsPeriodOption) {
+export function filterNewsByPeriod(items: NewsItem[], period: NewsPeriodFilter) {
+  if (period === null) {
+    return items;
+  }
+
   const periodDays = period === "WEEK" ? 7 : period === "MONTH" ? 30 : 90;
   const threshold = Date.now() - periodDays * 24 * 60 * 60 * 1000;
 
-  return items.filter((item) => new Date(item.publishedAt).getTime() >= threshold);
+  return items.filter((item) => {
+    const publishedTimestamp = getPublishedTimestamp(item.publishedAt);
+    return publishedTimestamp === 0 || publishedTimestamp >= threshold;
+  });
 }
 
 export function sortNewsItems(items: NewsItem[], sort: NewsSortOption, keyword: string) {
@@ -95,11 +117,11 @@ export function sortNewsItems(items: NewsItem[], sort: NewsSortOption, keyword: 
       }
     }
 
-    return new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime();
+    return getPublishedTimestamp(right.publishedAt) - getPublishedTimestamp(left.publishedAt);
   });
 }
 
-export function buildRankedNewsKeywords(items: NewsItem[]): RankedNewsKeyword[] {
+export function buildRankedNewsKeywords(items: NewsItem[]): NewsTrendingKeyword[] {
   const keywordCountMap = new Map<string, number>();
 
   items.forEach((item) => {
@@ -109,7 +131,10 @@ export function buildRankedNewsKeywords(items: NewsItem[]): RankedNewsKeyword[] 
   });
 
   return [...keywordCountMap.entries()]
-    .map(([keyword, count]) => ({ keyword, count }))
-    .sort((left, right) => right.count - left.count || left.keyword.localeCompare(right.keyword, "ko"))
-    .slice(0, 6);
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "ko"))
+    .slice(0, 6)
+    .map(([keyword], index) => ({
+      rank: index + 1,
+      keyword,
+    }));
 }

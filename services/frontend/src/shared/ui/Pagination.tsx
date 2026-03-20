@@ -5,11 +5,33 @@ type Props = {
   totalPages: number;
   onPageChange: (page: number) => void;
   className?: string;
+  maxVisiblePages?: number;
+  windowMode?: "centered" | "forward";
 };
 
-function getPaginationPages(currentPage: number, totalPages: number) {
-  if (totalPages <= 7) {
+function getPaginationPages(
+  currentPage: number,
+  totalPages: number,
+  maxVisiblePages = 7,
+  windowMode: "centered" | "forward" = "centered",
+) {
+  if (windowMode === "forward") {
+    const safeVisibleCount = Math.min(Math.max(1, maxVisiblePages), totalPages);
+    const startPage = Math.min(
+      Math.max(1, currentPage - 1),
+      Math.max(1, totalPages - safeVisibleCount + 1),
+    );
+
+    return Array.from({ length: safeVisibleCount }, (_, index) => startPage + index);
+  }
+
+  if (totalPages <= maxVisiblePages) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (maxVisiblePages <= 4) {
+    const startPage = Math.min(Math.max(1, currentPage - 1), Math.max(1, totalPages - maxVisiblePages + 1));
+    return Array.from({ length: maxVisiblePages }, (_, index) => startPage + index);
   }
 
   if (currentPage <= 4) {
@@ -85,12 +107,14 @@ export default function Pagination({
   totalPages,
   onPageChange,
   className,
+  maxVisiblePages,
+  windowMode,
 }: Props) {
   if (totalPages <= 1) {
     return null;
   }
 
-  const pages = getPaginationPages(currentPage, totalPages);
+  const pages = getPaginationPages(currentPage, totalPages, maxVisiblePages, windowMode);
 
   return (
     <nav
@@ -105,7 +129,7 @@ export default function Pagination({
 
       {pages.map((page, index) => {
         const previousPage = pages[index - 1];
-        const showGap = previousPage !== undefined && page - previousPage > 1;
+        const showGap = windowMode !== "forward" && previousPage !== undefined && page - previousPage > 1;
 
         return (
           <div key={page} className="flex items-center gap-2">

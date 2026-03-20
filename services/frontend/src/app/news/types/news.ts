@@ -2,9 +2,9 @@ export type NewsItem = {
   id: number;
   title: string;
   publisher: string;
-  publishedAt: string;
+  publishedAt: string | null;
   relatedStocks: string[];
-  url: string;
+  url: string | null;
 };
 
 export type NewsPayload = {
@@ -24,8 +24,13 @@ export type NewsQueryParams = {
 export type NewsTab = "LATEST" | "WATCHLIST";
 export type NewsSortOption = "LATEST" | "RELEVANCE" | "POPULAR";
 export type NewsPeriodOption = "WEEK" | "MONTH" | "QUARTER";
+export type NewsPeriodFilter = NewsPeriodOption | null;
 
-export type RankedNewsKeyword = {
+export type NewsTrendingKeyword = {
+  rank: number;
   keyword: string;
-  count: number;
+};
+
+export type NewsTrendingPayload = {
+  trending: NewsTrendingKeyword[];
 };

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMockNewsResponse } from "@/app/news/utils/mockNewsData";
-import { NEWS_PAGE_SIZE } from "@/app/news/utils/newsConstants";
-import { parseNewsNumberParam } from "@/app/news/utils/newsQueryUtils";
+import { getMockNewsTrendingResponse } from "@/app/news/utils/mockNewsData";
 import { snakelizeKeys } from "@/shared/utils/case";
-import type { NewsQueryParams } from "@/app/news/types/news";
 
 export const dynamic = "force-dynamic";
 
@@ -40,16 +37,8 @@ function getApiBaseUrl() {
 }
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-
-  const params: NewsQueryParams = {
-    offset: parseNewsNumberParam(searchParams.get("offset"), 0),
-    limit: parseNewsNumberParam(searchParams.get("limit"), NEWS_PAGE_SIZE, 1),
-    keyword: searchParams.get("keyword")?.trim() ?? "",
-  };
-
   if (shouldUseMockNewsApi()) {
-    return NextResponse.json(snakelizeKeys(getMockNewsResponse(params)));
+    return NextResponse.json(snakelizeKeys(getMockNewsTrendingResponse()));
   }
 
   const headers = new Headers();
@@ -64,7 +53,7 @@ export async function GET(request: NextRequest) {
     headers.set("Cookie", cookie);
   }
 
-  const upstreamResponse = await fetch(`${getApiBaseUrl()}/api/news${request.nextUrl.search}`, {
+  const upstreamResponse = await fetch(`${getApiBaseUrl()}/api/news/trending`, {
     method: "GET",
     headers,
     cache: "no-store",

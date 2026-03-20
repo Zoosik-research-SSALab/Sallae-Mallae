@@ -24,14 +24,13 @@ export default function NewsArticleCard({ item }: Props) {
         </div>
 
         <h3 className="text-lg font-extrabold leading-6 text-[color:var(--color-text-primary)] md:text-xl">
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noreferrer"
-            className="transition-opacity hover:opacity-80"
-          >
-            {item.title}
-          </a>
+          {item.url ? (
+            <a href={item.url} target="_blank" rel="noreferrer" className="transition-opacity hover:opacity-80">
+              {item.title}
+            </a>
+          ) : (
+            <span>{item.title}</span>
+          )}
         </h3>
 
         <div className="flex items-center gap-2">
