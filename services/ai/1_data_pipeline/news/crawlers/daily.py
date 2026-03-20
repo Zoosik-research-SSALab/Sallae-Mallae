@@ -194,11 +194,17 @@ async def crawl_stock(
                 break
             continue
 
-        # 본문 스니펫 수집 (범위 내 기사만)
+        # 본문 스니펫 수집 (범위 내 기사만, 페이지당 60초 타임아웃)
         snippet_tasks = [extract_news_snippet(session, art) for art in articles]
-        completed = await asyncio.gather(*snippet_tasks, return_exceptions=True)
-        valid = [r for r in completed if isinstance(r, dict)]
-        all_articles.extend(valid)
+        try:
+            completed = await asyncio.wait_for(
+                asyncio.gather(*snippet_tasks, return_exceptions=True),
+                timeout=60,
+            )
+            valid = [r for r in completed if isinstance(r, dict)]
+            all_articles.extend(valid)
+        except asyncio.TimeoutError:
+            logger.warning("  [%s] 페이지 %d: 스니펫 수집 타임아웃 (60초) → 스킵", code, page)
 
         # 날짜 범위 이전 기사가 감지됐으면 다음 페이지 탐색 없이 즉시 종료
         if has_old:
