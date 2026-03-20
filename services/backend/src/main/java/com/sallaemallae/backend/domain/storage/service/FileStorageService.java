@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -25,6 +26,8 @@ import org.springframework.stereotype.Service;
 public class FileStorageService {
 
   private final MinioClient minioClient;
+  @Qualifier("presignedMinioClient")
+  private final MinioClient presignedMinioClient;
 
   @Value("${minio.bucket}")
   private String bucket;
@@ -63,7 +66,7 @@ public class FileStorageService {
       Multimap<String, String> headers = HashMultimap.create();
       headers.put("Content-Type", request.contentType());
 
-      String uploadUrl = minioClient.getPresignedObjectUrl(
+      String uploadUrl = presignedMinioClient.getPresignedObjectUrl(
           GetPresignedObjectUrlArgs.builder()
               .method(Method.PUT)
               .bucket(bucket)
