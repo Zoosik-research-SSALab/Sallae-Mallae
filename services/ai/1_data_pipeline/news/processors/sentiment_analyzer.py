@@ -429,39 +429,29 @@ async def run_sentiment_batch(
     finbert_results = finbert.analyze_batch(texts)
     logger.info("FinBERT 추론 완료")
 
-    # 3. Gemini 추론
-    if not GMS_API_KEY:
-        logger.warning("GMS_API_KEY 미설정 — Gemini 추론 건너뜀 (FinBERT 결과만 사용)")
-        gemini_results = [SentimentResult(label="NEUTRAL", score=0.0) for _ in articles]
-    else:
-        logger.info("Gemini 추론 시작...")
-        gemini = GeminiSentimentAnalyzer(
-            api_key=GMS_API_KEY, model=GMS_MODEL, base_url=GMS_API_URL
-        )
-        gemini_results = await gemini.analyze_batch(texts)
-        logger.info("Gemini 추론 완료")
-
-    # 4. 비교 & Hard Sample 판정
-    dual_results = compare_results(articles, finbert_results, gemini_results, confidence_threshold)
+    # 3. FinBERT 단독 모드 — Gemini 사용하지 않고 바로 DB 저장
+    dual_results = []
+    for a, fb in zip(articles, finbert_results):
+        dual_results.append(DualSentimentResult(
+            news_id=a["id"], title=a["title"], snippet=a["body"][:250],
+            finbert=fb, gemini=fb,
+            is_label_mismatch=False, is_low_conf_finbert=False,
+            is_low_conf_gemini=False, is_hard_sample=False,
+        ))
 
     total = len(dual_results)
-    hard_count = sum(1 for r in dual_results if r.is_hard_sample)
-    mismatch_count = sum(1 for r in dual_results if r.is_label_mismatch)
-    low_fb_count = sum(1 for r in dual_results if r.is_low_conf_finbert)
-    low_gm_count = sum(1 for r in dual_results if r.is_low_conf_gemini)
 
-    logger.info("=== 감성 분석 결과 ===")
+    # 라벨별 통계
+    pos = sum(1 for r in dual_results if r.finbert.label == "POSITIVE")
+    neg = sum(1 for r in dual_results if r.finbert.label == "NEGATIVE")
+    neu = sum(1 for r in dual_results if r.finbert.label == "NEUTRAL")
+    logger.info("=== 감성 분석 결과 (FinBERT) ===")
     logger.info("  전체: %d건", total)
-    logger.info("  Hard Sample: %d건 (%.1f%%)", hard_count, hard_count / total * 100 if total else 0)
-    logger.info("    - 라벨 불일치: %d건", mismatch_count)
-    logger.info("    - FinBERT 저신뢰: %d건", low_fb_count)
-    logger.info("    - Gemini 저신뢰: %d건", low_gm_count)
+    logger.info("  POSITIVE: %d건 (%.1f%%)", pos, pos / total * 100 if total else 0)
+    logger.info("  NEGATIVE: %d건 (%.1f%%)", neg, neg / total * 100 if total else 0)
+    logger.info("  NEUTRAL: %d건 (%.1f%%)", neu, neu / total * 100 if total else 0)
 
-    # 5. 내보내기
-    export_hard_samples(dual_results)
-    export_summary(dual_results)
-
-    # 6. DB 저장 (선택)
+    # 4. DB 저장 (선택)
     if not skip_db and not csv_dir:
         try:
             stats = save_sentiment_to_db(dual_results)
