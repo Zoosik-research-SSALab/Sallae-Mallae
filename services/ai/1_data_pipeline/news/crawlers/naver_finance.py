@@ -19,6 +19,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from config import HEADERS, NAVER_FINANCE_NEWS_URL
 
+# 네이버 금융은 Referer 헤더가 없으면 빈 결과를 반환
+FINANCE_HEADERS = {**HEADERS, "Referer": "https://finance.naver.com/"}
+
 # ---------------------------------------------------------------------------
 # Semaphore (동시 요청 제한)
 # ---------------------------------------------------------------------------
@@ -51,7 +54,7 @@ async def fetch_html(
         for attempt in range(retries):
             try:
                 async with session.get(
-                    url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=15),
+                    url, headers=FINANCE_HEADERS, timeout=aiohttp.ClientTimeout(total=15),
                 ) as resp:
                     if resp.status == 200:
                         # 네이버 금융은 euc-kr 인코딩 — resp.text() 자동 감지가 실패할 수 있음
