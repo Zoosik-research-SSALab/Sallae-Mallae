@@ -246,32 +246,62 @@ def _quarter_end_date(year: int, quarter: int) -> str:
 def _find_nearest_trading_date(date_str: str) -> str:
     """
     주어진 날짜가 비거래일이면 직전 거래일을 찾는다.
-    pykrx get_market_fundamental_by_ticker가 빈 결과를 반환하면
-    최대 7일 전까지 탐색한다.
+    pykrx get_nearest_business_day_in_a_week 또는 수동 탐색으로
+    최대 14일 전까지 탐색한다 (연말 연휴 대응).
     """
     import time
     from datetime import datetime, timedelta
 
     from pykrx import stock
 
+    # 방법 1: pykrx 내장 함수 시도
+    try:
+        nearest = stock.get_nearest_business_day_in_a_week(date_str, prev=True)
+        if nearest:
+            logger.debug("거래일 탐색: %s → %s (pykrx)", date_str, nearest)
+            return nearest
+    except Exception:
+        pass
+
+    # 방법 2: get_market_fundamental_by_ticker로 수동 탐색 (최대 14일)
     dt = datetime.strptime(date_str, "%Y%m%d")
-    for offset in range(8):
+    for offset in range(15):
         candidate = (dt - timedelta(days=offset)).strftime("%Y%m%d")
         time.sleep(PYKRX_DELAY)
         try:
             result = stock.get_market_fundamental_by_ticker(candidate, market="KOSPI")
             if result is not None and not result.empty:
+                logger.debug("거래일 탐색: %s → %s (수동, offset=%d)", date_str, candidate, offset)
                 return candidate
         except Exception:
             continue
     return date_str  # 폴백: 원래 날짜 반환
 
 
+def _ensure_krx_session() -> bool:
+    """KRX 세션 인증을 수행한다. 실패 시 False 반환."""
+    import os
+
+    user_id = os.environ.get("KRX_USER_ID")
+    password = os.environ.get("KRX_PASSWORD")
+    if not user_id or not password:
+        logger.warning("KRX_USER_ID/KRX_PASSWORD 미설정 — PER/PBR 조회 불가")
+        return False
+
+    try:
+        from utils.krx_session import ensure_krx_session
+        ensure_krx_session(user_id, password)
+        return True
+    except Exception as exc:
+        logger.warning("KRX 세션 인증 실패: %s", exc)
+        return False
+
+
 def fetch_per_pbr(df: pd.DataFrame) -> pd.DataFrame:
     """
     pykrx에서 분기 말일 기준 PER/PBR을 조회하여 DataFrame에 병합한다.
 
-    각 (fiscal_year, fiscal_quarter) 조합별로 한 번씩 API를 호출하고,
+    KRX 세션 인증 후 각 (fiscal_year, fiscal_quarter) 조합별로 한 번씩 API를 호출하고,
     ticker 기준으로 left join 한다.
 
     Args:
@@ -286,6 +316,11 @@ def fetch_per_pbr(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.copy()
 
+    # KRX 세션 인증 (PER/PBR 조회에 필수)
+    if not _ensure_krx_session():
+        logger.warning("KRX 세션 인증 실패 — PER/PBR 기존 값 유지")
+        return df
+
     # 고유 (fiscal_year, fiscal_quarter) 조합 추출
     quarters = (
         df[["fiscal_year", "fiscal_quarter"]]
@@ -293,17 +328,20 @@ def fetch_per_pbr(df: pd.DataFrame) -> pd.DataFrame:
         .sort_values(["fiscal_year", "fiscal_quarter"])
     )
 
-    # 분기별 PER/PBR 조회 결과 누적
-    all_fundamentals: list[pd.DataFrame] = []
-
+    # 분기 말일 → 실제 거래일 매핑 (인증된 세션으로 한번에 탐색)
+    quarter_trading_dates: dict[tuple[int, int], str] = {}
     for _, row in quarters.iterrows():
         year = int(row["fiscal_year"])
         quarter = int(row["fiscal_quarter"])
         date_str = _quarter_end_date(year, quarter)
-
-        # 비거래일이면 직전 거래일 탐색
         trading_date = _find_nearest_trading_date(date_str)
+        quarter_trading_dates[(year, quarter)] = trading_date
+        logger.info("거래일 매핑: %dQ%d %s → %s", year, quarter, date_str, trading_date)
 
+    # 분기별 PER/PBR 조회 결과 누적
+    all_fundamentals: list[pd.DataFrame] = []
+
+    for (year, quarter), trading_date in quarter_trading_dates.items():
         logger.info("PER/PBR 조회: %dQ%d (거래일: %s)", year, quarter, trading_date)
 
         time.sleep(PYKRX_DELAY)
@@ -373,7 +411,7 @@ def main() -> None:
     df = compute_growth_rates(df)
     df = fetch_per_pbr(df)
 
-    # 소수점 반올림
+    # 소수점 반올림 (object 타입 → numeric 변환 후 반올림)
     float_cols = [
         "operating_margin", "net_margin", "roa", "debt_ratio",
         "revenue_yoy", "revenue_qoq",
@@ -383,7 +421,7 @@ def main() -> None:
     ]
     for col in float_cols:
         if col in df.columns:
-            df[col] = df[col].round(2)
+            df[col] = pd.to_numeric(df[col], errors="coerce").round(2)
 
     # 저장
     ensure_dir(PROCESSED_FUNDAMENTAL_PATH)

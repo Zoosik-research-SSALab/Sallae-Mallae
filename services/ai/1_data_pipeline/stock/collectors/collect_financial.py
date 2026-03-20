@@ -58,10 +58,13 @@ _ACCOUNT_MAP: dict[str, str] = {
     # 영업이익
     "영업이익": "operating_income",
     "영업이익(손실)": "operating_income",
-    # 당기순이익
+    # 당기순이익 (4Q 사업보고서)
     "당기순이익": "net_income",
     "당기순이익(손실)": "net_income",
     "연결당기순이익": "net_income",
+    # 분기순이익 (1~3Q 분기보고서)
+    "분기순이익": "net_income",
+    "분기순이익(손실)": "net_income",
     # 자산총계
     "자산총계": "total_assets",
     # 자본총계
@@ -72,6 +75,7 @@ _ACCOUNT_MAP: dict[str, str] = {
     # 영업활동현금흐름
     "영업활동현금흐름": "operating_cash_flow",
     "영업활동으로인한현금흐름": "operating_cash_flow",
+    "영업활동으로부터의 현금흐름": "operating_cash_flow",
 }
 
 # API 호출 간 딜레이 (초) - 일일 호출 제한 준수
