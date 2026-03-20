@@ -302,7 +302,7 @@ export const handlers = [
 
   // ── Portfolio ───────────────────────────────────────────────────────────────
 
-  http.get("/api/portfolio", () => {
+  http.get("/api/portfolio/chairman", () => {
     return HttpResponse.json(
       snakelizeKeys({
         success: true,

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { PortfolioHero as PortfolioHeroType } from "../types/portfolio";
+import { PORTFOLIO_HERO_DESCRIPTION, PORTFOLIO_HERO_TITLE } from "../utils/portfolioStaticContent";
 import { cn } from "@/shared/utils/cn";
 import { formatInteger, formatSignedValue } from "../utils/portfolioFormatters";
 
@@ -7,8 +8,18 @@ type Props = {
   hero: PortfolioHeroType;
 };
 
+function formatPortfolioMetricValue(metric: PortfolioHeroType["metrics"][number]) {
+  if (typeof metric.value !== "number" || !Number.isFinite(metric.value)) {
+    return `?${metric.unit}`;
+  }
+
+  return metric.decimals === 0
+    ? `${formatInteger(metric.value)}${metric.unit}`
+    : formatSignedValue(metric.value, metric.decimals, metric.unit);
+}
+
 export default function PortfolioHero({ hero }: Props) {
-  const titleWords = hero.title ? hero.title.split(" ") : [];
+  const titleWords = PORTFOLIO_HERO_TITLE.split(" ");
 
   return (
     <section className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-6 lg:gap-10">
@@ -17,17 +28,15 @@ export default function PortfolioHero({ hero }: Props) {
           <div className="flex min-w-0 flex-col gap-2 md:max-w-[18rem] md:gap-2.5 lg:max-w-none lg:gap-4">
             <p className="typo-body-xs text-[color:var(--color-text-tertiary)] md:typo-body-sm">{hero.updatedAtLabel}</p>
             <h1 className="typo-heading-lg text-[color:var(--color-text-primary)] md:typo-heading-2xl xl:typo-heading-3xl">
-              {titleWords.length > 0
-                ? titleWords.map((word, index) => (
-                    <span key={`${word}-${index}`} className="inline-block whitespace-nowrap">
-                      {word}
-                      {index < titleWords.length - 1 ? "\u00A0" : null}
-                    </span>
-                  ))
-                : null}
+              {titleWords.map((word, index) => (
+                <span key={`${word}-${index}`} className="inline-block whitespace-nowrap">
+                  {word}
+                  {index < titleWords.length - 1 ? "\u00A0" : null}
+                </span>
+              ))}
             </h1>
             <p className="typo-body-sm max-w-[34rem] text-[color:var(--color-text-secondary)] md:max-w-[19rem] md:typo-body-md lg:max-w-[34rem]">
-              {hero.description}
+              {PORTFOLIO_HERO_DESCRIPTION}
             </p>
           </div>
 
@@ -45,10 +54,7 @@ export default function PortfolioHero({ hero }: Props) {
 
         <div className="grid grid-cols-2 gap-3 md:max-w-[480px] md:gap-4">
           {hero.metrics.map((metric) => {
-            const value =
-              metric.decimals === 0
-                ? `${formatInteger(metric.value)}${metric.unit}`
-                : formatSignedValue(metric.value, metric.decimals, metric.unit);
+            const value = formatPortfolioMetricValue(metric);
 
             return (
               <article
