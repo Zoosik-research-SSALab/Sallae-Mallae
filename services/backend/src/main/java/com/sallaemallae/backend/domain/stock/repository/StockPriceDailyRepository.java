@@ -12,6 +12,11 @@ public interface StockPriceDailyRepository extends JpaRepository<StockPriceDaily
 
   List<StockPriceDaily> findByStockIdOrderByTradeDateDesc(Long stockId, Pageable pageable);
 
+  List<StockPriceDaily> findByStockIdAndTradeDateBeforeOrderByTradeDateDesc(
+      Long stockId, java.time.LocalDate tradeDate, Pageable pageable);
+
+  boolean existsByStockIdAndTradeDate(Long stockId, java.time.LocalDate tradeDate);
+
   @Query("""
       select p
       from StockPriceDaily p
