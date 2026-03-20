@@ -63,9 +63,11 @@ def _save_checkpoint(done: set[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 날짜 파싱 (공통 유틸 사용)
+# 날짜 파싱 (공통 유틸 사용, 상대시간 비활성화 — 적재 시각 기준 오계산 방지)
 # ---------------------------------------------------------------------------
-from utils.date_parser import parse_date as _parse_date
+from functools import partial
+from utils.date_parser import parse_date
+_parse_date = partial(parse_date, allow_relative=False)
 
 
 # ---------------------------------------------------------------------------

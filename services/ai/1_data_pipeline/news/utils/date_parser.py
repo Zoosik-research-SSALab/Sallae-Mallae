@@ -30,12 +30,15 @@ _RELATIVE_UNITS = {
 }
 
 
-def parse_date(date_str: str) -> datetime | None:
+def parse_date(date_str: str, *, allow_relative: bool = True) -> datetime | None:
     """다양한 날짜 형식 및 상대시간('3시간 전', '1일 전' 등)을 datetime으로 변환.
 
-    지원 형식:
-      - 상대시간: "N분 전", "N시간 전", "N일 전"
-      - 절대시간: "2026.03.17 17:33", "2026-03-17", "20260317" 등
+    Args:
+        date_str: 파싱할 날짜 문자열
+        allow_relative: 상대시간 파싱 허용 여부 (기본 True).
+            실시간 크롤링(daily.py)에서는 True,
+            백필/CSV 적재처럼 나중에 로드하는 경우에는 False로 설정해야
+            "3시간 전" 등이 적재 시각 기준으로 잘못 계산되는 것을 방지.
 
     Returns:
         datetime 객체 또는 파싱 실패 시 None
@@ -47,13 +50,14 @@ def parse_date(date_str: str) -> datetime | None:
     if not text:
         return None
 
-    # 상대시간 처리
-    rel = _RELATIVE_RE.match(text)
-    if rel:
-        amount = int(rel.group(1))
-        unit = _RELATIVE_UNITS.get(rel.group(2))
-        if unit:
-            return datetime.now() - timedelta(**{unit: amount})
+    # 상대시간 처리 (실시간 크롤링 전용)
+    if allow_relative:
+        rel = _RELATIVE_RE.match(text)
+        if rel:
+            amount = int(rel.group(1))
+            unit = _RELATIVE_UNITS.get(rel.group(2))
+            if unit:
+                return datetime.now() - timedelta(**{unit: amount})
 
     # 절대시간 형식 시도
     cleaned = text.rstrip(".")
