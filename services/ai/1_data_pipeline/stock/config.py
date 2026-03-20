@@ -83,6 +83,7 @@ RCLONE_SYNC_DIRS: list[str] = [
     "raw/ohlcv", "raw/supply_demand", "raw/macro",
     "raw/universe", "raw/fundamental",
     "processed/base_features",
+    "processed/fundamental",
 ]  # rclone 동기화 대상 (subdir 단위, 다운로드·업로드 대칭)
 # raw/financial은 파일 수(13,000+)가 많아 rclone sync timeout 발생.
 # 대신 수집 시 신규 파일만 rclone copy로 개별 업로드한다 (pipeline.py 참조).

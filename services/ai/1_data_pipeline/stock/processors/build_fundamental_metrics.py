@@ -132,7 +132,7 @@ def compute_ratio_metrics(df: pd.DataFrame) -> pd.DataFrame:
     # operating_margin
     if revenue is not None and operating_income is not None:
         df["operating_margin"] = np.where(
-            (revenue != 0) & revenue.notna(),
+            (revenue != 0) & revenue.notna() & operating_income.notna(),
             operating_income / revenue * 100,
             np.nan,
         )
@@ -142,7 +142,7 @@ def compute_ratio_metrics(df: pd.DataFrame) -> pd.DataFrame:
     # net_margin
     if revenue is not None and net_income is not None:
         df["net_margin"] = np.where(
-            (revenue != 0) & revenue.notna(),
+            (revenue != 0) & revenue.notna() & net_income.notna(),
             net_income / revenue * 100,
             np.nan,
         )
@@ -152,7 +152,7 @@ def compute_ratio_metrics(df: pd.DataFrame) -> pd.DataFrame:
     # roa
     if total_assets is not None and net_income is not None:
         df["roa"] = np.where(
-            (total_assets != 0) & total_assets.notna(),
+            (total_assets != 0) & total_assets.notna() & net_income.notna(),
             net_income / total_assets * 100,
             np.nan,
         )
@@ -282,11 +282,14 @@ def _quarter_end_date(year: int, quarter: int) -> str:
     return f"{year}{month:02d}{day:02d}"
 
 
-def _find_nearest_trading_date(date_str: str) -> str:
+def _find_nearest_trading_date(date_str: str) -> str | None:
     """
     주어진 날짜가 비거래일이면 직전 거래일을 찾는다.
     pykrx get_nearest_business_day_in_a_week 또는 수동 탐색으로
     최대 14일 전까지 탐색한다 (연말 연휴 대응).
+
+    Returns:
+        거래일 문자열 (YYYYMMDD). 탐색 실패 시 None.
     """
     import time
     from datetime import datetime, timedelta
@@ -299,8 +302,8 @@ def _find_nearest_trading_date(date_str: str) -> str:
         if nearest:
             logger.debug("거래일 탐색: %s → %s (pykrx)", date_str, nearest)
             return nearest
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("pykrx nearest_business_day 실패: %s", exc)
 
     # 방법 2: get_market_fundamental_by_ticker로 수동 탐색 (최대 14일)
     dt = datetime.strptime(date_str, "%Y%m%d")
@@ -312,9 +315,11 @@ def _find_nearest_trading_date(date_str: str) -> str:
             if result is not None and not result.empty:
                 logger.debug("거래일 탐색: %s → %s (수동, offset=%d)", date_str, candidate, offset)
                 return candidate
-        except Exception:
+        except Exception as exc:
+            logger.debug("거래일 수동 탐색 실패 (%s): %s", candidate, exc)
             continue
-    return date_str  # 폴백: 원래 날짜 반환
+    logger.warning("거래일 탐색 실패 (14일 내 거래일 없음): %s", date_str)
+    return None
 
 
 def _ensure_krx_session() -> bool:
@@ -374,6 +379,9 @@ def fetch_per_pbr(df: pd.DataFrame) -> pd.DataFrame:
         quarter = int(row["fiscal_quarter"])
         date_str = _quarter_end_date(year, quarter)
         trading_date = _find_nearest_trading_date(date_str)
+        if trading_date is None:
+            logger.warning("거래일 탐색 실패 — %dQ%d 건너뜀", year, quarter)
+            continue
         quarter_trading_dates[(year, quarter)] = trading_date
         logger.info("거래일 매핑: %dQ%d %s → %s", year, quarter, date_str, trading_date)
 
