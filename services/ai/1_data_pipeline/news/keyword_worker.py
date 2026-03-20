@@ -195,6 +195,17 @@ async def run_keyword_pipeline() -> None:
                 raise RuntimeError(f"뉴스 에이전트 데이터 생성 {STEP5_MAX_RETRIES}회 재시도 후 실패") from e
             time.sleep(10)
 
+    # 6. published_at NULL 복구 (URL에서 발행일 추출)
+    logger.info("=" * 60)
+    logger.info("  [6/6] published_at NULL 복구 시작")
+    logger.info("=" * 60)
+    try:
+        from scripts.fix_null_published_at import fix_null_dates
+        await fix_null_dates(limit=5000, dry_run=False)
+        logger.info("published_at NULL 복구 완료")
+    except Exception as e:
+        logger.error("published_at NULL 복구 실패: %s", e)
+
     logger.info("=" * 60)
     logger.info("  키워드 파이프라인 전체 완료")
     logger.info("=" * 60)
