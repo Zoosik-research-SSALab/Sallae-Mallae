@@ -44,7 +44,7 @@ public class StockQuoteRefreshScheduler {
   private final KisProperties kisProperties;
   private final StockQuoteCacheService stockQuoteCacheService;
 
-  @Scheduled(fixedRate = 60_000, initialDelay = 25_000)
+  @Scheduled(fixedRate = 30_000, initialDelay = 25_000)
   public void refreshAllQuotes() {
     if (!kisProperties.isConfigured()) {
       log.debug("KIS API not configured. Skipping bulk quote refresh.");
