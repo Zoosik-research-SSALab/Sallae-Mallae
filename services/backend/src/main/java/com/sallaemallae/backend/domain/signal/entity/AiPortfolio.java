@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -38,6 +39,24 @@ public class AiPortfolio {
 
   @Column(name = "winning_trades", nullable = false)
   private int winningTrades;
+
+  @Column(name = "initial_capital", nullable = false)
+  private Long initialCapital;
+
+  @Column(name = "cash_balance", nullable = false)
+  private Long cashBalance;
+
+  @Column(name = "realized_profit", nullable = false)
+  private Long realizedProfit;
+
+  @Column(name = "unrealized_profit", nullable = false)
+  private Long unrealizedProfit;
+
+  @Column(name = "total_asset_value", nullable = false)
+  private Long totalAssetValue;
+
+  @Column(name = "latest_record_date")
+  private LocalDate latestRecordDate;
 
   @Column(name = "updated_at", nullable = false)
   private OffsetDateTime updatedAt;

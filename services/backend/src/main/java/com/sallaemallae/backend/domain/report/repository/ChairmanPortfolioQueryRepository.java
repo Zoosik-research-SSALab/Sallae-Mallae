@@ -233,6 +233,124 @@ public class ChairmanPortfolioQueryRepository {
     return items;
   }
 
+  public List<HallOfFameHitRateRow> findHitRateTopRows(Long portfolioId, int limit) {
+    String sql = """
+        SELECT s.id AS stock_id,
+               s.ticker,
+               s.name,
+               ROUND(AVG(CASE WHEN h.realized_profit > 0 THEN 100.0 ELSE 0.0 END)::numeric, 2) AS hit_rate,
+               SUM(CASE WHEN h.realized_profit > 0 THEN 1 ELSE 0 END) AS winning_trades,
+               COUNT(*) AS total_trades
+        FROM ai_trading_history h
+        JOIN stocks s ON s.id = h.stock_id
+        WHERE h.portfolio_id = :portfolioId
+          AND h.trade_type = 'SELL'
+        GROUP BY s.id, s.ticker, s.name
+        HAVING COUNT(*) > 0
+        ORDER BY hit_rate DESC, total_trades DESC, s.id ASC
+        LIMIT :limit
+        """;
+
+    List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
+        .setParameter("portfolioId", portfolioId)
+        .setParameter("limit", limit)
+        .getResultList();
+
+    List<HallOfFameHitRateRow> items = new ArrayList<>();
+    int rank = 1;
+    for (Tuple row : rows) {
+      items.add(new HallOfFameHitRateRow(
+          rank++,
+          toLong(row.get("stock_id")),
+          row.get("ticker", String.class),
+          row.get("name", String.class),
+          toFloat(row.get("hit_rate")),
+          toInteger(row.get("winning_trades")),
+          toInteger(row.get("total_trades"))
+      ));
+    }
+    return items;
+  }
+
+  public List<HallOfFameReturnRow> findCumulativeReturnTopRows(Long portfolioId, int limit) {
+    String sql = """
+        SELECT s.id AS stock_id,
+               s.ticker,
+               s.name,
+               ROUND(
+                   (
+                       SUM(COALESCE(h.realized_profit, 0))::numeric
+                       / NULLIF(SUM(CASE WHEN h.trade_type = 'BUY' THEN COALESCE(h.trade_amount, 0) ELSE 0 END), 0)
+                   ) * 100,
+                   2
+               ) AS metric_value
+        FROM ai_trading_history h
+        JOIN stocks s ON s.id = h.stock_id
+        WHERE h.portfolio_id = :portfolioId
+        GROUP BY s.id, s.ticker, s.name
+        HAVING SUM(CASE WHEN h.trade_type = 'BUY' THEN COALESCE(h.trade_amount, 0) ELSE 0 END) > 0
+        ORDER BY metric_value DESC NULLS LAST, s.id ASC
+        LIMIT :limit
+        """;
+    return findHallOfFameReturnRows(sql, portfolioId, limit);
+  }
+
+  public List<HallOfFameReturnRow> findMaxSingleReturnTopRows(Long portfolioId, int limit) {
+    String sql = """
+        SELECT s.id AS stock_id,
+               s.ticker,
+               s.name,
+               ROUND(MAX(h.return_rate)::numeric, 2) AS metric_value
+        FROM ai_trading_history h
+        JOIN stocks s ON s.id = h.stock_id
+        WHERE h.portfolio_id = :portfolioId
+          AND h.trade_type = 'SELL'
+          AND h.return_rate IS NOT NULL
+        GROUP BY s.id, s.ticker, s.name
+        ORDER BY metric_value DESC NULLS LAST, s.id ASC
+        LIMIT :limit
+        """;
+    return findHallOfFameReturnRows(sql, portfolioId, limit);
+  }
+
+  public List<HallOfFameReturnRow> findAverageReturnTopRows(Long portfolioId, int limit) {
+    String sql = """
+        SELECT s.id AS stock_id,
+               s.ticker,
+               s.name,
+               ROUND(AVG(h.return_rate)::numeric, 2) AS metric_value
+        FROM ai_trading_history h
+        JOIN stocks s ON s.id = h.stock_id
+        WHERE h.portfolio_id = :portfolioId
+          AND h.trade_type = 'SELL'
+          AND h.return_rate IS NOT NULL
+        GROUP BY s.id, s.ticker, s.name
+        ORDER BY metric_value DESC NULLS LAST, s.id ASC
+        LIMIT :limit
+        """;
+    return findHallOfFameReturnRows(sql, portfolioId, limit);
+  }
+
+  private List<HallOfFameReturnRow> findHallOfFameReturnRows(String sql, Long portfolioId, int limit) {
+    List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
+        .setParameter("portfolioId", portfolioId)
+        .setParameter("limit", limit)
+        .getResultList();
+
+    List<HallOfFameReturnRow> items = new ArrayList<>();
+    int rank = 1;
+    for (Tuple row : rows) {
+      items.add(new HallOfFameReturnRow(
+          rank++,
+          toLong(row.get("stock_id")),
+          row.get("ticker", String.class),
+          row.get("name", String.class),
+          toFloat(row.get("metric_value"))
+      ));
+    }
+    return items;
+  }
+
   public record HoldingRow(
       Long stockId,
       String ticker,
@@ -276,6 +394,26 @@ public class ChairmanPortfolioQueryRepository {
       String name,
       Integer price,
       String signal
+  ) {
+  }
+
+  public record HallOfFameHitRateRow(
+      Integer rank,
+      Long stockId,
+      String ticker,
+      String name,
+      Float hitRate,
+      Integer winningTrades,
+      Integer totalTrades
+  ) {
+  }
+
+  public record HallOfFameReturnRow(
+      Integer rank,
+      Long stockId,
+      String ticker,
+      String name,
+      Float value
   ) {
   }
 }

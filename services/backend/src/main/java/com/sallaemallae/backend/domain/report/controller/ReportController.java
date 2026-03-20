@@ -37,7 +37,7 @@ public class ReportController {
     return ApiResponse.success(reportService.getReportHistory(stockId, offset, limit));
   }
 
-  @Operation(summary = "모의투자 성과 조회", description = "전역 AI 포트폴리오 기준 성과 요약과 차트 데이터를 조회합니다.")
+  @Operation(summary = "모의투자 성과 조회", description = "종목별 모의투자 성과 요약, 보유 정보, 가격 차트를 조회합니다.")
   @GetMapping("/{stockId}/performance")
   public ApiResponse<PerformanceResponse> getPerformance(
       @Parameter(description = "종목 ID", example = "1")

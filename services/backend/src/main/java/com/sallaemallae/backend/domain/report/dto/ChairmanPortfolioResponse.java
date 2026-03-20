@@ -34,6 +34,8 @@ public record ChairmanPortfolioResponse(
       Float cumulativeReturn,
       @Schema(description = "예측 적중률", example = "85.2")
       Float hitRate,
+      @Schema(description = "전일 수익률", example = "1.34", nullable = true)
+      Float yesterdayReturn,
       @Schema(description = "코스피 대비 초과 수익률", example = "15.4", nullable = true)
       Float alphaVsKospi,
       @Schema(description = "현재 보유 종목 수", example = "12")
