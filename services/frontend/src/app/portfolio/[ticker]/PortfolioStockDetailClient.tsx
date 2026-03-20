@@ -13,8 +13,7 @@ import { useStockPerformanceQuery } from "./hooks/useStockPerformanceQuery";
 import { useStockTradesQuery } from "./hooks/useStockTradesQuery";
 import type { TradeEntry, CommitteeMember, BacktestBestTrade, BacktestStats } from "./types/portfolioStockDetail";
 import type { TradeItem } from "./types/api";
-// TODO: Remove mock data import once all API endpoints are integrated
-import { mockStockDetail } from "./utils/mockData";
+
 
 // Format a date string like "2026-02-13" → "26.02.13"
 function formatDateShort(dateStr: string): string {
@@ -70,7 +69,7 @@ function calcBacktest(trades: TradeItem[]): {
         buyPrice: best.buyPrice,
         sellPrice: best.sellPrice ?? best.currentPrice ?? 0,
       }
-    : mockStockDetail.backtest.bestTrade;
+    : { returnRate: 0, period: "", buyPrice: 0, sellPrice: 0 };
 
   const totalReturn = soldTrades.reduce((sum, t) => sum + t.returnRate, 0);
 
@@ -157,31 +156,25 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
         buyPrice: apiHolding.buyPrice,
         currentPrice: apiHolding.currentPrice,
       }
-    : mockStockDetail.performance;
+    : null;
 
   // ── Trades props ───────────────────────────────────────────────────────────
   const rawTrades = tradesData?.trades ?? [];
-  const trades: TradeEntry[] =
-    rawTrades.length > 0
-      ? rawTrades.map(mapApiTradeToEntry)
-      : mockStockDetail.trades;
+  const trades: TradeEntry[] = rawTrades.map(mapApiTradeToEntry);
 
   // ── Backtest props ─────────────────────────────────────────────────────────
-  const { bestTrade, stats } =
-    rawTrades.length > 0 ? calcBacktest(rawTrades) : mockStockDetail.backtest;
+  const backtestResult = rawTrades.length > 0 ? calcBacktest(rawTrades) : null;
 
   // ── Committee props ────────────────────────────────────────────────────────
   const firstReport = reportData?.reports?.[0];
-  let finalDecision = mockStockDetail.committee.finalDecision;
-  let confidence = mockStockDetail.committee.confidence;
-  let briefingDate = mockStockDetail.committee.briefingDate;
-  let members: CommitteeMember[] = mockStockDetail.committee.members;
+  let committeeProps: {
+    finalDecision: string;
+    confidence: number;
+    briefingDate: string;
+    members: CommitteeMember[];
+  } | null = null;
 
   if (firstReport) {
-    finalDecision = firstReport.chairman.signal;
-    confidence = firstReport.chairman.confidence;
-    briefingDate = firstReport.date;
-
     // Flatten all agents from all rounds into CommitteeMember list, alternating alignment
     const agentList: CommitteeMember[] = firstReport.debate.rounds.flatMap(
       (round, _ri) =>
@@ -201,16 +194,21 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
       isDark: true,
     });
 
-    members = agentList;
+    committeeProps = {
+      finalDecision: firstReport.chairman.signal,
+      confidence: firstReport.chairman.confidence,
+      briefingDate: firstReport.date,
+      members: agentList,
+    };
   }
 
   // TODO: portfolioLabel should come from API (stock meta endpoint not yet available)
   const portfolioLabel = "의장 포트폴리오";
 
   // TODO: name/description/isAiPortfolio should come from a stock meta API endpoint
-  const stockName = mockStockDetail.name;
-  const stockDescription = mockStockDetail.description;
-  const isAiPortfolio = mockStockDetail.isAiPortfolio;
+  const stockName = ticker;
+  const stockDescription = "";
+  const isAiPortfolio = true;
 
   return (
     <div className="pt-10 pb-16 md:p-0">
@@ -240,16 +238,22 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
               <InvestmentCalculator />
 
               {/* Performance metrics */}
-              <PerformanceMetrics
-                totalPnl={performanceProps.totalPnl}
-                returnRate={performanceProps.returnRate}
-                holdingCount={performanceProps.holdingCount}
-                investmentPrincipal={performanceProps.investmentPrincipal}
-                buyDate={performanceProps.buyDate}
-                holdingDays={performanceProps.holdingDays}
-                buyPrice={performanceProps.buyPrice}
-                currentPrice={performanceProps.currentPrice}
-              />
+              {performanceProps ? (
+                <PerformanceMetrics
+                  totalPnl={performanceProps.totalPnl}
+                  returnRate={performanceProps.returnRate}
+                  holdingCount={performanceProps.holdingCount}
+                  investmentPrincipal={performanceProps.investmentPrincipal}
+                  buyDate={performanceProps.buyDate}
+                  holdingDays={performanceProps.holdingDays}
+                  buyPrice={performanceProps.buyPrice}
+                  currentPrice={performanceProps.currentPrice}
+                />
+              ) : (
+                <p className="typo-body-md text-text-tertiary py-8 text-center">
+                  성과 데이터가 없습니다.
+                </p>
+              )}
               {/* Trade history */}
               <TradeHistory trades={trades} />
             </div>
@@ -258,10 +262,17 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
               <ReturnChart />
 
               {/* Backtest results */}
-              <BacktestResults
-                bestTrade={bestTrade}
-                stats={stats}
-              />
+              {backtestResult ? (
+                <BacktestResults
+                  bestTrade={backtestResult.bestTrade}
+                  stats={backtestResult.stats}
+                  stockName={stockName}
+                />
+              ) : (
+                <p className="typo-body-md text-text-tertiary py-8 text-center">
+                  백테스트 데이터가 없습니다.
+                </p>
+              )}
 
               <div className="flex items-center justify-center mb-4">
                 <button
@@ -276,12 +287,18 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
 
           {/* Right column: committee discussion (sticky on desktop) */}
           <div className="w-full md:w-[40%] md:sticky md:top-6">
-            <CommitteeDiscussion
-              finalDecision={finalDecision}
-              confidence={confidence}
-              briefingDate={briefingDate}
-              members={members}
-            />
+            {committeeProps ? (
+              <CommitteeDiscussion
+                finalDecision={committeeProps.finalDecision}
+                confidence={committeeProps.confidence}
+                briefingDate={committeeProps.briefingDate}
+                members={committeeProps.members}
+              />
+            ) : (
+              <p className="typo-body-md text-text-tertiary py-8 text-center">
+                위원회 데이터가 없습니다.
+              </p>
+            )}
           </div>
         </div>
       </main>

@@ -6,13 +6,13 @@ import type {
 type Props = {
   bestTrade: BacktestBestTrade;
   stats: BacktestStats;
-  stockName?: string;
+  stockName: string;
 };
 
 export default function BacktestResults({
   bestTrade,
   stats,
-  stockName = "SK하이닉스",
+  stockName,
 }: Props) {
   return (
     <div className="flex flex-col gap-8">
