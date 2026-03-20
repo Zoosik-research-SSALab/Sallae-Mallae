@@ -1,4 +1,5 @@
-import type { PortfolioPageData } from "../types/portfolio";
+import type { PortfolioHeroMetric, PortfolioMetricTone, PortfolioPageData } from "../types/portfolio";
+import { PORTFOLIO_HERO_METRICS } from "../utils/portfolioStaticContent";
 import { authApiFetch } from "@/shared/lib/authApiClient";
 
 type ApiResponse<T> = {
@@ -10,9 +11,7 @@ type ApiResponse<T> = {
 const defaultPortfolioPageData: PortfolioPageData = {
   hero: {
     updatedAtLabel: "",
-    title: "",
-    description: "",
-    metrics: [],
+    metrics: PORTFOLIO_HERO_METRICS,
   },
   holdings: [],
   todayTrades: [],
@@ -27,6 +26,45 @@ const defaultPortfolioPageData: PortfolioPageData = {
   popularSignals: [],
   hallOfFame: [],
 };
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isPortfolioMetricTone(value: unknown): value is PortfolioMetricTone {
+  return value === "default" || value === "danger";
+}
+
+function normalizeHeroMetrics(value: unknown): PortfolioHeroMetric[] {
+  const metrics = Array.isArray(value) ? value : [];
+  const metricsById = new Map<string, Partial<PortfolioHeroMetric>>();
+
+  for (const metric of metrics) {
+    if (typeof metric !== "object" || metric === null) {
+      continue;
+    }
+
+    const candidate = metric as Partial<PortfolioHeroMetric>;
+    if (typeof candidate.id !== "string") {
+      continue;
+    }
+
+    metricsById.set(candidate.id, candidate);
+  }
+
+  return PORTFOLIO_HERO_METRICS.map((defaultMetric) => {
+    const metric = metricsById.get(defaultMetric.id);
+
+    return {
+      ...defaultMetric,
+      label: typeof metric?.label === "string" ? metric.label : defaultMetric.label,
+      value: isFiniteNumber(metric?.value) ? metric.value : null,
+      unit: typeof metric?.unit === "string" ? metric.unit : defaultMetric.unit,
+      decimals: isFiniteNumber(metric?.decimals) ? metric.decimals : defaultMetric.decimals,
+      tone: isPortfolioMetricTone(metric?.tone) ? metric.tone : defaultMetric.tone,
+    };
+  });
+}
 
 function normalizePortfolioPageData(value: unknown): PortfolioPageData {
   const candidate = typeof value === "object" && value !== null ? (value as Partial<PortfolioPageData>) : {};
@@ -43,9 +81,7 @@ function normalizePortfolioPageData(value: unknown): PortfolioPageData {
     hero: {
       updatedAtLabel:
         typeof hero.updatedAtLabel === "string" ? hero.updatedAtLabel : defaultPortfolioPageData.hero.updatedAtLabel,
-      title: typeof hero.title === "string" ? hero.title : defaultPortfolioPageData.hero.title,
-      description: typeof hero.description === "string" ? hero.description : defaultPortfolioPageData.hero.description,
-      metrics: Array.isArray(hero.metrics) ? hero.metrics : defaultPortfolioPageData.hero.metrics,
+      metrics: normalizeHeroMetrics(hero.metrics),
     },
     holdings: Array.isArray(candidate.holdings) ? candidate.holdings : defaultPortfolioPageData.holdings,
     todayTrades: Array.isArray(candidate.todayTrades) ? candidate.todayTrades : defaultPortfolioPageData.todayTrades,
