@@ -67,7 +67,7 @@ function getResolvedBaseUrl() {
   return process.env.NEXT_PUBLIC_MOCK_BASE_URL?.trim() ?? "/api";
 }
 
-function resolveApiUrl(url: string, useBaseUrl = true) {
+export function resolveApiUrl(url: string, useBaseUrl = true) {
   if (!useBaseUrl || isAbsoluteUrl(url)) {
     return url;
   }

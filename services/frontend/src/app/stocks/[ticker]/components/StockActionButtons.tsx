@@ -3,6 +3,7 @@
 import { HiOutlineBell } from "react-icons/hi";
 import { IoMdNotifications } from "react-icons/io";
 import { IoHeart, IoHeartOutline } from "react-icons/io5";
+import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import { useWatchlist } from "@/shared/hooks/useWatchlist";
 import { useWatchlistNotification } from "@/shared/hooks/useWatchlistNotification";
 import { cn } from "@/shared/utils/cn";
@@ -17,6 +18,7 @@ function ActionButtonSkeleton() {
 }
 
 function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stockName: string }) {
+  const requireAuthAction = useRequireAuthAction();
   const { isWatched, isPending: isWatchlistPending, toggle: toggleWatchlist } = useWatchlist(stockId);
   const {
     isWatched: isWatchlistReady,
@@ -26,6 +28,10 @@ function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stoc
   } = useWatchlistNotification(stockId);
 
   const handleWatchlistClick = async () => {
+    if (!requireAuthAction()) {
+      return;
+    }
+
     try {
       await toggleWatchlist();
     } catch (error) {
@@ -35,6 +41,10 @@ function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stoc
   };
 
   const handleNotificationClick = async () => {
+    if (!requireAuthAction()) {
+      return;
+    }
+
     if (!isWatchlistReady) {
       window.alert("관심종목에 추가한 뒤 알림을 설정할 수 있습니다.");
       return;

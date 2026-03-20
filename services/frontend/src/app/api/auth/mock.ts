@@ -88,7 +88,7 @@ function getSecureCookieOptions() {
 }
 
 function encodeMockUser(user: MockAuthUserCookie) {
-  return encodeURIComponent(JSON.stringify(user));
+  return JSON.stringify(user);
 }
 
 function decodeMockUser(value: string | undefined) {
@@ -96,11 +96,27 @@ function decodeMockUser(value: string | undefined) {
     return null;
   }
 
-  try {
-    return JSON.parse(decodeURIComponent(value)) as MockAuthUserCookie;
-  } catch {
-    return null;
+  let candidate = value;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return JSON.parse(candidate) as MockAuthUserCookie;
+    } catch {
+      try {
+        const decoded = decodeURIComponent(candidate);
+
+        if (decoded === candidate) {
+          break;
+        }
+
+        candidate = decoded;
+      } catch {
+        break;
+      }
+    }
   }
+
+  return null;
 }
 
 export function readMockAuthUser(request: NextRequest) {

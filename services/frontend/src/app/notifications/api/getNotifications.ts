@@ -1,4 +1,4 @@
-﻿import { apiFetch } from "@/shared/lib/apiClient";
+import { authApiFetch } from "@/shared/lib/authApiClient";
 
 export type NotificationItem = {
   id: number;
@@ -33,10 +33,7 @@ export async function getNotifications(cursor?: number | null, size = 6): Promis
     search.set("cursor", String(cursor));
   }
 
-  const payload = await apiFetch<ApiResponse<CursorPage<NotificationItem>>>(`/api/notifications?${search.toString()}`, {
-    headers: {
-      "X-User-Id": "1",
-    },
+  const payload = await authApiFetch<ApiResponse<CursorPage<NotificationItem>>>(`/api/notifications?${search.toString()}`, {
     cache: "no-store",
   });
 
