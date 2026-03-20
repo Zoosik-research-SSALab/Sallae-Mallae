@@ -10,8 +10,8 @@ export type StockItem = {
   price: number;
   fluctuationRate: number;
   isWatchlisted: boolean;
-  tradingValue: number;
-  tradingVolume: number;
+  tradingValue: number | null;
+  tradingVolume: number | null;
   dividendYield: number | null;
 };
 

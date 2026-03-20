@@ -266,24 +266,28 @@ function getLiveWave(stockId: number) {
 function applyLiveSnapshot(stock: MockStockItem): MockStockItem {
   const wave = getLiveWave(stock.id);
   const nextRate = Number((stock.fluctuationRate + wave).toFixed(2));
+  const tradingValue = stock.tradingValue ?? 0;
+  const tradingVolume = stock.tradingVolume ?? 0;
 
   return {
     ...stock,
     price: Math.max(1000, Math.round(stock.price * (1 + wave / 120))),
     fluctuationRate: nextRate,
-    tradingValue: Math.max(10_000_000_000, Math.round(stock.tradingValue * (1 + wave / 55))),
-    tradingVolume: Math.max(50_000, Math.round(stock.tradingVolume * (1 + Math.abs(wave) / 35))),
+    tradingValue: Math.max(10_000_000_000, Math.round(tradingValue * (1 + wave / 55))),
+    tradingVolume: Math.max(50_000, Math.round(tradingVolume * (1 + Math.abs(wave) / 35))),
   };
 }
 
 function sortByApi(stocks: MockStockItem[], sort: StocksApiSort) {
   if (sort === "TRADING_VALUE") {
-    return [...stocks].sort((left, right) => right.tradingValue - left.tradingValue || right.marketCap - left.marketCap);
+    return [...stocks].sort(
+      (left, right) => (right.tradingValue ?? 0) - (left.tradingValue ?? 0) || right.marketCap - left.marketCap,
+    );
   }
 
   if (sort === "TRADING_VOLUME") {
     return [...stocks].sort(
-      (left, right) => right.tradingVolume - left.tradingVolume || right.tradingValue - left.tradingValue,
+      (left, right) => (right.tradingVolume ?? 0) - (left.tradingVolume ?? 0) || (right.tradingValue ?? 0) - (left.tradingValue ?? 0),
     );
   }
 
@@ -294,7 +298,7 @@ function sortByApi(stocks: MockStockItem[], sort: StocksApiSort) {
   }
 
   return [...stocks].sort(
-    (left, right) => right.fluctuationRate - left.fluctuationRate || right.tradingValue - left.tradingValue,
+    (left, right) => right.fluctuationRate - left.fluctuationRate || (right.tradingValue ?? 0) - (left.tradingValue ?? 0),
   );
 }
 
