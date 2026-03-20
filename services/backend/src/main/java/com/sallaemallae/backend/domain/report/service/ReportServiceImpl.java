@@ -272,23 +272,8 @@ public class ReportServiceImpl implements ReportService {
   }
 
   private Holding toHolding(AiPortfolioHolding holding, List<AiTradingHistory> trades, Integer latestPrice) {
-    AiTradingHistory latestBuyTrade = trades.stream()
-        .filter(trade -> trade.getTradeType() != null && "BUY".equals(trade.getTradeType().name()))
-        .findFirst()
-        .orElse(null);
-
     Integer buyPrice = holding.getAvgBuyPrice();
-    if (buyPrice == null && latestBuyTrade != null) {
-      buyPrice = latestBuyTrade.getTradePrice() != null
-          ? latestBuyTrade.getTradePrice()
-          : roundFloatToInteger(latestBuyTrade.getTradePriceRate());
-    }
-
     OffsetDateTime buyDate = holding.getBuyDate();
-    if (buyDate == null && latestBuyTrade != null) {
-      buyDate = latestBuyTrade.getTradeTime();
-    }
-
     Integer currentPrice = holding.getCurrentPrice() != null ? holding.getCurrentPrice() : latestPrice;
     Integer holdingDays = null;
     if (buyDate != null) {
@@ -305,10 +290,6 @@ public class ReportServiceImpl implements ReportService {
         holding.getReturnRate(),
         holdingDays
     );
-  }
-
-  private Integer roundFloatToInteger(Float value) {
-    return value == null ? null : Math.round(value);
   }
 
   private float calculateWinRatePercent(List<AiTradingHistory> trades) {
