@@ -1,20 +1,24 @@
 "use client";
 
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { LuSearch, LuSlidersHorizontal } from "react-icons/lu";
+import Button from "@/shared/ui/Button";
+import Pagination from "@/shared/ui/Pagination";
 import NewsArticleCard from "./NewsArticleCard";
 import NewsFilterModal from "./NewsFilterModal";
 import NewsKeywordSidebar from "./NewsKeywordSidebar";
 import { useNewsQuery } from "../hooks/useNewsQuery";
-import type { NewsPeriodOption, NewsSortOption, NewsTab } from "../types/news";
-import { buildRankedNewsKeywords, filterNewsByPeriod, filterNewsByTab, sortNewsItems } from "../utils/newsFormatters";
+import { useNewsTrendingQuery } from "../hooks/useNewsTrendingQuery";
+import type { NewsPeriodFilter, NewsSortOption, NewsTab } from "../types/news";
 import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/newsConstants";
-import Button from "@/shared/ui/Button";
-import Pagination from "@/shared/ui/Pagination";
+import { buildRankedNewsKeywords, filterNewsByPeriod, filterNewsByTab, sortNewsItems } from "../utils/newsFormatters";
+
+const NEWS_PAGES_PER_BATCH = 4;
+const NEWS_BATCH_LIMIT = NEWS_PAGE_SIZE * NEWS_PAGES_PER_BATCH;
 
 const tabs: Array<{ value: NewsTab; label: string }> = [
-  { value: "LATEST", label: "최신뉴스" },
-  { value: "WATCHLIST", label: "관심주식" },
+  { value: "LATEST", label: "최신 뉴스" },
+  { value: "WATCHLIST", label: "관심주 뉴스" },
 ];
 
 function NewsLoadingState() {
@@ -43,27 +47,39 @@ export default function NewsPageClient() {
   const deferredKeyword = useDeferredValue(searchInput.trim());
   const [activeTab, setActiveTab] = useState<NewsTab>("LATEST");
   const [sortOption, setSortOption] = useState<NewsSortOption>("LATEST");
-  const [periodOption, setPeriodOption] = useState<NewsPeriodOption>("MONTH");
+  const [periodOption, setPeriodOption] = useState<NewsPeriodFilter>(null);
   const [draftSortOption, setDraftSortOption] = useState<NewsSortOption>("LATEST");
-  const [draftPeriodOption, setDraftPeriodOption] = useState<NewsPeriodOption>("MONTH");
+  const [draftPeriodOption, setDraftPeriodOption] = useState<NewsPeriodFilter>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+  const requestedPageEnd = currentPage + NEWS_PAGES_PER_BATCH - 1;
+  const requestedBatchCount = Math.max(1, Math.ceil(requestedPageEnd / NEWS_PAGES_PER_BATCH));
+  const requestedLimit = requestedBatchCount * NEWS_BATCH_LIMIT;
+  const needsWideClientFiltering =
+    activeTab !== "LATEST" ||
+    periodOption !== null ||
+    sortOption !== "LATEST";
+  const effectiveLimit = needsWideClientFiltering
+    ? Math.max(NEWS_FETCH_LIMIT, requestedLimit)
+    : requestedLimit;
+
   const { data, isLoading, error, refetch, isFetching } = useNewsQuery({
     offset: 0,
-    // TODO: switch to server-side pagination once the production news API supports filtered paging.
-    limit: NEWS_FETCH_LIMIT,
+    limit: effectiveLimit,
     keyword: deferredKeyword,
   });
+  const trendingKeywordsQuery = useNewsTrendingQuery();
 
-  const queriedNews = data?.news ?? [];
-  const tabFilteredNews = filterNewsByTab(queriedNews, activeTab);
-  const periodFilteredNews = filterNewsByPeriod(tabFilteredNews, periodOption);
-  const sortedNews = sortNewsItems(periodFilteredNews, sortOption, deferredKeyword);
-  const totalPages = Math.max(1, Math.ceil(sortedNews.length / NEWS_PAGE_SIZE));
+  const queriedNews = useMemo(() => data?.news ?? [], [data]);
+  const tabFilteredNews = useMemo(() => filterNewsByTab(queriedNews, activeTab), [queriedNews, activeTab]);
+  const periodFilteredNews = useMemo(() => filterNewsByPeriod(tabFilteredNews, periodOption), [tabFilteredNews, periodOption]);
+  const sortedNews = useMemo(() => sortNewsItems(periodFilteredNews, sortOption, deferredKeyword), [periodFilteredNews, sortOption, deferredKeyword]);
+  const rankedKeywords = trendingKeywordsQuery.data?.trending ?? buildRankedNewsKeywords(queriedNews);
+  const totalKnownPages = Math.ceil(sortedNews.length / NEWS_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.min(totalKnownPages, requestedPageEnd));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pagedNews = sortedNews.slice((safeCurrentPage - 1) * NEWS_PAGE_SIZE, safeCurrentPage * NEWS_PAGE_SIZE);
-  const rankedKeywords = buildRankedNewsKeywords(queriedNews);
 
   const openFilterModal = () => {
     setDraftSortOption(sortOption);
@@ -98,7 +114,7 @@ export default function NewsPageClient() {
                 </div>
                 <div>
                   <p className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)] md:text-base md:leading-6">
-                    언급된 종목과 시장의 흐름을 빠르게 파악하세요
+                    궁금한 종목과 시장의 흐름을 빠르게 파악하세요.
                   </p>
                 </div>
               </div>
@@ -191,7 +207,13 @@ export default function NewsPageClient() {
                   </div>
 
                   <div className="py-3 md:py-12">
-                    <Pagination currentPage={safeCurrentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+                    <Pagination
+                      currentPage={safeCurrentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                      maxVisiblePages={4}
+                      windowMode="forward"
+                    />
                   </div>
                 </>
               ) : null}

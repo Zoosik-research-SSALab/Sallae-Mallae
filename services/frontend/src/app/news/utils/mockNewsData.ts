@@ -132,7 +132,10 @@ export function getMockNewsResponse(params: NewsQueryParams): NewsPayload {
       const haystack = [item.title, item.publisher, ...item.relatedStocks].join(" ").toLowerCase();
       return haystack.includes(normalizedKeyword);
     })
-    .sort((left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime());
+    .sort(
+      (left, right) =>
+        new Date(right.publishedAt ?? 0).getTime() - new Date(left.publishedAt ?? 0).getTime(),
+    );
 
   return {
     news: filteredNews
@@ -152,4 +155,24 @@ export function getMockNewsSearchResponse(keyword: string, limit: number): NewsS
   }).slice(0, limit);
 
   return { keywords: matchedKeywords };
+}
+
+export function getMockNewsTrendingResponse() {
+  const keywordCountMap = new Map<string, number>();
+
+  getMockNewsSeeds().forEach((item) => {
+    item.relatedStocks.forEach((stock) => {
+      keywordCountMap.set(stock, (keywordCountMap.get(stock) ?? 0) + 1);
+    });
+  });
+
+  return {
+    trending: [...keywordCountMap.entries()]
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "ko"))
+      .slice(0, 6)
+      .map(([keyword], index) => ({
+        rank: index + 1,
+        keyword,
+      })),
+  };
 }

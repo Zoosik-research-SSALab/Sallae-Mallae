@@ -4,13 +4,13 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { LuX } from "react-icons/lu";
 import Button from "@/shared/ui/Button";
-import type { NewsPeriodOption, NewsSortOption } from "../types/news";
+import type { NewsPeriodFilter, NewsPeriodOption, NewsSortOption } from "../types/news";
 
 type Props = {
   draftSort: NewsSortOption;
-  draftPeriod: NewsPeriodOption;
+  draftPeriod: NewsPeriodFilter;
   onSortChange: (value: NewsSortOption) => void;
-  onPeriodChange: (value: NewsPeriodOption) => void;
+  onPeriodChange: (value: NewsPeriodFilter) => void;
   onApply: () => void;
   onClose: () => void;
 };
@@ -77,9 +77,7 @@ function FilterPanel({
                   onClick={() => onSortChange(option.value)}
                   className="inline-flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]"
                 >
-                  <span className="text-base font-medium leading-6 text-[color:var(--color-text-secondary)]">
-                    {option.label}
-                  </span>
+                  <span className="text-base font-medium leading-6 text-[color:var(--color-text-secondary)]">{option.label}</span>
                   <RadioIndicator active={isActive} />
                 </button>
               );
@@ -88,7 +86,11 @@ function FilterPanel({
         </div>
 
         <div className="flex w-full flex-col gap-3">
-          <h3 className="text-base font-semibold leading-6 text-[color:var(--color-text-primary)]">기간</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold leading-6 text-[color:var(--color-text-primary)]">기간</h3>
+            <span className="text-xs font-medium leading-4 text-[color:var(--color-text-tertiary)]">선택 안 함 가능</span>
+          </div>
+
           <div className="inline-flex w-full items-start justify-center gap-3">
             {periodOptions.map((option) => {
               const isActive = draftPeriod === option.value;
@@ -97,7 +99,7 @@ function FilterPanel({
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => onPeriodChange(option.value)}
+                  onClick={() => onPeriodChange(isActive ? null : option.value)}
                   className={`inline-flex flex-1 items-center justify-center rounded-xl px-3 py-2 text-sm font-medium leading-5 outline outline-1 outline-offset-[-1px] transition-colors ${
                     isActive
                       ? "bg-[color:var(--color-bg-inverse-bolder)] text-[color:var(--color-text-base)] outline-[color:var(--color-border-base)]"
@@ -174,10 +176,7 @@ export default function NewsFilterModal(props: Props) {
               className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 px-3 py-6 lg:hidden"
               onClick={onClose}
             >
-              <div
-                className="w-full max-w-96 animate-[stock-detail-sheet-up_220ms_ease-out]"
-                onClick={(event) => event.stopPropagation()}
-              >
+              <div className="w-full max-w-96 animate-[stock-detail-sheet-up_220ms_ease-out]" onClick={(event) => event.stopPropagation()}>
                 <FilterPanel {...props} />
               </div>
             </div>,
