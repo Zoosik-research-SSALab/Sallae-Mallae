@@ -54,7 +54,14 @@ async def fetch_html(
                     url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=15),
                 ) as resp:
                     if resp.status == 200:
-                        return await resp.text()
+                        # 네이버 금융은 euc-kr 인코딩 — resp.text() 자동 감지가 실패할 수 있음
+                        raw = await resp.read()
+                        for encoding in ("euc-kr", "utf-8", "cp949"):
+                            try:
+                                return raw.decode(encoding)
+                            except (UnicodeDecodeError, LookupError):
+                                continue
+                        return raw.decode("utf-8", errors="replace")
                     elif resp.status == 429:
                         wait = (2 ** attempt) + 1
                         await asyncio.sleep(wait)
