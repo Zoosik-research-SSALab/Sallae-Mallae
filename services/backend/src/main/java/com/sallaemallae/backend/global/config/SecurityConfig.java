@@ -78,6 +78,9 @@ public class SecurityConfig {
             .requestMatchers("/api/auth/logout/all").authenticated()
             .requestMatchers("/api/auth/sessions/**").authenticated()
 
+            // News - 뉴스 조회 (인증 불필요)
+            .requestMatchers("/api/news/**").permitAll()
+
             // Main - 메인 페이지 (인증 불필요)
             .requestMatchers("/api/main/**").permitAll()
             .requestMatchers("/api/signals").permitAll()
