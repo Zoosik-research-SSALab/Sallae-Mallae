@@ -67,10 +67,18 @@ def is_trading_day(date: datetime.date | None = None) -> bool:
     # pykrx로 실제 거래일 검증 (설치된 경우)
     try:
         from pykrx import stock
-        date_str = date.strftime("%Y%m%d")
-        df = stock.get_index_ohlcv(date_str, date_str, "1001")
-        if df is None or df.empty:
-            return False
+        import logging as _logging
+        # pykrx 내부 로깅 버그 우회: 로그 레벨을 임시로 올림
+        _pykrx_logger = _logging.getLogger("pykrx")
+        _prev_level = _pykrx_logger.level
+        _pykrx_logger.setLevel(_logging.WARNING)
+        try:
+            date_str = date.strftime("%Y%m%d")
+            df = stock.get_index_ohlcv(date_str, date_str, "1001")
+            if df is None or df.empty:
+                return False
+        finally:
+            _pykrx_logger.setLevel(_prev_level)
     except ImportError:
         pass
     except Exception:
