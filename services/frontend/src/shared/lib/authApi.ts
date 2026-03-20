@@ -1,4 +1,5 @@
 import { extractAuthTokens, extractMeResponse, isTermsAgreementRequiredResponse } from "@/shared/lib/auth";
+import { authApiFetch } from "@/shared/lib/authApiClient";
 import { getOrCreateAuthDeviceId } from "@/shared/lib/authDevice";
 import { apiFetch } from "@/shared/lib/apiClient";
 import type {
@@ -115,6 +116,7 @@ export async function refreshAccessToken() {
     method: "POST",
     useBaseUrl: false,
     credentials: "include",
+    headers: createDeviceIdHeader(),
   });
 
   const unwrapped = unwrapAuthApiResponse(payload, "Refresh response is invalid.");
@@ -128,11 +130,10 @@ export async function refreshAccessToken() {
 }
 
 export async function getMe(accessToken?: string) {
-  const payload = await apiFetch<MeResponse | AuthApiEnvelope<MeResponse>>("/api/auth/me", {
+  const payload = await authApiFetch<MeResponse | AuthApiEnvelope<MeResponse>>("/api/auth/me", {
     method: "GET",
     useBaseUrl: false,
     credentials: "include",
-    withAuth: true,
     headers: accessToken
       ? {
           Authorization: `Bearer ${accessToken}`,
@@ -151,11 +152,40 @@ export async function getMe(accessToken?: string) {
 }
 
 export async function logoutFromApp() {
-  return apiFetch<void>("/api/auth/logout", {
+  return authApiFetch<void>("/api/auth/logout", {
     method: "POST",
     useBaseUrl: false,
     credentials: "include",
-    withAuth: true,
+    headers: createDeviceIdHeader(),
+  });
+}
+
+export async function logoutFromAllDevices() {
+  return authApiFetch<void>("/api/auth/logout/all", {
+    method: "POST",
+    useBaseUrl: false,
+    credentials: "include",
+    headers: createDeviceIdHeader(),
+  });
+}
+
+export async function getAuthSessions() {
+  const payload = await authApiFetch<unknown | AuthApiEnvelope<unknown>>("/api/auth/sessions", {
+    method: "GET",
+    useBaseUrl: false,
+    credentials: "include",
+    headers: createDeviceIdHeader(),
+  });
+
+  return unwrapAuthApiResponse(payload, "Sessions response is invalid.");
+}
+
+export async function revokeAuthSession(targetDeviceId: string) {
+  return authApiFetch<void>(`/api/auth/sessions/${encodeURIComponent(targetDeviceId)}`, {
+    method: "DELETE",
+    useBaseUrl: false,
+    credentials: "include",
+    headers: createDeviceIdHeader(),
   });
 }
 

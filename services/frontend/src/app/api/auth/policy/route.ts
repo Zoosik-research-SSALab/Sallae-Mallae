@@ -8,11 +8,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function extractSocialPolicyRequest(value: unknown): SocialPolicyRequest | null {
+  const tempToken =
+    isRecord(value) && typeof value.tempToken === "string"
+      ? value.tempToken
+      : isRecord(value) && typeof value.temp_token === "string"
+        ? value.temp_token
+        : null;
+  const nickname = isRecord(value) && typeof value.nickname === "string" ? value.nickname : null;
+  const emailOptIn =
+    isRecord(value) && typeof value.emailOptIn === "boolean"
+      ? value.emailOptIn
+      : isRecord(value) && typeof value.email_opt_in === "boolean"
+        ? value.email_opt_in
+        : null;
+
   if (
     !isRecord(value) ||
-    typeof value.tempToken !== "string" ||
-    typeof value.nickname !== "string" ||
-    typeof value.emailOptIn !== "boolean" ||
+    tempToken === null ||
+    nickname === null ||
+    emailOptIn === null ||
     !Array.isArray(value.agreements)
   ) {
     return null;
@@ -20,12 +34,19 @@ function extractSocialPolicyRequest(value: unknown): SocialPolicyRequest | null 
 
   const agreements = value.agreements
     .map((item) => {
-      if (!isRecord(item) || typeof item.termsId !== "number" || typeof item.agreed !== "boolean") {
+      const termsId =
+        isRecord(item) && typeof item.termsId === "number"
+          ? item.termsId
+          : isRecord(item) && typeof item.terms_id === "number"
+            ? item.terms_id
+            : null;
+
+      if (!isRecord(item) || termsId === null || typeof item.agreed !== "boolean") {
         return null;
       }
 
       return {
-        termsId: item.termsId,
+        termsId,
         agreed: item.agreed,
       };
     })
@@ -36,9 +57,9 @@ function extractSocialPolicyRequest(value: unknown): SocialPolicyRequest | null 
   }
 
   return {
-    tempToken: value.tempToken.trim(),
-    nickname: value.nickname.trim(),
-    emailOptIn: value.emailOptIn,
+    tempToken: tempToken.trim(),
+    nickname: nickname.trim(),
+    emailOptIn,
     agreements,
   };
 }

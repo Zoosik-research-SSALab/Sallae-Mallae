@@ -67,8 +67,6 @@ export function getMockPortfolioPage(): PortfolioPageData {
   return {
     hero: {
       updatedAtLabel: "오늘 09:00 업데이트 완료",
-      title: "의장 모의투자 포트폴리오",
-      description: "KOSPI 200 전 종목을 대상으로 매일 위원회 합의를 거쳐 운용되는 공식 모델 포트폴리오입니다",
       metrics: [
         { id: "cumulative-return", label: "누적 수익률", value: 42.5, unit: "%", decimals: 1, tone: "danger" },
         { id: "hit-rate", label: "예측 적중률", value: 85.2, unit: "%", decimals: 1, tone: "default" },
@@ -135,7 +133,7 @@ export function getMockPortfolioPage(): PortfolioPageData {
           { rank: 1, name: "에코프로", value: 185.2, suffix: "%" },
           { rank: 2, name: "포스코퓨처엠", value: 112.5, suffix: "%" },
           { rank: 3, name: "한미반도체", value: 95.4, suffix: "%" },
-          { rank: 4, name: "알테오젠", value: 88.1, suffix: "%" },
+          { rank: 4, name: "현대로템", value: 88.1, suffix: "%" },
           { rank: 5, name: "레인보우로보틱스", value: 75.2, suffix: "%" },
         ],
       },

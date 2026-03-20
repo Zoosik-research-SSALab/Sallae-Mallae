@@ -2,8 +2,8 @@ import { cn } from "@/shared/utils/cn";
 import { STOCK_SECTOR_OPTIONS, getStockSectorOptionLabel } from "../utils/stocksFilters";
 
 type Props = {
-  selectedSector: string;
-  onSelectSector: (value: string) => void;
+  selectedSectors: string[];
+  onToggleSector: (value: string) => void;
 };
 
 function SectorChip({
@@ -31,7 +31,7 @@ function SectorChip({
   );
 }
 
-export default function StocksSidebar({ selectedSector, onSelectSector }: Props) {
+export default function StocksSidebar({ selectedSectors, onToggleSector }: Props) {
   return (
     <aside className="hidden w-56 shrink-0 lg:flex lg:flex-col lg:gap-10">
       <div className="flex flex-col gap-10">
@@ -52,8 +52,8 @@ export default function StocksSidebar({ selectedSector, onSelectSector }: Props)
                 <SectorChip
                   key={sector}
                   label={getStockSectorOptionLabel(sector)}
-                  selected={sector === selectedSector}
-                  onClick={() => onSelectSector(sector)}
+                  selected={selectedSectors.includes(sector)}
+                  onClick={() => onToggleSector(sector)}
                 />
               ))}
             </div>

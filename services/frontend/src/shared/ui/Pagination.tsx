@@ -17,7 +17,14 @@ function getPaginationPages(currentPage: number, totalPages: number) {
   }
 
   if (currentPage >= totalPages - 3) {
-    return [1, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    return [
+      1,
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
   }
 
   return [1, currentPage - 1, currentPage, currentPage + 1, totalPages];
@@ -41,7 +48,9 @@ function ArrowButton({ direction, disabled, onClick }: ArrowButtonProps) {
       className={cn(
         "inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--color-bg-secondary)] outline outline-1 outline-offset-[-1px] transition-colors",
         "outline-[color:var(--color-border-primary)]",
-        disabled ? "cursor-not-allowed" : "hover:bg-[color:var(--color-bg-interactive-secondary-hovered)]",
+        disabled
+          ? "cursor-not-allowed"
+          : "hover:bg-[color:var(--color-bg-interactive-secondary-hovered)]",
       )}
     >
       <svg
@@ -50,11 +59,17 @@ function ArrowButton({ direction, disabled, onClick }: ArrowButtonProps) {
         aria-hidden="true"
         className={cn(
           "h-5 w-5",
-          disabled ? "text-[color:var(--color-border-disabled)]" : "text-[color:var(--color-text-secondary)]",
+          disabled
+            ? "text-[color:var(--color-border-disabled)]"
+            : "text-[color:var(--color-text-secondary)]",
         )}
       >
         <path
-          d={isPrevious ? "M11.75 5.5 7.25 10l4.5 4.5" : "M8.25 5.5 12.75 10l-4.5 4.5"}
+          d={
+            isPrevious
+              ? "M11.75 5.5 7.25 10l4.5 4.5"
+              : "M8.25 5.5 12.75 10l-4.5 4.5"
+          }
           stroke="currentColor"
           strokeWidth="1.67"
           strokeLinecap="round"
@@ -65,7 +80,12 @@ function ArrowButton({ direction, disabled, onClick }: ArrowButtonProps) {
   );
 }
 
-export default function Pagination({ currentPage, totalPages, onPageChange, className }: Props) {
+export default function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  className,
+}: Props) {
   if (totalPages <= 1) {
     return null;
   }
@@ -73,8 +93,15 @@ export default function Pagination({ currentPage, totalPages, onPageChange, clas
   const pages = getPaginationPages(currentPage, totalPages);
 
   return (
-    <nav aria-label="페이지네이션" className={cn("flex w-full items-center justify-center gap-2 py-2", className)}>
-      <ArrowButton direction="previous" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} />
+    <nav
+      aria-label="페이지네이션"
+      className={cn("flex w-full items-center justify-center gap-2", className)}
+    >
+      <ArrowButton
+        direction="previous"
+        disabled={currentPage === 1}
+        onClick={() => onPageChange(currentPage - 1)}
+      />
 
       {pages.map((page, index) => {
         const previousPage = pages[index - 1];
@@ -105,7 +132,11 @@ export default function Pagination({ currentPage, totalPages, onPageChange, clas
         );
       })}
 
-      <ArrowButton direction="next" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} />
+      <ArrowButton
+        direction="next"
+        disabled={currentPage === totalPages}
+        onClick={() => onPageChange(currentPage + 1)}
+      />
     </nav>
   );
 }

@@ -1,29 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import StocksDesktopTable from "./components/StocksDesktopTable";
 import StocksMobileList from "./components/StocksMobileList";
 import StocksSidebar from "./components/StocksSidebar";
 import { useStocksInfiniteQuery } from "./hooks/useStocksInfiniteQuery";
 import type { StockRankingMetric } from "./types/stocks";
-import { sortStocksByMetric } from "./utils/stockMetrics";
 import { ALL_SECTOR, getApiSortForRankingMetric } from "./utils/stocksFilters";
 import Badge from "@/shared/ui/Badge";
 
 export default function StocksPageClient() {
-  const [selectedSector, setSelectedSector] = useState(ALL_SECTOR);
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([ALL_SECTOR]);
   const [activeMetric, setActiveMetric] = useState<StockRankingMetric>("TURNOVER");
 
   const { items, isLoading, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, pageSize, errorMessage } =
     useStocksInfiniteQuery({
-      signal: "ALL",
-      sector: selectedSector,
-      marketCap: "ALL",
+      sectors: selectedSectors,
       sort: getApiSortForRankingMetric(activeMetric),
-      keyword: "",
     });
 
-  const sortedItems = useMemo(() => sortStocksByMetric(items, activeMetric), [items, activeMetric]);
+  const handleToggleSector = (value: string) => {
+    setSelectedSectors((current) => {
+      if (value === ALL_SECTOR) {
+        return [ALL_SECTOR];
+      }
+
+      const withoutAll = current.filter((sector) => sector !== ALL_SECTOR);
+
+      if (withoutAll.includes(value)) {
+        const nextSectors = withoutAll.filter((sector) => sector !== value);
+        return nextSectors.length > 0 ? nextSectors : [ALL_SECTOR];
+      }
+
+      return [...withoutAll, value];
+    });
+  };
 
   const handleLoadMore = () => {
     if (!hasNextPage || isFetchingNextPage) {
@@ -37,7 +48,7 @@ export default function StocksPageClient() {
     <main className="flex w-full justify-center bg-[color:var(--color-bg-primary)]">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col items-center justify-center gap-10 px-6 py-10 lg:flex-row lg:items-start">
         <div className="mx-auto flex w-full max-w-[1024px] flex-col gap-8 lg:flex-row lg:items-start lg:gap-12">
-          <StocksSidebar selectedSector={selectedSector} onSelectSector={setSelectedSector} />
+          <StocksSidebar selectedSectors={selectedSectors} onToggleSector={handleToggleSector} />
 
           <section className="flex min-w-0 flex-1 flex-col gap-6 lg:max-w-[756px]">
             <div className="flex flex-col gap-1 lg:hidden">
@@ -48,7 +59,7 @@ export default function StocksPageClient() {
             {errorMessage ? <Badge tone="danger">{errorMessage}</Badge> : null}
 
             <StocksMobileList
-              items={sortedItems}
+              items={items}
               activeMetric={activeMetric}
               onMetricChange={setActiveMetric}
               onLoadMore={handleLoadMore}
@@ -59,7 +70,7 @@ export default function StocksPageClient() {
             />
 
             <StocksDesktopTable
-              items={sortedItems}
+              items={items}
               activeMetric={activeMetric}
               onMetricChange={setActiveMetric}
               onLoadMore={handleLoadMore}

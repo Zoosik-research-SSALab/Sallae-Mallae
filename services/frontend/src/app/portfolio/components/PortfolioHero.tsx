@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { PortfolioHero as PortfolioHeroType } from "../types/portfolio";
+import { PORTFOLIO_HERO_DESCRIPTION, PORTFOLIO_HERO_TITLE } from "../utils/portfolioStaticContent";
 import { cn } from "@/shared/utils/cn";
 import { formatInteger, formatSignedValue } from "../utils/portfolioFormatters";
 
@@ -7,8 +8,18 @@ type Props = {
   hero: PortfolioHeroType;
 };
 
+function formatPortfolioMetricValue(metric: PortfolioHeroType["metrics"][number]) {
+  if (typeof metric.value !== "number" || !Number.isFinite(metric.value)) {
+    return `?${metric.unit}`;
+  }
+
+  return metric.decimals === 0
+    ? `${formatInteger(metric.value)}${metric.unit}`
+    : formatSignedValue(metric.value, metric.decimals, metric.unit);
+}
+
 export default function PortfolioHero({ hero }: Props) {
-  const titleWords = hero.title.split(" ");
+  const titleWords = PORTFOLIO_HERO_TITLE.split(" ");
 
   return (
     <section className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-6 lg:gap-10">
@@ -25,7 +36,7 @@ export default function PortfolioHero({ hero }: Props) {
               ))}
             </h1>
             <p className="typo-body-sm max-w-[34rem] text-[color:var(--color-text-secondary)] md:max-w-[19rem] md:typo-body-md lg:max-w-[34rem]">
-              {hero.description}
+              {PORTFOLIO_HERO_DESCRIPTION}
             </p>
           </div>
 
@@ -43,10 +54,7 @@ export default function PortfolioHero({ hero }: Props) {
 
         <div className="grid grid-cols-2 gap-3 md:max-w-[480px] md:gap-4">
           {hero.metrics.map((metric) => {
-            const value =
-              metric.decimals === 0
-                ? `${formatInteger(metric.value)}${metric.unit}`
-                : formatSignedValue(metric.value, metric.decimals, metric.unit);
+            const value = formatPortfolioMetricValue(metric);
 
             return (
               <article

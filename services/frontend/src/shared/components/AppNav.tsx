@@ -1,37 +1,45 @@
-"use client";
+﻿"use client";
 
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BiBarChartAlt2 } from "react-icons/bi";
 import { GoBook, GoBriefcase, GoListUnordered, GoSearch } from "react-icons/go";
 import { HiOutlineBell } from "react-icons/hi";
 import { IoCloseOutline } from "react-icons/io5";
-import type { IconType } from "react-icons";
 import { LuNewspaper } from "react-icons/lu";
 import { MdOutlineFavorite } from "react-icons/md";
+import type { IconType } from "react-icons";
+import ProtectedLink from "@/shared/components/ProtectedLink";
+import ProfileEditModal from "@/shared/components/nav/ProfileEditModal";
+import ProfileMenu from "@/shared/components/nav/ProfileMenu";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
+import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
+import { useAuthModalStore } from "@/shared/lib/authModalStore";
 import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
+import { clearSessionUser } from "@/shared/lib/authSession";
 import { useAuthStore } from "@/shared/lib/authStore";
+import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
+import { updateUserProfile } from "@/shared/lib/userProfileApi";
 
 type NavItem = {
   href: string;
   label: string;
   icon: IconType | null;
   highlightOnMatch?: boolean;
+  requiresAuth?: boolean;
 };
 
 const navItems: NavItem[] = [
   { href: "/", label: "ABOUT", icon: GoBook, highlightOnMatch: false },
-  { href: "/portfolio", label: "포트폴리오", icon: GoBriefcase },
-  { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2 },
+  { href: "/portfolio", label: "포트폴리오", icon: GoBriefcase, requiresAuth: true },
+  { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2, requiresAuth: true },
   { href: "/stocks", label: "전체 종목", icon: GoListUnordered },
-  { href: "/scraps", label: "관심 종목", icon: MdOutlineFavorite },
+  { href: "/scraps", label: "관심 종목", icon: MdOutlineFavorite, requiresAuth: true },
   { href: "/news", label: "뉴스", icon: null },
 ];
 
@@ -39,9 +47,8 @@ const loginButtonClassName =
   "typo-body-md inline-flex cursor-pointer items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
 const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
-const LoginModal = dynamic(() => import("@/app/auth/login/components/LoginCard").then((module) => module.LoginModal), {
-  ssr: false,
-});
+const mobileMyPageButtonClassName =
+  "typo-body-md w-full cursor-pointer rounded-lg px-3 py-3 text-left font-semibold text-[color:var(--color-text-primary)] transition-colors hover:bg-[color:var(--color-bg-interactive-secondary-hovered)] active:bg-[color:var(--color-bg-interactive-secondary-pressed)]";
 
 function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean }) {
   return (
@@ -65,16 +72,25 @@ export default function AppNav() {
   const authStatus = useAuthStore((state) => state.status);
   const currentUser = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const setUser = useAuthStore((state) => state.setUser);
+  const showLoginModal = useAuthModalStore((state) => state.openLoginModal);
+  const requireAuthAction = useRequireAuthAction();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
+  const [profileMenuAnchorRect, setProfileMenuAnchorRect] = useState<DOMRect | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
+
+  const profileButtonRef = useRef<HTMLButtonElement | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
   const isAuthReady = authStatus !== "restoring";
   const isLoggedIn = Boolean(currentUser);
   const profileImageUrl = currentUser?.profileImageUrl ?? "/images/profile-placeholder.svg";
   const isLocalProfileImage = profileImageUrl.startsWith("/");
+  const displayNickname = currentUser?.nickname ?? "성공하는투자자";
 
   const { data: notificationCount } = useNotificationCountQuery(isAuthReady && isLoggedIn);
   const unreadCount = isLoggedIn && typeof notificationCount === "number" ? notificationCount : 0;
@@ -91,6 +107,10 @@ export default function AppNav() {
 
     return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
+
+  const updateProfileMenuPosition = useCallback(() => {
+    setProfileMenuAnchorRect(profileButtonRef.current?.getBoundingClientRect() ?? null);
+  }, []);
 
   useEffect(() => {
     if (!isDrawerOpen) {
@@ -127,24 +147,120 @@ export default function AppNav() {
     return () => mediaQuery.removeEventListener("change", closeDrawerOnDesktop);
   }, []);
 
+  useEffect(() => {
+    if (!isProfileMenuOpen) {
+      return;
+    }
+
+    const handleViewportChange = () => {
+      updateProfileMenuPosition();
+    };
+
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [isProfileMenuOpen, updateProfileMenuPosition]);
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (profileButtonRef.current?.contains(target) || profileMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsProfileMenuOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isProfileMenuOpen]);
+
   const goToPath = (path: string) => {
     router.push(path);
     setIsDrawerOpen(false);
+    setIsProfileMenuOpen(false);
   };
 
   const goToSearch = () => {
     const keyword = searchKeyword.trim();
+
     if (keyword) {
       router.push(`/search?keyword=${encodeURIComponent(keyword)}`);
     } else {
       router.push("/search");
     }
+
     setIsDrawerOpen(false);
+    setIsProfileMenuOpen(false);
   };
 
-  const openLoginModal = () => {
+  const handleOpenLoginModal = () => {
     setIsDrawerOpen(false);
-    setIsLoginModalOpen(true);
+    setIsProfileMenuOpen(false);
+    showLoginModal();
+  };
+
+  const handleToggleProfileMenu = () => {
+    if (isProfileMenuOpen) {
+      setIsProfileMenuOpen(false);
+      return;
+    }
+
+    updateProfileMenuPosition();
+    setIsProfileMenuOpen(true);
+  };
+
+  const handleOpenProfileEdit = () => {
+    setIsDrawerOpen(false);
+    setIsProfileMenuOpen(false);
+    setIsProfileEditModalOpen(true);
+  };
+
+  const handleSaveProfile = async (nickname: string) => {
+    try {
+      const user = await updateUserProfile({
+        nickname,
+      });
+
+      setUser(user);
+      setIsProfileEditModalOpen(false);
+    } catch (error) {
+      window.alert(getAuthErrorMessage(error, "내 정보 수정에 실패했습니다."));
+    }
+  };
+
+  const handleOpenWatchlist = () => {
+    goToPath("/scraps");
+  };
+
+  const handleChangePassword = () => {
+    setIsDrawerOpen(false);
+    setIsProfileMenuOpen(false);
+    window.alert("비밀번호 변경 기능은 준비 중입니다.");
   };
 
   const handleLogout = async () => {
@@ -157,11 +273,36 @@ export default function AppNav() {
 
     clearAuth();
     clearAuthPersistenceMode();
+    clearSessionUser();
+    clearPendingSocialSignup();
     setIsDrawerOpen(false);
+    setIsProfileMenuOpen(false);
+    setIsProfileEditModalOpen(false);
+    router.push("/");
   };
 
   const getNavItemTextClassName = (item: NavItem) => {
     return isActivePath(item) ? "!text-[color:var(--color-text-primary)]" : "!text-[color:var(--color-text-tertiary)]";
+  };
+
+  const renderProfileImage = () => {
+    if (isLocalProfileImage) {
+      return (
+        <Image
+          src={profileImageUrl}
+          alt={currentUser?.nickname ?? "프로필"}
+          width={36}
+          height={36}
+          className="h-9 w-9 rounded-full object-cover"
+        />
+      );
+    }
+
+    return (
+      // Using a native img here avoids Next/Image remote host allowlist maintenance for arbitrary profile URLs.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={profileImageUrl} alt={currentUser?.nickname ?? "프로필"} className="h-9 w-9 rounded-full object-cover" />
+    );
   };
 
   return (
@@ -170,20 +311,29 @@ export default function AppNav() {
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-4 py-3 md:px-6 md:py-4 lg:px-8 xl:px-12">
           <div className="flex items-center gap-8 xl:gap-10">
             <Link href="/" className="inline-flex w-[136px] items-center md:w-[160px] lg:w-[192px]">
-              <Image src={logoSrc} alt="살래말래위원회" width={392} height={78} priority className="h-auto w-full max-w-none" />
+              <Image src={logoSrc} alt="살래말래 위원회" width={392} height={78} priority className="h-auto w-full max-w-none" />
             </Link>
 
             <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
               {navItems.map((item) => {
                 const isActive = isActivePath(item);
+                const className = `typo-heading-sm whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`;
+
+                if (item.requiresAuth) {
+                  return (
+                    <ProtectedLink
+                      key={item.href}
+                      href={item.href}
+                      ariaCurrent={isActive ? "page" : undefined}
+                      className={className}
+                    >
+                      {item.label}
+                    </ProtectedLink>
+                  );
+                }
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`typo-heading-sm whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
-                  >
+                  <Link key={item.href} href={item.href} aria-current={isActive ? "page" : undefined} className={className}>
                     {item.label}
                   </Link>
                 );
@@ -232,24 +382,20 @@ export default function AppNav() {
                     ) : null}
                   </Link>
 
-                  <span className="inline-flex" aria-label="프로필">
-                    {isLocalProfileImage ? (
-                      <Image
-                        src={profileImageUrl}
-                        alt={currentUser?.nickname ?? "프로필"}
-                        width={36}
-                        height={36}
-                        className="h-9 w-9 rounded-full object-cover"
-                      />
-                    ) : (
-                      // Using a native img here avoids Next/Image remote host allowlist maintenance for arbitrary profile URLs.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={profileImageUrl} alt={currentUser?.nickname ?? "프로필"} className="h-9 w-9 rounded-full object-cover" />
-                    )}
-                  </span>
+                  <button
+                    ref={profileButtonRef}
+                    type="button"
+                    onClick={handleToggleProfileMenu}
+                    className="inline-flex h-9 w-9 overflow-hidden rounded-full bg-[color:var(--color-bg-tertiary)] outline-none transition-opacity hover:opacity-90"
+                    aria-label="프로필 메뉴"
+                    aria-haspopup="menu"
+                    aria-expanded={isProfileMenuOpen}
+                  >
+                    {renderProfileImage()}
+                  </button>
                 </div>
               ) : (
-                <button type="button" onClick={openLoginModal} className={loginButtonClassName}>
+                <button type="button" onClick={handleOpenLoginModal} className={loginButtonClassName}>
                   로그인
                 </button>
               )
@@ -283,7 +429,7 @@ export default function AppNav() {
           <aside className="absolute right-0 top-0 inline-flex h-full w-[min(23.5rem,calc(100vw-12px))] max-w-full flex-col items-center justify-start overflow-hidden bg-[color:var(--color-bg-primary)] sm:w-[min(24rem,calc(100vw-16px))] md:w-[min(24.5rem,calc(100vw-20px))]">
             <div className="flex w-full flex-col items-start border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-6 py-4 backdrop-blur-[6px]">
               <div className="inline-flex w-full items-center justify-between">
-                <Image src={logoSrc} alt="살래말래위원회" width={196} height={39} className="h-auto w-[136px] md:w-[160px]" />
+                <Image src={logoSrc} alt="살래말래 위원회" width={196} height={39} className="h-auto w-[136px] md:w-[160px]" />
                 <div className="h-6 flex-1 px-6" />
                 <button
                   type="button"
@@ -301,7 +447,9 @@ export default function AppNav() {
                 <div className="flex w-full max-w-[22rem] items-center rounded-lg bg-[color:var(--color-bg-tertiary)]">
                   <button
                     type="button"
-                    onClick={() => goToPath("/notifications")}
+                    onClick={() => {
+                      requireAuthAction(() => goToPath("/notifications"));
+                    }}
                     className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <HiOutlineBell className="h-5 w-5 text-[color:var(--color-border-interactive-secondary)]" />
@@ -324,6 +472,30 @@ export default function AppNav() {
                   <nav className="flex flex-col gap-4">
                     {navItems.map((item) => {
                       const isActive = isActivePath(item);
+                      const content = (
+                        <>
+                          <CategoryIcon Icon={item.icon} active={isActive} />
+                          <span
+                            className={`typo-body-lg align-middle whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
+                          >
+                            {item.label}
+                          </span>
+                        </>
+                      );
+
+                      if (item.requiresAuth) {
+                        return (
+                          <ProtectedLink
+                            key={`drawer-${item.href}`}
+                            href={item.href}
+                            onClick={() => setIsDrawerOpen(false)}
+                            ariaCurrent={isActive ? "page" : undefined}
+                            className="inline-flex w-full items-center gap-2"
+                          >
+                            {content}
+                          </ProtectedLink>
+                        );
+                      }
 
                       return (
                         <Link
@@ -333,12 +505,7 @@ export default function AppNav() {
                           aria-current={isActive ? "page" : undefined}
                           className="inline-flex w-full items-center gap-2"
                         >
-                          <CategoryIcon Icon={item.icon} active={isActive} />
-                          <span
-                            className={`typo-body-lg align-middle whitespace-nowrap transition-colors ${headerHoverTextStrongClassName} ${getNavItemTextClassName(item)}`}
-                          >
-                            {item.label}
-                          </span>
+                          {content}
                         </Link>
                       );
                     })}
@@ -354,29 +521,26 @@ export default function AppNav() {
 
                 {isAuthReady ? (
                   isLoggedIn ? (
-                    <div className="flex w-full flex-col gap-4">
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className={`typo-body-md w-full cursor-pointer whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
-                      >
-                        로그아웃
+                    <div className="flex w-full flex-col gap-2">
+                      <button type="button" onClick={handleOpenProfileEdit} className={mobileMyPageButtonClassName}>
+                        내 정보 수정
                       </button>
-                      <button
-                        type="button"
-                        className={`typo-body-md w-full cursor-pointer whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
-                      >
+                      <button type="button" onClick={handleOpenWatchlist} className={mobileMyPageButtonClassName}>
+                        관심종목
+                      </button>
+                      <button type="button" onClick={handleChangePassword} className={mobileMyPageButtonClassName}>
                         비밀번호 변경
                       </button>
                       <button
                         type="button"
-                        className={`typo-body-md w-full cursor-pointer whitespace-nowrap text-left font-semibold text-[color:var(--color-text-primary)] transition-colors ${headerHoverTextClassName}`}
+                        onClick={() => void handleLogout()}
+                        className={`${mobileMyPageButtonClassName} !font-extrabold text-[color:var(--color-text-danger)]`}
                       >
-                        회원정보 수정
+                        로그아웃
                       </button>
                     </div>
                   ) : (
-                    <button type="button" onClick={openLoginModal} className={`${loginButtonClassName} w-full justify-center`}>
+                    <button type="button" onClick={handleOpenLoginModal} className={`${loginButtonClassName} w-full justify-center`}>
                       로그인
                     </button>
                   )
@@ -389,7 +553,27 @@ export default function AppNav() {
         </div>
       ) : null}
 
-      {isLoginModalOpen ? <LoginModal open={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} /> : null}
+      {isLoggedIn && isProfileMenuOpen ? (
+        <ProfileMenu
+          anchorRect={profileMenuAnchorRect}
+          nickname={displayNickname}
+          menuRef={profileMenuRef}
+          onEditProfile={handleOpenProfileEdit}
+          onOpenWatchlist={handleOpenWatchlist}
+          onChangePassword={handleChangePassword}
+          onLogout={() => void handleLogout()}
+        />
+      ) : null}
+
+      {isLoggedIn ? (
+        <ProfileEditModal
+          open={isProfileEditModalOpen}
+          nickname={displayNickname}
+          profileImageUrl={currentUser?.profileImageUrl ?? null}
+          onClose={() => setIsProfileEditModalOpen(false)}
+          onSave={handleSaveProfile}
+        />
+      ) : null}
     </>
   );
 }

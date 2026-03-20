@@ -1,4 +1,4 @@
-import { apiFetch } from "@/shared/lib/apiClient";
+import { authApiFetch } from "@/shared/lib/authApiClient";
 import type {
   WatchlistNotificationResponse,
   WatchlistStatus,
@@ -11,14 +11,14 @@ export const watchlistQueryKeys = {
 };
 
 export function getWatchlistStatus(stockId: number) {
-  return apiFetch<WatchlistStatus>(`/api/users/watchlist/${stockId}`, {
+  return authApiFetch<WatchlistStatus>(`/api/users/watchlist/${stockId}`, {
     cache: "no-store",
     useBaseUrl: false,
   });
 }
 
 export function addWatchlist(stockId: number) {
-  return apiFetch<WatchlistToggleResponse, { stockId: number }>("/api/users/watchlist", {
+  return authApiFetch<WatchlistToggleResponse, { stockId: number }>("/api/users/watchlist", {
     method: "POST",
     body: { stockId },
     useBaseUrl: false,
@@ -26,14 +26,14 @@ export function addWatchlist(stockId: number) {
 }
 
 export function removeWatchlist(stockId: number) {
-  return apiFetch<WatchlistToggleResponse>(`/api/users/watchlist/${stockId}`, {
+  return authApiFetch<WatchlistToggleResponse>(`/api/users/watchlist/${stockId}`, {
     method: "DELETE",
     useBaseUrl: false,
   });
 }
 
 export function toggleWatchlistNotification(stockId: number) {
-  return apiFetch<WatchlistNotificationResponse>(`/api/users/watchlist/${stockId}`, {
+  return authApiFetch<WatchlistNotificationResponse>(`/api/users/watchlist/${stockId}`, {
     method: "PATCH",
     useBaseUrl: false,
   });

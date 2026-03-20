@@ -5,7 +5,7 @@ export type PortfolioBoardTab = "holdings" | "todayTrades" | "monthlyReturns";
 export type PortfolioHeroMetric = {
   id: string;
   label: string;
-  value: number;
+  value: number | null;
   unit: string;
   decimals: number;
   tone: PortfolioMetricTone;
@@ -13,8 +13,6 @@ export type PortfolioHeroMetric = {
 
 export type PortfolioHero = {
   updatedAtLabel: string;
-  title: string;
-  description: string;
   metrics: PortfolioHeroMetric[];
 };
 
