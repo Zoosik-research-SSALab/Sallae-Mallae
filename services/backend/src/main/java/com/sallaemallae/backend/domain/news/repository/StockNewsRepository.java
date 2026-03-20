@@ -14,7 +14,8 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       FROM stock_news sn
       LEFT JOIN news_keyword_map nkm ON sn.id = nkm.news_id
       LEFT JOIN keywords k ON nkm.keyword_id = k.id
-      WHERE (:keyword IS NULL OR k.name = :keyword)
+      WHERE sn.published_at IS NOT NULL
+        AND (:keyword IS NULL OR k.name = :keyword)
       ORDER BY sn.published_at DESC
       LIMIT :limit OFFSET :offset
       """, nativeQuery = true)
