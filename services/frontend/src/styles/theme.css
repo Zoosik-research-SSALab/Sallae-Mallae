@@ -160,6 +160,7 @@
   --letter-spacing-tighter: -0.4px;
   --letter-spacing-normal: 0px;
 
+
   /* semantic: typography desktop */
   --semantic-heading-sm-font-family: var(--font-family-sans);
   --semantic-heading-sm-font-weight: var(--font-weight-extrabold);
@@ -228,6 +229,9 @@
   --semantic-color-bg-danger-bold: var(--color-red-700);
   --semantic-color-bg-danger-subtle: var(--color-red-50);
   --semantic-color-bg-info-subtle: var(--color-blue-50);
+  --semantic-color-bg-info-bold: var(--color-blue-700);
+  --semantic-color-bg-warning-bold:var(--color-yellow-500);
+  --semantic-color-bg-warning-subtle:var(--color-yellow-50);
   --semantic-color-bg-disabled: var(--color-brand-secondary-200);
   --semantic-color-bg-interactive-primary: var(--color-brand-primary-600);
   --semantic-color-bg-interactive-secondary-hovered: var(--color-brand-secondary-100);
@@ -247,6 +251,8 @@
   --semantic-color-text-tertiary: var(--color-brand-secondary-400);
   --semantic-color-text-danger: var(--color-red-400);
   --semantic-color-text-danger-bold: var(--color-red-400);
+  --semantic-color-text-warning: var(--color-yellow-500);
+  --semantic-color-text-warning-bold: var(--color-yellow-800);
   --semantic-color-text-info: var(--color-brand-primary-600);
   --semantic-color-text-interactive-primary: var(--color-brand-primary-600);
   --semantic-color-text-interactive-secondary: var(--color-brand-secondary-600);
@@ -350,6 +356,9 @@
   --color-bg-danger-bold: var(--semantic-color-bg-danger-bold);
   --color-bg-danger-subtle: var(--semantic-color-bg-danger-subtle);
   --color-bg-info-subtle: var(--semantic-color-bg-info-subtle);
+  --color-bg-info-bold:var(--semantic-color-bg-info-bold);
+  --color-bg-warning-bold:var(--semantic-color-bg-warning-bold);
+  --color-bg-warning-subtle:var(--semantic-color-bg-warning-subtle);
   --color-bg-disabled: var(--semantic-color-bg-disabled);
   --color-bg-interactive-primary: var(--semantic-color-bg-interactive-primary);
   --color-bg-interactive-secondary-hovered: var(--semantic-color-bg-interactive-secondary-hovered);
@@ -369,6 +378,8 @@
   --color-text-tertiary: var(--semantic-color-text-tertiary);
   --color-text-danger: var(--semantic-color-text-danger);
   --color-text-danger-bold: var(--semantic-color-text-danger-bold);
+  --color-text-warning: var(--semantic-color-text-warning);
+  --color-text-warning-bold: var(--semantic-color-text-warning-bold);
   --color-text-info: var(--semantic-color-text-info);
   --color-text-interactive-primary: var(--semantic-color-text-interactive-primary);
   --color-text-interactive-secondary: var(--semantic-color-text-interactive-secondary);
@@ -403,7 +414,10 @@
   --semantic-color-bg-brand: var(--color-brand-primary-400);
   --semantic-color-bg-danger-bold: var(--color-red-400);
   --semantic-color-bg-danger-subtle: var(--color-red-800);
-  --semantic-color-bg-info-subtle: var(--color-blue-800);
+  --semantic-color-bg-info-subtle: var(--color-blue-700);
+  --semantic-color-bg-info-bold: var(--color-blue-400);
+  --semantic-color-bg-warning-bold: var(--color-yellow-700);
+  --semantic-color-bg-warning-subtle:var(--color-yellow-800);
   --semantic-color-bg-disabled: var(--color-brand-secondary-700);
   --semantic-color-bg-interactive-primary: var(--color-brand-primary-400);
   --semantic-color-bg-interactive-secondary-hovered: var(--color-brand-secondary-700);
@@ -423,6 +437,8 @@
   --semantic-color-text-tertiary: var(--color-brand-secondary-400);
   --semantic-color-text-danger: var(--color-red-400);
   --semantic-color-text-danger-bold: var(--color-red-200);
+  --semantic-color-text-warning: var(--color-yellow-400);
+  --semantic-color-text-warning-bold: var(--color-yellow-300);
   --semantic-color-text-info: var(--color-brand-primary-200);
   --semantic-color-text-interactive-primary: var(--color-brand-primary-400);
   --semantic-color-text-interactive-secondary: var(--color-brand-secondary-100);
@@ -457,6 +473,9 @@
     --semantic-color-bg-danger-bold: var(--color-red-400);
     --semantic-color-bg-danger-subtle: var(--color-red-800);
     --semantic-color-bg-info-subtle: var(--color-blue-800);
+    --semantic-color-bg-info-bold: var(--color-blue-400);
+    --semantic-color-bg-warning-bold: var(--color-yellow-700);
+    --semantic-color-bg-warning-subtle:var(--color-yellow-800);
     --semantic-color-bg-disabled: var(--color-brand-secondary-700);
     --semantic-color-bg-interactive-primary: var(--color-brand-primary-400);
     --semantic-color-bg-interactive-secondary-hovered: var(--color-brand-secondary-700);
@@ -476,6 +495,8 @@
     --semantic-color-text-tertiary: var(--color-brand-secondary-400);
     --semantic-color-text-danger: var(--color-red-400);
     --semantic-color-text-danger-bold: var(--color-red-200);
+    --semantic-color-text-warning: var(--color-yellow-400);
+    --semantic-color-text-warning-bold: var(--color-yellow-300);
     --semantic-color-text-info: var(--color-brand-primary-200);
     --semantic-color-text-interactive-primary: var(--color-brand-primary-400);
     --semantic-color-text-interactive-secondary: var(--color-brand-secondary-100);
