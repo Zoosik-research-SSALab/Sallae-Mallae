@@ -40,6 +40,7 @@ class DebateTargetsServiceTest(unittest.TestCase):
                         model_version="v1.0",
                         trade_type="BUY",
                         trade_time=datetime(2026, 3, 16, 9, 0, tzinfo=timezone.utc),
+                        realized_profit=0,
                     ),
                     AiTradingHistory(
                         id=2,
@@ -49,6 +50,7 @@ class DebateTargetsServiceTest(unittest.TestCase):
                         model_version="v1.0",
                         trade_type="BUY",
                         trade_time=datetime(2026, 3, 16, 10, 0, tzinfo=timezone.utc),
+                        realized_profit=0,
                     ),
                 ]
             )
