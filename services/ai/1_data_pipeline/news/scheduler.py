@@ -21,7 +21,6 @@ import argparse
 import datetime
 import json
 import logging
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -110,64 +109,6 @@ def _check_missed_run(scheduled_hour: int, scheduled_minute: int) -> bool:
         return False
 
     return True
-
-
-# ---------------------------------------------------------------------------
-# 파이프라인 단계 실행
-# ---------------------------------------------------------------------------
-def _run_step(step_name: str, cmd: list[str]) -> bool:
-    """서브프로세스로 파이프라인 단계를 실행. 성공 시 True 반환."""
-    logger.info("[%s] 시작: %s", step_name, " ".join(cmd))
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=str(BASE_DIR),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=14400,  # 4시간 타임아웃
-        )
-        if result.stdout:
-            for line in result.stdout.strip().split("\n")[-10:]:
-                logger.info("[%s] %s", step_name, line)
-        if result.returncode != 0:
-            logger.error("[%s] 실패 (exit=%d)", step_name, result.returncode)
-            if result.stderr:
-                for line in result.stderr.strip().split("\n")[-5:]:
-                    logger.error("[%s] %s", step_name, line)
-            return False
-        logger.info("[%s] 완료", step_name)
-        return True
-    except subprocess.TimeoutExpired:
-        logger.error("[%s] 타임아웃 (4시간 초과)", step_name)
-        return False
-    except Exception as exc:
-        logger.error("[%s] 실행 오류: %s", step_name, exc)
-        return False
-
-
-def _find_latest_dir(prefix: str) -> str | None:
-    """output/ 아래에서 가장 최근에 생성된 prefix 디렉토리를 찾는다."""
-    candidates = sorted(
-        [d for d in OUTPUT_DIR.iterdir() if d.is_dir() and d.name.startswith(prefix)],
-        key=lambda d: d.stat().st_mtime,
-        reverse=True,
-    )
-    return str(candidates[0]) if candidates else None
-
-
-def _send_pipeline_signal() -> None:
-    """DB에 크롤링 완료 신호를 기록하여 데스크탑 GPU 워커에게 알림."""
-    from db import get_session
-    from models import PipelineSignal
-
-    with get_session() as session:
-        try:
-            session.add(PipelineSignal(signal_type="NEWS_CRAWL_DONE", status="PENDING"))
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
 
 
 def run_daily_pipeline() -> None:
