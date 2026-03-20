@@ -6,27 +6,19 @@ data/kospi200_list.csv 에 미리 저장된 종목 리스트를 읽어옵니다.
 
 리스트를 갱신하려면:  python kospi200.py --refresh
 """
-import os
-import time
 import csv
 import argparse
+import time
+from pathlib import Path
 
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 
-# ── 경로 설정 ──
-_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(_BASE_DIR, "data")
-KOSPI200_CSV = os.path.join(DATA_DIR, "kospi200_list.csv")
+from config import DATA_DIR, HEADERS
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
-}
+# ── 경로 설정 ──
+KOSPI200_CSV = DATA_DIR / "kospi200_list.csv"
 
 
 # ═══════════════════════════════════════════
@@ -41,7 +33,7 @@ def get_kospi200_stocks() -> pd.DataFrame:
     -------
     pd.DataFrame   columns = ["code", "name"]
     """
-    if not os.path.exists(KOSPI200_CSV):
+    if not KOSPI200_CSV.exists():
         raise FileNotFoundError(
             f"종목 리스트 파일이 없습니다: {KOSPI200_CSV}\n"
             "→ python kospi200.py --refresh  명령으로 생성하세요."
@@ -62,7 +54,7 @@ def refresh_kospi200_list() -> pd.DataFrame:
     네이버 금융 > KOSPI 시가총액 상위 200개 종목을 크롤링하여
     data/kospi200_list.csv 를 새로 덮어씁니다.
     """
-    os.makedirs(DATA_DIR, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     all_stocks: list[tuple[str, str]] = []
 
     for page in range(1, 5):  # 50개 × 4페이지 = 200개

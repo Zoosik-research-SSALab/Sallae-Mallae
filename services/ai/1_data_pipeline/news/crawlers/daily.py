@@ -118,36 +118,9 @@ def _filter_and_save_to_db(df: pd.DataFrame) -> int:
 
 
 # ---------------------------------------------------------------------------
-# 날짜 파싱
+# 날짜 파싱 (공통 유틸 사용)
 # ---------------------------------------------------------------------------
-def _parse_date(date_str: str) -> datetime | None:
-    """다양한 날짜 형식 및 상대시간('3시간 전', '1일 전' 등)을 datetime으로 변환."""
-    if not date_str:
-        return None
-
-    text = date_str.strip()
-
-    # 상대시간 처리: "N분 전", "N시간 전", "N일 전"
-    rel = re.match(r"(\d+)\s*(분|시간|일)\s*전", text)
-    if rel:
-        amount, unit = int(rel.group(1)), rel.group(2)
-        now = datetime.now()
-        if unit == "분":
-            return now - timedelta(minutes=amount)
-        elif unit == "시간":
-            return now - timedelta(hours=amount)
-        elif unit == "일":
-            return now - timedelta(days=amount)
-
-    # 절대시간 형식
-    cleaned = text.rstrip(".")
-    for fmt in ("%Y.%m.%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
-                "%Y.%m.%d", "%Y-%m-%d", "%Y%m%d"):
-        try:
-            return datetime.strptime(cleaned, fmt)
-        except ValueError:
-            continue
-    return None
+from utils.date_parser import parse_date as _parse_date
 
 
 # ---------------------------------------------------------------------------
@@ -246,35 +219,52 @@ def save_to_db(df: pd.DataFrame) -> int:
     saved = 0
     with get_session() as session:
         try:
+            # 종목 캐시: ticker → Stock (N+1 방지)
+            codes = df["code"].dropna().unique().tolist()
+            stock_cache = {}
+            for s in session.query(Stock).filter(Stock.ticker.in_(codes)).all():
+                stock_cache[s.ticker] = s
+
+            # URL 배치 조회: 기존 URL set (N+1 방지)
+            urls = df["article_url"].dropna().unique().tolist()
+            existing_url_map = {}
+            for batch_start in range(0, len(urls), 1000):
+                batch = urls[batch_start:batch_start + 1000]
+                for row in session.query(StockNews.id, StockNews.url).filter(StockNews.url.in_(batch)).all():
+                    existing_url_map[row.url] = row.id
+
             for _, row in df.iterrows():
-                # 종목 조회
-                stock = session.query(Stock).filter(Stock.ticker == row["code"]).first()
+                stock = stock_cache.get(row["code"])
                 if not stock:
                     continue
 
-                # URL 중복 체크
-                existing = session.query(StockNews).filter(StockNews.url == row["article_url"]).first()
-                if existing:
+                url = row.get("article_url", "")
+
+                # URL 중복 체크 (캐시 활용)
+                if url in existing_url_map:
+                    news_id = existing_url_map[url]
                     exists_map = (
                         session.query(StockNewsMap)
-                        .filter(StockNewsMap.stock_id == stock.id, StockNewsMap.news_id == existing.id)
+                        .filter(StockNewsMap.stock_id == stock.id, StockNewsMap.news_id == news_id)
                         .first()
                     )
                     if not exists_map:
-                        session.add(StockNewsMap(stock_id=stock.id, news_id=existing.id))
+                        session.add(StockNewsMap(stock_id=stock.id, news_id=news_id))
                     continue
 
                 # 새 뉴스 저장
                 news = StockNews(
                     title=row["title"],
                     snippet=row.get("body", ""),
-                    url=row["article_url"],
+                    url=url,
                     publisher=row.get("source", ""),
                     published_at=_parse_date(row.get("date", "")),
                 )
                 session.add(news)
                 session.flush()
 
+                # 캐시에 새 URL 추가 (동일 배치 내 중복 방지)
+                existing_url_map[url] = news.id
                 session.add(StockNewsMap(stock_id=stock.id, news_id=news.id))
                 saved += 1
 

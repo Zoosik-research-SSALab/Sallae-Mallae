@@ -63,19 +63,11 @@ def _save_checkpoint(done: set[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 날짜 파싱
+# 날짜 파싱 (공통 유틸 사용, 상대시간 비활성화 — 적재 시각 기준 오계산 방지)
 # ---------------------------------------------------------------------------
-def _parse_date(date_str: str) -> datetime | None:
-    """다양한 날짜 형식을 datetime으로 변환."""
-    if not date_str or not isinstance(date_str, str):
-        return None
-    date_str = date_str.strip().rstrip(".")
-    for fmt in ("%Y.%m.%d", "%Y-%m-%d", "%Y%m%d", "%Y.%m.%d %H:%M", "%Y-%m-%d %H:%M:%S"):
-        try:
-            return datetime.strptime(date_str, fmt)
-        except ValueError:
-            continue
-    return None
+from functools import partial
+from utils.date_parser import parse_date
+_parse_date = partial(parse_date, allow_relative=False)
 
 
 # ---------------------------------------------------------------------------

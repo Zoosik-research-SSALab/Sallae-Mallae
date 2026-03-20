@@ -279,6 +279,18 @@ async def run_full_pipeline(
 
         time.sleep(poll_interval)
 
+    # published_at NULL 복구 (키워드 루프와 독립적으로 실행)
+    # count_unprocessed_news는 published_at IS NULL 행을 세지 않으므로 여기서 직접 호출
+    logger.info("=" * 60)
+    logger.info("  published_at NULL 복구 시작")
+    logger.info("=" * 60)
+    try:
+        from scripts.fix_null_published_at import fix_null_dates
+        await fix_null_dates(limit=5000, dry_run=False)
+        logger.info("published_at NULL 복구 완료")
+    except Exception as e:
+        logger.error("published_at NULL 복구 실패: %s", e)
+
     # 크롤링 실패 시 경고 (적재된 데이터는 이미 처리됨)
     if crawl_errors:
         raise RuntimeError(f"크롤링 중 오류 발생: {crawl_errors[0]}") from crawl_errors[0]

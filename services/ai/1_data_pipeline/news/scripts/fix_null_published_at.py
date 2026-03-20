@@ -41,36 +41,9 @@ REQUEST_DELAY = 0.5
 
 
 # ---------------------------------------------------------------------------
-# 날짜 추출
+# 날짜 추출 (공통 유틸 사용)
 # ---------------------------------------------------------------------------
-def _parse_date(date_str: str) -> datetime | None:
-    """다양한 날짜 형식 및 상대시간을 datetime으로 변환."""
-    if not date_str:
-        return None
-
-    text = date_str.strip()
-
-    # 상대시간: "N분 전", "N시간 전", "N일 전"
-    rel = re.match(r"(\d+)\s*(분|시간|일)\s*전", text)
-    if rel:
-        amount, unit = int(rel.group(1)), rel.group(2)
-        now = datetime.now()
-        if unit == "분":
-            return now - timedelta(minutes=amount)
-        elif unit == "시간":
-            return now - timedelta(hours=amount)
-        elif unit == "일":
-            return now - timedelta(days=amount)
-
-    cleaned = text.rstrip(".")
-    for fmt in ("%Y.%m.%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
-                "%Y.%m.%d", "%Y-%m-%d", "%Y%m%d",
-                "%Y년 %m월 %d일 %H:%M", "%Y년 %m월 %d일"):
-        try:
-            return datetime.strptime(cleaned, fmt)
-        except ValueError:
-            continue
-    return None
+from utils.date_parser import parse_date as _parse_date
 
 
 async def _fetch_html(session: aiohttp.ClientSession, url: str) -> str | None:
