@@ -166,3 +166,67 @@ class AiTradingHistory(Base):
     trade_type: Mapped[str] = mapped_column(String(4), nullable=False)
     trade_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    trade_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    trade_quantity: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    trade_amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    realized_profit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    holding_quantity_after: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    cash_balance_after: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    avg_buy_price_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class AiPortfolio(Base):
+    __tablename__ = "ai_portfolio"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    debate_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    cumulative_return: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_trades: Mapped[int] = mapped_column(Integer, nullable=False)
+    winning_trades: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    initial_capital: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cash_balance: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    realized_profit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    unrealized_profit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    total_asset_value: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    latest_record_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+
+class AiPortfolioHolding(Base):
+    __tablename__ = "ai_portfolio_holdings"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    portfolio_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    model_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    portfolio_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    return_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    buy_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    avg_buy_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    holding_quantity: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    investment_amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    market_value: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    evaluation_profit: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+
+class AiDailyPerformance(Base):
+    __tablename__ = "ai_daily_performance"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    portfolio_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    model_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    record_date: Mapped[date] = mapped_column(Date, nullable=False)
+    daily_return: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cumulative_return: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mdd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cash_balance: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    invested_amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    market_value: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    realized_profit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    unrealized_profit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    total_asset_value: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    holding_count: Mapped[int] = mapped_column(Integer, nullable=False)
