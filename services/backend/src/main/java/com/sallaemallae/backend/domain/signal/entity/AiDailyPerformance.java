@@ -36,6 +36,27 @@ public class AiDailyPerformance {
   @Column(name = "cumulative_return")
   private Float cumulativeReturn;
 
+  @Column(name = "cash_balance", nullable = false)
+  private Long cashBalance;
+
+  @Column(name = "invested_amount", nullable = false)
+  private Long investedAmount;
+
+  @Column(name = "market_value", nullable = false)
+  private Long marketValue;
+
+  @Column(name = "realized_profit", nullable = false)
+  private Long realizedProfit;
+
+  @Column(name = "unrealized_profit", nullable = false)
+  private Long unrealizedProfit;
+
+  @Column(name = "total_asset_value", nullable = false)
+  private Long totalAssetValue;
+
+  @Column(name = "holding_count", nullable = false)
+  private Integer holdingCount;
+
   @Column
   private Float mdd;
 }

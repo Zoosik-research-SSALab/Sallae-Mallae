@@ -1,5 +1,8 @@
 package com.sallaemallae.backend.domain.report.service;
 
+import com.sallaemallae.backend.domain.report.dto.ChairmanHallOfFameResponse;
+import com.sallaemallae.backend.domain.report.dto.ChairmanHallOfFameResponse.HitRateItem;
+import com.sallaemallae.backend.domain.report.dto.ChairmanHallOfFameResponse.ReturnMetricItem;
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse;
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.HoldingItem;
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.MonthlyReturnItem;
@@ -11,6 +14,8 @@ import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.Toda
 import com.sallaemallae.backend.domain.report.exception.ReportErrorCode;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HoldingRow;
+import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HallOfFameHitRateRow;
+import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HallOfFameReturnRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.PopularSignalRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.SignalSummaryRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.TodayTradeRow;
@@ -36,6 +41,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
 
   private static final int POPULAR_SIGNAL_LIMIT = 5;
+  private static final int HALL_OF_FAME_HIT_RATE_LIMIT = 5;
+  private static final int HALL_OF_FAME_CUMULATIVE_RETURN_LIMIT = 10;
+  private static final int HALL_OF_FAME_MAX_SINGLE_RETURN_LIMIT = 5;
+  private static final int HALL_OF_FAME_AVERAGE_RETURN_LIMIT = 5;
 
   private final AiPortfolioRepository aiPortfolioRepository;
   private final AiDailyPerformanceRepository aiDailyPerformanceRepository;
@@ -51,6 +60,7 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
     Summary summary = new Summary(
         portfolio.getCumulativeReturn(),
         calculateHitRate(portfolio),
+        null,
         null,
         holdingCount
     );
@@ -112,6 +122,37 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
     );
   }
 
+  @Override
+  public ChairmanHallOfFameResponse getChairmanHallOfFame() {
+    AiPortfolio portfolio = aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()
+        .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_NOT_FOUND));
+
+    return new ChairmanHallOfFameResponse(
+        chairmanPortfolioQueryRepository.findHitRateTopRows(portfolio.getId(), HALL_OF_FAME_HIT_RATE_LIMIT)
+            .stream()
+            .map(this::toHitRateItem)
+            .toList(),
+        chairmanPortfolioQueryRepository.findCumulativeReturnTopRows(
+                portfolio.getId(),
+                HALL_OF_FAME_CUMULATIVE_RETURN_LIMIT
+            ).stream()
+            .map(this::toReturnMetricItem)
+            .toList(),
+        chairmanPortfolioQueryRepository.findMaxSingleReturnTopRows(
+                portfolio.getId(),
+                HALL_OF_FAME_MAX_SINGLE_RETURN_LIMIT
+            ).stream()
+            .map(this::toReturnMetricItem)
+            .toList(),
+        chairmanPortfolioQueryRepository.findAverageReturnTopRows(
+                portfolio.getId(),
+                HALL_OF_FAME_AVERAGE_RETURN_LIMIT
+            ).stream()
+            .map(this::toReturnMetricItem)
+            .toList()
+    );
+  }
+
   private float calculateHitRate(AiPortfolio portfolio) {
     if (portfolio.getTotalTrades() == 0) {
       return 0f;
@@ -151,6 +192,28 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.tradeTime(),
         row.tradePrice(),
         row.returnRate()
+    );
+  }
+
+  private HitRateItem toHitRateItem(HallOfFameHitRateRow row) {
+    return new HitRateItem(
+        row.rank(),
+        row.stockId(),
+        row.ticker(),
+        row.name(),
+        row.hitRate(),
+        row.winningTrades(),
+        row.totalTrades()
+    );
+  }
+
+  private ReturnMetricItem toReturnMetricItem(HallOfFameReturnRow row) {
+    return new ReturnMetricItem(
+        row.rank(),
+        row.stockId(),
+        row.ticker(),
+        row.name(),
+        row.value()
     );
   }
 

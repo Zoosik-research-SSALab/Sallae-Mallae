@@ -36,6 +36,27 @@ public class AiPortfolioHolding {
   @Column(name = "return_rate")
   private Float returnRate;
 
+  @Column(name = "buy_date")
+  private OffsetDateTime buyDate;
+
+  @Column(name = "avg_buy_price")
+  private Integer avgBuyPrice;
+
+  @Column(name = "current_price")
+  private Integer currentPrice;
+
+  @Column(name = "holding_quantity")
+  private Long holdingQuantity;
+
+  @Column(name = "investment_amount")
+  private Long investmentAmount;
+
+  @Column(name = "market_value")
+  private Long marketValue;
+
+  @Column(name = "evaluation_profit")
+  private Long evaluationProfit;
+
   @Column(name = "updated_at", nullable = false)
   private OffsetDateTime updatedAt;
 }

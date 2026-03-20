@@ -9,17 +9,18 @@ import com.sallaemallae.backend.domain.report.dto.DebateResponse.Agent;
 import com.sallaemallae.backend.domain.report.dto.DebateResponse.Round;
 import com.sallaemallae.backend.domain.report.dto.PerformanceResponse;
 import com.sallaemallae.backend.domain.report.dto.PerformanceResponse.ChartPoint;
+import com.sallaemallae.backend.domain.report.dto.PerformanceResponse.Holding;
 import com.sallaemallae.backend.domain.report.dto.PerformanceTradesResponse;
 import com.sallaemallae.backend.domain.report.dto.PerformanceTradesResponse.TradeItem;
 import com.sallaemallae.backend.domain.report.dto.ReportHistoryItemResponse;
 import com.sallaemallae.backend.domain.report.entity.AiDebateReport;
 import com.sallaemallae.backend.domain.report.exception.ReportErrorCode;
 import com.sallaemallae.backend.domain.report.repository.AiDebateReportRepository;
-import com.sallaemallae.backend.domain.signal.entity.AiDailyPerformance;
+import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
+import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
 import com.sallaemallae.backend.domain.signal.entity.AiPortfolio;
 import com.sallaemallae.backend.domain.signal.entity.AiPortfolioHolding;
 import com.sallaemallae.backend.domain.signal.entity.AiTradingHistory;
-import com.sallaemallae.backend.domain.signal.repository.AiDailyPerformanceRepository;
 import com.sallaemallae.backend.domain.signal.repository.AiPortfolioHoldingRepository;
 import com.sallaemallae.backend.domain.signal.repository.AiPortfolioRepository;
 import com.sallaemallae.backend.domain.signal.repository.AiTradingHistoryRepository;
@@ -31,6 +32,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
+import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,8 +46,8 @@ public class ReportServiceImpl implements ReportService {
   private final AiDebateReportRepository aiDebateReportRepository;
   private final AiPortfolioRepository aiPortfolioRepository;
   private final AiPortfolioHoldingRepository aiPortfolioHoldingRepository;
-  private final AiDailyPerformanceRepository aiDailyPerformanceRepository;
   private final AiTradingHistoryRepository aiTradingHistoryRepository;
+  private final StockPriceDailyRepository stockPriceDailyRepository;
 
   // REPORT-001: 종목별 의장 분석 + 토론 기록 이력 조회 (페이지네이션)
   @Override
@@ -66,7 +69,7 @@ public class ReportServiceImpl implements ReportService {
         .toList();
   }
 
-  // REPORT-003: 전역 AI 포트폴리오 기준 성과 요약 및 차트 조회
+  // REPORT-003: 종목별 의장 모의투자 성과 및 보유 정보 조회
   @Override
   public PerformanceResponse getPerformance(Long stockId) {
     AiPortfolio portfolio = getLatestPortfolio();
@@ -78,16 +81,14 @@ public class ReportServiceImpl implements ReportService {
         portfolio.getId(),
         stockId
     );
-    List<AiDailyPerformance> dailyPerformances = aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(
-        portfolio.getId()
-    );
+    List<StockPriceDaily> priceHistory = stockPriceDailyRepository.findByStockIdOrderByTradeDateAsc(stockId);
 
     Map<java.time.LocalDate, String> tradeMarkers = buildTradeMarkers(trades);
-    List<ChartPoint> chart = dailyPerformances.stream()
-        .map(performance -> new ChartPoint(
-            performance.getRecordDate(),
-            performance.getCumulativeReturn(),
-            tradeMarkers.get(performance.getRecordDate())
+    List<ChartPoint> chart = priceHistory.stream()
+        .map(price -> new ChartPoint(
+            price.getTradeDate(),
+            price.getClosePrice(),
+            tradeMarkers.get(price.getTradeDate())
         ))
         .toList();
 
@@ -95,8 +96,9 @@ public class ReportServiceImpl implements ReportService {
         .orElseGet(() -> latestTradeReturn(trades));
     Float recentReturn = latestTradeReturn(trades);
     float winRate = calculateWinRatePercent(trades);
+    Holding holdingInfo = holding.map(value -> toHolding(value, trades, latestPrice(priceHistory))).orElse(null);
 
-    return new PerformanceResponse(cumulativeReturn, winRate, recentReturn, chart);
+    return new PerformanceResponse(cumulativeReturn, winRate, recentReturn, holdingInfo, chart);
   }
 
   // REPORT-004: 종목별 AI 매매 내역 조회 (페이지네이션)
@@ -257,9 +259,37 @@ public class ReportServiceImpl implements ReportService {
   private Float latestTradeReturn(List<AiTradingHistory> trades) {
     return trades.stream()
         .map(AiTradingHistory::getReturnRate)
-        .filter(java.util.Objects::nonNull)
+        .filter(Objects::nonNull)
         .findFirst()
         .orElse(null);
+  }
+
+  private Integer latestPrice(List<StockPriceDaily> priceHistory) {
+    if (priceHistory.isEmpty()) {
+      return null;
+    }
+    return priceHistory.get(priceHistory.size() - 1).getClosePrice();
+  }
+
+  private Holding toHolding(AiPortfolioHolding holding, List<AiTradingHistory> trades, Integer latestPrice) {
+    Integer buyPrice = holding.getAvgBuyPrice();
+    OffsetDateTime buyDate = holding.getBuyDate();
+    Integer currentPrice = holding.getCurrentPrice() != null ? holding.getCurrentPrice() : latestPrice;
+    Integer holdingDays = null;
+    if (buyDate != null) {
+      holdingDays = Math.toIntExact(java.time.temporal.ChronoUnit.DAYS.between(buyDate.toLocalDate(), java.time.LocalDate.now()));
+    }
+
+    return new Holding(
+        buyDate,
+        buyPrice,
+        currentPrice,
+        holding.getHoldingQuantity(),
+        holding.getInvestmentAmount(),
+        holding.getEvaluationProfit(),
+        holding.getReturnRate(),
+        holdingDays
+    );
   }
 
   private float calculateWinRatePercent(List<AiTradingHistory> trades) {

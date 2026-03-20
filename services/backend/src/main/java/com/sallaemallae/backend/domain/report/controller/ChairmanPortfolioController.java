@@ -1,5 +1,6 @@
 package com.sallaemallae.backend.domain.report.controller;
 
+import com.sallaemallae.backend.domain.report.dto.ChairmanHallOfFameResponse;
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse;
 import com.sallaemallae.backend.domain.report.service.ChairmanPortfolioService;
 import com.sallaemallae.backend.global.response.ApiResponse;
@@ -31,5 +32,11 @@ public class ChairmanPortfolioController {
       @RequestParam(defaultValue = "6") int limit
   ) {
     return ApiResponse.success(chairmanPortfolioService.getChairmanPortfolio(tab, offset, limit));
+  }
+
+  @Operation(summary = "의장 포트폴리오 명예의 전당 조회", description = "종목 기준 적중률/수익률 랭킹 지표를 조회합니다.")
+  @GetMapping("/chairman/hall-of-fame")
+  public ApiResponse<ChairmanHallOfFameResponse> getChairmanHallOfFame() {
+    return ApiResponse.success(chairmanPortfolioService.getChairmanHallOfFame());
   }
 }

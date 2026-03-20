@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface StockPriceDailyRepository extends JpaRepository<StockPriceDaily, Long> {
 
+  List<StockPriceDaily> findByStockIdOrderByTradeDateAsc(Long stockId);
+
   List<StockPriceDaily> findByStockIdOrderByTradeDateDesc(Long stockId, Pageable pageable);
 
   @Query("""

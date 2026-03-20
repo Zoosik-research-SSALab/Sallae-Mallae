@@ -49,8 +49,29 @@ public class AiTradingHistory {
   @Column(name = "trade_price_rate")
   private Float tradePriceRate;
 
+  @Column(name = "trade_price")
+  private Integer tradePrice;
+
+  @Column(name = "trade_quantity")
+  private Long tradeQuantity;
+
+  @Column(name = "trade_amount")
+  private Long tradeAmount;
+
   @Column(name = "return_rate")
   private Float returnRate;
+
+  @Column(name = "realized_profit", nullable = false)
+  private Long realizedProfit;
+
+  @Column(name = "holding_quantity_after")
+  private Long holdingQuantityAfter;
+
+  @Column(name = "cash_balance_after")
+  private Long cashBalanceAfter;
+
+  @Column(name = "avg_buy_price_after")
+  private Integer avgBuyPriceAfter;
 
   @Column(name = "trade_time", nullable = false)
   private OffsetDateTime tradeTime;
