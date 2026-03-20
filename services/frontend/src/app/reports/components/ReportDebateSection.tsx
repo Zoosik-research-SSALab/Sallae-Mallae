@@ -159,8 +159,8 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
   return (
     <section className="flex flex-col gap-6 [font-family:var(--font-family-base)]">
       <div className="flex flex-col gap-2">
-        <h2 className="heading-reset typo-heading-lg text-[color:var(--color-text-primary)] md:typo-heading-xl">위원회 심층 토론</h2>
-        <p className="typo-body-lg [font-weight:var(--font-weight-medium)] text-[color:var(--color-text-secondary)]">
+        <h2 className="heading-reset typo-heading-lg text-[color:var(--color-text-primary)]">위원회 심층 토론</h2>
+        <p className="typo-body-md text-[color:var(--color-text-secondary)]">
           위원 소집 → 데이터 분석(영상) → 실시간 발언 → 의장 판결
         </p>
       </div>
@@ -181,11 +181,11 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-icon-brand)]" />
-              <span className="typo-body-lg [font-weight:var(--font-weight-extrabold)] text-[color:var(--color-text-primary)]">
+              <span className="typo-heading-sm text-[color:var(--color-text-primary)]">
                 실시간 회의록
               </span>
             </div>
-            <div className="typo-body-sm [font-weight:var(--font-weight-semibold)] text-[color:var(--color-text-tertiary)]">
+            <div className="typo-body-sm text-[color:var(--color-text-tertiary)]">
               {phase === "ready" || phase === "video" ? "대기 중" : "재생 중"}
             </div>
           </div>
@@ -196,7 +196,7 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
         >
           {!showTranscript ? (
             <div className="flex min-h-full items-center justify-center rounded-2xl border border-dashed border-[color:var(--color-border-primary)] bg-[color:rgba(249,250,251,0.9)] px-6 text-center">
-              <p className="typo-body-sm [font-weight:var(--font-weight-medium)] text-[color:var(--color-text-tertiary)]">
+              <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
                 영상을 재생하면 입장 알림, 라운드 시작선, 위원 발언이 채팅처럼 순서대로 표시됩니다.
               </p>
             </div>
@@ -206,7 +206,7 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
                 if (item.type === "entry") {
                   return (
                     <div key={item.id} className="flex justify-center">
-                      <div className="typo-body-lg rounded-full bg-[color:var(--color-bg-disabled)] px-5 py-2 text-center [font-weight:var(--font-weight-semibold)] text-[color:var(--color-text-primary)]">
+                      <div className="typo-body-lg rounded-full bg-[color:var(--color-bg-disabled)] px-5 py-2 text-center text-[color:var(--color-text-primary)]">
                         {item.message}
                       </div>
                     </div>
@@ -217,7 +217,7 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
                   return (
                     <div key={item.id} className="flex items-center gap-4 py-2">
                       <div className="h-px flex-1 bg-[color:var(--color-border-primary)]" />
-                      <div className="typo-body-lg rounded-full bg-[color:var(--color-bg-info-subtle)] px-4 py-2 [font-weight:var(--font-weight-extrabold)] text-[color:var(--color-text-info)]">
+                      <div className="typo-heading-sm rounded-full bg-[color:var(--color-bg-info-subtle)] px-4 py-2 text-[color:var(--color-text-info)]">
                         {getRoundTitle(item.roundLabel)}
                       </div>
                       <div className="h-px flex-1 bg-[color:var(--color-border-primary)]" />
@@ -237,17 +237,17 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="typo-body-lg pl-1 [font-weight:var(--font-weight-semibold)] text-[color:var(--color-text-primary)]">
+                        <span className="typo-body-lg pl-1 text-[color:var(--color-text-primary)]">
                           {meta.name}
                         </span>
-                        <span className={cn("typo-body-sm [font-weight:var(--font-weight-medium)]", meta.timeClassName)}>
+                        <span className={cn("typo-body-sm", meta.timeClassName)}>
                           {formatSpeechTime(speechIndex)}
                         </span>
                       </div>
                       <div
                         className={`max-w-[min(740px,100%)] rounded-bl-3xl rounded-br-3xl rounded-tl-sm rounded-tr-3xl px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] ${meta.bubbleClassName}`}
                       >
-                        <p className="typo-body-lg [font-weight:var(--font-weight-semibold)] text-[color:var(--color-text-primary)]">
+                        <p className="typo-body-lg text-[color:var(--color-text-primary)]">
                           {item.speech.message}
                           <span className={meta.opinionClassName}>{item.speech.opinion}</span>
                           입니다.
@@ -261,7 +261,7 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
               {roundIntroLabel ? (
                 <div className="flex items-center gap-4 py-1 opacity-80">
                   <div className="h-px flex-1 bg-[color:var(--color-border-primary)]" />
-                  <div className="typo-body-sm rounded-full bg-[color:var(--color-bg-info-subtle)] px-4 py-2 [font-weight:var(--font-weight-extrabold)] text-[color:var(--color-text-info)]">
+                  <div className="typo-heading-sm rounded-full bg-[color:var(--color-bg-info-subtle)] px-4 py-2 text-[color:var(--color-text-info)]">
                     {getRoundTitle(roundIntroLabel)} 시작
                   </div>
                   <div className="h-px flex-1 bg-[color:var(--color-border-primary)]" />
