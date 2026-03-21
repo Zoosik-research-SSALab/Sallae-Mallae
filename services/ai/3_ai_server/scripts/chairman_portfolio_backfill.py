@@ -26,8 +26,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--start-date", required=True, help="백필 시작일 (YYYY-MM-DD)")
     parser.add_argument("--end-date", required=True, help="백필 종료일 (YYYY-MM-DD)")
     parser.add_argument("--debate-version", default=None, help="특정 debate_version만 replay할 때 사용")
+    parser.add_argument("--stock-id", type=int, action="append", dest="stock_ids", help="특정 종목만 replay할 때 사용 (여러 번 지정 가능)")
     parser.add_argument("--portfolio-name", default="의장 포트폴리오", help="생성/갱신할 포트폴리오 이름")
     parser.add_argument("--model-version", default="chairman-v1", help="파생 포트폴리오 model_version")
+    parser.add_argument("--initial-capital", type=int, default=100_000_000, help="초기 투자금")
     parser.add_argument("--reset", action="store_true", help="기존 체크포인트와 포트폴리오 결과를 초기화하고 처음부터 다시 실행")
     parser.add_argument("--status-only", action="store_true", help="현재 체크포인트 상태만 출력하고 종료")
     return parser
@@ -44,8 +46,10 @@ def _build_backfill_checkpoint(
     start_date: date,
     end_date: date,
     debate_version: str | None,
+    stock_ids: tuple[int, ...] | None,
     model_version: str,
     portfolio_name: str,
+    initial_capital: int,
     replay_dates: list[date],
 ) -> dict:
     timestamp = now_iso()
@@ -56,7 +60,9 @@ def _build_backfill_checkpoint(
         "portfolio_id": portfolio_id,
         "portfolio_name": portfolio_name,
         "model_version": model_version,
+        "initial_capital": initial_capital,
         "debate_version": debate_version,
+        "stock_ids": list(stock_ids) if stock_ids else [],
         "requested_start_date": start_date.isoformat(),
         "requested_end_date": end_date.isoformat(),
         "replay_dates": [item.isoformat() for item in replay_dates],
@@ -102,6 +108,7 @@ def main() -> int:
     args = build_parser().parse_args()
     start_date = date.fromisoformat(args.start_date)
     end_date = date.fromisoformat(args.end_date)
+    stock_ids = tuple(sorted(set(args.stock_ids or []))) or None
     if start_date > end_date:
         raise ValueError("start-date는 end-date보다 이후일 수 없습니다.")
 
@@ -109,6 +116,7 @@ def main() -> int:
         args.portfolio_name,
         args.model_version,
         args.debate_version or "latest",
+        "all" if not stock_ids else "-".join(str(item) for item in stock_ids),
         start_date.isoformat(),
         end_date.isoformat(),
     )
@@ -124,12 +132,14 @@ def main() -> int:
             session,
             portfolio_name=args.portfolio_name,
             model_version=args.model_version,
+            initial_capital=args.initial_capital,
         )
         portfolio_id = builder.ensure_portfolio_row()
         replay_dates = builder.list_replay_dates(
             start_date=start_date,
             end_date=end_date,
             debate_version=args.debate_version,
+            stock_ids=stock_ids,
         )
 
         if args.reset and progress_path.exists():
@@ -145,8 +155,10 @@ def main() -> int:
                 start_date=start_date,
                 end_date=end_date,
                 debate_version=args.debate_version,
+                stock_ids=stock_ids,
                 model_version=args.model_version,
                 portfolio_name=args.portfolio_name,
+                initial_capital=args.initial_capital,
                 replay_dates=replay_dates,
             )
             save_checkpoint(progress_path, checkpoint)
@@ -194,6 +206,7 @@ def main() -> int:
                 summary = builder.append_daily(
                     report_date=report_date,
                     debate_version=args.debate_version,
+                    stock_ids=stock_ids,
                 )
             except Exception as exc:
                 session.rollback()

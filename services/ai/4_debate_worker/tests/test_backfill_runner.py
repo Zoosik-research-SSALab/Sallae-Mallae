@@ -27,12 +27,15 @@ class FakeApiClient:
     def __init__(self):
         self.post_calls = 0
 
-    def get_targets(self, *, report_date, source, market_type, portfolio_id, limit):
+    def get_targets(self, *, report_date, source, market_type, portfolio_id, stock_ids, limit):
         return DebateTargetsResponse(
             report_date=report_date,
             source=source,
-            count=1,
-            targets=[TargetItem(stock_id=int(report_date.strftime("%d")), ticker=f"{int(report_date.strftime('%d')):06d}", stock_name="테스트")],
+            count=1 if not stock_ids else len(stock_ids),
+            targets=[
+                TargetItem(stock_id=stock_id, ticker=f"{stock_id:06d}", stock_name="테스트")
+                for stock_id in (stock_ids or (int(report_date.strftime("%d")),))
+            ],
         )
 
     def get_inputs(self, *, stock_id, report_date, debate_version, news_limit, financial_limit):
@@ -90,7 +93,7 @@ class DebateBackfillRunnerTest(unittest.TestCase):
     def test_progress_distinguishes_missing_run_and_zero_target_run(self) -> None:
         with TemporaryDirectory() as temp_dir:
             store = CheckpointStore(Path(temp_dir) / "worker.sqlite3")
-            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
+            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1, stock_ids=None)
 
             missing = store.get_progress(run_key=run_key)
             self.assertFalse(missing.run_exists)
@@ -104,7 +107,7 @@ class DebateBackfillRunnerTest(unittest.TestCase):
     def test_requeue_preserves_cached_payload_by_default(self) -> None:
         with TemporaryDirectory() as temp_dir:
             store = CheckpointStore(Path(temp_dir) / "worker.sqlite3")
-            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
+            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1, stock_ids=None)
             store.ensure_run(run_key=run_key, report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
             store.sync_targets(run_key=run_key, targets=[TargetItem(stock_id=1, ticker="005930", stock_name="삼성전자")])
 
@@ -155,6 +158,7 @@ class DebateBackfillRunnerTest(unittest.TestCase):
                 source="trading_history",
                 market_type="KOSPI",
                 portfolio_id=1,
+                stock_ids=None,
                 max_targets=10,
                 debate_version="debate-v1",
                 news_limit=8,

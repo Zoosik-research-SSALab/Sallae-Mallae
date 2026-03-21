@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from domains.debate.models import AiTradingHistory, DebateStock, MlEnsemblePrediction
+from domains.debate.models import MlGarchPrediction, MlLgbmPrediction, MlTftPrediction, NewsAgentStockData
 from domains.debate.service import get_debate_targets
 
 
@@ -15,6 +16,10 @@ class DebateTargetsServiceTest(unittest.TestCase):
         self.engine = create_engine("sqlite:///:memory:")
         DebateStock.__table__.create(self.engine)
         MlEnsemblePrediction.__table__.create(self.engine)
+        MlLgbmPrediction.__table__.create(self.engine)
+        MlTftPrediction.__table__.create(self.engine)
+        MlGarchPrediction.__table__.create(self.engine)
+        NewsAgentStockData.__table__.create(self.engine)
         AiTradingHistory.__table__.create(self.engine)
         self.session_factory = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
 
@@ -90,6 +95,40 @@ class DebateTargetsServiceTest(unittest.TestCase):
                         ensemble_result=2,
                         ensemble_confidence=0.81,
                     ),
+                    MlLgbmPrediction(
+                        id=11,
+                        stock_id=1,
+                        report_date=date(2026, 3, 16),
+                        model_version="v1.0",
+                        predicted_class=2,
+                        confidence=0.81,
+                        prob_down=0.05,
+                        prob_sideways=0.14,
+                        prob_up=0.81,
+                    ),
+                    MlTftPrediction(
+                        id=21,
+                        stock_id=1,
+                        report_date=date(2026, 3, 16),
+                        model_version="v1.0",
+                        group_id="grp-1",
+                        prob=0.79,
+                        pred=2,
+                    ),
+                    MlGarchPrediction(
+                        id=31,
+                        stock_id=1,
+                        report_date=date(2026, 3, 16),
+                        model_version="v1.0",
+                        vol_1d=0.3,
+                    ),
+                    NewsAgentStockData(
+                        id=41,
+                        stock_id=1,
+                        report_date=date(2026, 3, 16),
+                        top_keywords=[{"keyword": "실적", "news": []}],
+                        sentiment={"positive": 1},
+                    ),
                     MlEnsemblePrediction(
                         id=2,
                         stock_id=2,
@@ -97,6 +136,40 @@ class DebateTargetsServiceTest(unittest.TestCase):
                         model_version="v1.0",
                         ensemble_result=1,
                         ensemble_confidence=0.55,
+                    ),
+                    MlLgbmPrediction(
+                        id=12,
+                        stock_id=2,
+                        report_date=date(2026, 3, 16),
+                        model_version="v1.0",
+                        predicted_class=1,
+                        confidence=0.55,
+                        prob_down=0.2,
+                        prob_sideways=0.55,
+                        prob_up=0.25,
+                    ),
+                    MlTftPrediction(
+                        id=22,
+                        stock_id=2,
+                        report_date=date(2026, 3, 16),
+                        model_version="v1.0",
+                        group_id="grp-2",
+                        prob=0.52,
+                        pred=1,
+                    ),
+                    MlGarchPrediction(
+                        id=32,
+                        stock_id=2,
+                        report_date=date(2026, 3, 16),
+                        model_version="v1.0",
+                        vol_1d=0.5,
+                    ),
+                    NewsAgentStockData(
+                        id=42,
+                        stock_id=2,
+                        report_date=date(2026, 3, 16),
+                        top_keywords=[{"keyword": "수급", "news": []}],
+                        sentiment={"neutral": 1},
                     ),
                 ]
             )

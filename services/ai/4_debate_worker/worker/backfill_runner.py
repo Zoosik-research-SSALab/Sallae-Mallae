@@ -19,6 +19,7 @@ class BackfillOptions:
     source: str
     market_type: str
     portfolio_id: int | None
+    stock_ids: tuple[int, ...] | None
     max_targets: int | None
     debate_version: str
     news_limit: int
@@ -131,6 +132,7 @@ class DebateBackfillRunner:
                     source=options.source,
                     market_type=options.market_type,
                     portfolio_id=options.portfolio_id,
+                    stock_ids=options.stock_ids,
                     max_targets=options.max_targets,
                     continuous=False,
                     loop_interval_seconds=options.poll_interval_seconds,
@@ -195,6 +197,7 @@ class DebateBackfillRunner:
                 report_date=report_date,
                 source=options.source,
                 portfolio_id=options.portfolio_id,
+                stock_ids=options.stock_ids,
             )
             progress = self.checkpoint_store.get_progress(run_key=run_key)
             rows.append(self._to_daily_status(report_date=report_date, progress=progress))
@@ -213,6 +216,7 @@ class DebateBackfillRunner:
             report_date=report_date,
             source=source,
             portfolio_id=portfolio_id,
+            stock_ids=None,
         )
         return self.checkpoint_store.list_jobs(run_key=run_key, statuses=statuses, limit=limit)
 
@@ -222,6 +226,7 @@ class DebateBackfillRunner:
         report_date: date,
         source: str,
         portfolio_id: int | None,
+        run_stock_ids: Sequence[int] | None = None,
         statuses: Sequence[str] = ("failed_permanent", "failed_retryable"),
         stock_ids: Sequence[int] | None = None,
         clear_result_payload: bool = False,
@@ -230,6 +235,7 @@ class DebateBackfillRunner:
             report_date=report_date,
             source=source,
             portfolio_id=portfolio_id,
+            stock_ids=run_stock_ids,
         )
         count = self.checkpoint_store.requeue_jobs(
             run_key=run_key,
@@ -238,8 +244,9 @@ class DebateBackfillRunner:
             clear_result_payload=clear_result_payload,
         )
         logger.info(
-            "수동 복구 requeue 완료 | date=%s | statuses=%s | stock_ids=%s | clear_result_payload=%s | updated=%s",
+            "수동 복구 requeue 완료 | date=%s | run_stock_ids=%s | statuses=%s | stock_ids=%s | clear_result_payload=%s | updated=%s",
             report_date,
+            ",".join(str(stock_id) for stock_id in run_stock_ids) if run_stock_ids else "-",
             ",".join(statuses),
             ",".join(str(stock_id) for stock_id in stock_ids) if stock_ids else "-",
             clear_result_payload,
@@ -252,6 +259,7 @@ class DebateBackfillRunner:
             report_date=report_date,
             source=options.source,
             portfolio_id=options.portfolio_id,
+            stock_ids=options.stock_ids,
         )
         progress = self.checkpoint_store.get_progress(run_key=run_key)
         return (not progress.run_exists) or progress.unfinished > 0
@@ -261,6 +269,7 @@ class DebateBackfillRunner:
             report_date=report_date,
             source=options.source,
             portfolio_id=options.portfolio_id,
+            stock_ids=options.stock_ids,
         )
         progress = self.checkpoint_store.get_progress(run_key=run_key)
         logger.info(

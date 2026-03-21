@@ -33,6 +33,7 @@ def get_debate_targets(
     market_type: str = "KOSPI",
     source: str = "trading_history",
     portfolio_id: int | None = None,
+    stock_ids: tuple[int, ...] | None = None,
     limit: int | None = None,
 ) -> DebateTargetsResponse:
     normalized_source = source.strip().lower()
@@ -42,6 +43,7 @@ def get_debate_targets(
             report_date=report_date,
             market_type=market_type,
             portfolio_id=portfolio_id,
+            stock_ids=stock_ids,
             limit=limit,
         )
     elif normalized_source == "ml_reports":
@@ -49,6 +51,7 @@ def get_debate_targets(
             db,
             report_date=report_date,
             market_type=market_type,
+            stock_ids=stock_ids,
             limit=limit,
         )
     else:
@@ -77,6 +80,26 @@ def get_debate_inputs(
     tft_prediction = crud.get_tft_prediction(db, stock_id, report_date, model_version)
     garch_prediction = crud.get_garch_prediction(db, stock_id, report_date, model_version)
     news_agent_data = crud.get_news_agent_stock_data(db, stock_id=stock_id, report_date=report_date)
+
+    missing_requirements: list[str] = []
+    if ensemble_prediction is None:
+        missing_requirements.append("ensemble_prediction")
+    if lgbm_prediction is None:
+        missing_requirements.append("lgbm_prediction")
+    if tft_prediction is None:
+        missing_requirements.append("tft_prediction")
+    if garch_prediction is None:
+        missing_requirements.append("garch_prediction")
+    if news_agent_data is None:
+        missing_requirements.append("news_agent_stock_data")
+
+    if missing_requirements:
+        raise BusinessException(
+            message=(
+                "토론 입력 필수 데이터가 부족합니다: "
+                + ", ".join(missing_requirements)
+            )
+        )
 
     recent_financials = [
         FinancialSnapshot(

@@ -24,7 +24,7 @@ class FakeApiClient:
     def __init__(self):
         self.post_calls = 0
 
-    def get_targets(self, *, report_date, source, market_type, portfolio_id, limit):
+    def get_targets(self, *, report_date, source, market_type, portfolio_id, stock_ids, limit):
         return DebateTargetsResponse(
             report_date=report_date,
             source=source,
@@ -99,6 +99,7 @@ class DebateWorkerRunnerTest(unittest.TestCase):
                 source="trading_history",
                 market_type="KOSPI",
                 portfolio_id=1,
+                stock_ids=None,
                 max_targets=10,
                 continuous=False,
                 loop_interval_seconds=60,
@@ -110,7 +111,7 @@ class DebateWorkerRunnerTest(unittest.TestCase):
                 retry_backoff_seconds=30,
             )
 
-            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
+            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1, stock_ids=None)
             store.ensure_run(run_key=run_key, report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
             store.sync_targets(run_key=run_key, targets=[TargetItem(stock_id=1, ticker="005930", stock_name="삼성전자")])
             payload = DebateResultRequest(

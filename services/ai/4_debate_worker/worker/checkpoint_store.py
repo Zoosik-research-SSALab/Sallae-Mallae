@@ -52,9 +52,19 @@ class CheckpointStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
-    def build_run_key(self, *, report_date: date, source: str, portfolio_id: int | None) -> str:
+    def build_run_key(
+        self,
+        *,
+        report_date: date,
+        source: str,
+        portfolio_id: int | None,
+        stock_ids: Sequence[int] | None = None,
+    ) -> str:
         portfolio_key = str(portfolio_id) if portfolio_id is not None else "all"
-        return f"{report_date.isoformat()}:{source}:{portfolio_key}"
+        stock_key = "all"
+        if stock_ids:
+            stock_key = ",".join(str(stock_id) for stock_id in sorted(set(stock_ids)))
+        return f"{report_date.isoformat()}:{source}:{portfolio_key}:{stock_key}"
 
     def ensure_run(self, *, run_key: str, report_date: date, source: str, portfolio_id: int | None) -> None:
         now = self._now_iso()

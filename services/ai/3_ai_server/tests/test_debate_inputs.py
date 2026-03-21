@@ -40,6 +40,16 @@ class DebateInputsServiceTest(unittest.TestCase):
                 DebateStock(id=1, ticker="005930", name="삼성전자", market_type="KOSPI", is_active=True)
             )
             session.add(
+                MlEnsemblePrediction(
+                    id=11,
+                    stock_id=1,
+                    report_date=date(2026, 3, 16),
+                    model_version="v1.0",
+                    ensemble_result=2,
+                    ensemble_confidence=0.83,
+                )
+            )
+            session.add(
                 MlLgbmPrediction(
                     id=1,
                     stock_id=1,
@@ -61,6 +71,15 @@ class DebateInputsServiceTest(unittest.TestCase):
                     group_id="grp-1",
                     prob=0.79,
                     pred=2,
+                )
+            )
+            session.add(
+                MlGarchPrediction(
+                    id=21,
+                    stock_id=1,
+                    report_date=date(2026, 3, 16),
+                    model_version="v1.0",
+                    vol_1d=0.4,
                 )
             )
             session.add(

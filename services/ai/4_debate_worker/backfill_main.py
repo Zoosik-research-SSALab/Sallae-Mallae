@@ -33,6 +33,7 @@ def parse_args() -> argparse.Namespace:
         default=["failed_permanent", "failed_retryable"],
         help="재큐잉할 상태 목록",
     )
+    repair_parser.add_argument("--run-stock-id", nargs="*", type=int, default=None, help="특정 종목 필터 run_key를 대상으로 할 때 사용")
     repair_parser.add_argument("--stock-ids", nargs="*", type=int, default=None, help="특정 stock_id만 복구")
     repair_parser.add_argument(
         "--clear-result-payload",
@@ -50,6 +51,7 @@ def _add_shared_backfill_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--source", default=settings.TARGET_SOURCE, help="대상 조회 source")
     parser.add_argument("--market-type", default=settings.TARGET_MARKET_TYPE, help="시장 구분")
     parser.add_argument("--portfolio-id", type=int, default=settings.TARGET_PORTFOLIO_ID, help="포트폴리오 ID")
+    parser.add_argument("--stock-id", type=int, action="append", dest="stock_ids", help="특정 종목만 백필할 때 사용 (여러 번 지정 가능)")
     parser.add_argument("--max-targets", type=int, default=settings.MAX_TARGETS_PER_RUN, help="일자별 최대 대상 수")
     parser.add_argument("--poll-interval-seconds", type=int, default=settings.BACKFILL_POLL_INTERVAL_SECONDS, help="백필 패스 간격")
     parser.add_argument("--log-file", default=None, help="로그 파일 경로")
@@ -62,6 +64,7 @@ def build_backfill_options(args: argparse.Namespace) -> BackfillOptions:
         source=args.source,
         market_type=args.market_type,
         portfolio_id=args.portfolio_id,
+        stock_ids=tuple(sorted(set(args.stock_ids or []))) or None,
         max_targets=args.max_targets,
         debate_version=settings.DEBATE_VERSION,
         news_limit=settings.NEWS_LIMIT,
@@ -116,6 +119,7 @@ def main() -> None:
             report_date=args.report_date,
             source=args.source,
             portfolio_id=args.portfolio_id,
+            run_stock_ids=args.run_stock_id,
             statuses=args.statuses,
             stock_ids=args.stock_ids,
             clear_result_payload=args.clear_result_payload,

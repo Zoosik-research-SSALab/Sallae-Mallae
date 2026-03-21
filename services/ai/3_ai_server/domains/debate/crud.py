@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Select, desc, func, or_, select
+from sqlalchemy import Select, and_, desc, func, select
 from sqlalchemy.orm import Session
 
 from domains.debate.models import (
@@ -22,6 +22,7 @@ def get_target_stocks(
     db: Session,
     report_date: date,
     market_type: str,
+    stock_ids: tuple[int, ...] | None,
     limit: int | None,
     tickers: tuple[str, ...] | None = None,
 ) -> list[DebateStock]:
@@ -49,13 +50,21 @@ def get_target_stocks(
         .where(MlGarchPrediction.report_date == report_date)
         .exists()
     )
+    news_exists = (
+        select(NewsAgentStockData.id)
+        .where(NewsAgentStockData.stock_id == DebateStock.id)
+        .where(NewsAgentStockData.report_date == report_date)
+        .exists()
+    )
     stmt: Select[tuple[DebateStock]] = (
         select(DebateStock)
         .where(DebateStock.is_active.is_(True))
         .where(DebateStock.market_type == market_type)
-        .where(or_(ensemble_exists, lgbm_exists, tft_exists, garch_exists))
+        .where(and_(news_exists, ensemble_exists, lgbm_exists, tft_exists, garch_exists))
         .order_by(DebateStock.ticker.asc())
     )
+    if stock_ids:
+        stmt = stmt.where(DebateStock.id.in_(stock_ids))
     if tickers:
         stmt = stmt.where(DebateStock.ticker.in_(tickers))
     if limit is not None:
@@ -68,19 +77,53 @@ def get_target_stocks_by_trading_history(
     report_date: date,
     market_type: str,
     portfolio_id: int | None,
+    stock_ids: tuple[int, ...] | None,
     limit: int | None,
 ) -> list[DebateStock]:
+    ensemble_exists = (
+        select(MlEnsemblePrediction.id)
+        .where(MlEnsemblePrediction.stock_id == DebateStock.id)
+        .where(MlEnsemblePrediction.report_date == report_date)
+        .exists()
+    )
+    lgbm_exists = (
+        select(MlLgbmPrediction.id)
+        .where(MlLgbmPrediction.stock_id == DebateStock.id)
+        .where(MlLgbmPrediction.report_date == report_date)
+        .exists()
+    )
+    tft_exists = (
+        select(MlTftPrediction.id)
+        .where(MlTftPrediction.stock_id == DebateStock.id)
+        .where(MlTftPrediction.report_date == report_date)
+        .exists()
+    )
+    garch_exists = (
+        select(MlGarchPrediction.id)
+        .where(MlGarchPrediction.stock_id == DebateStock.id)
+        .where(MlGarchPrediction.report_date == report_date)
+        .exists()
+    )
+    news_exists = (
+        select(NewsAgentStockData.id)
+        .where(NewsAgentStockData.stock_id == DebateStock.id)
+        .where(NewsAgentStockData.report_date == report_date)
+        .exists()
+    )
     stmt: Select[tuple[DebateStock]] = (
         select(DebateStock)
         .join(AiTradingHistory, AiTradingHistory.stock_id == DebateStock.id)
         .where(DebateStock.is_active.is_(True))
         .where(DebateStock.market_type == market_type)
         .where(func.date(AiTradingHistory.trade_time) == report_date)
+        .where(and_(news_exists, ensemble_exists, lgbm_exists, tft_exists, garch_exists))
         .order_by(DebateStock.ticker.asc())
         .distinct()
     )
     if portfolio_id is not None:
         stmt = stmt.where(AiTradingHistory.portfolio_id == portfolio_id)
+    if stock_ids:
+        stmt = stmt.where(DebateStock.id.in_(stock_ids))
     if limit is not None:
         stmt = stmt.limit(limit)
     return db.scalars(stmt).all()

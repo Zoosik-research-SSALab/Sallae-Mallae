@@ -19,6 +19,7 @@ class RunnerOptions:
     source: str
     market_type: str
     portfolio_id: int | None
+    stock_ids: tuple[int, ...] | None
     max_targets: int | None
     continuous: bool
     loop_interval_seconds: int
@@ -66,6 +67,7 @@ class DebateWorkerRunner:
             report_date=report_date,
             source=options.source,
             portfolio_id=options.portfolio_id,
+            stock_ids=options.stock_ids,
         )
         self.checkpoint_store.ensure_run(
             run_key=run_key,
@@ -79,6 +81,7 @@ class DebateWorkerRunner:
             source=options.source,
             market_type=options.market_type,
             portfolio_id=options.portfolio_id,
+            stock_ids=options.stock_ids,
             limit=options.max_targets,
         )
         new_targets = self.checkpoint_store.sync_targets(run_key=run_key, targets=targets.targets)

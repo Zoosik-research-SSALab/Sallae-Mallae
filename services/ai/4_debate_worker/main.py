@@ -41,6 +41,7 @@ def main() -> None:
         source=args.source,
         market_type=args.market_type,
         portfolio_id=args.portfolio_id,
+        stock_ids=None,
         max_targets=args.max_targets,
         continuous=not args.once,
         loop_interval_seconds=args.loop_interval_seconds,
