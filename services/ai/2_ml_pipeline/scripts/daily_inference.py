@@ -549,16 +549,21 @@ def run_portfolio_simulation(target_date: str, signals_df: pd.DataFrame) -> dict
 
 # ── 메인 ──
 
-def check_pipeline_signal() -> bool:
+def check_pipeline_signal(latest_trade_date: str) -> bool:
     """
     데이터 파이프라인 완료 시그널을 확인합니다.
 
     1_data_pipeline의 스케줄러가 파이프라인 완료 시 생성하는
-    pipeline_signal.json을 읽어 오늘 날짜 + 성공 여부를 확인합니다.
+    pipeline_signal.json을 읽어 최신 거래일 + 성공 여부를 확인합니다.
+
+    거래일 기준으로 비교하므로 주말/공휴일에도 정상 동작합니다.
+
+    Args:
+        latest_trade_date: OHLCV 데이터의 최신 거래일 (YYYY-MM-DD)
 
     Returns:
-        True: 오늘 파이프라인이 성공적으로 완료됨
-        False: 시그널 없음, 날짜 불일치, 또는 파이프라인 실패
+        True: 최신 거래일 파이프라인이 성공적으로 완료됨
+        False: 날짜 불일치 또는 파이프라인 실패
     """
     signal_path = BASE_PATH / "pipeline_signal.json"
     if not signal_path.exists():
@@ -567,12 +572,18 @@ def check_pipeline_signal() -> bool:
 
     try:
         signal = json.loads(signal_path.read_text(encoding="utf-8"))
+
+        # 스키마 버전 확인
+        version = signal.get("version", 1)
+        if version != 1:
+            log(f"지원하지 않는 시그널 버전: {version} — 추론 건너뜀")
+            return False
+
         signal_date = signal.get("date", "")
         signal_status = signal.get("status", "")
-        today = datetime.now().strftime("%Y-%m-%d")
 
-        if signal_date != today:
-            log(f"시그널 날짜 불일치: signal={signal_date}, today={today} — 대기")
+        if signal_date != latest_trade_date:
+            log(f"시그널 날짜 불일치: signal={signal_date}, expected={latest_trade_date} — 대기")
             return False
 
         if signal_status != "success":
@@ -581,8 +592,11 @@ def check_pipeline_signal() -> bool:
 
         log(f"파이프라인 완료 확인: date={signal_date}, status={signal_status}")
         return True
-    except (json.JSONDecodeError, KeyError) as exc:
-        log(f"시그널 파일 파싱 실패: {exc} — 수동 실행으로 간주")
+    except json.JSONDecodeError as exc:
+        log(f"시그널 파일 파싱 실패 (쓰기 중?): {exc} — 대기")
+        return False
+    except KeyError as exc:
+        log(f"시그널 필드 누락: {exc} — 수동 실행으로 간주")
         return True
 
 
@@ -591,14 +605,13 @@ def main():
     log("앙상블 시그널 파이프라인 시작")
     log("=" * 60)
 
-    # 0. 데이터 파이프라인 완료 시그널 확인
-    if not check_pipeline_signal():
-        log("데이터 파이프라인 미완료 — 추론 중단")
-        return
-
-    # 1. 최신 날짜 확인
+    # 0. 최신 거래일 확인 + 파이프라인 시그널 확인
     latest_date = get_latest_trade_date()
     log(f"최신 거래일: {latest_date}")
+
+    if not check_pipeline_signal(latest_date):
+        log("데이터 파이프라인 미완료 — 추론 중단")
+        return
 
     # 2. 피처 생성
     log("피처 생성 중...")
