@@ -13,6 +13,7 @@ Python 3.10+ 호환.
 from __future__ import annotations
 
 import datetime
+import json
 import subprocess
 import sys
 import time
@@ -267,6 +268,8 @@ def run_daily_update() -> None:
         _run_rclone_financial_upload()
 
     # 파이프라인 완료 시그널을 Drive에 업로드 (ML 파이프라인 트리거용)
+    # NOTE: 실패 시에도 시그널을 기록하여 ML 소비자가 상태를 관찰할 수 있음.
+    # 소비자(2_ml_pipeline)는 반드시 status=="success"를 확인한 후 추론을 실행해야 함.
     _write_pipeline_signal(today, "incremental", pipeline_ok)
 
     logger.info("일일 업데이트 완료 | 날짜: %s", today.isoformat())
@@ -359,14 +362,13 @@ def _write_pipeline_signal(
         mode: 파이프라인 실행 모드 ("initial" 또는 "incremental")
         success: 파이프라인 성공 여부
     """
-    import json
-
     signal = {
+        "version": 1,
         "event": "pipeline_complete",
         "date": date.isoformat(),
         "mode": mode,
         "status": "success" if success else "failure",
-        "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+        "timestamp": datetime.datetime.now(tz=datetime.timezone.utc).isoformat(timespec="seconds"),
     }
 
     try:
