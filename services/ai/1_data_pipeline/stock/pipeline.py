@@ -49,30 +49,11 @@ logger = setup_logger(__name__)
 
 def _ensure_financial_data() -> bool:
     """재무 데이터 볼륨 상태를 확인하고 부족하면 Drive에서 다운로드."""
-    if not (RCLONE_AUTO_SYNC and RCLONE_REMOTE):
-        return True
-
-    from utils.drive_utils import rclone_sync_down
-
-    # 1단계: 디렉토리가 비어있으면 전체 다운로드
-    if not RAW_FINANCIAL_PATH.exists() or not any(RAW_FINANCIAL_PATH.glob("*.parquet")):
-        logger.info("재무 데이터 없음 — Drive에서 초기 다운로드")
-        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
-
-    # 2단계: OHLCV 종목 대비 커버리지 확인
-    ohlcv_tickers = {p.stem for p in RAW_OHLCV_PATH.glob("*.parquet")}
-    financial_tickers = {p.stem.split("_")[0] for p in RAW_FINANCIAL_PATH.glob("*.parquet")}
-    if not ohlcv_tickers:
-        return True  # OHLCV도 없으면 비교 불가, 스킵
-
-    missing_ratio = len(ohlcv_tickers - financial_tickers) / len(ohlcv_tickers)
-    if missing_ratio > 0.5:
-        logger.info("재무 데이터 커버리지 부족 (%.0f%% 누락) — Drive에서 보충", missing_ratio * 100)
-        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
-
-    coverage = len(financial_tickers & ohlcv_tickers) / len(ohlcv_tickers)
-    logger.info("재무 데이터 볼륨 정상 (커버리지 %.0f%%, %d종목)", coverage * 100, len(financial_tickers))
-    return True
+    from utils.financial_check import ensure_financial_volume
+    return ensure_financial_volume(
+        BASE_PATH, RAW_FINANCIAL_PATH, RAW_OHLCV_PATH,
+        RCLONE_AUTO_SYNC, RCLONE_REMOTE,
+    )
 
 
 # ---------------------------------------------------------------------------

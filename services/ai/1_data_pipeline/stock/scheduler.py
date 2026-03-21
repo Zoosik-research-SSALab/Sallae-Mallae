@@ -154,43 +154,68 @@ def _is_first_trading_day_of_month() -> bool:
 # subprocess 실행 헬퍼
 # ---------------------------------------------------------------------------
 
-def _run_subprocess(cmd: list[str], description: str) -> bool:
+_SUBPROCESS_TIMEOUT: int = 14400  # subprocess 기본 타임아웃 (4시간)
+
+
+def _run_subprocess(
+    cmd: list[str],
+    description: str,
+    timeout: int = _SUBPROCESS_TIMEOUT,
+) -> bool:
     """
     자식 프로세스로 명령을 실행합니다.
 
     자식 프로세스 종료 시 OS가 메모리를 완전 회수하므로,
     pandas/pykrx 등 무거운 라이브러리가 스케줄러 프로세스에 잔류하지 않습니다.
-    stdout/stderr는 실시간으로 부모 프로세스의 로거에 전달됩니다.
+    stdout/stderr는 Popen을 통해 실시간으로 부모 프로세스의 로거에 전달됩니다.
+    타이머 스레드로 타임아웃을 감시하여 행(hang) 상태를 방지합니다.
 
     Args:
         cmd: 실행할 명령어 리스트 (예: [sys.executable, "pipeline.py", ...])
         description: 로그에 사용할 작업 설명
+        timeout: 타임아웃 (초). 기본값 4시간. 초과 시 프로세스를 종료합니다.
 
     Returns:
         성공 여부 (exit code == 0)
     """
-    logger.info("[subprocess] %s 시작: %s", description, " ".join(cmd))
+    import threading
+
+    logger.info("[subprocess] %s 시작 (args=%d, timeout=%ds)", description, len(cmd), timeout)
+    timed_out = False
+
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
             cwd=_SCHEDULER_DIR,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
         )
 
-        # stdout 로그 전달
-        if result.stdout:
-            for line in result.stdout.rstrip().splitlines():
-                logger.info("[subprocess:%s] %s", description, line)
+        # 타이머 스레드로 타임아웃 감시 (stdout 블로킹 루프와 독립적으로 작동)
+        def _kill_on_timeout() -> None:
+            nonlocal timed_out
+            timed_out = True
+            proc.kill()
+            logger.error("[subprocess] %s 타임아웃 (%d초 초과) — 프로세스 강제 종료", description, timeout)
 
-        # stderr 로그 전달
-        if result.stderr:
-            for line in result.stderr.rstrip().splitlines():
-                logger.warning("[subprocess:%s] %s", description, line)
+        timer = threading.Timer(timeout, _kill_on_timeout)
+        timer.start()
 
-        if result.returncode != 0:
+        try:
+            # stdout+stderr 실시간 로그 전달
+            for line in proc.stdout:  # type: ignore[union-attr]
+                logger.info("[subprocess:%s] %s", description, line.rstrip())
+            proc.wait()
+        finally:
+            timer.cancel()
+
+        if timed_out:
+            return False
+
+        if proc.returncode != 0:
             logger.error(
-                "[subprocess] %s 실패 (exit code %d)", description, result.returncode,
+                "[subprocess] %s 실패 (exit code %d)", description, proc.returncode,
             )
             return False
 
@@ -238,6 +263,8 @@ def run_daily_update() -> None:
     if is_quarter_month() and _is_first_trading_day_of_month():
         logger.info("분기 시즌 첫 거래일 감지 - 재무 데이터 추가 수집")
         run_quarterly_financial()
+        # 분기 재무 데이터를 Drive에 업로드 (subprocess로 메모리 격리)
+        _run_rclone_financial_upload()
 
     logger.info("일일 업데이트 완료 | 날짜: %s", today.isoformat())
 
@@ -275,46 +302,50 @@ def run_quarterly_financial() -> None:
         logger.error("분기 재무 데이터 수집 실패: %s", exc)
 
 
+def _run_rclone_financial_upload() -> None:
+    """
+    분기 재무 데이터를 Drive에 업로드합니다.
+
+    raw/financial은 파일 수가 많아 RCLONE_SYNC_DIRS에서 제외되어 있으므로,
+    분기 재무 수집 후 별도로 rclone sync를 실행합니다.
+    subprocess로 실행하여 메모리를 격리합니다.
+    """
+    try:
+        from config import RCLONE_AUTO_SYNC, RCLONE_REMOTE
+        if not (RCLONE_AUTO_SYNC and RCLONE_REMOTE):
+            return
+
+        _run_subprocess(
+            [
+                sys.executable, "-c",
+                "import sys; "
+                "from config import BASE_PATH, RCLONE_REMOTE; "
+                "from utils.drive_utils import rclone_sync_up; "
+                "ok = rclone_sync_up(BASE_PATH, RCLONE_REMOTE, subdir='raw/financial'); "
+                "sys.exit(0 if ok else 1)",
+            ],
+            "분기 재무 Drive 업로드",
+            timeout=600,
+        )
+    except Exception as exc:
+        logger.error("분기 재무 데이터 Drive 업로드 실패: %s", exc)
+
+
 # ---------------------------------------------------------------------------
 # 스케줄러
 # ---------------------------------------------------------------------------
 
 def _ensure_financial_volume() -> bool:
-    """
-    재무 데이터 볼륨 상태를 확인하고 부족하면 Drive에서 다운로드합니다.
-
-    pipeline._ensure_financial_data()와 동일한 로직이지만,
-    pipeline 모듈을 임포트하지 않아 메모리를 절약합니다.
-
-    Returns:
-        정상이면 True, 다운로드 실패 시 False
-    """
+    """재무 데이터 볼륨 상태를 확인하고 부족하면 Drive에서 다운로드합니다."""
     from config import (
         BASE_PATH, RAW_FINANCIAL_PATH, RAW_OHLCV_PATH,
         RCLONE_AUTO_SYNC, RCLONE_REMOTE,
     )
-    if not (RCLONE_AUTO_SYNC and RCLONE_REMOTE):
-        return True
-
-    from utils.drive_utils import rclone_sync_down
-
-    if not RAW_FINANCIAL_PATH.exists() or not any(RAW_FINANCIAL_PATH.glob("*.parquet")):
-        logger.info("재무 데이터 없음 — Drive에서 초기 다운로드")
-        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
-
-    ohlcv_tickers = {p.stem for p in RAW_OHLCV_PATH.glob("*.parquet")}
-    financial_tickers = {p.stem.split("_")[0] for p in RAW_FINANCIAL_PATH.glob("*.parquet")}
-    if not ohlcv_tickers:
-        return True
-
-    missing_ratio = len(ohlcv_tickers - financial_tickers) / len(ohlcv_tickers)
-    if missing_ratio > 0.5:
-        logger.info("재무 데이터 커버리지 부족 (%.0f%% 누락) — Drive에서 보충", missing_ratio * 100)
-        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
-
-    coverage = len(financial_tickers & ohlcv_tickers) / len(ohlcv_tickers)
-    logger.info("재무 데이터 볼륨 정상 (커버리지 %.0f%%, %d종목)", coverage * 100, len(financial_tickers))
-    return True
+    from utils.financial_check import ensure_financial_volume
+    return ensure_financial_volume(
+        BASE_PATH, RAW_FINANCIAL_PATH, RAW_OHLCV_PATH,
+        RCLONE_AUTO_SYNC, RCLONE_REMOTE,
+    )
 
 
 def _startup_sync_down() -> None:
