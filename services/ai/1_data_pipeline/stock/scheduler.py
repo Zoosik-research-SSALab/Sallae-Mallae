@@ -254,7 +254,7 @@ def run_daily_update() -> None:
 
     logger.info("거래일 확인 - 증분 업데이트 시작")
 
-    _run_subprocess(
+    pipeline_ok = _run_subprocess(
         [sys.executable, "pipeline.py", "--mode", "incremental"],
         "증분 파이프라인",
     )
@@ -265,6 +265,9 @@ def run_daily_update() -> None:
         run_quarterly_financial()
         # 분기 재무 데이터를 Drive에 업로드 (subprocess로 메모리 격리)
         _run_rclone_financial_upload()
+
+    # 파이프라인 완료 시그널을 Drive에 업로드 (ML 파이프라인 트리거용)
+    _write_pipeline_signal(today, "incremental", pipeline_ok)
 
     logger.info("일일 업데이트 완료 | 날짜: %s", today.isoformat())
 
@@ -329,6 +332,67 @@ def _run_rclone_financial_upload() -> None:
         )
     except Exception as exc:
         logger.error("분기 재무 데이터 Drive 업로드 실패: %s", exc)
+
+
+def _write_pipeline_signal(
+    date: datetime.date,
+    mode: str,
+    success: bool,
+) -> None:
+    """
+    파이프라인 완료 시그널을 JSON 파일로 생성하고 Drive에 업로드합니다.
+
+    ML 파이프라인(2_ml_pipeline)이 이 파일을 폴링하여
+    데이터 수집 완료 여부를 확인한 후 추론을 시작합니다.
+
+    시그널 파일 형식:
+        {
+            "event": "pipeline_complete",
+            "date": "2026-03-22",
+            "mode": "incremental",
+            "status": "success" | "failure",
+            "timestamp": "2026-03-22T17:05:23"
+        }
+
+    Args:
+        date: 파이프라인 실행 대상 날짜
+        mode: 파이프라인 실행 모드 ("initial" 또는 "incremental")
+        success: 파이프라인 성공 여부
+    """
+    import json
+
+    signal = {
+        "event": "pipeline_complete",
+        "date": date.isoformat(),
+        "mode": mode,
+        "status": "success" if success else "failure",
+        "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+    }
+
+    try:
+        from config import BASE_PATH, RCLONE_AUTO_SYNC, RCLONE_REMOTE
+
+        signal_path = BASE_PATH / "pipeline_signal.json"
+        signal_path.parent.mkdir(parents=True, exist_ok=True)
+        signal_path.write_text(json.dumps(signal, ensure_ascii=False, indent=2), encoding="utf-8")
+        logger.info("파이프라인 시그널 저장: %s (status=%s)", signal_path, signal["status"])
+
+        # Drive에 업로드 (rclone 설정 시)
+        if RCLONE_AUTO_SYNC and RCLONE_REMOTE:
+            _run_subprocess(
+                [
+                    sys.executable, "-c",
+                    "import sys; "
+                    "from config import BASE_PATH, RCLONE_REMOTE; "
+                    "from utils.drive_utils import rclone_copy_file; "
+                    "ok = rclone_copy_file(BASE_PATH / 'pipeline_signal.json', RCLONE_REMOTE); "
+                    "sys.exit(0 if ok else 1)",
+                ],
+                "파이프라인 시그널 Drive 업로드",
+                timeout=60,
+            )
+    except Exception as exc:
+        logger.error("파이프라인 시그널 저장/업로드 실패: %s", exc)
 
 
 # ---------------------------------------------------------------------------

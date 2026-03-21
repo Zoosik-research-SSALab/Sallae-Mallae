@@ -100,8 +100,11 @@ python setup_drive.py
 | 매크로 | `raw/macro/` | `{indicator}.parquet` | 지수·환율·금리 단일 시계열 |
 | 재무 | `raw/financial/` | `{ticker}_{YYYYMMDD}.parquet` | **날짜 포함** — Point-in-Time 보장 |
 | 베이스 피처 | `processed/base_features/` | `base_features.parquet` | MultiIndex: date + ticker |
+| 파이프라인 시그널 | `BASE_PATH/` | `pipeline_signal.json` | ML 파이프라인 트리거용 완료 시그널 |
 
 재무 데이터만 파일명에 수집 날짜가 포함된다 (백테스트 미래정보 누출 방지).
+
+`pipeline_signal.json`은 스케줄러가 파이프라인 완료 시 생성하며, ML 파이프라인(`2_ml_pipeline`)이 폴링하여 추론 실행 여부를 결정한다. rclone 설정 시 Drive에 자동 업로드된다.
 
 ### 증분 업데이트 패턴
 
