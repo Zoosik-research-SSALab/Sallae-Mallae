@@ -1,10 +1,10 @@
 """
-종목별 뉴스 에이전트 데이터 생성 및 DB/Redis 저장
+종목별 뉴스 에이전트 데이터 생성 및 DB 저장
 
 키워드 임베딩 완료 후 호출되어, 종목별로:
   1) 당일+전날 키워드 상위 3개 + 키워드당 뉴스 3건
   2) 종목별 감성 지수
-를 집계하여 news_agent_stock_data 테이블과 Redis에 저장한다.
+를 집계하여 news_agent_stock_data 테이블에 저장한다.
 
 사용법:
   # 오늘 날짜 (스케줄러 또는 수동)
@@ -29,24 +29,14 @@ import logging
 from datetime import date, timedelta
 from pathlib import Path
 
-import redis
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from core.config import settings, SessionLocal
+from core.config import SessionLocal
 from domains.news import crud
 from domains.news.models import NewsAgentStockData, Stock
 
 logger = logging.getLogger(__name__)
-
-CACHE_KEY_PREFIX = "CACHE:NEWS:AGENT:"
-CACHE_TTL_SECONDS = 25 * 60 * 60  # 25시간
-
-
-def _get_redis() -> redis.Redis:
-    """Redis 클라이언트를 생성한다."""
-    return redis.from_url(settings.REDIS_URL, decode_responses=True)
-
 
 def build_stock_agent_data(
     db: Session,
@@ -128,16 +118,6 @@ def save_to_db(db: Session, stock_id: int, report_date: date, data: dict) -> Non
     db.commit()
 
 
-def save_to_redis(stock_id: int, report_date: date, data: dict) -> None:
-    """종목별 에이전트 데이터를 Redis에 캐싱한다."""
-    try:
-        r = _get_redis()
-        key = f"{CACHE_KEY_PREFIX}{stock_id}:{report_date.isoformat()}"
-        r.setex(key, CACHE_TTL_SECONDS, json.dumps(data, ensure_ascii=False))
-    except Exception as e:
-        logger.warning("Redis 저장 실패 (stock_id=%d, date=%s): %s", stock_id, report_date, e)
-
-
 def save_to_file(ticker: str, report_date: date, data: dict, output_dir: Path) -> None:
     """종목별 에이전트 데이터를 파일로 내보낸다. (종목 폴더/날짜별 JSON)"""
     stock_dir = output_dir / ticker
@@ -163,7 +143,7 @@ def run_build_all(
     news_per_keyword: int = 3,
 ) -> dict:
     """
-    모든 종목에 대해 뉴스 에이전트 데이터를 생성하고 DB+Redis에 저장한다.
+    모든 종목에 대해 뉴스 에이전트 데이터를 생성하고 DB에 저장한다.
     키워드 임베딩 완료 후 스케줄러에서 호출된다.
 
     반환: {"processed": int, "skipped": int}
@@ -190,7 +170,6 @@ def run_build_all(
 
                 if data["top_keywords"] or data["sentiment"]["total"] > 0:
                     save_to_db(db, stock_id, report_date, data)
-                    save_to_redis(stock_id, report_date, data)
                     processed += 1
                 else:
                     skipped += 1
@@ -303,7 +282,7 @@ def main():
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    parser = argparse.ArgumentParser(description="종목별 뉴스 에이전트 데이터 생성 (DB + Redis)")
+    parser = argparse.ArgumentParser(description="종목별 뉴스 에이전트 데이터 생성 (DB)")
     parser.add_argument(
         "--date", type=date.fromisoformat, default=None,
         help="단일 날짜 실행 (YYYY-MM-DD, 기본: 오늘)",
@@ -364,7 +343,7 @@ def main():
             stock_ids_filter=stock_ids_filter,
         )
     else:
-        # 단일 날짜 모드 (DB + Redis 저장)
+        # 단일 날짜 모드 (DB 저장)
         run_build_all(
             report_date=args.date,
             top_k=args.top_k,
