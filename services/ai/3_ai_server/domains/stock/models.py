@@ -6,6 +6,7 @@ from core.config import Base
 
 class Stock(Base):
     __tablename__ = "stocks"
+    __table_args__ = {"extend_existing": True}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     ticker: Mapped[str] = mapped_column(String(6), unique=True, nullable=False)
