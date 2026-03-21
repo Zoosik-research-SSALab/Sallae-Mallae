@@ -87,7 +87,10 @@ export default function NewsPageClient() {
 
   const activeNewsQuery = effectiveActiveTab === "WATCHLIST" ? watchlistNewsQuery : latestNewsQuery;
   const queriedNews = useMemo(() => activeNewsQuery.data?.news ?? [], [activeNewsQuery.data]);
-  const keywordFilteredNews = useMemo(() => filterNewsByKeyword(queriedNews, deferredKeyword), [queriedNews, deferredKeyword]);
+  const keywordFilteredNews = useMemo(
+    () => (effectiveActiveTab === "WATCHLIST" ? filterNewsByKeyword(queriedNews, deferredKeyword) : queriedNews),
+    [deferredKeyword, effectiveActiveTab, queriedNews],
+  );
   const periodFilteredNews = useMemo(() => filterNewsByPeriod(keywordFilteredNews, periodOption), [keywordFilteredNews, periodOption]);
   const sortedNews = useMemo(() => sortNewsItems(periodFilteredNews, sortOption, deferredKeyword), [periodFilteredNews, sortOption, deferredKeyword]);
   const rankedKeywords = trendingKeywordsQuery.data?.trending ?? buildRankedNewsKeywords(latestNewsQuery.data?.news ?? []);
