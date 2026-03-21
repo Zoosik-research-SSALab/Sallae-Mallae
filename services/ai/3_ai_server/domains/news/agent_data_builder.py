@@ -214,10 +214,12 @@ def run_batch(
     news_per_keyword: int = 3,
     save_db: bool = True,
     export_dir: str | None = None,
+    stock_ids_filter: list[int] | None = None,
 ) -> None:
     """
     과거 날짜 범위에 대해 종목별 에이전트 데이터를 일괄 생성한다.
     --save-db: DB에 저장, --export: 종목별 폴더에 JSON 파일로 내보내기
+    stock_ids_filter: 특정 종목만 처리 (None이면 해당 날짜에 뉴스가 있는 전체 종목)
     """
     output_path = Path(export_dir) if export_dir else None
     if output_path:
@@ -234,6 +236,9 @@ def run_batch(
             day_start = current - timedelta(days=1)
 
             stock_ids = crud.get_all_stock_ids_with_news(db, start_date=day_start, end_date=current)
+            # 종목 필터 적용
+            if stock_ids_filter:
+                stock_ids = [sid for sid in stock_ids if sid in stock_ids_filter]
             if not stock_ids:
                 current += timedelta(days=1)
                 continue
@@ -321,7 +326,28 @@ def main():
     )
     parser.add_argument("--top-k", type=int, default=3, help="상위 키워드 수 (기본: 3)")
     parser.add_argument("--news-per-keyword", type=int, default=3, help="키워드당 뉴스 수 (기본: 3)")
+    parser.add_argument(
+        "--stock-ids", nargs="+", type=int, default=None,
+        help="특정 종목 ID만 처리 (예: --stock-ids 1 2 3)",
+    )
+    parser.add_argument(
+        "--tickers", nargs="+", type=str, default=None,
+        help="특정 종목 코드로 처리 (예: --tickers 005930 000660)",
+    )
     args = parser.parse_args()
+
+    # ticker → stock_id 변환
+    stock_ids_filter = args.stock_ids
+    if args.tickers and not stock_ids_filter:
+        from db import SessionLocal as _SL
+        from models import Stock
+        _db = _SL()
+        try:
+            rows = _db.query(Stock.id).filter(Stock.ticker.in_(args.tickers)).all()
+            stock_ids_filter = [r[0] for r in rows]
+            logger.info("종목 코드 → ID 변환: %s → %s", args.tickers, stock_ids_filter)
+        finally:
+            _db.close()
 
     # 배치 모드 (--start, --end)
     if args.start and args.end:
@@ -335,6 +361,7 @@ def main():
             news_per_keyword=args.news_per_keyword,
             save_db=args.save_db,
             export_dir=args.export,
+            stock_ids_filter=stock_ids_filter,
         )
     else:
         # 단일 날짜 모드 (DB + Redis 저장)
