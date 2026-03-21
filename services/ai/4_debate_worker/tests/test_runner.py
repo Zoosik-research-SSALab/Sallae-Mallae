@@ -8,7 +8,6 @@ from tempfile import TemporaryDirectory
 from worker.checkpoint_store import CheckpointStore
 from worker.runner import DebateWorkerRunner, RunnerOptions
 from worker.schemas import (
-    AiMlReportPayload,
     ChartPersona,
     DebateInputsResponse,
     DebatePersonas,
@@ -25,7 +24,7 @@ class FakeApiClient:
     def __init__(self):
         self.post_calls = 0
 
-    def get_targets(self, *, report_date, source, market_type, portfolio_id, limit):
+    def get_targets(self, *, report_date, source, market_type, portfolio_id, stock_ids, limit):
         return DebateTargetsResponse(
             report_date=report_date,
             source=source,
@@ -43,12 +42,11 @@ class FakeApiClient:
             personas=DebatePersonas(
                 fundamental=FundamentalPersona(),
                 chart=ChartPersona(
-                    ai_ml_report=AiMlReportPayload(
-                        report_date=report_date,
-                        model_version="v1.0",
-                        ml_signal="BUY",
-                        ml_confidence=0.81,
-                    )
+                    ensemble_prediction={
+                        "model_version": "v1.0",
+                        "ensemble_result": 2,
+                        "ensemble_confidence": 0.81,
+                    }
                 ),
                 news=NewsPersona(),
             ),
@@ -101,6 +99,7 @@ class DebateWorkerRunnerTest(unittest.TestCase):
                 source="trading_history",
                 market_type="KOSPI",
                 portfolio_id=1,
+                stock_ids=None,
                 max_targets=10,
                 continuous=False,
                 loop_interval_seconds=60,
@@ -112,7 +111,7 @@ class DebateWorkerRunnerTest(unittest.TestCase):
                 retry_backoff_seconds=30,
             )
 
-            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
+            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1, stock_ids=None)
             store.ensure_run(run_key=run_key, report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
             store.sync_targets(run_key=run_key, targets=[TargetItem(stock_id=1, ticker="005930", stock_name="삼성전자")])
             payload = DebateResultRequest(

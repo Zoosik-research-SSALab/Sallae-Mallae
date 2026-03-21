@@ -19,6 +19,7 @@ def debate_targets(
     market_type: str = Query(default="KOSPI", min_length=1, max_length=20),
     source: str = Query(default="trading_history", min_length=1, max_length=30),
     portfolio_id: int | None = Query(default=None, ge=1),
+    stock_id: list[int] | None = Query(default=None, ge=1),
     limit: int | None = Query(default=None, ge=1, le=300),
     db: Session = Depends(get_session),
 ) -> DebateTargetsResponse:
@@ -29,6 +30,7 @@ def debate_targets(
         market_type=market_type,
         source=source,
         portfolio_id=portfolio_id,
+        stock_ids=tuple(stock_id) if stock_id else None,
         limit=limit,
     )
 

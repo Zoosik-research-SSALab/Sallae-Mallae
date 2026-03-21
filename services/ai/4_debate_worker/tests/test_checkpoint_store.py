@@ -13,7 +13,7 @@ class CheckpointStoreTest(unittest.TestCase):
     def test_sync_targets_returns_only_new_rows(self) -> None:
         with TemporaryDirectory() as temp_dir:
             store = CheckpointStore(Path(temp_dir) / "worker.sqlite3")
-            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
+            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1, stock_ids=None)
             store.ensure_run(run_key=run_key, report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
 
             first_count = store.sync_targets(
@@ -31,7 +31,7 @@ class CheckpointStoreTest(unittest.TestCase):
     def test_store_can_resume_cached_result_payload(self) -> None:
         with TemporaryDirectory() as temp_dir:
             store = CheckpointStore(Path(temp_dir) / "worker.sqlite3")
-            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
+            run_key = store.build_run_key(report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1, stock_ids=None)
             store.ensure_run(run_key=run_key, report_date=date(2026, 3, 16), source="trading_history", portfolio_id=1)
             store.sync_targets(
                 run_key=run_key,

@@ -25,8 +25,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="하루치 의장 토론 결과를 현재 포트폴리오 상태에 반영합니다.")
     parser.add_argument("--report-date", required=True, help="반영할 기준일 (YYYY-MM-DD)")
     parser.add_argument("--debate-version", default=None, help="특정 debate_version만 반영할 때 사용")
+    parser.add_argument("--stock-id", type=int, action="append", dest="stock_ids", help="특정 종목만 반영할 때 사용 (여러 번 지정 가능)")
     parser.add_argument("--portfolio-name", default="의장 포트폴리오", help="생성/갱신할 포트폴리오 이름")
     parser.add_argument("--model-version", default="chairman-v1", help="파생 포트폴리오 model_version")
+    parser.add_argument("--initial-capital", type=int, default=100_000_000, help="초기 투자금")
     parser.add_argument("--status-only", action="store_true", help="현재 체크포인트 상태만 출력하고 종료")
     return parser
 
@@ -38,10 +40,12 @@ def _print_checkpoint(payload: dict | None) -> None:
 def main() -> int:
     args = build_parser().parse_args()
     report_date = date.fromisoformat(args.report_date)
+    stock_ids = tuple(sorted(set(args.stock_ids or []))) or None
     run_id = build_run_id(
         args.portfolio_name,
         args.model_version,
         args.debate_version or "latest",
+        "all" if not stock_ids else "-".join(str(item) for item in stock_ids),
     )
     progress_path = checkpoint_path(kind="daily", run_id=run_id)
 
@@ -55,6 +59,7 @@ def main() -> int:
             session,
             portfolio_name=args.portfolio_name,
             model_version=args.model_version,
+            initial_capital=args.initial_capital,
         )
         portfolio_id = builder.ensure_portfolio_row()
         checkpoint = load_checkpoint(progress_path) or {
@@ -63,7 +68,9 @@ def main() -> int:
             "portfolio_id": portfolio_id,
             "portfolio_name": args.portfolio_name,
             "model_version": args.model_version,
+            "initial_capital": args.initial_capital,
             "debate_version": args.debate_version,
+            "stock_ids": list(stock_ids) if stock_ids else [],
             "last_completed_date": None,
             "last_requested_date": None,
             "status": "idle",
@@ -111,6 +118,7 @@ def main() -> int:
         summary = builder.append_daily(
             report_date=report_date,
             debate_version=args.debate_version,
+            stock_ids=stock_ids,
         )
         checkpoint["status"] = "succeeded"
         checkpoint["last_completed_date"] = report_date.isoformat()

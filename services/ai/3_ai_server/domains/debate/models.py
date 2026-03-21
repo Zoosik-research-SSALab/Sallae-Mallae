@@ -118,24 +118,15 @@ class MlGarchPrediction(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class StockNews(Base):
-    __tablename__ = "stock_news"
+class NewsAgentStockData(Base):
+    __tablename__ = "news_agent_stock_data"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
-    url: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    publisher: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
-class StockNewsMap(Base):
-    __tablename__ = "stock_news_map"
-
-    stock_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    news_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    sentiment_label: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False)
+    top_keywords: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    sentiment: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AiDebateReport(Base):

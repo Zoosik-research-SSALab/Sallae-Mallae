@@ -23,3 +23,15 @@ python main.py --once --report-date 2026-03-16 --source trading_history --portfo
 ```
 
 자세한 내용은 `docs/personal_desktop_setup.md` 와 `docs/worker_operations.md` 를 참고합니다.
+
+GPU 서버 기간 백필:
+
+```bash
+python3 backfill_main.py run --start-date 2025-01-01 --end-date 2026-03-18 --source ml_reports
+```
+
+주피터 노트북:
+- `notebooks/gpu_debate_backfill.ipynb`
+
+운영 가이드:
+- `docs/gpu_backfill_setup.md`

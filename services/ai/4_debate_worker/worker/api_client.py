@@ -35,18 +35,24 @@ class DebateApiClient:
         source: str,
         market_type: str,
         portfolio_id: int | None,
+        stock_ids: tuple[int, ...] | None,
         limit: int | None,
     ) -> DebateTargetsResponse:
+        query_params: list[tuple[str, Any]] = [
+            ("report_date", report_date.isoformat()),
+            ("source", source),
+            ("market_type", market_type),
+        ]
+        if portfolio_id is not None:
+            query_params.append(("portfolio_id", portfolio_id))
+        if limit is not None:
+            query_params.append(("limit", limit))
+        if stock_ids:
+            query_params.extend(("stock_id", stock_id) for stock_id in stock_ids)
         payload = self._request_json(
             "GET",
             "/ai/debate/targets",
-            query_params={
-                "report_date": report_date.isoformat(),
-                "source": source,
-                "market_type": market_type,
-                "portfolio_id": portfolio_id,
-                "limit": limit,
-            },
+            query_params=query_params,
         )
         return DebateTargetsResponse.model_validate(payload)
 
@@ -84,13 +90,19 @@ class DebateApiClient:
         method: str,
         path: str,
         *,
-        query_params: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | list[tuple[str, Any]] | None = None,
         body: dict[str, Any] | list[Any] | None = None,
     ) -> dict[str, Any]:
-        params = {key: value for key, value in (query_params or {}).items() if value is not None}
         url = f"{self.base_url}{path}"
-        if params:
-            url = f"{url}?{parse.urlencode(params)}"
+        if query_params:
+            if isinstance(query_params, dict):
+                params = {key: value for key, value in query_params.items() if value is not None}
+                encoded = parse.urlencode(params)
+            else:
+                params = [(key, value) for key, value in query_params if value is not None]
+                encoded = parse.urlencode(params, doseq=True)
+            if encoded:
+                url = f"{url}?{encoded}"
 
         headers = {
             "X-API-Key": self.api_key,
@@ -119,4 +131,3 @@ class DebateApiClient:
         except Exception:
             pass
         return exc.reason or "API 요청에 실패했습니다."
-

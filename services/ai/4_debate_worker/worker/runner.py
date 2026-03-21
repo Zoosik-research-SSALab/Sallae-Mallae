@@ -9,6 +9,7 @@ from worker.api_client import ApiClientError, DebateApiClient
 from worker.checkpoint_store import CheckpointStore
 from worker.debate_engine import DebateEngine
 from worker.llm_client import LlmClientError
+from worker.resource_monitor import ResourceMonitor
 from worker.schemas import RunSummary
 
 
@@ -18,6 +19,7 @@ class RunnerOptions:
     source: str
     market_type: str
     portfolio_id: int | None
+    stock_ids: tuple[int, ...] | None
     max_targets: int | None
     continuous: bool
     loop_interval_seconds: int
@@ -36,11 +38,13 @@ class DebateWorkerRunner:
         api_client: DebateApiClient,
         debate_engine: DebateEngine,
         checkpoint_store: CheckpointStore,
+        resource_monitor: ResourceMonitor | None = None,
         stop_event: threading.Event | None = None,
     ):
         self.api_client = api_client
         self.debate_engine = debate_engine
         self.checkpoint_store = checkpoint_store
+        self.resource_monitor = resource_monitor
         self.stop_event = stop_event or threading.Event()
 
     def request_shutdown(self) -> None:
@@ -63,6 +67,7 @@ class DebateWorkerRunner:
             report_date=report_date,
             source=options.source,
             portfolio_id=options.portfolio_id,
+            stock_ids=options.stock_ids,
         )
         self.checkpoint_store.ensure_run(
             run_key=run_key,
@@ -76,6 +81,7 @@ class DebateWorkerRunner:
             source=options.source,
             market_type=options.market_type,
             portfolio_id=options.portfolio_id,
+            stock_ids=options.stock_ids,
             limit=options.max_targets,
         )
         new_targets = self.checkpoint_store.sync_targets(run_key=run_key, targets=targets.targets)
@@ -89,6 +95,11 @@ class DebateWorkerRunner:
             try:
                 payload = job.result_payload
                 if payload is None:
+                    if self.resource_monitor is not None:
+                        self.resource_monitor.wait_until_ready(
+                            stop_event=self.stop_event,
+                            context=f"{report_date.isoformat()}:{job.ticker}",
+                        )
                     logger.info("입력 조회 및 토론 실행 | stock_id=%s | ticker=%s", job.stock_id, job.ticker)
                     inputs = self.api_client.get_inputs(
                         stock_id=job.stock_id,
@@ -109,6 +120,7 @@ class DebateWorkerRunner:
                 else:
                     self.checkpoint_store.mark_succeeded(run_key=run_key, stock_id=job.stock_id, status="succeeded")
                     logger.info("토론 결과 저장 완료 | stock_id=%s | ticker=%s", job.stock_id, job.ticker)
+                self._log_progress(run_key=run_key)
             except ApiClientError as exc:
                 retryable = exc.retryable and job.attempts < options.max_retry_attempts
                 self.checkpoint_store.mark_failed(
@@ -119,6 +131,7 @@ class DebateWorkerRunner:
                     backoff_seconds=options.retry_backoff_seconds * max(job.attempts, 1),
                 )
                 logger.warning("API 처리 실패 | stock_id=%s | retryable=%s | error=%s", job.stock_id, retryable, exc)
+                self._log_progress(run_key=run_key)
             except (LlmClientError, ValueError) as exc:
                 retryable = job.attempts < options.max_retry_attempts
                 self.checkpoint_store.mark_failed(
@@ -129,6 +142,7 @@ class DebateWorkerRunner:
                     backoff_seconds=options.retry_backoff_seconds * max(job.attempts, 1),
                 )
                 logger.warning("LLM 처리 실패 | stock_id=%s | retryable=%s | error=%s", job.stock_id, retryable, exc)
+                self._log_progress(run_key=run_key)
             except Exception as exc:
                 self.checkpoint_store.mark_failed(
                     run_key=run_key,
@@ -138,6 +152,7 @@ class DebateWorkerRunner:
                     backoff_seconds=options.retry_backoff_seconds,
                 )
                 logger.exception("예상하지 못한 오류 | stock_id=%s", job.stock_id)
+                self._log_progress(run_key=run_key)
 
         counts = self.checkpoint_store.get_counts(run_key=run_key)
         summary = RunSummary(
@@ -152,3 +167,20 @@ class DebateWorkerRunner:
         )
         logger.info("배치 완료 | %s", summary.model_dump())
         return summary
+
+    def _log_progress(self, *, run_key: str) -> None:
+        progress = self.checkpoint_store.get_progress(run_key=run_key)
+        processed = progress.succeeded + progress.duplicated + progress.failed_permanent
+        logger.info(
+            "진행 현황 | run_key=%s | processed=%s/%s | succeeded=%s | duplicated=%s | retryable=%s | permanent=%s | pending=%s | running=%s | result_ready=%s",
+            run_key,
+            processed,
+            progress.total,
+            progress.succeeded,
+            progress.duplicated,
+            progress.failed_retryable,
+            progress.failed_permanent,
+            progress.pending,
+            progress.running,
+            progress.result_ready,
+        )
