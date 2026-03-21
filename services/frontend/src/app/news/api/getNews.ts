@@ -1,5 +1,7 @@
 import { apiFetch } from "@/shared/lib/apiClient";
-import type { NewsItem, NewsPayload, NewsQueryParams, NewsTrendingKeyword, NewsTrendingPayload } from "../types/news";
+import { getWatchlistNews } from "@/app/scraps/api/getWatchlistNews";
+import type { WatchlistNewsItem } from "@/app/scraps/types/scraps";
+import type { NewsDetail, NewsItem, NewsPayload, NewsQueryParams, NewsRelatedStock, NewsTrendingKeyword, NewsTrendingPayload } from "../types/news";
 
 type NewsApiEnvelope<T> = {
   success: boolean;
@@ -57,6 +59,17 @@ function normalizeNewsItem(candidate: unknown): NewsItem {
   };
 }
 
+function normalizeWatchlistNewsItem(candidate: WatchlistNewsItem): NewsItem {
+  return {
+    id: candidate.id,
+    title: candidate.title,
+    publisher: candidate.source,
+    publishedAt: candidate.publishedAt ?? null,
+    relatedStocks: Array.isArray(candidate.relatedStocks) ? candidate.relatedStocks : [],
+    url: candidate.url ?? null,
+  };
+}
+
 function normalizeTrendingKeyword(candidate: unknown, fallbackRank: number): NewsTrendingKeyword {
   if (!candidate || typeof candidate !== "object") {
     return {
@@ -70,6 +83,60 @@ function normalizeTrendingKeyword(candidate: unknown, fallbackRank: number): New
   return {
     rank: typeof item.rank === "number" ? item.rank : fallbackRank,
     keyword: typeof item.keyword === "string" ? item.keyword : "",
+  };
+}
+
+function normalizeNewsRelatedStock(candidate: unknown, fallbackRank: number): NewsRelatedStock {
+  if (!candidate || typeof candidate !== "object") {
+    return {
+      id: fallbackRank,
+      name: "",
+      ticker: "",
+    };
+  }
+
+  const item = candidate as Record<string, unknown>;
+
+  return {
+    id: typeof item.id === "number" ? item.id : fallbackRank,
+    name: typeof item.name === "string" ? item.name : "",
+    ticker: typeof item.ticker === "string" ? item.ticker : "",
+  };
+}
+
+function normalizeNewsDetail(candidate: unknown): NewsDetail {
+  if (!candidate || typeof candidate !== "object") {
+    return {
+      id: 0,
+      title: "",
+      snippet: "",
+      publisher: "",
+      publishedAt: null,
+      url: null,
+      relatedStocks: [],
+    };
+  }
+
+  const item = candidate as Record<string, unknown>;
+  const publishedAt = typeof item.publishedAt === "string"
+    ? item.publishedAt
+    : typeof item.published_at === "string"
+      ? item.published_at
+      : null;
+  const relatedStocks = Array.isArray(item.relatedStocks)
+    ? item.relatedStocks
+    : Array.isArray(item.related_stocks)
+      ? item.related_stocks
+      : [];
+
+  return {
+    id: typeof item.id === "number" ? item.id : 0,
+    title: typeof item.title === "string" ? item.title : "",
+    snippet: typeof item.snippet === "string" ? item.snippet : "",
+    publisher: typeof item.publisher === "string" ? item.publisher : "",
+    publishedAt,
+    url: typeof item.url === "string" ? item.url : null,
+    relatedStocks: relatedStocks.map((stock, index) => normalizeNewsRelatedStock(stock, index + 1)).filter((stock) => stock.name),
   };
 }
 
@@ -113,4 +180,21 @@ export async function getTrendingNews() {
           .filter((item) => item.keyword)
       : [],
   } satisfies NewsTrendingPayload;
+}
+
+export async function getWatchlistNewsPage(params: Pick<NewsQueryParams, "offset" | "limit">) {
+  const payload = await getWatchlistNews(params);
+
+  return {
+    news: Array.isArray(payload.news) ? payload.news.map((item) => normalizeWatchlistNewsItem(item)) : [],
+  } satisfies NewsPayload;
+}
+
+export async function getNewsDetail(newsId: number) {
+  const payload = await apiFetch<NewsDetail | NewsApiEnvelope<NewsDetail>>(`/api/news/${newsId}`, {
+    cache: "no-store",
+  });
+  const unwrapped = unwrapNewsApiResponse(payload, "뉴스 상세 응답이 올바르지 않습니다.");
+
+  return normalizeNewsDetail(unwrapped);
 }

@@ -5,6 +5,11 @@ import { ensureMockUserAuthorized, proxyUsersApiRequest, shouldUseMockUsersApi }
 
 export const dynamic = "force-dynamic";
 
+function parsePositiveNumber(value: string | null, fallback: number, min = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= min ? parsed : fallback;
+}
+
 export async function GET(request: NextRequest) {
   if (!shouldUseMockUsersApi()) {
     return proxyUsersApiRequest({
@@ -19,5 +24,12 @@ export async function GET(request: NextRequest) {
     return unauthorizedResponse;
   }
 
-  return NextResponse.json(snakelizeKeys(getMockWatchlistNews()));
+  const offset = parsePositiveNumber(request.nextUrl.searchParams.get("offset"), 0);
+  const limit = parsePositiveNumber(request.nextUrl.searchParams.get("limit"), 0, 1);
+
+  return NextResponse.json(snakelizeKeys(
+    limit > 0
+      ? getMockWatchlistNews({ offset, limit })
+      : getMockWatchlistNews(),
+  ));
 }

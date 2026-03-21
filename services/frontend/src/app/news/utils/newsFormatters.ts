@@ -41,6 +41,16 @@ function getRelevanceScore(item: NewsItem, keyword: string) {
   return score;
 }
 
+export function filterNewsByKeyword(items: NewsItem[], keyword: string) {
+  const normalizedKeyword = normalizeNewsKeyword(keyword);
+
+  if (!normalizedKeyword) {
+    return items;
+  }
+
+  return items.filter((item) => getRelevanceScore(item, normalizedKeyword) > 0);
+}
+
 export function formatNewsRelativeTime(publishedAt: string | null) {
   const publishedTimestamp = getPublishedTimestamp(publishedAt);
 
