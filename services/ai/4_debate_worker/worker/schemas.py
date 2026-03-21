@@ -38,17 +38,6 @@ class FinancialSnapshot(BaseModel):
     roe: float | None = None
 
 
-class AiMlReportPayload(BaseModel):
-    report_date: date
-    model_version: str
-    ml_signal: str | None = None
-    ml_confidence: float | None = None
-    signal_agreement: bool | None = None
-    confidence_gap: float | None = None
-    scenario_type: str | None = None
-    risk_flag: bool | None = None
-
-
 class EnsemblePredictionPayload(BaseModel):
     model_version: str
     ensemble_result: int
@@ -69,7 +58,7 @@ class LgbmPredictionPayload(BaseModel):
     prob_up: float
 
 
-class LstmPredictionPayload(BaseModel):
+class TftPredictionPayload(BaseModel):
     model_version: str
     group_id: str | None = None
     prob: float
@@ -86,14 +75,18 @@ class GarchPredictionPayload(BaseModel):
     percentile_vs_1y: float | None = None
 
 
-class NewsItem(BaseModel):
+class KeywordNewsItem(BaseModel):
+    news_id: int | None = None
     title: str
     snippet: str | None = None
-    publisher: str | None = None
     published_at: datetime | None = None
     url: str | None = None
-    sentiment_score: float | None = None
-    sentiment_label: str | None = None
+
+
+class TopKeywordItem(BaseModel):
+    keyword: str
+    mention_count: int | None = None
+    news: list[KeywordNewsItem] = Field(default_factory=list)
 
 
 class FundamentalPersona(BaseModel):
@@ -102,15 +95,15 @@ class FundamentalPersona(BaseModel):
 
 
 class ChartPersona(BaseModel):
-    ai_ml_report: AiMlReportPayload | None = None
     ensemble_prediction: EnsemblePredictionPayload | None = None
     lgbm_prediction: LgbmPredictionPayload | None = None
-    lstm_prediction: LstmPredictionPayload | None = None
+    tft_prediction: TftPredictionPayload | None = None
     garch_prediction: GarchPredictionPayload | None = None
 
 
 class NewsPersona(BaseModel):
-    recent_news: list[NewsItem] = Field(default_factory=list)
+    top_keywords: list[TopKeywordItem] = Field(default_factory=list)
+    sentiment: dict[str, Any] = Field(default_factory=dict)
 
 
 class DebatePersonas(BaseModel):
@@ -176,6 +169,7 @@ class StoredJob(BaseModel):
     attempts: int
     result_payload: DebateResultRequest | None = None
     last_error: str | None = None
+    next_retry_at: datetime | None = None
 
 
 class RunSummary(BaseModel):

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Sequence
 
 from worker.schemas import DebateResultRequest, StoredJob, TargetItem
 
@@ -17,6 +17,33 @@ class CheckpointCounts:
     duplicated: int
     failed_retryable: int
     failed_permanent: int
+
+
+@dataclass
+class RunProgress:
+    run_key: str
+    run_exists: bool
+    total: int
+    pending: int
+    running: int
+    result_ready: int
+    succeeded: int
+    duplicated: int
+    failed_retryable: int
+    failed_permanent: int
+    earliest_next_retry_at: datetime | None
+
+    @property
+    def unfinished(self) -> int:
+        return self.pending + self.running + self.result_ready + self.failed_retryable
+
+    @property
+    def retry_scheduled(self) -> bool:
+        return self.failed_retryable > 0 and self.earliest_next_retry_at is not None
+
+    @property
+    def terminal(self) -> bool:
+        return self.unfinished == 0
 
 
 class CheckpointStore:
@@ -131,6 +158,7 @@ class CheckpointStore:
             attempts=row["attempts"] + 1,
             result_payload=payload,
             last_error=row["last_error"],
+            next_retry_at=None,
         )
 
     def save_result_payload(self, *, run_key: str, stock_id: int, payload: DebateResultRequest) -> None:
@@ -209,6 +237,160 @@ class CheckpointStore:
             failed_retryable=failed_retryable,
             failed_permanent=failed_permanent,
         )
+
+    def get_progress(self, *, run_key: str) -> RunProgress:
+        with self._connection() as conn:
+            run_exists = conn.execute(
+                "SELECT 1 FROM runs WHERE run_key = ? LIMIT 1",
+                (run_key,),
+            ).fetchone() is not None
+            rows = conn.execute(
+                """
+                SELECT status, COUNT(*) AS count, MIN(next_retry_at) AS earliest_next_retry_at
+                FROM jobs
+                WHERE run_key = ?
+                GROUP BY status
+                """,
+                (run_key,),
+            ).fetchall()
+
+        counts = {
+            "pending": 0,
+            "running": 0,
+            "result_ready": 0,
+            "succeeded": 0,
+            "duplicated": 0,
+            "failed_retryable": 0,
+            "failed_permanent": 0,
+        }
+        earliest_next_retry_at: datetime | None = None
+        total = 0
+        for row in rows:
+            status = row["status"]
+            count = int(row["count"])
+            counts[status] = count
+            total += count
+            retry_at_raw = row["earliest_next_retry_at"]
+            if status == "failed_retryable" and retry_at_raw:
+                retry_at = datetime.fromisoformat(retry_at_raw)
+                if earliest_next_retry_at is None or retry_at < earliest_next_retry_at:
+                    earliest_next_retry_at = retry_at
+
+        return RunProgress(
+            run_key=run_key,
+            run_exists=run_exists,
+            total=total,
+            pending=counts["pending"],
+            running=counts["running"],
+            result_ready=counts["result_ready"],
+            succeeded=counts["succeeded"],
+            duplicated=counts["duplicated"],
+            failed_retryable=counts["failed_retryable"],
+            failed_permanent=counts["failed_permanent"],
+            earliest_next_retry_at=earliest_next_retry_at,
+        )
+
+    def list_jobs(
+        self,
+        *,
+        run_key: str,
+        statuses: Sequence[str] | None = None,
+        limit: int | None = None,
+    ) -> list[StoredJob]:
+        conditions = ["run_key = ?"]
+        params: list[object] = [run_key]
+        if statuses:
+            placeholders = ",".join("?" for _ in statuses)
+            conditions.append(f"status IN ({placeholders})")
+            params.extend(statuses)
+
+        sql = f"""
+            SELECT run_key, stock_id, ticker, stock_name, status, attempts, result_payload_json, last_error, next_retry_at
+            FROM jobs
+            WHERE {" AND ".join(conditions)}
+            ORDER BY
+              CASE status
+                WHEN 'failed_permanent' THEN 0
+                WHEN 'failed_retryable' THEN 1
+                WHEN 'running' THEN 2
+                WHEN 'result_ready' THEN 3
+                WHEN 'pending' THEN 4
+                ELSE 5
+              END,
+              ticker ASC
+        """
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+
+        with self._connection() as conn:
+            rows = conn.execute(sql, params).fetchall()
+
+        jobs: list[StoredJob] = []
+        for row in rows:
+            payload = DebateResultRequest.model_validate_json(row["result_payload_json"]) if row["result_payload_json"] else None
+            next_retry_at = datetime.fromisoformat(row["next_retry_at"]) if row["next_retry_at"] else None
+            jobs.append(
+                StoredJob(
+                    run_key=row["run_key"],
+                    stock_id=row["stock_id"],
+                    ticker=row["ticker"],
+                    stock_name=row["stock_name"],
+                    status=row["status"],
+                    attempts=row["attempts"],
+                    result_payload=payload,
+                    last_error=row["last_error"],
+                    next_retry_at=next_retry_at,
+                )
+            )
+        return jobs
+
+    def requeue_jobs(
+        self,
+        *,
+        run_key: str,
+        statuses: Sequence[str],
+        stock_ids: Sequence[int] | None = None,
+        clear_result_payload: bool = False,
+    ) -> int:
+        if not statuses:
+            return 0
+
+        now = self._now_iso()
+        clear_flag = 1 if clear_result_payload else 0
+        conditions = ["run_key = ?"]
+        condition_params: list[object] = [run_key]
+
+        status_placeholders = ",".join("?" for _ in statuses)
+        conditions.append(f"status IN ({status_placeholders})")
+        condition_params.extend(statuses)
+
+        if stock_ids:
+            stock_placeholders = ",".join("?" for _ in stock_ids)
+            conditions.append(f"stock_id IN ({stock_placeholders})")
+            condition_params.extend(stock_ids)
+
+        sql = f"""
+            UPDATE jobs
+            SET status = CASE
+                    WHEN result_payload_json IS NOT NULL AND ? = 0 THEN 'result_ready'
+                    ELSE 'pending'
+                END,
+                result_payload_json = CASE
+                    WHEN ? = 1 THEN NULL
+                    ELSE result_payload_json
+                END,
+                last_error = NULL,
+                next_retry_at = NULL,
+                lease_expires_at = NULL,
+                completed_at = NULL,
+                updated_at = ?
+            WHERE {" AND ".join(conditions)}
+        """
+
+        with self._connection() as conn:
+            cursor = conn.execute(sql, [clear_flag, clear_flag, now, *condition_params])
+            return cursor.rowcount
 
     def _initialize(self) -> None:
         with self._connection() as conn:

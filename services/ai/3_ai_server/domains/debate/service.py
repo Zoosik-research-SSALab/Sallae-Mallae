@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from core.exceptions import BusinessException, NotFoundException
 from domains.debate import crud
 from domains.debate.schemas import (
-    AiMlReportPayload,
     ChartPersona,
     DebateInputsResponse,
     DebatePersonas,
@@ -19,10 +18,11 @@ from domains.debate.schemas import (
     FundamentalPersona,
     GarchPredictionPayload,
     LgbmPredictionPayload,
-    TftPredictionPayload,
-    NewsItem,
     NewsPersona,
     TargetItem,
+    KeywordNewsItem,
+    TopKeywordItem,
+    TftPredictionPayload,
 )
 
 
@@ -72,20 +72,11 @@ def get_debate_inputs(
         raise NotFoundException("종목을 찾을 수 없습니다.")
 
     financials = crud.get_latest_financials(db, stock_id=stock_id, limit=financial_limit)
-    ai_ml_report = crud.get_ai_ml_report(db, stock_id=stock_id, report_date=report_date, model_version=model_version)
-
-    resolved_model_version = model_version or (ai_ml_report.model_version if ai_ml_report else None)
-
-    ensemble_prediction = None
-    lgbm_prediction = None
-    tft_prediction = None
-    garch_prediction = None
-    ensemble_prediction = crud.get_ensemble_prediction(db, stock_id, report_date, resolved_model_version)
-    lgbm_prediction = crud.get_lgbm_prediction(db, stock_id, report_date, resolved_model_version)
-    tft_prediction = crud.get_tft_prediction(db, stock_id, report_date, resolved_model_version)
-    garch_prediction = crud.get_garch_prediction(db, stock_id, report_date, resolved_model_version)
-
-    recent_news_rows = crud.get_recent_news(db, stock_id=stock_id, report_date=report_date, limit=news_limit)
+    ensemble_prediction = crud.get_ensemble_prediction(db, stock_id, report_date, model_version)
+    lgbm_prediction = crud.get_lgbm_prediction(db, stock_id, report_date, model_version)
+    tft_prediction = crud.get_tft_prediction(db, stock_id, report_date, model_version)
+    garch_prediction = crud.get_garch_prediction(db, stock_id, report_date, model_version)
+    news_agent_data = crud.get_news_agent_stock_data(db, stock_id=stock_id, report_date=report_date)
 
     recent_financials = [
         FinancialSnapshot(
@@ -106,16 +97,6 @@ def get_debate_inputs(
     ]
 
     chart_persona = ChartPersona(
-        ai_ml_report=AiMlReportPayload(
-            report_date=ai_ml_report.report_date,
-            model_version=ai_ml_report.model_version,
-            ml_signal=ai_ml_report.ml_signal,
-            ml_confidence=ai_ml_report.ml_confidence,
-            signal_agreement=ai_ml_report.signal_agreement,
-            confidence_gap=ai_ml_report.confidence_gap,
-            scenario_type=ai_ml_report.scenario_type,
-            risk_flag=ai_ml_report.risk_flag,
-        ) if ai_ml_report else None,
         ensemble_prediction=EnsemblePredictionPayload(
             model_version=ensemble_prediction.model_version,
             ensemble_result=ensemble_prediction.ensemble_result,
@@ -151,18 +132,26 @@ def get_debate_inputs(
         ) if garch_prediction else None,
     )
 
-    news_items = [
-        NewsItem(
-            title=news.title,
-            snippet=news.snippet,
-            publisher=news.publisher,
-            published_at=news.published_at,
-            url=news.url,
-            sentiment_score=news_map.sentiment_score,
-            sentiment_label=news_map.sentiment_label,
+    top_keywords = []
+    for keyword_item in (news_agent_data.top_keywords if news_agent_data and news_agent_data.top_keywords else []):
+        raw_news_items = keyword_item.get("news") if isinstance(keyword_item, dict) else []
+        top_keywords.append(
+            TopKeywordItem(
+                keyword=str(keyword_item.get("keyword", "")),
+                mention_count=keyword_item.get("mention_count"),
+                news=[
+                    KeywordNewsItem(
+                        news_id=raw_news.get("news_id"),
+                        title=str(raw_news.get("title", "")),
+                        snippet=raw_news.get("snippet"),
+                        published_at=raw_news.get("published_at"),
+                        url=raw_news.get("url"),
+                    )
+                    for raw_news in raw_news_items[:news_limit]
+                    if isinstance(raw_news, dict)
+                ],
+            )
         )
-        for news, news_map in recent_news_rows
-    ]
 
     return DebateInputsResponse(
         stock_id=stock.id,
@@ -176,7 +165,10 @@ def get_debate_inputs(
                 recent_financials=recent_financials,
             ),
             chart=chart_persona,
-            news=NewsPersona(recent_news=news_items),
+            news=NewsPersona(
+                top_keywords=top_keywords,
+                sentiment=(news_agent_data.sentiment if news_agent_data and news_agent_data.sentiment else {}),
+            ),
         ),
     )
 

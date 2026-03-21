@@ -7,11 +7,8 @@ from datetime import date
 
 from core.config import settings
 from core.logger import logger
-from worker.api_client import DebateApiClient
-from worker.checkpoint_store import CheckpointStore
-from worker.debate_engine import DebateEngine
-from worker.llm_client import LocalLlmClient
 from worker.runner import DebateWorkerRunner, RunnerOptions
+from worker.runtime import build_runtime
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,27 +26,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     stop_event = threading.Event()
-
-    llm_client = LocalLlmClient(
-        provider=settings.LLM_PROVIDER,
-        base_url=settings.LLM_BASE_URL,
-        model=settings.LLM_MODEL,
-        timeout_seconds=settings.LLM_REQUEST_TIMEOUT_SECONDS,
-        temperature=settings.LLM_TEMPERATURE,
-    )
-    api_client = DebateApiClient(
-        base_url=settings.AI_SERVER_BASE_URL,
-        api_key=settings.INTERNAL_API_KEY,
-        timeout_seconds=settings.AI_SERVER_TIMEOUT_SECONDS,
-    )
-    checkpoint_store = CheckpointStore(settings.checkpoint_db_path)
-    debate_engine = DebateEngine(llm_client=llm_client, max_rounds=settings.MAX_DEBATE_ROUNDS)
-    runner = DebateWorkerRunner(
-        api_client=api_client,
-        debate_engine=debate_engine,
-        checkpoint_store=checkpoint_store,
-        stop_event=stop_event,
-    )
+    runtime = build_runtime(stop_event=stop_event)
+    runner: DebateWorkerRunner = runtime.day_runner
 
     def handle_shutdown(signum: int, _frame) -> None:
         logger.info("종료 시그널 수신 | signal=%s | 현재 작업 완료 후 종료합니다.", signum)

@@ -8,7 +8,6 @@ from tempfile import TemporaryDirectory
 from worker.checkpoint_store import CheckpointStore
 from worker.runner import DebateWorkerRunner, RunnerOptions
 from worker.schemas import (
-    AiMlReportPayload,
     ChartPersona,
     DebateInputsResponse,
     DebatePersonas,
@@ -43,12 +42,11 @@ class FakeApiClient:
             personas=DebatePersonas(
                 fundamental=FundamentalPersona(),
                 chart=ChartPersona(
-                    ai_ml_report=AiMlReportPayload(
-                        report_date=report_date,
-                        model_version="v1.0",
-                        ml_signal="BUY",
-                        ml_confidence=0.81,
-                    )
+                    ensemble_prediction={
+                        "model_version": "v1.0",
+                        "ensemble_result": 2,
+                        "ensemble_confidence": 0.81,
+                    }
                 ),
                 news=NewsPersona(),
             ),

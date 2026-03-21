@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from domains.debate.models import AiMlReport, AiTradingHistory, DebateStock
+from domains.debate.models import AiTradingHistory, DebateStock, MlEnsemblePrediction
 from domains.debate.service import get_debate_targets
 
 
@@ -14,7 +14,7 @@ class DebateTargetsServiceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = create_engine("sqlite:///:memory:")
         DebateStock.__table__.create(self.engine)
-        AiMlReport.__table__.create(self.engine)
+        MlEnsemblePrediction.__table__.create(self.engine)
         AiTradingHistory.__table__.create(self.engine)
         self.session_factory = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
 
@@ -71,7 +71,7 @@ class DebateTargetsServiceTest(unittest.TestCase):
         finally:
             session.close()
 
-    def test_targets_can_fallback_to_ml_reports_source(self) -> None:
+    def test_targets_can_fallback_to_prediction_source(self) -> None:
         session = self.session_factory()
         try:
             session.add_all(
@@ -82,8 +82,22 @@ class DebateTargetsServiceTest(unittest.TestCase):
             )
             session.add_all(
                 [
-                    AiMlReport(id=1, stock_id=1, report_date=date(2026, 3, 16), model_version="v1.0"),
-                    AiMlReport(id=2, stock_id=2, report_date=date(2026, 3, 16), model_version="v1.0"),
+                    MlEnsemblePrediction(
+                        id=1,
+                        stock_id=1,
+                        report_date=date(2026, 3, 16),
+                        model_version="v1.0",
+                        ensemble_result=2,
+                        ensemble_confidence=0.81,
+                    ),
+                    MlEnsemblePrediction(
+                        id=2,
+                        stock_id=2,
+                        report_date=date(2026, 3, 16),
+                        model_version="v1.0",
+                        ensemble_result=1,
+                        ensemble_confidence=0.55,
+                    ),
                 ]
             )
             session.commit()

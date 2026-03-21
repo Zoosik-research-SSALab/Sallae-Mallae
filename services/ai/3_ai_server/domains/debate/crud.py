@@ -2,21 +2,19 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Select, desc, func, select
+from sqlalchemy import Select, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from domains.debate.models import (
     AiDebateReport,
-    AiMlReport,
     AiTradingHistory,
     DebateStock,
     MlEnsemblePrediction,
     MlGarchPrediction,
     MlLgbmPrediction,
     MlTftPrediction,
+    NewsAgentStockData,
     StockFinancial,
-    StockNews,
-    StockNewsMap,
 )
 
 
@@ -27,16 +25,36 @@ def get_target_stocks(
     limit: int | None,
     tickers: tuple[str, ...] | None = None,
 ) -> list[DebateStock]:
+    ensemble_exists = (
+        select(MlEnsemblePrediction.id)
+        .where(MlEnsemblePrediction.stock_id == DebateStock.id)
+        .where(MlEnsemblePrediction.report_date == report_date)
+        .exists()
+    )
+    lgbm_exists = (
+        select(MlLgbmPrediction.id)
+        .where(MlLgbmPrediction.stock_id == DebateStock.id)
+        .where(MlLgbmPrediction.report_date == report_date)
+        .exists()
+    )
+    tft_exists = (
+        select(MlTftPrediction.id)
+        .where(MlTftPrediction.stock_id == DebateStock.id)
+        .where(MlTftPrediction.report_date == report_date)
+        .exists()
+    )
+    garch_exists = (
+        select(MlGarchPrediction.id)
+        .where(MlGarchPrediction.stock_id == DebateStock.id)
+        .where(MlGarchPrediction.report_date == report_date)
+        .exists()
+    )
     stmt: Select[tuple[DebateStock]] = (
         select(DebateStock)
-        .join(
-            AiMlReport,
-            (AiMlReport.stock_id == DebateStock.id) & (AiMlReport.report_date == report_date),
-        )
         .where(DebateStock.is_active.is_(True))
         .where(DebateStock.market_type == market_type)
+        .where(or_(ensemble_exists, lgbm_exists, tft_exists, garch_exists))
         .order_by(DebateStock.ticker.asc())
-        .distinct()
     )
     if tickers:
         stmt = stmt.where(DebateStock.ticker.in_(tickers))
@@ -82,18 +100,6 @@ def get_latest_financials(db: Session, stock_id: int, limit: int) -> list[StockF
     return db.scalars(stmt).all()
 
 
-def get_ai_ml_report(db: Session, stock_id: int, report_date: date, model_version: str | None) -> AiMlReport | None:
-    stmt = (
-        select(AiMlReport)
-        .where(AiMlReport.stock_id == stock_id)
-        .where(AiMlReport.report_date == report_date)
-        .order_by(desc(AiMlReport.created_at), desc(AiMlReport.model_version))
-    )
-    if model_version:
-        stmt = stmt.where(AiMlReport.model_version == model_version)
-    return db.scalars(stmt.limit(1)).first()
-
-
 def _get_prediction_by_version(db: Session, model_cls: type, stock_id: int, report_date: date, model_version: str | None):
     stmt = (
         select(model_cls)
@@ -124,16 +130,15 @@ def get_garch_prediction(db: Session, stock_id: int, report_date: date, model_ve
     return _get_prediction_by_version(db, MlGarchPrediction, stock_id, report_date, model_version)
 
 
-def get_recent_news(db: Session, stock_id: int, report_date: date, limit: int) -> list[tuple[StockNews, StockNewsMap]]:
+def get_news_agent_stock_data(db: Session, stock_id: int, report_date: date) -> NewsAgentStockData | None:
     stmt = (
-        select(StockNews, StockNewsMap)
-        .join(StockNewsMap, StockNewsMap.news_id == StockNews.id)
-        .where(StockNewsMap.stock_id == stock_id)
-        .where(func.date(StockNews.published_at) <= report_date)
-        .order_by(desc(StockNews.published_at), desc(StockNews.id))
-        .limit(limit)
+        select(NewsAgentStockData)
+        .where(NewsAgentStockData.stock_id == stock_id)
+        .where(NewsAgentStockData.report_date == report_date)
+        .order_by(desc(NewsAgentStockData.created_at), desc(NewsAgentStockData.id))
+        .limit(1)
     )
-    return db.execute(stmt).all()
+    return db.scalars(stmt).first()
 
 
 def get_existing_debate_report(db: Session, stock_id: int, report_date: date, debate_version: str) -> AiDebateReport | None:
