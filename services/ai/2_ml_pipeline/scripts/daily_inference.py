@@ -171,7 +171,8 @@ def run_inference(target_date: str) -> pd.DataFrame:
     tft_feature_path = BASE_PATH / "processed" / "tft_features" / "tft_features.parquet"
     df = pd.read_parquet(str(tft_feature_path))
     df["date"] = pd.to_datetime(df["date"])
-    df["target_5d"] = df["target_5d"].astype(int)
+    # 추론 전용: target NaN(최근 ~5거래일)을 0으로 채움 (추론 시 target 미사용)
+    df["target_5d"] = df["target_5d"].fillna(0).astype(int)
     feats = [c for c in CLEANED_FEATURES if c in df.columns]
 
     # KOSPI200 필터
@@ -548,10 +549,52 @@ def run_portfolio_simulation(target_date: str, signals_df: pd.DataFrame) -> dict
 
 # ── 메인 ──
 
+def check_pipeline_signal() -> bool:
+    """
+    데이터 파이프라인 완료 시그널을 확인합니다.
+
+    1_data_pipeline의 스케줄러가 파이프라인 완료 시 생성하는
+    pipeline_signal.json을 읽어 오늘 날짜 + 성공 여부를 확인합니다.
+
+    Returns:
+        True: 오늘 파이프라인이 성공적으로 완료됨
+        False: 시그널 없음, 날짜 불일치, 또는 파이프라인 실패
+    """
+    signal_path = BASE_PATH / "pipeline_signal.json"
+    if not signal_path.exists():
+        log("파이프라인 시그널 파일 없음 — 수동 실행으로 간주")
+        return True  # 시그널 파일 없으면 수동 실행으로 간주하여 통과
+
+    try:
+        signal = json.loads(signal_path.read_text(encoding="utf-8"))
+        signal_date = signal.get("date", "")
+        signal_status = signal.get("status", "")
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        if signal_date != today:
+            log(f"시그널 날짜 불일치: signal={signal_date}, today={today} — 대기")
+            return False
+
+        if signal_status != "success":
+            log(f"파이프라인 실패 상태: status={signal_status} — 추론 건너뜀")
+            return False
+
+        log(f"파이프라인 완료 확인: date={signal_date}, status={signal_status}")
+        return True
+    except (json.JSONDecodeError, KeyError) as exc:
+        log(f"시그널 파일 파싱 실패: {exc} — 수동 실행으로 간주")
+        return True
+
+
 def main():
     log("=" * 60)
     log("앙상블 시그널 파이프라인 시작")
     log("=" * 60)
+
+    # 0. 데이터 파이프라인 완료 시그널 확인
+    if not check_pipeline_signal():
+        log("데이터 파이프라인 미완료 — 추론 중단")
+        return
 
     # 1. 최신 날짜 확인
     latest_date = get_latest_trade_date()
