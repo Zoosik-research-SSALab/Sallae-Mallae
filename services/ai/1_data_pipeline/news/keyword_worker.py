@@ -10,7 +10,7 @@
   2. 키워드 추출 (vLLM Qwen2.5-7B-Instruct-AWQ)
   3. 키워드 임베딩 (e5-small)
   4. K-means 증분 클러스터 배정
-  5. 뉴스 에이전트 데이터 생성 (DB + Redis)
+  5. 뉴스 에이전트 데이터 생성 (DB)
 
 실행 환경: WSL2 Ubuntu (vLLM이 Linux 전용)
 GPU: RTX 5060 8GB — AWQ 양자화 모델 사용
@@ -142,15 +142,16 @@ async def run_news_crawl(start_date: date | None = None, end_date: date | None =
 # 키워드 파이프라인 실행
 # ---------------------------------------------------------------------------
 async def run_keyword_pipeline() -> None:
-    """감성 분석 → 키워드 추출 → 임베딩 → 증분 클러스터 배정 → 에이전트 데이터 생성."""
+    """감성 분석 → 키워드 추출 → 임베딩 → 클러스터 배정 → published_at NULL 복구.
+    반복 실행되는 파이프라인이므로 에이전트 데이터 생성은 포함하지 않음."""
     from processors.keyword_batch import run_keyword_batch
     from processors.sentiment_analyzer import run_sentiment_batch
     from processors.embed_keywords import run_embed_keywords
     from processors.cluster_keywords import assign_to_nearest_cluster
 
-    # 1. 감성 분석 (FinBERT + Gemini) — DB에서 sentiment_label이 NULL인 뉴스 자동 처리
+    # 1. 감성 분석 (FinBERT) — DB에서 sentiment_label이 NULL인 뉴스 자동 처리
     logger.info("=" * 60)
-    logger.info("  [1/5] 감성 분석 시작 (FinBERT + Gemini)")
+    logger.info("  [1/5] 감성 분석 시작 (FinBERT)")
     logger.info("=" * 60)
     await run_sentiment_batch(days=2)
 
@@ -166,16 +167,30 @@ async def run_keyword_pipeline() -> None:
     logger.info("=" * 60)
     run_embed_keywords()
 
-    # 4. 증분 클러스터 배정 (새 키워드만 기존 클러스터에 배정, 전체 재클러스터링 안 함)
+    # 4. 증분 클러스터 배정
     logger.info("=" * 60)
     logger.info("  [4/5] 증분 클러스터 배정 시작")
     logger.info("=" * 60)
     assign_to_nearest_cluster()
 
-    # 5. 종목별 뉴스 에이전트 데이터 생성 (DB + Redis 저장)
+    # 5. published_at NULL 복구
     logger.info("=" * 60)
-    logger.info("  [5/5] 뉴스 에이전트 데이터 생성 시작")
+    logger.info("  [5/5] published_at NULL 복구 시작")
     logger.info("=" * 60)
+    try:
+        from scripts.fix_null_published_at import fix_null_dates
+        await fix_null_dates(limit=5000, dry_run=False)
+        logger.info("published_at NULL 복구 완료")
+    except Exception as e:
+        logger.error("published_at NULL 복구 실패: %s", e)
+
+    logger.info("=" * 60)
+    logger.info("  키워드 파이프라인 완료")
+    logger.info("=" * 60)
+
+
+async def run_agent_data() -> None:
+    """종목별 뉴스 에이전트 데이터 생성 (DB 저장). 최종 1회만 실행."""
     import sys
     from pathlib import Path
     ai_server_path = str(Path(__file__).resolve().parent.parent.parent / "3_ai_server")
@@ -183,20 +198,24 @@ async def run_keyword_pipeline() -> None:
         sys.path.insert(0, ai_server_path)
     from domains.news.agent_data_builder import run_build_all
 
-    STEP5_MAX_RETRIES = 5
-    for attempt in range(1, STEP5_MAX_RETRIES + 1):
+    logger.info("=" * 60)
+    logger.info("  뉴스 에이전트 데이터 생성 시작")
+    logger.info("=" * 60)
+
+    MAX_RETRIES = 5
+    for attempt in range(1, MAX_RETRIES + 1):
         try:
             result = run_build_all()
             logger.info("뉴스 에이전트 데이터: %d개 저장, %d개 건너뜀", result["processed"], result["skipped"])
             break
         except Exception as e:
-            logger.error("[5/5] 시도 %d/%d 실패: %s", attempt, STEP5_MAX_RETRIES, e)
-            if attempt >= STEP5_MAX_RETRIES:
-                raise RuntimeError(f"뉴스 에이전트 데이터 생성 {STEP5_MAX_RETRIES}회 재시도 후 실패") from e
+            logger.error("시도 %d/%d 실패: %s", attempt, MAX_RETRIES, e)
+            if attempt >= MAX_RETRIES:
+                raise RuntimeError(f"뉴스 에이전트 데이터 생성 {MAX_RETRIES}회 재시도 후 실패") from e
             time.sleep(10)
 
     logger.info("=" * 60)
-    logger.info("  키워드 파이프라인 전체 완료")
+    logger.info("  뉴스 에이전트 데이터 생성 완료")
     logger.info("=" * 60)
 
 
@@ -254,6 +273,10 @@ async def run_full_pipeline(
     # 키워드 파이프라인 폴링 루프
     keyword_runs = 0
     crawl_error_logged = False
+    prev_unprocessed = -1
+    stale_rounds = 0
+    MAX_STALE_ROUNDS = 3  # 동일 미처리 건수가 3회 연속이면 루프 탈출
+
     while True:
         # 크롤링 스레드 실패 확인 (1회만 로그)
         if crawl_errors and not crawl_error_logged:
@@ -263,6 +286,19 @@ async def run_full_pipeline(
         unprocessed = count_unprocessed_news(days=2)
 
         if unprocessed > 0:
+            # 미처리 건수 변동 감지 — 크롤링 완료 후에만 stale 판정
+            if crawl_done.is_set() and unprocessed == prev_unprocessed:
+                stale_rounds += 1
+                if stale_rounds >= MAX_STALE_ROUNDS:
+                    logger.warning(
+                        "미처리 뉴스 %d건이 %d회 연속 변동 없음 — 처리 불가 항목으로 판단, 루프 종료",
+                        unprocessed, MAX_STALE_ROUNDS,
+                    )
+                    break
+            else:
+                stale_rounds = 0
+            prev_unprocessed = unprocessed
+
             logger.info("미처리 뉴스 %d건 감지 → 키워드 파이프라인 실행", unprocessed)
             await run_keyword_pipeline()
             keyword_runs += 1
@@ -279,17 +315,8 @@ async def run_full_pipeline(
 
         time.sleep(poll_interval)
 
-    # published_at NULL 복구 (키워드 루프와 독립적으로 실행)
-    # count_unprocessed_news는 published_at IS NULL 행을 세지 않으므로 여기서 직접 호출
-    logger.info("=" * 60)
-    logger.info("  published_at NULL 복구 시작")
-    logger.info("=" * 60)
-    try:
-        from scripts.fix_null_published_at import fix_null_dates
-        await fix_null_dates(limit=5000, dry_run=False)
-        logger.info("published_at NULL 복구 완료")
-    except Exception as e:
-        logger.error("published_at NULL 복구 실패: %s", e)
+    # 최종 1회: 에이전트 데이터 생성 (DB)
+    await run_agent_data()
 
     # 크롤링 실패 시 경고 (적재된 데이터는 이미 처리됨)
     if crawl_errors:
