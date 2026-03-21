@@ -7,6 +7,7 @@ from sqlalchemy import JSON, BigInteger, Boolean, Date, DateTime, Float, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.config import Base
+from domains.news.models import NewsAgentStockData
 
 
 class DebateStock(Base):
@@ -115,17 +116,6 @@ class MlGarchPrediction(Base):
     volatility_level: Mapped[str | None] = mapped_column(String(10), nullable=True)
     risk_flag: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     percentile_vs_1y: Mapped[float | None] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
-class NewsAgentStockData(Base):
-    __tablename__ = "news_agent_stock_data"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    report_date: Mapped[date] = mapped_column(Date, nullable=False)
-    top_keywords: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
-    sentiment: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
