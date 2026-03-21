@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from statistics import mean
+from typing import Any
 
 from worker.llm_client import LocalLlmClient
 from worker.prompts import (
@@ -39,7 +40,7 @@ class DebateEngine:
             system_prompt=build_chairman_system_prompt(),
             user_prompt=build_chairman_user_prompt(inputs, previous_round, round_logs),
         )
-        chairman = ChairmanDecision.model_validate(chairman_raw)
+        chairman = ChairmanDecision.model_validate(self._normalize_chairman_payload(chairman_raw))
 
         final_stances = {
             opinion.persona: {
@@ -82,13 +83,104 @@ class DebateEngine:
                 system_prompt=build_persona_system_prompt(persona),
                 user_prompt=build_persona_user_prompt(inputs, persona, previous_round),
             )
-            opinion = PersonaOpinion.model_validate({"persona": persona, **raw})
+            normalized = self._normalize_persona_payload(raw)
+            opinion = PersonaOpinion.model_validate({"persona": persona, **normalized})
             opinions.append(opinion)
         return opinions
+
+    def _normalize_persona_payload(self, raw: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "signal": self._normalize_signal(raw.get("signal")),
+            "confidence": self._normalize_confidence(raw.get("confidence")),
+            "thesis": self._stringify(raw.get("thesis"), default="판단 근거를 요약하지 못했습니다."),
+            "evidence": self._normalize_string_list(raw.get("evidence"), max_items=3),
+            "risks": self._normalize_string_list(raw.get("risks"), max_items=3),
+            "action_points": self._normalize_string_list(raw.get("action_points"), max_items=2),
+        }
+
+    def _normalize_chairman_payload(self, raw: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "chairman_signal": self._normalize_signal(raw.get("chairman_signal")),
+            "debate_confidence": self._normalize_confidence(raw.get("debate_confidence")),
+            "summary_title": self._stringify(raw.get("summary_title"), default="토론 요약"),
+            "summary_body": self._stringify(raw.get("summary_body"), default="최종 결론을 충분히 생성하지 못했습니다."),
+            "risk_notes": self._normalize_string_list(raw.get("risk_notes"), max_items=3),
+            "execution_notes": self._normalize_string_list(raw.get("execution_notes"), max_items=2),
+        }
+
+    def _normalize_signal(self, value: Any) -> str:
+        text = self._stringify(value, default="HOLD").upper()
+        if text not in {"BUY", "HOLD", "SELL"}:
+            return "HOLD"
+        return text
+
+    def _normalize_confidence(self, value: Any) -> float:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return 0.5
+        if number < 0.0:
+            return 0.0
+        if number > 1.0:
+            return 1.0
+        return number
+
+    def _normalize_string_list(self, value: Any, *, max_items: int) -> list[str]:
+        flattened = self._flatten_to_strings(value)
+        cleaned: list[str] = []
+        for item in flattened:
+            text = self._clean_text(item)
+            if text:
+                cleaned.append(text)
+            if len(cleaned) >= max_items:
+                break
+        return cleaned
+
+    def _flatten_to_strings(self, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, dict):
+            return [self._stringify(value)]
+        if isinstance(value, list):
+            items: list[str] = []
+            for item in value:
+                items.extend(self._flatten_to_strings(item))
+            return items
+        return [str(value)]
+
+    def _stringify(self, value: Any, default: str = "") -> str:
+        if value is None:
+            return default
+        if isinstance(value, str):
+            text = value.strip()
+            return text or default
+        if isinstance(value, list):
+            text = " ".join(part for part in self._flatten_to_strings(value) if part).strip()
+            return text or default
+        if isinstance(value, dict):
+            parts = []
+            for key, item in value.items():
+                rendered = self._stringify(item)
+                if rendered:
+                    parts.append(f"{key}: {rendered}")
+            text = " | ".join(parts).strip()
+            return text or default
+        text = str(value).strip()
+        return text or default
+
+    def _clean_text(self, value: str) -> str:
+        text = value.strip()
+        if not text:
+            return ""
+        # 간단한 길이 제한만 적용
+        if len(text) > 160:
+            text = text[:157].rstrip() + "..."
+        return text
 
     def _has_consensus(self, opinions: list[PersonaOpinion]) -> bool:
         if len(opinions) < len(self.PERSONAS):
             return False
         signals = {item.signal for item in opinions}
         return len(signals) == 1
-
