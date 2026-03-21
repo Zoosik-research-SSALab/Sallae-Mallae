@@ -13,6 +13,7 @@ from domains.news.models import NewsAgentStockData
 class DebateStock(Base):
     # news/stock 도메인과 독립적으로 읽기 전용 query shape를 유지하기 위해 별도 매핑을 둔다.
     __tablename__ = "stocks"
+    __table_args__ = {"extend_existing": True}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     ticker: Mapped[str] = mapped_column(String(6), unique=True, nullable=False)
@@ -23,6 +24,7 @@ class DebateStock(Base):
 
 class StockFinancial(Base):
     __tablename__ = "stock_financials"
+    __table_args__ = {"extend_existing": True}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
