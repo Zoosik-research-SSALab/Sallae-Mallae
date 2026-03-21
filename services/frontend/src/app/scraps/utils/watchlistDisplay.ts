@@ -101,7 +101,11 @@ export function clampPage(page: number, totalPages: number) {
   return Math.min(Math.max(1, page), totalPages);
 }
 
-export function formatNewsRelativeTime(publishedAt: string) {
+export function formatNewsRelativeTime(publishedAt: string | null) {
+  if (!publishedAt) {
+    return "-";
+  }
+
   const publishedDate = new Date(publishedAt);
 
   if (Number.isNaN(publishedDate.getTime())) {

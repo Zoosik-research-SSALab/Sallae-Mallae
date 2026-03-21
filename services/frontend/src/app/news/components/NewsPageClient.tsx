@@ -3,22 +3,26 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { LuSearch, LuSlidersHorizontal } from "react-icons/lu";
 import Button from "@/shared/ui/Button";
+import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
+import { useAuthStore } from "@/shared/lib/authStore";
 import Pagination from "@/shared/ui/Pagination";
 import NewsArticleCard from "./NewsArticleCard";
+import NewsDetailModal from "./NewsDetailModal";
 import NewsFilterModal from "./NewsFilterModal";
 import NewsKeywordSidebar from "./NewsKeywordSidebar";
 import { useNewsQuery } from "../hooks/useNewsQuery";
 import { useNewsTrendingQuery } from "../hooks/useNewsTrendingQuery";
+import { useNewsWatchlistQuery } from "../hooks/useNewsWatchlistQuery";
 import type { NewsPeriodFilter, NewsSortOption, NewsTab } from "../types/news";
 import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/newsConstants";
-import { buildRankedNewsKeywords, filterNewsByPeriod, filterNewsByTab, sortNewsItems } from "../utils/newsFormatters";
+import { buildRankedNewsKeywords, filterNewsByKeyword, filterNewsByPeriod, sortNewsItems } from "../utils/newsFormatters";
 
 const NEWS_PAGES_PER_BATCH = 4;
 const NEWS_BATCH_LIMIT = NEWS_PAGE_SIZE * NEWS_PAGES_PER_BATCH;
 
 const tabs: Array<{ value: NewsTab; label: string }> = [
   { value: "LATEST", label: "최신 뉴스" },
-  { value: "WATCHLIST", label: "관심주 뉴스" },
+  { value: "WATCHLIST", label: "관심 주식" },
 ];
 
 function NewsLoadingState() {
@@ -43,6 +47,8 @@ function NewsLoadingState() {
 }
 
 export default function NewsPageClient() {
+  const authStatus = useAuthStore((state) => state.status);
+  const requireAuthAction = useRequireAuthAction();
   const [searchInput, setSearchInput] = useState("");
   const deferredKeyword = useDeferredValue(searchInput.trim());
   const [activeTab, setActiveTab] = useState<NewsTab>("LATEST");
@@ -52,30 +58,39 @@ export default function NewsPageClient() {
   const [draftPeriodOption, setDraftPeriodOption] = useState<NewsPeriodFilter>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null);
+  const effectiveActiveTab: NewsTab =
+    activeTab === "WATCHLIST" && authStatus === "authenticated" ? "WATCHLIST" : "LATEST";
 
   const requestedPageEnd = currentPage + NEWS_PAGES_PER_BATCH - 1;
   const requestedBatchCount = Math.max(1, Math.ceil(requestedPageEnd / NEWS_PAGES_PER_BATCH));
   const requestedLimit = requestedBatchCount * NEWS_BATCH_LIMIT;
   const needsWideClientFiltering =
-    activeTab !== "LATEST" ||
     periodOption !== null ||
     sortOption !== "LATEST";
   const effectiveLimit = needsWideClientFiltering
     ? Math.max(NEWS_FETCH_LIMIT, requestedLimit)
     : requestedLimit;
 
-  const { data, isLoading, error, refetch, isFetching } = useNewsQuery({
+  const latestNewsQuery = useNewsQuery({
     offset: 0,
     limit: effectiveLimit,
     keyword: deferredKeyword,
+  }, {
+    enabled: effectiveActiveTab === "LATEST",
   });
+  const watchlistNewsQuery = useNewsWatchlistQuery({
+    offset: 0,
+    limit: effectiveLimit,
+  }, effectiveActiveTab === "WATCHLIST");
   const trendingKeywordsQuery = useNewsTrendingQuery();
 
-  const queriedNews = useMemo(() => data?.news ?? [], [data]);
-  const tabFilteredNews = useMemo(() => filterNewsByTab(queriedNews, activeTab), [queriedNews, activeTab]);
-  const periodFilteredNews = useMemo(() => filterNewsByPeriod(tabFilteredNews, periodOption), [tabFilteredNews, periodOption]);
+  const activeNewsQuery = effectiveActiveTab === "WATCHLIST" ? watchlistNewsQuery : latestNewsQuery;
+  const queriedNews = useMemo(() => activeNewsQuery.data?.news ?? [], [activeNewsQuery.data]);
+  const keywordFilteredNews = useMemo(() => filterNewsByKeyword(queriedNews, deferredKeyword), [queriedNews, deferredKeyword]);
+  const periodFilteredNews = useMemo(() => filterNewsByPeriod(keywordFilteredNews, periodOption), [keywordFilteredNews, periodOption]);
   const sortedNews = useMemo(() => sortNewsItems(periodFilteredNews, sortOption, deferredKeyword), [periodFilteredNews, sortOption, deferredKeyword]);
-  const rankedKeywords = trendingKeywordsQuery.data?.trending ?? buildRankedNewsKeywords(queriedNews);
+  const rankedKeywords = trendingKeywordsQuery.data?.trending ?? buildRankedNewsKeywords(latestNewsQuery.data?.news ?? []);
   const totalKnownPages = Math.ceil(sortedNews.length / NEWS_PAGE_SIZE);
   const totalPages = Math.max(1, Math.min(totalKnownPages, requestedPageEnd));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -162,11 +177,18 @@ export default function NewsPageClient() {
                     key={tab.value}
                     type="button"
                     onClick={() => {
+                      if (tab.value === "WATCHLIST") {
+                        const canOpen = requireAuthAction();
+                        if (!canOpen) {
+                          return;
+                        }
+                      }
+
                       setActiveTab(tab.value);
                       setCurrentPage(1);
                     }}
                     className={`border-b px-1 pb-2 text-sm font-semibold leading-5 transition-colors md:text-base md:leading-6 ${
-                      activeTab === tab.value
+                      effectiveActiveTab === tab.value
                         ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
                         : "border-transparent text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-secondary)]"
                     }`}
@@ -176,27 +198,33 @@ export default function NewsPageClient() {
                 ))}
               </div>
 
-              {isLoading ? <NewsLoadingState /> : null}
+              {activeNewsQuery.isLoading ? <NewsLoadingState /> : null}
 
-              {!isLoading && error ? (
+              {!activeNewsQuery.isLoading && activeNewsQuery.error ? (
                 <div className="rounded-3xl bg-[color:var(--color-bg-secondary)] p-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
                   <h2 className="text-xl font-extrabold leading-6 text-[color:var(--color-text-primary)]">
                     뉴스를 불러오지 못했습니다.
                   </h2>
                   <p className="mt-2 text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">
-                    {error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요."}
+                    {activeNewsQuery.error instanceof Error ? activeNewsQuery.error.message : "잠시 후 다시 시도해 주세요."}
                   </p>
-                  <Button variant="soft" onClick={() => void refetch()} disabled={isFetching} className="mt-4 rounded-xl">
+                  <Button variant="soft" onClick={() => void activeNewsQuery.refetch()} disabled={activeNewsQuery.isFetching} className="mt-4 rounded-xl">
                     다시 시도
                   </Button>
                 </div>
               ) : null}
 
-              {!isLoading && !error ? (
+              {!activeNewsQuery.isLoading && !activeNewsQuery.error ? (
                 <>
                   <div className="flex flex-col">
                     {pagedNews.length > 0 ? (
-                      pagedNews.map((item) => <NewsArticleCard key={item.id} item={item} />)
+                      pagedNews.map((item) => (
+                        <NewsArticleCard
+                          key={item.id}
+                          item={item}
+                          onSelect={setSelectedNewsId}
+                        />
+                      ))
                     ) : (
                       <div className="rounded-2xl bg-[color:var(--color-bg-secondary)] px-4 py-10 text-center">
                         <p className="text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">
@@ -225,6 +253,13 @@ export default function NewsPageClient() {
           </aside>
         </div>
       </div>
+
+      {selectedNewsId !== null ? (
+        <NewsDetailModal
+          newsId={selectedNewsId}
+          onClose={() => setSelectedNewsId(null)}
+        />
+      ) : null}
     </main>
   );
 }

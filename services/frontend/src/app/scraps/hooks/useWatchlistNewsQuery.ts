@@ -6,7 +6,7 @@ import { getWatchlistNews } from "../api/getWatchlistNews";
 export function useWatchlistNewsQuery() {
   const query = useQuery({
     queryKey: ["scraps", "watchlist-news"],
-    queryFn: getWatchlistNews,
+    queryFn: () => getWatchlistNews(),
     staleTime: 60_000,
     refetchInterval: 60_000,
   });

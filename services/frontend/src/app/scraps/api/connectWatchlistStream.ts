@@ -1,4 +1,4 @@
-import { connectSse } from "@/shared/lib/apiClient";
+import { connectAuthSse } from "@/shared/lib/authApiClient";
 import type { WatchlistStreamPayload } from "../types/scraps";
 
 type WatchlistStreamHandlers = {
@@ -12,7 +12,7 @@ export function connectWatchlistStream(page: number, limit: number, handlers: Wa
     limit: String(limit),
   });
 
-  return connectSse<WatchlistStreamPayload>(`/api/users/watchlist?${query.toString()}`, {
+  return connectAuthSse<WatchlistStreamPayload>(`/api/users/watchlist?${query.toString()}`, {
     ...handlers,
     useBaseUrl: false,
   });
