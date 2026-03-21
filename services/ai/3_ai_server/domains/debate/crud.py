@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy import Select, and_, desc, func, select
 from sqlalchemy.orm import Session
@@ -137,7 +137,11 @@ def get_latest_financials(db: Session, stock_id: int, limit: int) -> list[StockF
     stmt = (
         select(StockFinancial)
         .where(StockFinancial.stock_id == stock_id)
-        .order_by(desc(StockFinancial.created_at), desc(StockFinancial.report_year), desc(StockFinancial.report_quarter))
+        .order_by(
+            desc(StockFinancial.created_at).nulls_last(),
+            desc(StockFinancial.report_year),
+            desc(StockFinancial.report_quarter),
+        )
         .limit(limit)
     )
     return db.scalars(stmt).all()
@@ -152,7 +156,7 @@ def _get_prediction_by_version(db: Session, model_cls: type, stock_id: int, repo
     if model_version:
         stmt = stmt.where(model_cls.model_version == model_version)
     else:
-        stmt = stmt.order_by(desc(model_cls.created_at), desc(model_cls.model_version))
+        stmt = stmt.order_by(desc(model_cls.created_at).nulls_last(), desc(model_cls.model_version))
     stmt = stmt.limit(1)
     return db.scalars(stmt).first()
 
@@ -178,7 +182,7 @@ def get_news_agent_stock_data(db: Session, stock_id: int, report_date: date) -> 
         select(NewsAgentStockData)
         .where(NewsAgentStockData.stock_id == stock_id)
         .where(NewsAgentStockData.report_date == report_date)
-        .order_by(desc(NewsAgentStockData.created_at), desc(NewsAgentStockData.id))
+        .order_by(desc(NewsAgentStockData.created_at).nulls_last(), desc(NewsAgentStockData.id))
         .limit(1)
     )
     return db.scalars(stmt).first()
@@ -218,6 +222,7 @@ def create_debate_report(
         final_stances=final_stances,
         debate_full_log=debate_full_log,
         chairman_report=chairman_report,
+        created_at=datetime.now(UTC),
     )
     db.add(report)
     db.commit()

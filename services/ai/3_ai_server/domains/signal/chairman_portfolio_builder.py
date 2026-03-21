@@ -578,7 +578,10 @@ class ChairmanPortfolioBuilder:
                            r.debate_version,
                            ROW_NUMBER() OVER (
                                PARTITION BY r.stock_id, r.report_date
-                               ORDER BY r.created_at DESC, r.id DESC
+                               ORDER BY
+                                   CASE WHEN r.created_at IS NULL THEN 1 ELSE 0 END ASC,
+                                   r.created_at DESC,
+                                   r.id DESC
                            ) AS row_number
                     FROM ai_debate_reports r
                     WHERE r.report_date BETWEEN :start_date AND :end_date
