@@ -13,14 +13,19 @@ Python 3.10+ 호환.
 from __future__ import annotations
 
 import datetime
+import subprocess
 import sys
 import time
+from pathlib import Path
 
 import schedule
 
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
+
+# 이 파일의 디렉토리 (subprocess cwd 용)
+_SCHEDULER_DIR: Path = Path(__file__).resolve().parent
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +151,58 @@ def _is_first_trading_day_of_month() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# subprocess 실행 헬퍼
+# ---------------------------------------------------------------------------
+
+def _run_subprocess(cmd: list[str], description: str) -> bool:
+    """
+    자식 프로세스로 명령을 실행합니다.
+
+    자식 프로세스 종료 시 OS가 메모리를 완전 회수하므로,
+    pandas/pykrx 등 무거운 라이브러리가 스케줄러 프로세스에 잔류하지 않습니다.
+    stdout/stderr는 실시간으로 부모 프로세스의 로거에 전달됩니다.
+
+    Args:
+        cmd: 실행할 명령어 리스트 (예: [sys.executable, "pipeline.py", ...])
+        description: 로그에 사용할 작업 설명
+
+    Returns:
+        성공 여부 (exit code == 0)
+    """
+    logger.info("[subprocess] %s 시작: %s", description, " ".join(cmd))
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=_SCHEDULER_DIR,
+            capture_output=True,
+            text=True,
+        )
+
+        # stdout 로그 전달
+        if result.stdout:
+            for line in result.stdout.rstrip().splitlines():
+                logger.info("[subprocess:%s] %s", description, line)
+
+        # stderr 로그 전달
+        if result.stderr:
+            for line in result.stderr.rstrip().splitlines():
+                logger.warning("[subprocess:%s] %s", description, line)
+
+        if result.returncode != 0:
+            logger.error(
+                "[subprocess] %s 실패 (exit code %d)", description, result.returncode,
+            )
+            return False
+
+        logger.info("[subprocess] %s 완료", description)
+        return True
+
+    except Exception as exc:
+        logger.error("[subprocess] %s 실행 중 예외: %s", description, exc)
+        return False
+
+
+# ---------------------------------------------------------------------------
 # 작업 함수
 # ---------------------------------------------------------------------------
 
@@ -154,11 +211,14 @@ def run_daily_update() -> None:
     일일 증분 업데이트를 실행합니다.
 
     거래일 여부를 확인한 후:
-    - 거래일: run_full_pipeline(incremental) 실행
+    - 거래일: pipeline.py --mode incremental 을 subprocess 로 실행
       (rclone 다운로드 → 수집 → 피처 → 품질검증 → rclone 업로드)
     - 비거래일: 스킵 로그 후 종료
 
     분기 시즌 첫 거래일에는 재무 데이터 수집도 추가 실행합니다.
+
+    파이프라인은 별도 프로세스에서 실행되므로, 완료 후 pandas/pykrx 등
+    무거운 라이브러리의 메모리가 OS에 의해 완전히 회수됩니다.
     """
     today = datetime.date.today()
     logger.info("일일 업데이트 체크 시작 | 날짜: %s", today.isoformat())
@@ -169,27 +229,15 @@ def run_daily_update() -> None:
 
     logger.info("거래일 확인 - 증분 업데이트 시작")
 
-    try:
-        import pipeline
-        pipeline.run_full_pipeline(mode="incremental")
-    except SystemExit:
-        logger.error("파이프라인 치명적 오류 발생 (계속 진행)")
-    except Exception as exc:
-        logger.error("파이프라인 실행 실패: %s", exc)
+    _run_subprocess(
+        [sys.executable, "pipeline.py", "--mode", "incremental"],
+        "증분 파이프라인",
+    )
 
     # 분기 시즌 첫 거래일이면 재무 데이터 추가 수집 + Drive 업로드
     if is_quarter_month() and _is_first_trading_day_of_month():
         logger.info("분기 시즌 첫 거래일 감지 - 재무 데이터 추가 수집")
         run_quarterly_financial()
-        # 분기 재무 데이터를 Drive에 업로드
-        try:
-            from config import BASE_PATH, RCLONE_AUTO_SYNC, RCLONE_REMOTE
-            if RCLONE_AUTO_SYNC and RCLONE_REMOTE:
-                from utils.drive_utils import rclone_sync_up
-                rclone_sync_up(BASE_PATH, RCLONE_REMOTE, subdir="raw/financial")
-                logger.info("분기 재무 데이터 Drive 업로드 완료")
-        except Exception as exc:
-            logger.error("분기 재무 데이터 Drive 업로드 실패: %s", exc)
 
     logger.info("일일 업데이트 완료 | 날짜: %s", today.isoformat())
 
@@ -199,13 +247,12 @@ def run_quarterly_financial() -> None:
     분기 재무 데이터를 수집합니다.
 
     1/4/7/10월 첫 거래일에 호출되어
-    collectors.collect_financial.collect_recent_quarters 를 실행합니다.
-    종목 목록은 RAW_OHLCV_PATH 의 parquet 파일 이름에서 자동 수집합니다.
+    collectors/collect_financial.py --recent 8 을 subprocess 로 실행합니다.
+    종목 목록은 RAW_OHLCV_PATH 의 parquet 파일 이름에서 자동 전달합니다.
     """
     logger.info("분기 재무 데이터 수집 시작")
     try:
         from config import RAW_OHLCV_PATH
-        from collectors.collect_financial import collect_recent_quarters
 
         tickers: list[str] = []
         if RAW_OHLCV_PATH.exists():
@@ -215,10 +262,15 @@ def run_quarterly_financial() -> None:
             logger.warning("OHLCV parquet 파일 없음 - 분기 재무 수집 건너뜀")
             return
 
-        collect_recent_quarters(tickers)
+        _run_subprocess(
+            [
+                sys.executable, "-m", "collectors.collect_financial",
+                "--recent", "8",
+                "--tickers", *tickers,
+            ],
+            "분기 재무 수집",
+        )
         logger.info("분기 재무 데이터 수집 완료 | 종목 수: %d", len(tickers))
-    except ImportError:
-        logger.warning("collectors.collect_financial 모듈 없음 - 건너뜀")
     except Exception as exc:
         logger.error("분기 재무 데이터 수집 실패: %s", exc)
 
@@ -226,6 +278,44 @@ def run_quarterly_financial() -> None:
 # ---------------------------------------------------------------------------
 # 스케줄러
 # ---------------------------------------------------------------------------
+
+def _ensure_financial_volume() -> bool:
+    """
+    재무 데이터 볼륨 상태를 확인하고 부족하면 Drive에서 다운로드합니다.
+
+    pipeline._ensure_financial_data()와 동일한 로직이지만,
+    pipeline 모듈을 임포트하지 않아 메모리를 절약합니다.
+
+    Returns:
+        정상이면 True, 다운로드 실패 시 False
+    """
+    from config import (
+        BASE_PATH, RAW_FINANCIAL_PATH, RAW_OHLCV_PATH,
+        RCLONE_AUTO_SYNC, RCLONE_REMOTE,
+    )
+    if not (RCLONE_AUTO_SYNC and RCLONE_REMOTE):
+        return True
+
+    from utils.drive_utils import rclone_sync_down
+
+    if not RAW_FINANCIAL_PATH.exists() or not any(RAW_FINANCIAL_PATH.glob("*.parquet")):
+        logger.info("재무 데이터 없음 — Drive에서 초기 다운로드")
+        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
+
+    ohlcv_tickers = {p.stem for p in RAW_OHLCV_PATH.glob("*.parquet")}
+    financial_tickers = {p.stem.split("_")[0] for p in RAW_FINANCIAL_PATH.glob("*.parquet")}
+    if not ohlcv_tickers:
+        return True
+
+    missing_ratio = len(ohlcv_tickers - financial_tickers) / len(ohlcv_tickers)
+    if missing_ratio > 0.5:
+        logger.info("재무 데이터 커버리지 부족 (%.0f%% 누락) — Drive에서 보충", missing_ratio * 100)
+        return rclone_sync_down(RCLONE_REMOTE, BASE_PATH, subdir="raw/financial")
+
+    coverage = len(financial_tickers & ohlcv_tickers) / len(ohlcv_tickers)
+    logger.info("재무 데이터 볼륨 정상 (커버리지 %.0f%%, %d종목)", coverage * 100, len(financial_tickers))
+    return True
+
 
 def _startup_sync_down() -> None:
     """
@@ -248,8 +338,8 @@ def _startup_sync_down() -> None:
         logger.info("초기 동기화 다운로드 완료")
 
         # 재무 데이터 볼륨 상태 자동 확인
-        from pipeline import _ensure_financial_data
-        _ensure_financial_data()
+        # pipeline 모듈을 임포트하지 않고 직접 확인 (메모리 격리)
+        _ensure_financial_volume()
     except Exception as exc:
         logger.error("초기 동기화 실패: %s", exc)
 
