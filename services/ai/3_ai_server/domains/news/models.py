@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, Date, DateTime, Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.config import Base
@@ -68,7 +68,7 @@ class NewsAgentStockData(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     stock_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    report_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    top_keywords: Mapped[str] = mapped_column(Text, nullable=False)   # JSONB → Text 매핑
-    sentiment: Mapped[str] = mapped_column(Text, nullable=False)      # JSONB → Text 매핑
+    report_date: Mapped[date] = mapped_column(Date, nullable=False)
+    top_keywords: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    sentiment: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
