@@ -11,6 +11,7 @@ require_dir "$SOURCE_DIR/services/backend"
 require_dir "$SOURCE_DIR/services/frontend"
 require_dir "$SOURCE_DIR/services/ai/3_ai_server"
 require_dir "$SOURCE_DIR/services/ai/1_data_pipeline/stock"
+sync_runtime_nginx_conf "$SOURCE_DIR/infra/nginx/nginx.full.conf" "$TARGET"
 
 compose_up \
   "$ROOT_DIR/env/master.env" \

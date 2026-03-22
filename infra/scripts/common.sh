@@ -190,3 +190,28 @@ compose_up() {
     -p "$project_name" \
     up -d --build "$@"
 }
+
+sync_runtime_nginx_conf() {
+  local source_conf="$1"
+  local target_name="$2"
+
+  require_file "$source_conf"
+
+  local runtime_dir="$ROOT_DIR/config/$target_name/nginx"
+  local runtime_conf="$runtime_dir/default.conf"
+  local tmp_conf="$runtime_conf.tmp.$$"
+
+  mkdir -p "$runtime_dir"
+  cp "$source_conf" "$tmp_conf"
+
+  # Keep the same inode when possible so an already-mounted bind source keeps
+  # seeing updated contents after nginx reloads.
+  if [[ -f "$runtime_conf" ]]; then
+    cat "$tmp_conf" > "$runtime_conf"
+    rm -f "$tmp_conf"
+  else
+    mv "$tmp_conf" "$runtime_conf"
+  fi
+
+  export NGINX_CONFIG_PATH="$runtime_conf"
+}

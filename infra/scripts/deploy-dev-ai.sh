@@ -78,6 +78,7 @@ sync_source
 require_dir "$SOURCE_DIR/services/ai/3_ai_server"
 require_dir "$SOURCE_DIR/services/ai/1_data_pipeline/stock"
 require_dir "$SOURCE_DIR/services/ai/1_data_pipeline/news"
+sync_runtime_nginx_conf "$SOURCE_DIR/infra/nginx/nginx.ai.conf" "$TARGET"
 
 services_to_up=()
 

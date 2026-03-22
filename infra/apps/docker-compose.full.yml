@@ -14,7 +14,7 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-      - ../nginx/nginx.full.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${NGINX_CONFIG_PATH:-../nginx/nginx.full.conf}:/etc/nginx/conf.d/default.conf:ro
     networks:
       - app-net
 
