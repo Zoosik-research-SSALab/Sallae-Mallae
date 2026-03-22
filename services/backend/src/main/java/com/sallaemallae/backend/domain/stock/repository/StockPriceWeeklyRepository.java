@@ -17,4 +17,6 @@ public interface StockPriceWeeklyRepository extends JpaRepository<StockPriceWeek
 
   @Query("SELECT MAX(p.tradeWeek) FROM StockPriceWeekly p WHERE p.stockId = :stockId")
   LocalDate findMaxTradeWeekByStockId(@Param("stockId") Long stockId);
+
+  boolean existsByStockIdAndTradeWeek(Long stockId, LocalDate tradeWeek);
 }
