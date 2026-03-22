@@ -8,33 +8,38 @@ import org.springframework.data.repository.query.Param;
 
 public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
 
-  // FS-NEWS-001: 키워드 없이 전체 뉴스 목록 조회
+  // FS-NEWS-001: 키워드 없이 전체 뉴스 목록 조회 (URL 기준 중복 제거)
   @Query("""
       SELECT sn FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
+        AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
       ORDER BY sn.publishedAt DESC
       """)
   List<StockNews> findAllNews(org.springframework.data.domain.Pageable pageable);
 
-  // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 조회
+  // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 조회 (URL 기준 중복 제거)
   @Query("""
-      SELECT DISTINCT sn FROM StockNews sn
-      JOIN NewsKeywordMap nkm ON sn.id = nkm.id.newsId
-      JOIN Keyword k ON nkm.id.keywordId = k.id
+      SELECT sn FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
-        AND k.name = :keyword
+        AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
+        AND sn.id IN (SELECT nkm.id.newsId FROM NewsKeywordMap nkm
+                       JOIN Keyword k ON nkm.id.keywordId = k.id
+                       WHERE k.name = :keyword)
       ORDER BY sn.publishedAt DESC
       """)
   List<StockNews> findNewsByKeyword(
       @Param("keyword") String keyword,
       org.springframework.data.domain.Pageable pageable);
 
-  // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (N+1 방지)
+  // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (같은 URL의 모든 매핑 종목 포함, N+1 방지)
   @Query("""
-      SELECT snm.id.newsId, s.name
-      FROM StockNewsMap snm
+      SELECT sn.id, s.name
+      FROM StockNews sn
+      JOIN StockNews sn2 ON sn2.url = sn.url
+      JOIN StockNewsMap snm ON snm.id.newsId = sn2.id
       JOIN Stock s ON snm.id.stockId = s.id
-      WHERE snm.id.newsId IN :newsIds
+      WHERE sn.id IN :newsIds
+      GROUP BY sn.id, s.name
       """)
   List<Object[]> findStockNamesByNewsIds(@Param("newsIds") List<Long> newsIds);
 
