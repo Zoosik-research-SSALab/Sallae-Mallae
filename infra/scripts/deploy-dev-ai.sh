@@ -80,9 +80,16 @@ require_dir "$SOURCE_DIR/services/ai/1_data_pipeline/stock"
 require_dir "$SOURCE_DIR/services/ai/1_data_pipeline/news"
 sync_runtime_nginx_conf "$SOURCE_DIR/infra/nginx/nginx.ai.conf" "$TARGET"
 
+runtime_nginx_path="${NGINX_CONFIG_PATH}"
+current_nginx_mount_source="$(container_mount_source "sallae-dev-ai-nginx-1" "/etc/nginx/conf.d/default.conf" || true)"
+nginx_mount_changed=false
+if [[ -n "$current_nginx_mount_source" && "$current_nginx_mount_source" != "$runtime_nginx_path" ]]; then
+  nginx_mount_changed=true
+fi
+
 services_to_up=()
 
-if [[ "$compose_file_changed" == true || "$ml_server_changed" == true || "$nginx_config_changed" == true ]]; then
+if [[ "$compose_file_changed" == true || "$ml_server_changed" == true || "$nginx_config_changed" == true || "$nginx_mount_changed" == true ]]; then
   services_to_up+=("ml-server" "nginx")
 fi
 

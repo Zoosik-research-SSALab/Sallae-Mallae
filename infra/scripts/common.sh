@@ -206,6 +206,15 @@ reload_nginx() {
     exec -T nginx nginx -s reload
 }
 
+container_mount_source() {
+  local container_name="$1"
+  local destination_path="$2"
+
+  docker inspect "$container_name" \
+    --format '{{range .Mounts}}{{println .Source "|" .Destination}}{{end}}' 2>/dev/null \
+    | awk -F' \\| ' -v dest="$destination_path" '$2 == dest { print $1; exit }'
+}
+
 sync_runtime_nginx_conf() {
   local source_conf="$1"
   local target_name="$2"
