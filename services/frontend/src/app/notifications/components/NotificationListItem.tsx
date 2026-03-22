@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { FaRegTrashAlt } from "react-icons/fa";
 import { cn } from "@/shared/utils/cn";
 import type { NotificationItem } from "../types/notifications";
@@ -17,7 +17,7 @@ type Props = {
   onDelete: (item: NotificationItem) => void;
 };
 
-export default function NotificationListItem({ item, onClick, onDelete }: Props) {
+function NotificationListItem({ item, onClick, onDelete }: Props) {
   const [isDeleteHovered, setIsDeleteHovered] = useState(false);
   const badgeLabel = getNotificationBadgeLabel(item.notiType);
   const timeLabel = formatNotificationTimestamp(item.createdAt);
@@ -122,3 +122,5 @@ export default function NotificationListItem({ item, onClick, onDelete }: Props)
     </article>
   );
 }
+
+export default memo(NotificationListItem);

@@ -10,6 +10,8 @@ import type {
 } from "../types/notifications";
 import { normalizeNotificationType } from "../utils/notificationFormatters";
 
+const NOTIFICATION_COUNT_FETCH_LIMIT = 1000;
+
 type ApiEnvelope<T> = {
   success?: boolean;
   data?: T;
@@ -73,7 +75,7 @@ export async function getNotifications(params: { tab: NotificationTab; limit: nu
 export async function getNotificationCount() {
   const payload = await getNotifications({
     tab: "ALL",
-    limit: 100,
+    limit: NOTIFICATION_COUNT_FETCH_LIMIT,
   });
 
   return payload.notifications.reduce((count, item) => count + (item.isRead ? 0 : 1), 0);

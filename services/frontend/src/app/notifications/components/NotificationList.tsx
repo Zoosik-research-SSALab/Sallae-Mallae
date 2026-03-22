@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { NotificationItem } from "../types/notifications";
 import { groupNotificationsByDate } from "../utils/notificationFormatters";
 import NotificationListItem from "./NotificationListItem";
@@ -26,6 +27,8 @@ function NotificationListSkeleton() {
 }
 
 export default function NotificationList({ items, isLoading, onItemClick, onDelete }: Props) {
+  const groupedItems = useMemo(() => groupNotificationsByDate(items), [items]);
+
   if (isLoading) {
     return <NotificationListSkeleton />;
   }
@@ -37,8 +40,6 @@ export default function NotificationList({ items, isLoading, onItemClick, onDele
       </div>
     );
   }
-
-  const groupedItems = groupNotificationsByDate(items);
 
   return (
     <div className="flex w-full flex-col">
