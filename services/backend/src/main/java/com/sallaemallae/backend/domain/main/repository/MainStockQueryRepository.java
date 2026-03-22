@@ -5,7 +5,6 @@ import com.sallaemallae.backend.domain.main.dto.TopStockItemResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -35,26 +34,9 @@ public class MainStockQueryRepository {
         return nowKst.toLocalDate();
     }
 
-    /**
-     * 직전 장 마감 시각(KST 15:30) 계산.
-     * 예: 7일 14:00 → 6일 15:30, 7일 16:00 → 7일 15:30.
-     * created_at >= 이 시각 조건으로 장 마감 이후 생성된 데이터만 필터링.
-     */
-    private LocalDateTime getMarketCloseCutoff() {
-        ZonedDateTime nowKst = ZonedDateTime.now(KST);
-        LocalDate cutoffDate;
-        if (nowKst.toLocalTime().isBefore(MARKET_CLOSE)) {
-            cutoffDate = nowKst.toLocalDate().minusDays(1);
-        } else {
-            cutoffDate = nowKst.toLocalDate();
-        }
-        return cutoffDate.atTime(MARKET_CLOSE);
-    }
-
-    /** 의장 confidence 상위 10종목 조회 (장 마감 이후 생성된 데이터 기준) */
+    /** 의장 confidence 상위 10종목 조회 (report_date 기준, 장 마감 15:30 기준 거래일 판별) */
     public List<TopStockItemResponse> getTopTenStocksToday() {
         LocalDate tradingDate = getCurrentTradingDate();
-        LocalDateTime cutoff = getMarketCloseCutoff();
 
         String sql = """
             SELECT s.id AS stock_id, s.name AS stock_name,
@@ -65,9 +47,8 @@ public class MainStockQueryRepository {
                 SELECT chairman_signal, debate_confidence
                 FROM ai_debate_reports
                 WHERE stock_id = s.id
-                  AND report_date <= :tradingDate
-                  AND created_at >= :cutoff
-                ORDER BY report_date DESC, created_at DESC, id DESC LIMIT 1
+                  AND report_date = :tradingDate
+                ORDER BY created_at DESC, id DESC LIMIT 1
             ) r ON true
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
@@ -83,7 +64,6 @@ public class MainStockQueryRepository {
 
         List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
             .setParameter("tradingDate", tradingDate)
-            .setParameter("cutoff", cutoff)
             .getResultList();
         List<TopStockItemResponse> items = new ArrayList<>();
         int rank = 1;
@@ -144,16 +124,15 @@ public class MainStockQueryRepository {
 
     // ── private helpers ──
 
-    private List<NewSignalItemResponse> getSignalsByType(String tradeType) {
+    /** ai_debate_reports에서 report_date 기준으로 BUY/SELL 시그널 조회 */
+    private List<NewSignalItemResponse> getSignalsByType(String signalType) {
         LocalDate tradingDate = getCurrentTradingDate();
-        LocalDateTime cutoff = getMarketCloseCutoff();
 
         String sql = """
             SELECT s.id AS stock_id, s.ticker, s.name AS stock_name,
                    r.debate_confidence, sp.close_price, sp.fluctuation_rate
-            FROM ai_trading_history h
-            JOIN stocks s ON s.id = h.stock_id
-            LEFT JOIN ai_debate_reports r ON r.id = h.debate_report_id
+            FROM ai_debate_reports r
+            JOIN stocks s ON s.id = r.stock_id
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
                 FROM stock_prices_daily
@@ -161,16 +140,15 @@ public class MainStockQueryRepository {
                   AND trade_date <= :tradingDate
                 ORDER BY trade_date DESC LIMIT 1
             ) sp ON true
-            WHERE h.created_at >= :cutoff
-              AND h.trade_type = :tradeType
+            WHERE r.report_date = :tradingDate
+              AND r.chairman_signal = :signalType
             ORDER BY r.debate_confidence DESC NULLS LAST
             LIMIT 3
             """;
 
         List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
-            .setParameter("tradeType", tradeType)
+            .setParameter("signalType", signalType)
             .setParameter("tradingDate", tradingDate)
-            .setParameter("cutoff", cutoff)
             .getResultList();
 
         List<NewSignalItemResponse> items = new ArrayList<>();
