@@ -16,6 +16,7 @@ export function useNotificationsListQuery(tab: NotificationTab, limit: number) {
   return useQuery({
     queryKey: notificationsQueryKeys.list(tab, limit),
     queryFn: () => getNotifications({ tab, limit }),
+    placeholderData: (previousData) => previousData,
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
