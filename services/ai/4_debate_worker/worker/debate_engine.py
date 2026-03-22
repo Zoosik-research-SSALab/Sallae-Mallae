@@ -12,6 +12,7 @@ from worker.prompts import (
 )
 from worker.schemas import ChairmanDecision, DebateInputsResponse, DebateResultRequest, PersonaOpinion
 
+import re
 
 class DebateEngine:
     PERSONAS = ("fundamental", "chart", "news")
@@ -40,7 +41,9 @@ class DebateEngine:
             system_prompt=build_chairman_system_prompt(),
             user_prompt=build_chairman_user_prompt(inputs, previous_round, round_logs),
         )
-        chairman = ChairmanDecision.model_validate(self._normalize_chairman_payload(chairman_raw))
+        normalized_chairman = self._normalize_chairman_payload(chairman_raw)
+        self._ensure_korean_only_chairman_payload(normalized_chairman)
+        chairman = ChairmanDecision.model_validate(normalized_chairman)
 
         final_stances = {
             opinion.persona: {
@@ -84,6 +87,7 @@ class DebateEngine:
                 user_prompt=build_persona_user_prompt(inputs, persona, previous_round),
             )
             normalized = self._normalize_persona_payload(raw)
+            self._ensure_korean_only_persona_payload(normalized)
             opinion = PersonaOpinion.model_validate({"persona": persona, **normalized})
             opinions.append(opinion)
         return opinions
@@ -107,6 +111,44 @@ class DebateEngine:
             "risk_notes": self._normalize_string_list(raw.get("risk_notes"), max_items=3),
             "execution_notes": self._normalize_string_list(raw.get("execution_notes"), max_items=2),
         }
+
+    FORBIDDEN_NON_KOREAN_PATTERN = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]{3,}")
+
+    def _contains_forbidden_language(self, value: str) -> bool:
+        return bool(self.FORBIDDEN_NON_KOREAN_PATTERN.search(value))
+
+    def _preview_text(self, value: str, max_len: int = 80) -> str:
+        value = value.strip().replace("\n", " ")
+        if len(value) <= max_len:
+            return value
+        return value[: max_len - 3].rstrip() + "..."
+
+    def _ensure_korean_only_list(self, values: list[str], *, field_name: str) -> None:
+        for item in values:
+            if self._contains_forbidden_language(item):
+                preview = self._preview_text(item)
+                raise ValueError(f"{field_name}에 한국어 외 문자가 포함되었습니다: {preview}")
+
+    def _ensure_korean_only_persona_payload(self, payload: dict[str, Any]) -> None:
+        thesis = payload.get("thesis", "")
+        if isinstance(thesis, str) and self._contains_forbidden_language(thesis):
+            raise ValueError(f"thesis에 한국어 외 문자가 포함되었습니다: {self._preview_text(thesis)}")
+
+        self._ensure_korean_only_list(payload.get("risks", []), field_name="risks")
+        self._ensure_korean_only_list(payload.get("action_points", []), field_name="action_points")
+
+    def _ensure_korean_only_chairman_payload(self, payload: dict[str, Any]) -> None:
+        summary_title = payload.get("summary_title", "")
+        if isinstance(summary_title, str) and self._contains_forbidden_language(summary_title):
+            raise ValueError(f"summary_title에 한국어 외 문자가 포함되었습니다: {self._preview_text(summary_title)}")
+
+        summary_body = payload.get("summary_body", "")
+        if isinstance(summary_body, str) and self._contains_forbidden_language(summary_body):
+            raise ValueError(f"summary_body에 한국어 외 문자가 포함되었습니다: {self._preview_text(summary_body)}")
+
+        self._ensure_korean_only_list(payload.get("risk_notes", []), field_name="risk_notes")
+        self._ensure_korean_only_list(payload.get("execution_notes", []), field_name="execution_notes")
+
 
     def _normalize_signal(self, value: Any) -> str:
         text = self._stringify(value, default="HOLD").upper()
