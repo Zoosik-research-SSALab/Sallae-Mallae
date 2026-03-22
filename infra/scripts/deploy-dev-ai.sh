@@ -106,9 +106,8 @@ compose_up \
   "${services_to_up[@]}"
 
 if [[ "$nginx_config_changed" == true ]]; then
-  docker compose \
-    --env-file "$ROOT_DIR/env/dev-ai.env" \
-    -f "$SOURCE_DIR/infra/apps/docker-compose.ai.yml" \
-    -p "sallae-dev-ai" \
-    exec -T nginx nginx -s reload
+  reload_nginx \
+    "$ROOT_DIR/env/dev-ai.env" \
+    "$SOURCE_DIR/infra/apps/docker-compose.ai.yml" \
+    "sallae-dev-ai"
 fi
