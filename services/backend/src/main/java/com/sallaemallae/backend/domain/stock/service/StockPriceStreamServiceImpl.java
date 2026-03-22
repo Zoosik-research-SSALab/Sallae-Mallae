@@ -7,11 +7,13 @@ import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceMinute;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceMonthly;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceWeekly;
+import com.sallaemallae.backend.domain.stock.entity.StockPriceYearly;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceMinuteRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceMonthlyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceWeeklyRepository;
+import com.sallaemallae.backend.domain.stock.repository.StockPriceYearlyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.global.exception.BusinessException;
@@ -20,8 +22,8 @@ import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleAggre
 import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleData;
 import com.sallaemallae.backend.infra.kis.websocket.KisWebSocketClient;
 import jakarta.annotation.PreDestroy;
-import java.io.IOException;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -56,6 +58,7 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
   private final StockPriceDailyRepository stockPriceDailyRepository;
   private final StockPriceWeeklyRepository stockPriceWeeklyRepository;
   private final StockPriceMonthlyRepository stockPriceMonthlyRepository;
+  private final StockPriceYearlyRepository stockPriceYearlyRepository;
   private final KisProperties kisProperties;
   private final KisWebSocketClient kisWebSocketClient;
   private final KisRealtimeMinuteCandleAggregator candleAggregator;
@@ -68,6 +71,7 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
       StockPriceDailyRepository stockPriceDailyRepository,
       StockPriceWeeklyRepository stockPriceWeeklyRepository,
       StockPriceMonthlyRepository stockPriceMonthlyRepository,
+      StockPriceYearlyRepository stockPriceYearlyRepository,
       KisProperties kisProperties,
       KisWebSocketClient kisWebSocketClient,
       KisRealtimeMinuteCandleAggregator candleAggregator,
@@ -79,6 +83,7 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     this.stockPriceDailyRepository = stockPriceDailyRepository;
     this.stockPriceWeeklyRepository = stockPriceWeeklyRepository;
     this.stockPriceMonthlyRepository = stockPriceMonthlyRepository;
+    this.stockPriceYearlyRepository = stockPriceYearlyRepository;
     this.kisProperties = kisProperties;
     this.kisWebSocketClient = kisWebSocketClient;
     this.candleAggregator = candleAggregator;
@@ -91,16 +96,23 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
   }
 
   @Override
-  public StockPricesResponse getLatestPrices(Long stockId, String period) {
-    ResolvedStock resolvedStock = resolveStock(stockId);
-    PricePeriod pricePeriod = PricePeriod.from(period);
-    return loadPrices(resolvedStock, pricePeriod);
+  public StockPricesResponse getLatestPrices(Long stockId, String candleTypeStr, String cursor) {
+    ResolvedStock stock = resolveStock(stockId);
+    CandleType candleType = CandleType.from(candleTypeStr);
+
+    return switch (candleType) {
+      case MINUTE -> loadMinutePricesResponse(stock);
+      case DAILY -> loadDailyPricesWithCursor(stock, cursor);
+      case WEEKLY -> loadWeeklyPricesWithCursor(stock, cursor);
+      case MONTHLY -> loadMonthlyPricesWithCursor(stock, cursor);
+      case YEARLY -> loadYearlyPricesWithCursor(stock, cursor);
+    };
   }
 
   @Override
-  public SseEmitter streamPrices(Long stockId, String period) {
+  public SseEmitter streamPrices(Long stockId, String candleType) {
     ResolvedStock resolvedStock = resolveStock(stockId);
-    PricePeriod pricePeriod = PricePeriod.from(period);
+    CandleType type = CandleType.from(candleType);
 
     SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
     AtomicReference<ScheduledFuture<?>> futureRef = new AtomicReference<>();
@@ -109,21 +121,26 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     emitter.onTimeout(() -> cancel(futureRef.get()));
     emitter.onError(error -> cancel(futureRef.get()));
 
-    if (!sendSnapshot(emitter, resolvedStock, pricePeriod)) {
+    if (!sendSnapshot(emitter, resolvedStock, type)) {
       return emitter;
     }
 
-    ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(
-        () -> {
-          if (!sendSnapshot(emitter, resolvedStock, pricePeriod)) {
-            cancel(futureRef.get());
-          }
-        },
-        STREAM_INTERVAL_MINUTES,
-        STREAM_INTERVAL_MINUTES,
-        TimeUnit.MINUTES
-    );
-    futureRef.set(future);
+    if (type == CandleType.MINUTE) {
+      ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(
+          () -> {
+            if (!sendSnapshot(emitter, resolvedStock, type)) {
+              cancel(futureRef.get());
+            }
+          },
+          STREAM_INTERVAL_MINUTES,
+          STREAM_INTERVAL_MINUTES,
+          TimeUnit.MINUTES
+      );
+      futureRef.set(future);
+    } else {
+      emitter.complete();
+    }
+
     return emitter;
   }
 
@@ -141,65 +158,110 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     }
   }
 
-  private boolean sendSnapshot(SseEmitter emitter, ResolvedStock stock, PricePeriod period) {
-    try {
-      emitter.send(SseEmitter.event()
-          .name("prices")
-          .data(loadPrices(stock, period)));
-      return true;
-    } catch (Exception e) {
-      log.warn("Failed to send stock price snapshot. stockId={}, ticker={}, period={}", stock.stockId(), stock.ticker(), period.code, e);
-      emitter.completeWithError(e);
-      return false;
-    }
-  }
+  // ===== 분봉 =====
 
-  private StockPricesResponse loadPrices(ResolvedStock stock, PricePeriod period) {
-    List<StockPricePointResponse> prices = switch (period) {
-      case ONE_MIN, ONE_DAY -> loadMinutePrices(stock, period);
-      case ONE_WEEK, ONE_MONTH, THREE_MONTHS -> mapDailyPrices(stockPriceDailyRepository.findByStockIdOrderByTradeDateDesc(
-          stock.stockId(),
-          PageRequest.of(0, period.limit())
-      ));
-      case ONE_YEAR -> mapWeeklyPrices(stockPriceWeeklyRepository.findByStockIdOrderByTradeWeekDesc(
-          stock.stockId(),
-          PageRequest.of(0, period.limit())
-      ));
-      case THREE_YEARS -> mapMonthlyPrices(stockPriceMonthlyRepository.findByStockIdOrderByTradeMonthDesc(
-          stock.stockId(),
-          PageRequest.of(0, period.limit())
-      ));
-    };
-
-    return new StockPricesResponse(prices);
-  }
-
-  private List<StockPricePointResponse> loadMinutePrices(ResolvedStock stock, PricePeriod period) {
-    if (!period.usesRealtimeMinuteOverlay()) {
-      return mapMinutePrices(
-          stockPriceMinuteRepository.findByStockIdOrderByTradeTimestampDesc(
-              stock.stockId(),
-              PageRequest.of(0, period.limit())
-          )
-      );
-    }
-
+  private StockPricesResponse loadMinutePricesResponse(ResolvedStock stock) {
     ensureRealtimeSubscription(stock);
-    List<StockPricePointResponse> realtimePrices = loadRealtimeMinutePrices(stock, period.limit());
-    if (period.isRealtimeFirst()) {
-      logOneMinuteSnapshot(stock, "realtime-only", realtimePrices);
-      return realtimePrices;
+
+    // DB 분봉 + 실시간 분봉 merge
+    List<StockPricePointResponse> dbPrices = mapMinutePrices(
+        stockPriceMinuteRepository.findByStockIdOrderByTradeTimestampDesc(
+            stock.stockId(), PageRequest.of(0, 390))
+    );
+    List<StockPricePointResponse> merged = mergeRealtimeMinutePrices(stock, dbPrices, 390);
+
+    return new StockPricesResponse("MINUTE", false, null, merged);
+  }
+
+  // ===== 일봉 (커서 페이지네이션) =====
+
+  private StockPricesResponse loadDailyPricesWithCursor(ResolvedStock stock, String cursor) {
+    int pageSize = CandleType.DAILY.pageSize;
+    List<StockPriceDaily> prices;
+
+    if (cursor != null) {
+      LocalDate cursorDate = LocalDate.parse(cursor);
+      prices = stockPriceDailyRepository.findByStockIdAndTradeDateBeforeOrderByTradeDateDesc(
+          stock.stockId(), cursorDate, PageRequest.of(0, pageSize + 1));
+    } else {
+      prices = stockPriceDailyRepository.findByStockIdOrderByTradeDateDesc(
+          stock.stockId(), PageRequest.of(0, pageSize + 1));
     }
 
-    List<StockPricePointResponse> databasePrices = mapMinutePrices(
-        stockPriceMinuteRepository.findByStockIdOrderByTradeTimestampDesc(
-            stock.stockId(),
-            PageRequest.of(0, period.limit())
-        )
-    );
-    List<StockPricePointResponse> mergedPrices = mergeRealtimeMinutePrices(stock, databasePrices, period.limit());
-    return mergedPrices;
+    boolean hasMore = prices.size() > pageSize;
+    List<StockPriceDaily> page = hasMore ? prices.subList(0, pageSize) : prices;
+    String nextCursor = hasMore ? page.getLast().getTradeDate().toString() : null;
+
+    return new StockPricesResponse("DAILY", hasMore, nextCursor, mapDailyPrices(page));
   }
+
+  // ===== 주봉 (커서 페이지네이션) =====
+
+  private StockPricesResponse loadWeeklyPricesWithCursor(ResolvedStock stock, String cursor) {
+    int pageSize = CandleType.WEEKLY.pageSize;
+    List<StockPriceWeekly> prices;
+
+    if (cursor != null) {
+      LocalDate cursorDate = LocalDate.parse(cursor);
+      prices = stockPriceWeeklyRepository.findByStockIdAndTradeWeekBeforeOrderByTradeWeekDesc(
+          stock.stockId(), cursorDate, PageRequest.of(0, pageSize + 1));
+    } else {
+      prices = stockPriceWeeklyRepository.findByStockIdOrderByTradeWeekDesc(
+          stock.stockId(), PageRequest.of(0, pageSize + 1));
+    }
+
+    boolean hasMore = prices.size() > pageSize;
+    List<StockPriceWeekly> page = hasMore ? prices.subList(0, pageSize) : prices;
+    String nextCursor = hasMore ? page.getLast().getTradeWeek().toString() : null;
+
+    return new StockPricesResponse("WEEKLY", hasMore, nextCursor, mapWeeklyPrices(page));
+  }
+
+  // ===== 월봉 (커서 페이지네이션) =====
+
+  private StockPricesResponse loadMonthlyPricesWithCursor(ResolvedStock stock, String cursor) {
+    int pageSize = CandleType.MONTHLY.pageSize;
+    List<StockPriceMonthly> prices;
+
+    if (cursor != null) {
+      LocalDate cursorDate = LocalDate.parse(cursor);
+      prices = stockPriceMonthlyRepository.findByStockIdAndTradeMonthBeforeOrderByTradeMonthDesc(
+          stock.stockId(), cursorDate, PageRequest.of(0, pageSize + 1));
+    } else {
+      prices = stockPriceMonthlyRepository.findByStockIdOrderByTradeMonthDesc(
+          stock.stockId(), PageRequest.of(0, pageSize + 1));
+    }
+
+    boolean hasMore = prices.size() > pageSize;
+    List<StockPriceMonthly> page = hasMore ? prices.subList(0, pageSize) : prices;
+    String nextCursor = hasMore ? page.getLast().getTradeMonth().toString() : null;
+
+    return new StockPricesResponse("MONTHLY", hasMore, nextCursor, mapMonthlyPrices(page));
+  }
+
+  // ===== 연봉 (커서 페이지네이션) =====
+
+  private StockPricesResponse loadYearlyPricesWithCursor(ResolvedStock stock, String cursor) {
+    int pageSize = CandleType.YEARLY.pageSize;
+    List<StockPriceYearly> prices;
+
+    if (cursor != null) {
+      int cursorYear = Integer.parseInt(cursor);
+      prices = stockPriceYearlyRepository.findByStockIdAndTradeYearLessThanOrderByTradeYearDesc(
+          stock.stockId(), cursorYear, PageRequest.of(0, pageSize + 1));
+    } else {
+      prices = stockPriceYearlyRepository.findByStockIdOrderByTradeYearDesc(
+          stock.stockId(), PageRequest.of(0, pageSize + 1));
+    }
+
+    boolean hasMore = prices.size() > pageSize;
+    List<StockPriceYearly> page = hasMore ? prices.subList(0, pageSize) : prices;
+    String nextCursor = hasMore ? String.valueOf(page.getLast().getTradeYear()) : null;
+
+    return new StockPricesResponse("YEARLY", hasMore, nextCursor, mapYearlyPrices(page));
+  }
+
+  // ===== Mapper =====
 
   private List<StockPricePointResponse> mapMinutePrices(List<StockPriceMinute> prices) {
     return ascending(prices.stream()
@@ -253,11 +315,26 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
         .toList());
   }
 
+  private List<StockPricePointResponse> mapYearlyPrices(List<StockPriceYearly> prices) {
+    return ascending(prices.stream()
+        .map(price -> new StockPricePointResponse(
+            LocalDate.of(price.getTradeYear(), 1, 1).atStartOfDay(ZONE_ID).toOffsetDateTime(),
+            price.getOpenPrice(),
+            price.getHighPrice(),
+            price.getLowPrice(),
+            price.getClosePrice(),
+            price.getVolume()
+        ))
+        .toList());
+  }
+
   private List<StockPricePointResponse> ascending(List<StockPricePointResponse> prices) {
     List<StockPricePointResponse> ordered = new ArrayList<>(prices);
     ordered.sort(Comparator.comparing(StockPricePointResponse::timestamp));
     return List.copyOf(ordered);
   }
+
+  // ===== Realtime Minute Merge =====
 
   private List<StockPricePointResponse> mergeRealtimeMinutePrices(
       ResolvedStock stock,
@@ -286,26 +363,6 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     return List.copyOf(ordered.subList(ordered.size() - limit, ordered.size()));
   }
 
-  private List<StockPricePointResponse> loadRealtimeMinutePrices(ResolvedStock stock, int limit) {
-    Map<OffsetDateTime, StockPricePointResponse> realtime = new LinkedHashMap<>();
-
-    for (KisRealtimeMinuteCandleData recentClosedCandle :
-        candleAggregator.getRecentClosedMinuteCandles(stock.marketCode(), stock.ticker(), limit)) {
-      StockPricePointResponse realtimePrice = toRealtimePricePoint(recentClosedCandle);
-      realtime.put(realtimePrice.timestamp(), realtimePrice);
-    }
-
-    candleAggregator.getCurrentMinuteCandle(stock.marketCode(), stock.ticker())
-        .map(this::toRealtimePricePoint)
-        .ifPresent(price -> realtime.put(price.timestamp(), price));
-
-    List<StockPricePointResponse> ordered = ascending(new ArrayList<>(realtime.values()));
-    if (ordered.size() <= limit) {
-      return ordered;
-    }
-    return List.copyOf(ordered.subList(ordered.size() - limit, ordered.size()));
-  }
-
   private StockPricePointResponse toRealtimePricePoint(KisRealtimeMinuteCandleData candle) {
     return new StockPricePointResponse(
         candle.bucketStart(),
@@ -319,32 +376,39 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
 
   private void ensureRealtimeSubscription(ResolvedStock stock) {
     if (!kisProperties.isConfigured()) {
-      log.info("KIS realtime minute stream is not configured. stockId={}, ticker={}", stock.stockId(), stock.ticker());
       return;
     }
-
-    boolean alreadyRequested = kisWebSocketClient.isSubscriptionRequested(stock.marketCode(), stock.ticker());
     boolean alreadyAcknowledged = kisWebSocketClient.isSubscriptionAcknowledged(stock.marketCode(), stock.ticker());
     if (alreadyAcknowledged) {
       return;
     }
-    if (!alreadyRequested) {
-      log.info("Requesting KIS realtime minute subscription. stockId={}, ticker={}, market={}", stock.stockId(), stock.ticker(), stock.marketCode());
-    }
-
     kisWebSocketClient.subscribeDomesticTrade(stock.marketCode(), stock.ticker())
         .thenAccept(ack -> log.info(
-            "KIS realtime minute subscription ready. stockId={}, ticker={}, success={}, message={}",
-            stock.stockId(),
-            stock.ticker(),
-            ack.success(),
-            ack.message()
-        ))
+            "KIS realtime minute subscription ready. stockId={}, ticker={}, success={}",
+            stock.stockId(), stock.ticker(), ack.success()))
         .exceptionally(error -> {
-          log.warn("Failed to subscribe KIS realtime minute stream. stockId={}, ticker={}", stock.stockId(), stock.ticker(), error);
+          log.warn("Failed to subscribe KIS realtime. stockId={}, ticker={}", stock.stockId(), stock.ticker(), error);
           return null;
         });
   }
+
+  // ===== SSE =====
+
+  private boolean sendSnapshot(SseEmitter emitter, ResolvedStock stock, CandleType candleType) {
+    try {
+      emitter.send(SseEmitter.event()
+          .name("prices")
+          .data(getLatestPrices(stock.stockId(), candleType.code, null)));
+      return true;
+    } catch (Exception e) {
+      log.warn("Failed to send stock price snapshot. stockId={}, ticker={}, candleType={}",
+          stock.stockId(), stock.ticker(), candleType.code, e);
+      emitter.completeWithError(e);
+      return false;
+    }
+  }
+
+  // ===== Resolve =====
 
   private ResolvedStock resolveStock(Long stockId) {
     Stock stock = stockRepository.findByIdAndIsActiveTrue(stockId)
@@ -358,57 +422,26 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     }
   }
 
-  private void logOneMinuteSnapshot(
-      ResolvedStock stock,
-      String source,
-      List<StockPricePointResponse> prices
-  ) {
-    OffsetDateTime latestTimestamp = prices.isEmpty() ? null : prices.getLast().timestamp();
-    log.info(
-        "Prepared 1MIN price snapshot. source={}, stockId={}, ticker={}, candles={}, latestTimestamp={}, websocketConnected={}, subscriptionRequested={}, subscriptionAcknowledged={}",
-        source,
-        stock.stockId(),
-        stock.ticker(),
-        prices.size(),
-        latestTimestamp,
-        kisWebSocketClient.isConnected(),
-        kisWebSocketClient.isSubscriptionRequested(stock.marketCode(), stock.ticker()),
-        kisWebSocketClient.isSubscriptionAcknowledged(stock.marketCode(), stock.ticker())
-    );
-  }
+  // ===== CandleType =====
 
-  private enum PricePeriod {
-    ONE_MIN("1MIN", 60),
-    ONE_DAY("1D", 390),
-    ONE_WEEK("1W", 7),
-    ONE_MONTH("1M", 30),
-    THREE_MONTHS("3M", 90),
-    ONE_YEAR("1Y", 52),
-    THREE_YEARS("3Y", 36);
+  private enum CandleType {
+    MINUTE("MINUTE", 390),
+    DAILY("DAILY", 200),
+    WEEKLY("WEEKLY", 200),
+    MONTHLY("MONTHLY", 200),
+    YEARLY("YEARLY", 100);
 
-    private final String code;
-    private final int limit;
+    final String code;
+    final int pageSize;
 
-    PricePeriod(String code, int limit) {
+    CandleType(String code, int pageSize) {
       this.code = code;
-      this.limit = limit;
+      this.pageSize = pageSize;
     }
 
-    public int limit() {
-      return limit;
-    }
-
-    public boolean usesRealtimeMinuteOverlay() {
-      return this == ONE_MIN || this == ONE_DAY;
-    }
-
-    public boolean isRealtimeFirst() {
-      return this == ONE_MIN;
-    }
-
-    public static PricePeriod from(String rawValue) {
-      String normalized = rawValue == null ? "1D" : rawValue.trim().toUpperCase(Locale.ROOT);
-      for (PricePeriod value : values()) {
+    static CandleType from(String rawValue) {
+      String normalized = rawValue == null ? "DAILY" : rawValue.trim().toUpperCase(Locale.ROOT);
+      for (CandleType value : values()) {
         if (value.code.equals(normalized)) {
           return value;
         }

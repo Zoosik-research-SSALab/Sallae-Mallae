@@ -1,5 +1,6 @@
 package com.sallaemallae.backend.domain.stock.controller;
 
+import com.sallaemallae.backend.domain.stock.dto.StockPricesResponse;
 import com.sallaemallae.backend.domain.stock.service.StockPriceStreamService;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,18 +32,36 @@ public class StockPriceStreamController {
   private final StockPriceStreamService stockPriceStreamService;
 
   @Operation(
-      summary = "Stream stock chart prices",
-      description = "Streams chart data over SSE every minute for the requested period."
+      summary = "Get stock chart prices with cursor pagination",
+      description = "Returns candle data for the requested type. "
+          + "Allowed candleType: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY. "
+          + "Use cursor for pagination (oldest timestamp from previous response)."
   )
-  @GetMapping(value = "/{stockId}/prices", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  @GetMapping("/{stockId}/prices")
+  public ResponseEntity<StockPricesResponse> getStockPrices(
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
+      @Parameter(description = "Candle type: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY", example = "DAILY")
+      @RequestParam(defaultValue = "DAILY") String candleType,
+      @Parameter(description = "Cursor for pagination (oldest date from previous page)", example = "2024-01-01")
+      @RequestParam(required = false) String cursor
+  ) {
+    return ResponseEntity.ok(stockPriceStreamService.getLatestPrices(stockId, candleType, cursor));
+  }
+
+  @Operation(
+      summary = "Stream stock chart prices via SSE",
+      description = "Streams minute candle data over SSE every minute. Only MINUTE type supports streaming."
+  )
+  @GetMapping(value = "/{stockId}/prices/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public SseEmitter streamStockPrices(
       @Parameter(description = "Stock ID", example = "1")
       @PathVariable Long stockId,
-      @Parameter(description = "Chart period. Allowed values: 1MIN, 1D, 1W, 1M, 3M, 1Y, 3Y", example = "1D")
-      @RequestParam(defaultValue = "1D") String period
+      @Parameter(description = "Candle type (only MINUTE supports streaming)", example = "MINUTE")
+      @RequestParam(defaultValue = "MINUTE") String candleType
   ) {
     try {
-      return stockPriceStreamService.streamPrices(stockId, period);
+      return stockPriceStreamService.streamPrices(stockId, candleType);
     } catch (BusinessException e) {
       return buildErrorEmitter(e);
     }

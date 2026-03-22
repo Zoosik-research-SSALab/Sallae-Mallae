@@ -5,7 +5,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 public interface StockPriceStreamService {
 
-  StockPricesResponse getLatestPrices(Long stockId, String period);
+  StockPricesResponse getLatestPrices(Long stockId, String candleType, String cursor);
 
-  SseEmitter streamPrices(Long stockId, String period);
+  SseEmitter streamPrices(Long stockId, String candleType);
 }

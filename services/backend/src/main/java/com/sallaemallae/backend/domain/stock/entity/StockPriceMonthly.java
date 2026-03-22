@@ -10,6 +10,7 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -20,6 +21,21 @@ import lombok.NoArgsConstructor;
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StockPriceMonthly {
+
+  @Builder
+  public StockPriceMonthly(Long stockId, LocalDate tradeMonth,
+      Integer openPrice, Integer highPrice, Integer lowPrice, Integer closePrice,
+      Long volume, Float fluctuationRate, OffsetDateTime createdAt) {
+    this.stockId = stockId;
+    this.tradeMonth = tradeMonth;
+    this.openPrice = openPrice;
+    this.highPrice = highPrice;
+    this.lowPrice = lowPrice;
+    this.closePrice = closePrice;
+    this.volume = volume;
+    this.fluctuationRate = fluctuationRate;
+    this.createdAt = createdAt;
+  }
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
