@@ -90,7 +90,7 @@ class NewsServiceImplTest {
     stockRows.add(new Object[]{1L, "SK하이닉스"});
     stockRows.add(new Object[]{2L, "LG전자"});
 
-    given(stockNewsRepository.findNewsWithOptionalKeyword(isNull(), any()))
+    given(stockNewsRepository.findAllNews(any()))
         .willReturn(rows);
     given(stockNewsRepository.findStockNamesByNewsIds(List.of(1L, 2L)))
         .willReturn(stockRows);
@@ -111,7 +111,7 @@ class NewsServiceImplTest {
     List<StockNews> rows = List.of(
         createStockNews(3L, "키워드뉴스", null, "MBC", null, NOW));
 
-    given(stockNewsRepository.findNewsWithOptionalKeyword(eq("AI"), any()))
+    given(stockNewsRepository.findNewsByKeyword(eq("AI"), any()))
         .willReturn(rows);
     given(stockNewsRepository.findStockNamesByNewsIds(List.of(3L)))
         .willReturn(new ArrayList<>());
@@ -126,7 +126,7 @@ class NewsServiceImplTest {
   @Test
   @DisplayName("뉴스 목록이 비어있으면 빈 리스트 반환")
   void getNewsList_empty_noStockQuery() {
-    given(stockNewsRepository.findNewsWithOptionalKeyword(isNull(), any()))
+    given(stockNewsRepository.findAllNews(any()))
         .willReturn(new ArrayList<>());
 
     NewsListResponse result = newsService.getNewsList(null, 0, 20);

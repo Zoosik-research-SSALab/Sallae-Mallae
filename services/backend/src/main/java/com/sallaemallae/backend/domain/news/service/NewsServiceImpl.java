@@ -41,7 +41,10 @@ public class NewsServiceImpl implements NewsService {
   @Override
   public NewsListResponse getNewsList(String keyword, int offset, int limit) {
     Pageable pageable = PageRequest.of(offset / limit, limit);
-    List<StockNews> rows = stockNewsRepository.findNewsWithOptionalKeyword(keyword, pageable);
+    // 키워드 유무에 따라 쿼리 분기 (키워드 없으면 JOIN+DISTINCT 생략)
+    List<StockNews> rows = (keyword == null || keyword.isBlank())
+        ? stockNewsRepository.findAllNews(pageable)
+        : stockNewsRepository.findNewsByKeyword(keyword, pageable);
     List<Long> newsIds = rows.stream().map(StockNews::getId).toList();
     Map<Long, List<String>> stockMap = buildStockNameMap(newsIds);
 
