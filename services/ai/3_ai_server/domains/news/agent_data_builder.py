@@ -318,8 +318,8 @@ def main():
     # ticker → stock_id 변환
     stock_ids_filter = args.stock_ids
     if args.tickers and not stock_ids_filter:
-        from db import SessionLocal as _SL
-        from models import Stock
+        from core.config import SessionLocal as _SL
+        from domains.news.models import Stock
         _db = _SL()
         try:
             rows = _db.query(Stock.id).filter(Stock.ticker.in_(args.tickers)).all()
