@@ -197,7 +197,7 @@ sync_runtime_nginx_conf() {
 
   require_file "$source_conf"
 
-  local runtime_dir="$ROOT_DIR/config/$target_name/nginx"
+  local runtime_dir="$ROOT_DIR/env/nginx/$target_name"
   local runtime_conf="$runtime_dir/default.conf"
   local tmp_conf="$runtime_conf.tmp.$$"
 
