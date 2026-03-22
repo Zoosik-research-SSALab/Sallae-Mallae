@@ -3,8 +3,6 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { LuSearch, LuSlidersHorizontal } from "react-icons/lu";
 import Button from "@/shared/ui/Button";
-import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
-import { useAuthStore } from "@/shared/lib/authStore";
 import Pagination from "@/shared/ui/Pagination";
 import NewsArticleCard from "./NewsArticleCard";
 import NewsDetailModal from "./NewsDetailModal";
@@ -15,7 +13,7 @@ import { useNewsTrendingQuery } from "../hooks/useNewsTrendingQuery";
 import { useNewsWatchlistQuery } from "../hooks/useNewsWatchlistQuery";
 import type { NewsPeriodFilter, NewsSortOption, NewsTab } from "../types/news";
 import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/newsConstants";
-import { buildRankedNewsKeywords, filterNewsByKeyword, filterNewsByPeriod, sortNewsItems } from "../utils/newsFormatters";
+import { buildRankedNewsKeywords, filterNewsByPeriod, sortNewsItems } from "../utils/newsFormatters";
 
 const NEWS_PAGES_PER_BATCH = 4;
 const NEWS_BATCH_LIMIT = NEWS_PAGE_SIZE * NEWS_PAGES_PER_BATCH;
@@ -31,10 +29,10 @@ function NewsLoadingState() {
       {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)] px-4 py-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]"
+          className="animate-pulse rounded-2xl bg-bg-secondary px-4 py-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]"
         >
           <div className="mb-4 flex gap-2">
-            <div className="h-6 w-20 rounded bg-[color:var(--color-bg-tertiary)]" />
+            <div className="h-6 w-20 rounded bg-bg-tertiary" />
             <div className="h-6 w-24 rounded bg-[color:var(--color-bg-tertiary)]" />
           </div>
           <div className="h-6 w-full rounded bg-[color:var(--color-bg-tertiary)]" />
@@ -47,8 +45,6 @@ function NewsLoadingState() {
 }
 
 export default function NewsPageClient() {
-  const authStatus = useAuthStore((state) => state.status);
-  const requireAuthAction = useRequireAuthAction();
   const [searchInput, setSearchInput] = useState("");
   const deferredKeyword = useDeferredValue(searchInput.trim());
   const [activeTab, setActiveTab] = useState<NewsTab>("LATEST");
@@ -59,8 +55,6 @@ export default function NewsPageClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null);
-  const effectiveActiveTab: NewsTab =
-    activeTab === "WATCHLIST" && authStatus === "authenticated" ? "WATCHLIST" : "LATEST";
 
   const requestedPageEnd = currentPage + NEWS_PAGES_PER_BATCH - 1;
   const requestedBatchCount = Math.max(1, Math.ceil(requestedPageEnd / NEWS_PAGES_PER_BATCH));
@@ -77,21 +71,22 @@ export default function NewsPageClient() {
     limit: effectiveLimit,
     keyword: deferredKeyword,
   }, {
-    enabled: effectiveActiveTab === "LATEST",
+    enabled: activeTab === "LATEST",
   });
-  const watchlistNewsQuery = useNewsWatchlistQuery({
-    offset: 0,
-    limit: effectiveLimit,
-  }, effectiveActiveTab === "WATCHLIST");
+  const watchlistNewsQuery = useNewsWatchlistQuery(
+    {
+      offset: 0,
+      limit: effectiveLimit,
+    },
+    {
+      enabled: activeTab === "WATCHLIST",
+    },
+  );
   const trendingKeywordsQuery = useNewsTrendingQuery();
 
-  const activeNewsQuery = effectiveActiveTab === "WATCHLIST" ? watchlistNewsQuery : latestNewsQuery;
+  const activeNewsQuery = activeTab === "WATCHLIST" ? watchlistNewsQuery : latestNewsQuery;
   const queriedNews = useMemo(() => activeNewsQuery.data?.news ?? [], [activeNewsQuery.data]);
-  const keywordFilteredNews = useMemo(
-    () => (effectiveActiveTab === "WATCHLIST" ? filterNewsByKeyword(queriedNews, deferredKeyword) : queriedNews),
-    [deferredKeyword, effectiveActiveTab, queriedNews],
-  );
-  const periodFilteredNews = useMemo(() => filterNewsByPeriod(keywordFilteredNews, periodOption), [keywordFilteredNews, periodOption]);
+  const periodFilteredNews = useMemo(() => filterNewsByPeriod(queriedNews, periodOption), [queriedNews, periodOption]);
   const sortedNews = useMemo(() => sortNewsItems(periodFilteredNews, sortOption, deferredKeyword), [periodFilteredNews, sortOption, deferredKeyword]);
   const rankedKeywords = trendingKeywordsQuery.data?.trending ?? buildRankedNewsKeywords(latestNewsQuery.data?.news ?? []);
   const totalKnownPages = Math.ceil(sortedNews.length / NEWS_PAGE_SIZE);
@@ -180,18 +175,11 @@ export default function NewsPageClient() {
                     key={tab.value}
                     type="button"
                     onClick={() => {
-                      if (tab.value === "WATCHLIST") {
-                        const canOpen = requireAuthAction();
-                        if (!canOpen) {
-                          return;
-                        }
-                      }
-
                       setActiveTab(tab.value);
                       setCurrentPage(1);
                     }}
                     className={`border-b px-1 pb-2 text-sm font-semibold leading-5 transition-colors md:text-base md:leading-6 ${
-                      effectiveActiveTab === tab.value
+                      activeTab === tab.value
                         ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
                         : "border-transparent text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-secondary)]"
                     }`}
