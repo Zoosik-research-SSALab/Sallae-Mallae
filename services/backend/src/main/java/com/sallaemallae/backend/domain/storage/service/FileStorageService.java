@@ -22,12 +22,17 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class FileStorageService {
 
   private final MinioClient minioClient;
-  @Qualifier("presignedMinioClient")
   private final MinioClient presignedMinioClient;
+
+  public FileStorageService(
+      MinioClient minioClient,
+      @Qualifier("presignedMinioClient") MinioClient presignedMinioClient) {
+    this.minioClient = minioClient;
+    this.presignedMinioClient = presignedMinioClient;
+  }
 
   @Value("${minio.bucket}")
   private String bucket;
