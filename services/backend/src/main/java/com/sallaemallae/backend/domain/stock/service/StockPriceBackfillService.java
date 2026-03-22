@@ -41,7 +41,7 @@ public class StockPriceBackfillService {
   private final StockPriceYearlyRepository yearlyRepository;
 
   @Async
-  public void backfillStock(String ticker, String periodCode) {
+  public void backfillStock(String ticker, String periodCode, LocalDate from) {
     Stock stock = stockRepository.findByTickerAndIsActiveTrue(ticker)
         .orElseThrow(() -> new IllegalArgumentException("Stock not found: " + ticker));
 
@@ -57,7 +57,7 @@ public class StockPriceBackfillService {
     };
 
     int totalSaved = 0;
-    LocalDate chunkStart = BACKFILL_START;
+    LocalDate chunkStart = (from != null) ? from : resolveStartDate(stock.getId(), periodCode);
 
     while (chunkStart.isBefore(end)) {
       LocalDate chunkEnd = chunkStart.plusDays(chunkDays);
@@ -84,12 +84,12 @@ public class StockPriceBackfillService {
   }
 
   @Async
-  public void backfillAll(String periodCode) {
+  public void backfillAll(String periodCode, LocalDate from) {
     List<Stock> stocks = stockRepository.findAllByIsActiveTrueOrderByNameAsc();
-    log.info("Starting full backfill. period={}, stockCount={}", periodCode, stocks.size());
+    log.info("Starting full backfill. period={}, from={}, stockCount={}", periodCode, from, stocks.size());
 
     for (Stock stock : stocks) {
-      backfillStock(stock.getTicker(), periodCode);
+      backfillStock(stock.getTicker(), periodCode, from);
     }
   }
 
@@ -164,6 +164,19 @@ public class StockPriceBackfillService {
       }
     }
     return saved;
+  }
+
+  private LocalDate resolveStartDate(Long stockId, String periodCode) {
+    LocalDate lastDate = switch (periodCode) {
+      case "D" -> dailyRepository.findMaxTradeDateByStockId(stockId);
+      case "W" -> weeklyRepository.findMaxTradeWeekByStockId(stockId);
+      default -> null;
+    };
+    if (lastDate != null) {
+      log.info("Resuming backfill from lastDate={} for stockId={}, period={}", lastDate, stockId, periodCode);
+      return lastDate.plusDays(1);
+    }
+    return BACKFILL_START;
   }
 
   private void throttle() {
