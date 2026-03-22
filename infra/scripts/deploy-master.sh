@@ -17,3 +17,8 @@ compose_up \
   "$ROOT_DIR/env/master.env" \
   "$SOURCE_DIR/infra/apps/docker-compose.full.yml" \
   "sallae-master"
+
+reload_nginx \
+  "$ROOT_DIR/env/master.env" \
+  "$SOURCE_DIR/infra/apps/docker-compose.full.yml" \
+  "sallae-master"

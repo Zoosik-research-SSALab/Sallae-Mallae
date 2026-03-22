@@ -191,6 +191,21 @@ compose_up() {
     up -d --build "$@"
 }
 
+reload_nginx() {
+  local env_file="$1"
+  local compose_file="$2"
+  local project_name="$3"
+
+  require_file "$env_file"
+  require_file "$compose_file"
+
+  docker compose \
+    --env-file "$env_file" \
+    -f "$compose_file" \
+    -p "$project_name" \
+    exec -T nginx nginx -s reload
+}
+
 sync_runtime_nginx_conf() {
   local source_conf="$1"
   local target_name="$2"

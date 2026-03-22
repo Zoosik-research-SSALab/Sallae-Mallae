@@ -14,3 +14,8 @@ compose_up \
   "$ROOT_DIR/env/dev-frontend.env" \
   "$SOURCE_DIR/infra/apps/docker-compose.frontend.yml" \
   "sallae-dev-frontend"
+
+reload_nginx \
+  "$ROOT_DIR/env/dev-frontend.env" \
+  "$SOURCE_DIR/infra/apps/docker-compose.frontend.yml" \
+  "sallae-dev-frontend"

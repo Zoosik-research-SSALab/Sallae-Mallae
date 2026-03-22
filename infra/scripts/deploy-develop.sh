@@ -17,3 +17,8 @@ compose_up \
   "$ROOT_DIR/env/develop.env" \
   "$SOURCE_DIR/infra/apps/docker-compose.full.yml" \
   "sallae-develop"
+
+reload_nginx \
+  "$ROOT_DIR/env/develop.env" \
+  "$SOURCE_DIR/infra/apps/docker-compose.full.yml" \
+  "sallae-develop"
