@@ -85,6 +85,13 @@ class PortfolioSnapshot:
 
 
 class ChairmanPortfolioBuilder:
+    MAX_POSITION_WEIGHT_PCT = 10.0
+    INITIAL_BUY_WEIGHT_PCT = 3.0
+    REPEAT_BUY_WEIGHT_PCT = 2.0
+    MID_CONFIDENCE_THRESHOLD = 0.65
+    HIGH_CONFIDENCE_THRESHOLD = 0.75
+    STRONG_SELL_THRESHOLD = 0.80
+
     def __init__(
         self,
         db: Session,
@@ -175,6 +182,11 @@ class ChairmanPortfolioBuilder:
 
         positions = self._load_current_positions(portfolio_id)
         prices = self._load_prices(start_date=report_date, end_date=report_date)
+        previous_signals = self._load_previous_signals(
+            before_date=report_date,
+            debate_version=debate_version,
+            stock_ids=tuple(sorted({item.stock_id for item in day_decisions})) or None,
+        )
         previous_total_asset = state.total_asset_value if state.latest_record_date is not None else state.initial_capital
 
         self.db.execute(
@@ -217,9 +229,14 @@ class ChairmanPortfolioBuilder:
             if position is None or day_price is None:
                 continue
 
-            trade_amount = position.quantity * day_price.close_price
-            realized_pnl = trade_amount - position.investment_amount
-            return_rate = (realized_pnl / position.investment_amount) * 100.0 if position.investment_amount > 0 else 0.0
+            previous_signal = previous_signals.get(decision.stock_id)
+            sell_all = previous_signal == "SELL" or (decision.debate_confidence or 0.0) >= self.STRONG_SELL_THRESHOLD
+            trade_quantity = position.quantity if sell_all else max(position.quantity // 2, 1)
+            trade_quantity = min(trade_quantity, position.quantity)
+            cost_basis = int(round(position.investment_amount * (trade_quantity / position.quantity)))
+            trade_amount = trade_quantity * day_price.close_price
+            realized_pnl = trade_amount - cost_basis
+            return_rate = (realized_pnl / cost_basis) * 100.0 if cost_basis > 0 else 0.0
 
             cash_balance += trade_amount
             realized_profit += realized_pnl
@@ -228,6 +245,16 @@ class ChairmanPortfolioBuilder:
             if realized_pnl > 0:
                 winning_trades += 1
 
+            remaining_quantity = position.quantity - trade_quantity
+            if remaining_quantity > 0:
+                remaining_investment = max(position.investment_amount - cost_basis, 0)
+                position.quantity = remaining_quantity
+                position.investment_amount = remaining_investment
+                position.avg_buy_price = max(remaining_investment // remaining_quantity, 1)
+                position.current_price = day_price.close_price
+            else:
+                remaining_investment = 0
+
             self._insert_trade(
                 portfolio_id=portfolio_id,
                 stock_id=decision.stock_id,
@@ -235,34 +262,45 @@ class ChairmanPortfolioBuilder:
                 trade_type="SELL",
                 trade_weight=self._percent(trade_amount, previous_total_asset),
                 trade_price=day_price.close_price,
-                trade_quantity=position.quantity,
+                trade_quantity=trade_quantity,
                 trade_amount=trade_amount,
                 realized_profit=realized_pnl,
-                holding_quantity_after=0,
+                holding_quantity_after=remaining_quantity,
                 cash_balance_after=cash_balance,
-                avg_buy_price_after=None,
+                avg_buy_price_after=position.avg_buy_price if remaining_quantity > 0 else None,
                 return_rate=return_rate,
                 trade_date=report_date,
             )
-            positions.pop(decision.stock_id, None)
+            if remaining_quantity <= 0:
+                positions.pop(decision.stock_id, None)
 
-        buy_candidates = [
-            decision
-            for decision in ordered_decisions
-            if decision.chairman_signal == "BUY"
-            and decision.stock_id not in positions
-            and prices.get((decision.stock_id, report_date)) is not None
-        ]
-
-        remaining_slots = len(buy_candidates)
+        buy_candidates = [decision for decision in ordered_decisions if decision.chairman_signal == "BUY"]
         for decision in buy_candidates:
-            day_price = prices[(decision.stock_id, report_date)]
-            remaining_slots = max(remaining_slots, 1)
-            allocation = cash_balance // remaining_slots
-            remaining_slots -= 1
-            if allocation <= 0 or day_price.close_price <= 0:
+            day_price = prices.get((decision.stock_id, report_date))
+            if day_price is None:
+                continue
+            if day_price.close_price <= 0:
                 continue
 
+            current_position = positions.get(decision.stock_id)
+            previous_signal = previous_signals.get(decision.stock_id)
+            current_market_value = current_position.market_value(day_price.close_price) if current_position else 0
+            current_weight = self._percent(current_market_value, previous_total_asset)
+            target_increment_weight = self._target_buy_increment_weight(
+                has_position=current_position is not None,
+                previous_signal=previous_signal,
+                confidence=decision.debate_confidence,
+            )
+            if target_increment_weight <= 0:
+                continue
+
+            target_weight = min(self.MAX_POSITION_WEIGHT_PCT, current_weight + target_increment_weight)
+            target_value = int(previous_total_asset * (target_weight / 100.0))
+            additional_value = target_value - current_market_value
+            if additional_value <= 0:
+                continue
+
+            allocation = min(cash_balance, additional_value)
             quantity = allocation // day_price.close_price
             if quantity <= 0:
                 continue
@@ -271,15 +309,27 @@ class ChairmanPortfolioBuilder:
             cash_balance -= trade_amount
             inserted_trades += 1
 
-            position = Position(
-                stock_id=decision.stock_id,
-                buy_datetime=self._trade_timestamp(report_date),
-                avg_buy_price=day_price.close_price,
-                quantity=int(quantity),
-                investment_amount=int(trade_amount),
-                current_price=day_price.close_price,
-            )
-            positions[decision.stock_id] = position
+            if current_position is None:
+                position = Position(
+                    stock_id=decision.stock_id,
+                    buy_datetime=self._trade_timestamp(report_date),
+                    avg_buy_price=day_price.close_price,
+                    quantity=int(quantity),
+                    investment_amount=int(trade_amount),
+                    current_price=day_price.close_price,
+                )
+                positions[decision.stock_id] = position
+                avg_buy_price_after = day_price.close_price
+                holding_quantity_after = quantity
+            else:
+                total_quantity = current_position.quantity + int(quantity)
+                total_investment = current_position.investment_amount + int(trade_amount)
+                current_position.quantity = total_quantity
+                current_position.investment_amount = total_investment
+                current_position.avg_buy_price = max(total_investment // total_quantity, 1)
+                current_position.current_price = day_price.close_price
+                avg_buy_price_after = current_position.avg_buy_price
+                holding_quantity_after = total_quantity
 
             self._insert_trade(
                 portfolio_id=portfolio_id,
@@ -291,9 +341,9 @@ class ChairmanPortfolioBuilder:
                 trade_quantity=quantity,
                 trade_amount=trade_amount,
                 realized_profit=0,
-                holding_quantity_after=quantity,
+                holding_quantity_after=holding_quantity_after,
                 cash_balance_after=cash_balance,
-                avg_buy_price_after=day_price.close_price,
+                avg_buy_price_after=avg_buy_price_after,
                 return_rate=None,
                 trade_date=report_date,
             )
@@ -441,6 +491,70 @@ class ChairmanPortfolioBuilder:
             params[key] = stock_id
             placeholders.append(f":{key}")
         return f"AND {column} IN ({', '.join(placeholders)})"
+
+    def _load_previous_signals(
+        self,
+        *,
+        before_date: date,
+        debate_version: str | None,
+        stock_ids: tuple[int, ...] | None,
+    ) -> dict[int, str]:
+        params: dict[str, object] = {"before_date": before_date}
+        version_filter = ""
+        if debate_version:
+            params["debate_version"] = debate_version
+            version_filter = "AND r.debate_version = :debate_version"
+        stock_filter = self._build_stock_filter(column="r.stock_id", stock_ids=stock_ids, params=params)
+
+        rows = self.db.execute(
+            text(
+                f"""
+                WITH ranked_reports AS (
+                    SELECT r.stock_id,
+                           r.chairman_signal,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY r.stock_id
+                               ORDER BY
+                                   r.report_date DESC,
+                                   CASE WHEN r.created_at IS NULL THEN 1 ELSE 0 END ASC,
+                                   r.created_at DESC,
+                                   r.id DESC
+                           ) AS row_number
+                    FROM ai_debate_reports r
+                    WHERE r.report_date < :before_date
+                      AND r.chairman_signal IS NOT NULL
+                      {version_filter}
+                      {stock_filter}
+                )
+                SELECT stock_id, chairman_signal
+                FROM ranked_reports
+                WHERE row_number = 1
+                """
+            ),
+            params,
+        ).mappings().all()
+        return {int(row["stock_id"]): row["chairman_signal"] for row in rows}
+
+    def _target_buy_increment_weight(
+        self,
+        *,
+        has_position: bool,
+        previous_signal: str | None,
+        confidence: float | None,
+    ) -> float:
+        if not has_position:
+            increment = self.INITIAL_BUY_WEIGHT_PCT
+        elif previous_signal == "BUY":
+            increment = self.REPEAT_BUY_WEIGHT_PCT
+        else:
+            return 0.0
+
+        resolved_confidence = confidence or 0.0
+        if resolved_confidence >= self.HIGH_CONFIDENCE_THRESHOLD:
+            increment += 2.0
+        elif resolved_confidence >= self.MID_CONFIDENCE_THRESHOLD:
+            increment += 1.0
+        return increment
 
     def _resolve_mark_price(
         self,
