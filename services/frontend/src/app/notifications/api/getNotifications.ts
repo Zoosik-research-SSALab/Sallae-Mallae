@@ -1,44 +1,132 @@
-﻿import { apiFetch } from "@/shared/lib/apiClient";
+import { authApiFetch } from "@/shared/lib/authApiClient";
+import type {
+  NotificationItem,
+  NotificationListItemApi,
+  NotificationListPayload,
+  NotificationSettings,
+  NotificationSettingsApi,
+  NotificationSettingsPatch,
+  NotificationTab,
+} from "../types/notifications";
+import { normalizeNotificationType } from "../utils/notificationFormatters";
 
-export type NotificationItem = {
-  id: number;
-  notifyType: "SELL" | "BUY" | "FLUCTUATION" | "ANNOUNCEMENT" | string;
-  title: string;
-  message: string;
-  linkUrl: string | null;
-  isRead: boolean;
-  createdAt: string;
+type ApiEnvelope<T> = {
+  success?: boolean;
+  data?: T;
+  error?: unknown;
 };
 
-type CursorMeta = {
-  nextCursor: number | null;
-  hasNext: boolean;
-};
+function hasDataEnvelope<T>(payload: ApiEnvelope<T> | T): payload is ApiEnvelope<T> {
+  return typeof payload === "object" && payload !== null && "data" in payload;
+}
 
-type CursorPage<T> = {
-  data: T[];
-  meta: CursorMeta;
-};
+function normalizeNotificationItem(item: NotificationListItemApi): NotificationItem {
+  return {
+    id: Number(item.id ?? 0),
+    notiType: normalizeNotificationType(item.notiType ?? item.noti_type),
+    stockName: String(item.stockName ?? item.stock_name ?? ""),
+    message: String(item.message ?? ""),
+    isRead: Boolean(item.isRead ?? item.is_read),
+    createdAt:
+      typeof item.createdAt === "string"
+        ? item.createdAt
+        : typeof item.created_at === "string"
+          ? item.created_at
+          : null,
+    stockId: Number(item.stockId ?? item.stock_id ?? 0),
+  };
+}
 
-type ApiResponse<T> = {
-  success: boolean;
-  data: T;
-  message: string | null;
-};
+function normalizeNotificationSettings(payload: NotificationSettingsApi): NotificationSettings {
+  return {
+    isNotiEnabled: Boolean(payload.isNotiEnabled ?? payload.is_noti_enabled),
+    isEmailNotiEnabled: Boolean(payload.isEmailNotiEnabled ?? payload.is_email_noti_enabled),
+  };
+}
 
-export async function getNotifications(cursor?: number | null, size = 6): Promise<CursorPage<NotificationItem>> {
-  const search = new URLSearchParams();
-  search.set("size", String(size));
-  if (cursor) {
-    search.set("cursor", String(cursor));
-  }
-
-  const payload = await apiFetch<ApiResponse<CursorPage<NotificationItem>>>(`/api/notifications?${search.toString()}`, {
-    headers: {
-      "X-User-Id": "1",
-    },
-    cache: "no-store",
+export async function getNotifications(params: { tab: NotificationTab; limit: number }) {
+  const search = new URLSearchParams({
+    tab: params.tab,
+    limit: String(params.limit),
   });
 
-  return payload.data;
+  const payload = await authApiFetch<ApiEnvelope<NotificationListPayload> | NotificationListPayload>(
+    `/api/notifications/list?${search.toString()}`,
+    {
+      cache: "no-store",
+      useBaseUrl: false,
+    },
+  );
+
+  const listPayload: NotificationListPayload = hasDataEnvelope(payload)
+    ? payload.data ?? { notifications: [] }
+    : payload;
+  const notifications = Array.isArray(listPayload.notifications)
+    ? listPayload.notifications.map((item) => normalizeNotificationItem(item as NotificationListItemApi))
+    : [];
+
+  return {
+    notifications,
+  } satisfies NotificationListPayload;
+}
+
+export async function getNotificationCount() {
+  const payload = await getNotifications({
+    tab: "ALL",
+    limit: 100,
+  });
+
+  return payload.notifications.reduce((count, item) => count + (item.isRead ? 0 : 1), 0);
+}
+
+export async function getNotificationSettings() {
+  const payload = await authApiFetch<ApiEnvelope<NotificationSettingsApi> | NotificationSettingsApi>(
+    "/api/notifications/settings",
+    {
+      cache: "no-store",
+      useBaseUrl: false,
+    },
+  );
+
+  const settingsPayload: NotificationSettingsApi = hasDataEnvelope(payload)
+    ? payload.data ?? {}
+    : payload;
+  return normalizeNotificationSettings(settingsPayload);
+}
+
+export async function updateNotificationSettings(patch: NotificationSettingsPatch) {
+  const payload = await authApiFetch<ApiEnvelope<NotificationSettingsApi> | NotificationSettingsApi, NotificationSettingsPatch>(
+    "/api/notifications/settings",
+    {
+      method: "PATCH",
+      body: patch,
+      useBaseUrl: false,
+    },
+  );
+
+  const settingsPayload: NotificationSettingsApi = hasDataEnvelope(payload)
+    ? payload.data ?? {}
+    : payload;
+  return normalizeNotificationSettings(settingsPayload);
+}
+
+export async function markNotificationAsRead(notificationId: number) {
+  await authApiFetch<void>(`/api/notifications/${notificationId}/read`, {
+    method: "PATCH",
+    useBaseUrl: false,
+  });
+}
+
+export async function markAllNotificationsAsRead() {
+  await authApiFetch<void>("/api/notifications/read-all", {
+    method: "PATCH",
+    useBaseUrl: false,
+  });
+}
+
+export async function deleteNotification(notificationId: number) {
+  await authApiFetch<void>(`/api/notifications/${notificationId}`, {
+    method: "DELETE",
+    useBaseUrl: false,
+  });
 }
