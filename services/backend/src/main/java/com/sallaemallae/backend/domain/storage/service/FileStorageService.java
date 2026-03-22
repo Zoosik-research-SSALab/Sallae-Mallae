@@ -17,28 +17,26 @@ import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class FileStorageService {
 
   private final MinioClient minioClient;
-  private final MinioClient presignedMinioClient;
-
-  public FileStorageService(
-      MinioClient minioClient,
-      @Qualifier("presignedMinioClient") MinioClient presignedMinioClient) {
-    this.minioClient = minioClient;
-    this.presignedMinioClient = presignedMinioClient;
-  }
 
   @Value("${minio.bucket}")
   private String bucket;
 
   @Value("${minio.public-url}")
   private String publicUrl;
+
+  @Value("${minio.presigned-endpoint}")
+  private String presignedEndpoint;
+
+  @Value("${minio.endpoint}")
+  private String internalEndpoint;
 
   private static final Set<String> ALLOWED_TYPES = Set.of(
       "image/jpeg", "image/png", "image/gif", "image/webp"
@@ -71,7 +69,7 @@ public class FileStorageService {
       Multimap<String, String> headers = HashMultimap.create();
       headers.put("Content-Type", request.contentType());
 
-      String uploadUrl = presignedMinioClient.getPresignedObjectUrl(
+      String internalUrl = minioClient.getPresignedObjectUrl(
           GetPresignedObjectUrlArgs.builder()
               .method(Method.PUT)
               .bucket(bucket)
@@ -80,6 +78,9 @@ public class FileStorageService {
               .extraHeaders(headers)
               .build()
       );
+
+      // 내부 MinIO 주소를 외부 접근 가능한 주소로 치환
+      String uploadUrl = internalUrl.replace(internalEndpoint, presignedEndpoint);
 
       String fileUrl = publicUrl + "/" + bucket + "/" + objectKey;
 
