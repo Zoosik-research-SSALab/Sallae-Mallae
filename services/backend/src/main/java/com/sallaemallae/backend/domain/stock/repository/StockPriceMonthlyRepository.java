@@ -12,4 +12,6 @@ public interface StockPriceMonthlyRepository extends JpaRepository<StockPriceMon
 
   List<StockPriceMonthly> findByStockIdAndTradeMonthBeforeOrderByTradeMonthDesc(
       Long stockId, LocalDate tradeMonth, Pageable pageable);
+
+  boolean existsByStockIdAndTradeMonth(Long stockId, LocalDate tradeMonth);
 }

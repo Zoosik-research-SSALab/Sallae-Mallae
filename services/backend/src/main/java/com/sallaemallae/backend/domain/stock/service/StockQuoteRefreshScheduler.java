@@ -64,9 +64,13 @@ public class StockQuoteRefreshScheduler {
     int success = 0;
     int fail = 0;
 
+    boolean overtime = isOvertimeSingleSession();
+
     for (Stock stock : activeStocks) {
       try {
-        KisQuoteData quote = kisDomesticStockClient.getQuote(marketCode, stock.getTicker());
+        KisQuoteData quote = overtime
+            ? kisDomesticStockClient.getOvertimeQuote(marketCode, stock.getTicker())
+            : kisDomesticStockClient.getQuote(marketCode, stock.getTicker());
         stockQuoteCacheService.put(marketCode, stock.getTicker(), quote);
         success++;
       } catch (Exception e) {
@@ -76,7 +80,7 @@ public class StockQuoteRefreshScheduler {
       throttle();
     }
 
-    log.info("Bulk quote refresh completed. total={}, success={}, fail={}", activeStocks.size(), success, fail);
+    log.info("Bulk quote refresh completed. total={}, success={}, fail={}, overtime={}", activeStocks.size(), success, fail, overtime);
   }
 
   /**
@@ -96,6 +100,11 @@ public class StockQuoteRefreshScheduler {
 
     LocalTime time = now.toLocalTime();
     return !time.isBefore(PRE_MARKET_START) && time.isBefore(AFTER_SINGLE_END);
+  }
+
+  private boolean isOvertimeSingleSession() {
+    LocalTime time = ZonedDateTime.now(KST).toLocalTime();
+    return !time.isBefore(AFTER_SINGLE_START) && time.isBefore(AFTER_SINGLE_END);
   }
 
   private void throttle() {

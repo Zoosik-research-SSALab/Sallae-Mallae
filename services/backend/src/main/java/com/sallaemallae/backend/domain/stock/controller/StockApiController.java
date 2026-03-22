@@ -116,18 +116,12 @@ public class StockApiController {
     );
   }
 
-  @Operation(summary = "Preview stock storage pipeline", description = "Returns DB-ready preview data without persisting it.")
   @GetMapping("/{ticker}/pipeline-preview")
   public ApiResponse<StockDataPipelinePreviewResponse> previewPipeline(
-      @Parameter(description = "Stock ticker", example = "005930")
       @PathVariable String ticker,
-      @Parameter(description = "Market code", example = "J")
       @RequestParam(defaultValue = "J") String market,
-      @Parameter(description = "Period code", example = "D")
       @RequestParam(defaultValue = "D") String period,
-      @Parameter(description = "Start date (yyyyMMdd)", example = "20260310")
       @RequestParam String startDate,
-      @Parameter(description = "End date (yyyyMMdd)", example = "20260317")
       @RequestParam String endDate,
       @RequestParam(defaultValue = "true") boolean adjusted
   ) {
@@ -159,12 +153,9 @@ public class StockApiController {
     return ApiResponse.success(stockRealtimeMinuteService.getSnapshot(ticker, market, limit));
   }
 
-  @Operation(summary = "Preview realtime minute storage pipeline", description = "Returns DB-ready realtime minute preview data without persisting it.")
   @GetMapping("/{ticker}/realtime/pipeline-preview")
   public ApiResponse<StockRealtimeMinutePipelinePreviewResponse> previewRealtimePipeline(
-      @Parameter(description = "Stock ticker", example = "005930")
       @PathVariable String ticker,
-      @Parameter(description = "Market code", example = "J")
       @RequestParam(defaultValue = "J") String market,
       @RequestParam(defaultValue = "5") int limit
   ) {

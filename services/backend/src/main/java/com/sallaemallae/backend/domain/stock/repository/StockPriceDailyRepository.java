@@ -33,4 +33,7 @@ public interface StockPriceDailyRepository extends JpaRepository<StockPriceDaily
         )
       """)
   List<StockPriceDaily> findLatestByStockIdIn(@Param("stockIds") Collection<Long> stockIds);
+
+  List<StockPriceDaily> findByTradeDateBetweenOrderByStockIdAscTradeDateAsc(
+      java.time.LocalDate startDate, java.time.LocalDate endDate);
 }

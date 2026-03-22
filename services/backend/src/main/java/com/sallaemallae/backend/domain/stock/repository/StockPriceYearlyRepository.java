@@ -11,4 +11,6 @@ public interface StockPriceYearlyRepository extends JpaRepository<StockPriceYear
 
   List<StockPriceYearly> findByStockIdAndTradeYearLessThanOrderByTradeYearDesc(
       Long stockId, Integer tradeYear, Pageable pageable);
+
+  boolean existsByStockIdAndTradeYear(Long stockId, Integer tradeYear);
 }
