@@ -29,6 +29,25 @@ from models import Keyword, KeywordEmbedding
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# 모델 싱글턴 (프로세스 내 1회만 로딩)
+# ---------------------------------------------------------------------------
+_tokenizer = None
+_model = None
+
+
+def _get_model():
+    """e5-small 모델/토크나이저를 한번만 로딩하고 재사용."""
+    global _tokenizer, _model
+    if _model is None:
+        logger.info("임베딩 모델 로딩: %s", EMBEDDING_MODEL_NAME)
+        _tokenizer = AutoTokenizer.from_pretrained(EMBEDDING_MODEL_NAME)
+        _model = AutoModel.from_pretrained(EMBEDDING_MODEL_NAME)
+        _model.to("cpu")
+        _model.eval()
+        logger.info("임베딩 모델 로딩 완료 (device=cpu)")
+    return _tokenizer, _model
+
 
 # ---------------------------------------------------------------------------
 # 임베딩 미생성 키워드 조회
@@ -53,14 +72,8 @@ def generate_embeddings(keywords: list[str], batch_size: int = 128) -> np.ndarra
     키워드 목록을 e5-small로 임베딩.
     반환: (N, 384) numpy 배열 (L2 정규화 완료)
     """
-    logger.info("임베딩 모델 로딩: %s", EMBEDDING_MODEL_NAME)
-    tokenizer = AutoTokenizer.from_pretrained(EMBEDDING_MODEL_NAME)
-    model = AutoModel.from_pretrained(EMBEDDING_MODEL_NAME)
-    # vLLM이 GPU를 점유하므로 e5-small은 CPU에서 실행 (33M 파라미터라 CPU로 충분)
+    tokenizer, model = _get_model()
     device = "cpu"
-    model.to(device)
-    model.eval()
-    logger.info("임베딩 모델 로딩 완료 (device=%s)", device)
 
     all_embs = []
 
