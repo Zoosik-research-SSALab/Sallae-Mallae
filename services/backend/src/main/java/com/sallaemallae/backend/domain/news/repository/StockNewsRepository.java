@@ -9,20 +9,17 @@ import org.springframework.data.repository.query.Param;
 public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
 
   // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 (keyword null이면 전체)
-  @Query(value = """
-      SELECT DISTINCT sn.id, sn.title, sn.publisher, sn.published_at
-      FROM stock_news sn
-      LEFT JOIN news_keyword_map nkm ON sn.id = nkm.news_id
-      LEFT JOIN keywords k ON nkm.keyword_id = k.id
-      WHERE sn.published_at IS NOT NULL
+  @Query("""
+      SELECT DISTINCT sn FROM StockNews sn
+      LEFT JOIN NewsKeywordMap nkm ON sn.id = nkm.id.newsId
+      LEFT JOIN Keyword k ON nkm.id.keywordId = k.id
+      WHERE sn.publishedAt IS NOT NULL
         AND (:keyword IS NULL OR k.name = :keyword)
-      ORDER BY sn.published_at DESC
-      LIMIT :limit OFFSET :offset
-      """, nativeQuery = true)
-  List<Object[]> findNewsWithOptionalKeyword(
+      ORDER BY sn.publishedAt DESC
+      """)
+  List<StockNews> findNewsWithOptionalKeyword(
       @Param("keyword") String keyword,
-      @Param("limit") int limit,
-      @Param("offset") int offset);
+      org.springframework.data.domain.Pageable pageable);
 
   // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (N+1 방지)
   @Query(value = """

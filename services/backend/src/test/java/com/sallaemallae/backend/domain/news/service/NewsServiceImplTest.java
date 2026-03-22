@@ -2,9 +2,7 @@ package com.sallaemallae.backend.domain.news.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
@@ -82,17 +80,17 @@ class NewsServiceImplTest {
 
   @Test
   @DisplayName("키워드 없이 뉴스 목록 조회 - 관련 종목 포함")
-  void getNewsList_noKeyword_withRelatedStocks() {
-    List<Object[]> rows = new ArrayList<>();
-    rows.add(new Object[]{1L, "뉴스1", "연합뉴스", NOW});
-    rows.add(new Object[]{2L, "뉴스2", "한경", NOW.minusHours(1)});
+  void getNewsList_noKeyword_withRelatedStocks() throws Exception {
+    List<StockNews> rows = List.of(
+        createStockNews(1L, "뉴스1", null, "연합뉴스", null, NOW),
+        createStockNews(2L, "뉴스2", null, "한경", null, NOW.minusHours(1)));
 
     List<Object[]> stockRows = new ArrayList<>();
     stockRows.add(new Object[]{1L, "삼성전자"});
     stockRows.add(new Object[]{1L, "SK하이닉스"});
     stockRows.add(new Object[]{2L, "LG전자"});
 
-    given(stockNewsRepository.findNewsWithOptionalKeyword(isNull(), anyInt(), anyInt()))
+    given(stockNewsRepository.findNewsWithOptionalKeyword(isNull(), any()))
         .willReturn(rows);
     given(stockNewsRepository.findStockNamesByNewsIds(List.of(1L, 2L)))
         .willReturn(stockRows);
@@ -102,17 +100,18 @@ class NewsServiceImplTest {
     assertThat(result.news()).hasSize(2);
     assertThat(result.news().get(0).id()).isEqualTo(1L);
     assertThat(result.news().get(0).title()).isEqualTo("뉴스1");
+    assertThat(result.news().get(0).publishedAt()).isEqualTo(NOW);
     assertThat(result.news().get(0).relatedStocks()).containsExactly("삼성전자", "SK하이닉스");
     assertThat(result.news().get(1).relatedStocks()).containsExactly("LG전자");
   }
 
   @Test
   @DisplayName("키워드 필터로 뉴스 목록 조회")
-  void getNewsList_withKeyword() {
-    List<Object[]> rows = new ArrayList<>();
-    rows.add(new Object[]{3L, "키워드뉴스", "MBC", NOW});
+  void getNewsList_withKeyword() throws Exception {
+    List<StockNews> rows = List.of(
+        createStockNews(3L, "키워드뉴스", null, "MBC", null, NOW));
 
-    given(stockNewsRepository.findNewsWithOptionalKeyword(eq("AI"), anyInt(), anyInt()))
+    given(stockNewsRepository.findNewsWithOptionalKeyword(eq("AI"), any()))
         .willReturn(rows);
     given(stockNewsRepository.findStockNamesByNewsIds(List.of(3L)))
         .willReturn(new ArrayList<>());
@@ -127,7 +126,7 @@ class NewsServiceImplTest {
   @Test
   @DisplayName("뉴스 목록이 비어있으면 빈 리스트 반환")
   void getNewsList_empty_noStockQuery() {
-    given(stockNewsRepository.findNewsWithOptionalKeyword(isNull(), anyInt(), anyInt()))
+    given(stockNewsRepository.findNewsWithOptionalKeyword(isNull(), any()))
         .willReturn(new ArrayList<>());
 
     NewsListResponse result = newsService.getNewsList(null, 0, 20);

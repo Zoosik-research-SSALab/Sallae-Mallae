@@ -12,14 +12,14 @@ import com.sallaemallae.backend.domain.news.repository.KeywordRepository;
 import com.sallaemallae.backend.domain.news.repository.StockNewsRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
@@ -40,17 +40,18 @@ public class NewsServiceImpl implements NewsService {
   // 뉴스 목록 조회 (키워드 필터, 페이지네이션, 관련 종목명 포함)
   @Override
   public NewsListResponse getNewsList(String keyword, int offset, int limit) {
-    List<Object[]> rows = stockNewsRepository.findNewsWithOptionalKeyword(keyword, limit, offset);
-    List<Long> newsIds = rows.stream().map(r -> toLong(r[0])).toList();
+    Pageable pageable = PageRequest.of(offset / limit, limit);
+    List<StockNews> rows = stockNewsRepository.findNewsWithOptionalKeyword(keyword, pageable);
+    List<Long> newsIds = rows.stream().map(StockNews::getId).toList();
     Map<Long, List<String>> stockMap = buildStockNameMap(newsIds);
 
     List<NewsListItemResponse> news = rows.stream()
-        .map(r -> new NewsListItemResponse(
-            toLong(r[0]),
-            (String) r[1],
-            (String) r[2],
-            toOffsetDateTime(r[3]),
-            stockMap.getOrDefault(toLong(r[0]), List.of())))
+        .map(sn -> new NewsListItemResponse(
+            sn.getId(),
+            sn.getTitle(),
+            sn.getPublisher(),
+            sn.getPublishedAt(),
+            stockMap.getOrDefault(sn.getId(), List.of())))
         .toList();
 
     return new NewsListResponse(news);
@@ -125,9 +126,4 @@ public class NewsServiceImpl implements NewsService {
     return null;
   }
 
-  private OffsetDateTime toOffsetDateTime(Object obj) {
-    if (obj instanceof OffsetDateTime odt) return odt;
-    if (obj instanceof java.sql.Timestamp ts) return ts.toInstant().atOffset(ZoneOffset.UTC);
-    return null;
-  }
 }
