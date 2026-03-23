@@ -152,20 +152,13 @@ public class ChairmanPortfolioQueryRepository {
             SELECT MAX(report_date) AS report_date
             FROM ai_debate_reports
             WHERE report_date <= CURRENT_DATE
-        ),
-        latest_reports AS (
-            SELECT DISTINCT ON (r.stock_id)
-                   r.stock_id,
-                   r.chairman_signal AS signal
-            FROM ai_debate_reports r
-            JOIN latest_report_date d ON r.report_date = d.report_date
-            ORDER BY r.stock_id, r.created_at DESC, r.id DESC
         )
-        SELECT COALESCE(SUM(CASE WHEN signal = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
-               COALESCE(SUM(CASE WHEN signal = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count,
-               COALESCE(SUM(CASE WHEN signal = 'HOLD' THEN 1 ELSE 0 END), 0) AS hold_count,
-               COALESCE(SUM(CASE WHEN signal = 'STAY' THEN 1 ELSE 0 END), 0) AS watch_count
-        FROM latest_reports
+        SELECT COALESCE(SUM(CASE WHEN r.chairman_signal = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
+               COALESCE(SUM(CASE WHEN r.chairman_signal = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count,
+               COALESCE(SUM(CASE WHEN r.chairman_signal = 'HOLD' THEN 1 ELSE 0 END), 0) AS hold_count,
+               COALESCE(SUM(CASE WHEN r.chairman_signal = 'STAY' THEN 1 ELSE 0 END), 0) AS watch_count
+        FROM ai_debate_reports r
+        JOIN latest_report_date d ON r.report_date = d.report_date
         """;
 
     Tuple row = (Tuple) entityManager.createNativeQuery(sql, Tuple.class).getSingleResult();
