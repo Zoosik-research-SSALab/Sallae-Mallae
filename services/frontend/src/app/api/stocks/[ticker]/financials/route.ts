@@ -7,20 +7,20 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = {
   params: Promise<{
-    stockId: string;
+    ticker: string;
   }>;
 };
 
 const validTypes = new Set<StockFinancialType>(["YEARLY", "QUARTERLY"]);
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { stockId } = await context.params;
+  const { ticker } = await context.params;
   const type = request.nextUrl.searchParams.get("type");
 
-  if (!stockId) {
+  if (!ticker) {
     return NextResponse.json(
       {
-        message: "stockId is required",
+        message: "ticker is required",
       },
       { status: 400 },
     );
@@ -28,5 +28,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const safeType = validTypes.has(type as StockFinancialType) ? (type as StockFinancialType) : "YEARLY";
 
-  return NextResponse.json(snakelizeKeys(getMockStockFinancials(stockId, safeType)));
+  return NextResponse.json(snakelizeKeys(getMockStockFinancials(ticker, safeType)));
 }

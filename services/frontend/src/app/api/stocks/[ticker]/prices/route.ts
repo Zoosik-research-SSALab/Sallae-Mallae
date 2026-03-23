@@ -8,20 +8,20 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = {
   params: Promise<{
-    stockId: string;
+    ticker: string;
   }>;
 };
 
 const validPeriods = new Set<StockChartPeriod>(["1MIN", "1D", "1W", "1M", "3M", "1Y", "3Y"]);
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { stockId } = await context.params;
+  const { ticker } = await context.params;
   const period = request.nextUrl.searchParams.get("period");
 
-  if (!stockId) {
+  if (!ticker) {
     return NextResponse.json(
       {
-        message: "stockId is required",
+        message: "ticker is required",
       },
       { status: 400 },
     );
@@ -29,5 +29,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const safePeriod = validPeriods.has(period as StockChartPeriod) ? (period as StockChartPeriod) : "1D";
 
-  return createSseResponse(() => snakelizeKeys(getMockStockPrices(stockId, safePeriod)), 4000);
+  return createSseResponse(() => snakelizeKeys(getMockStockPrices(ticker, safePeriod)), 4000);
 }

@@ -1,26 +1,26 @@
 import { NextResponse } from "next/server";
-import { getMockStockKeywords } from "@/app/stocks/utils/mockStockDetailData";
+import { getMockStockOverview } from "@/app/stocks/utils/mockStockDetailData";
 import { snakelizeKeys } from "@/shared/utils/case";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = {
   params: Promise<{
-    stockId: string;
+    ticker: string;
   }>;
 };
 
 export async function GET(_: Request, context: RouteContext) {
-  const { stockId } = await context.params;
+  const { ticker } = await context.params;
 
-  if (!stockId) {
+  if (!ticker) {
     return NextResponse.json(
       {
-        message: "stockId is required",
+        message: "ticker is required",
       },
       { status: 400 },
     );
   }
 
-  return NextResponse.json(snakelizeKeys(getMockStockKeywords(stockId)));
+  return NextResponse.json(snakelizeKeys(getMockStockOverview(ticker)));
 }

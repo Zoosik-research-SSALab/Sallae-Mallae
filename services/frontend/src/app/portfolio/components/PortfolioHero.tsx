@@ -29,9 +29,14 @@ export default function PortfolioHero({ hero }: Props) {
             <p className="typo-body-xs text-[color:var(--color-text-tertiary)] md:typo-body-sm">{hero.updatedAtLabel}</p>
             <h1 className="typo-heading-lg text-[color:var(--color-text-primary)] md:typo-heading-2xl xl:typo-heading-3xl">
               {titleWords.map((word, index) => (
-                <span key={`${word}-${index}`} className="inline-block whitespace-nowrap">
+                <span
+                  key={`${word}-${index}`}
+                  className={cn(
+                    "block whitespace-nowrap md:inline-block",
+                    index < titleWords.length - 1 ? "md:mr-[0.25em]" : "",
+                  )}
+                >
                   {word}
-                  {index < titleWords.length - 1 ? "\u00A0" : null}
                 </span>
               ))}
             </h1>
@@ -85,7 +90,7 @@ export default function PortfolioHero({ hero }: Props) {
           width={496}
           height={744}
           priority
-          className="relative z-10 mx-auto h-[292px] w-auto max-w-none object-contain [clip-path:inset(0_12px_0_0)] lg:h-[364px] lg:[clip-path:inset(0_16px_0_0)]"
+          className="relative z-10 mx-auto h-[340px] w-auto max-w-none object-contain [clip-path:inset(0_12px_0_0)] lg:h-[420px] lg:[clip-path:inset(0_16px_0_0)]"
         />
       </div>
     </section>

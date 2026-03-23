@@ -61,7 +61,9 @@ function HoldingRows({ items }: { items: PortfolioHolding[] }) {
           </div>
           <span className="text-right text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">{formatCurrency(item.buyPrice)}</span>
           <span className="text-right text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">{formatCurrency(item.currentPrice)}</span>
-          <span className="text-right text-base font-medium leading-6 text-[color:var(--color-text-secondary)]">{item.holdingDays}일</span>
+          <span className="text-right text-base font-medium leading-6 text-[color:var(--color-text-secondary)]">
+            {item.holdingDays == null ? "-" : `${item.holdingDays}일`}
+          </span>
           <span className={cn("text-right text-base font-semibold leading-6", getDeltaTextClassName(item.returnRate))}>
             {formatSignedValue(item.returnRate, 2, "%")}
           </span>
@@ -135,7 +137,9 @@ function MobileHoldingCards({ items }: { items: PortfolioHolding[] }) {
             >
               {item.name}
             </Link>
-            <p className="text-[10px] font-medium leading-4 text-[color:var(--color-text-secondary)]">{item.holdingDays}일째 보유중</p>
+            <p className="text-[10px] font-medium leading-4 text-[color:var(--color-text-secondary)]">
+              {item.holdingDays == null ? "보유일수 정보 없음" : `${item.holdingDays}일째 보유중`}
+            </p>
           </div>
         </div>
 
