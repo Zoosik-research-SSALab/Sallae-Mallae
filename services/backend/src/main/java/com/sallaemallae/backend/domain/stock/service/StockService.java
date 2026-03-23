@@ -2,6 +2,7 @@ package com.sallaemallae.backend.domain.stock.service;
 
 import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockDetailResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockSummaryResponse;
 import java.util.List;
 
@@ -12,4 +13,6 @@ public interface StockService {
   StockDetailResponse getStockDetail(String ticker);
 
   StockBasicInfoResponse getStockBasicInfo(Long stockId);
+
+  StockOverviewResponse getStockOverview(Long stockId);
 }

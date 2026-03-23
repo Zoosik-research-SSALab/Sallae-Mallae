@@ -3,6 +3,7 @@ package com.sallaemallae.backend.domain.stock.controller;
 import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockDataPipelinePreviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockPeriodPriceResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockQuoteResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinutePipelinePreviewResponse;
@@ -83,6 +84,15 @@ public class StockApiController {
       @PathVariable Long stockId
   ) {
     return ApiResponse.success(stockService.getStockBasicInfo(stockId));
+  }
+
+  @Operation(summary = "Get stock overview", description = "Returns stock overview including latest price and 52-week range.")
+  @GetMapping("/{stockId}/overview")
+  public ApiResponse<StockOverviewResponse> getStockOverview(
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
+  ) {
+    return ApiResponse.success(stockService.getStockOverview(stockId));
   }
 
   @Operation(summary = "Get stock quote", description = "Returns the latest KIS quote for the given ticker.")

@@ -15,6 +15,9 @@ import com.sallaemallae.backend.domain.stock.dto.StockListFilterCountsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListItemResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse.LatestPrice;
+import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse.PriceRange52w;
 import com.sallaemallae.backend.domain.stock.dto.StockPeriodPriceResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockPriceCandleResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockQuoteResponse;
@@ -38,7 +41,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+    "minio.endpoint=http://localhost:9000",
+    "minio.presigned-endpoint=http://localhost:9000",
+    "minio.access-key=test-access",
+    "minio.secret-key=test-secret",
+    "minio.bucket=test-bucket",
+    "minio.public-url=http://localhost:9000"
+})
 @AutoConfigureMockMvc
 class StockApiControllerTest {
 
@@ -135,6 +145,17 @@ class StockApiControllerTest {
         ));
     given(stockService.getStockBasicInfo(999L))
         .willThrow(new BusinessException(StockErrorCode.STOCK_NOT_FOUND));
+    given(stockService.getStockOverview(1L))
+        .willReturn(new StockOverviewResponse(
+            1L,
+            "005930",
+            "Samsung Electronics",
+            "KOSPI",
+            "Information Technology",
+            "Semiconductor",
+            new LatestPrice(LocalDate.parse("2026-03-17"), 70300, 2.03f),
+            new PriceRange52w(88800, LocalDate.parse("2025-07-11"), 61200, LocalDate.parse("2025-04-09"), -20.83f, 14.87f)
+        ));
     given(stockPriceStreamService.streamPrices(anyLong(), anyString()))
         .willReturn(new SseEmitter());
     createTablesIfNeeded();
@@ -172,6 +193,21 @@ class StockApiControllerTest {
         .andExpect(jsonPath("$.data.gics_sector").value("Information Technology"))
         .andExpect(jsonPath("$.data.category").value("Semiconductor"))
         .andExpect(jsonPath("$.data.base_time").exists());
+  }
+
+  @Test
+  void getStockOverview_returnsWrappedSnakeCasePayload() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/overview", 1L))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.stock_id").value(1))
+        .andExpect(jsonPath("$.data.ticker").value("005930"))
+        .andExpect(jsonPath("$.data.market_type").value("KOSPI"))
+        .andExpect(jsonPath("$.data.latest_price.trade_date").value("2026-03-17"))
+        .andExpect(jsonPath("$.data.latest_price.close_price").value(70300))
+        .andExpect(jsonPath("$.data.price_range_52w.high_price").value(88800))
+        .andExpect(jsonPath("$.data.price_range_52w.high_date").value("2025-07-11"))
+        .andExpect(jsonPath("$.data.price_range_52w.distance_from_high_rate").value(-20.83));
   }
 
   @Test
