@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-@Tag(name = "Stock Stream", description = "Stock chart streaming APIs")
+@Tag(name = "Stock Chart", description = "Frontend-facing stock chart APIs — use these for chart rendering and realtime updates")
 @SecurityRequirements
 @RestController
 @RequestMapping("/api/stream/stocks")
@@ -35,7 +35,7 @@ public class StockPriceStreamController {
 
   @Operation(
       summary = "Get stock chart prices with cursor pagination",
-      description = "Returns candle data for the requested type. "
+      description = "Primary API for chart rendering. Returns candle data from DB with realtime merge. "
           + "Allowed candleType: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY. "
           + "Use cursor for pagination (oldest timestamp from previous response)."
   )
@@ -54,7 +54,8 @@ public class StockPriceStreamController {
 
   @Operation(
       summary = "Stream stock chart prices via SSE",
-      description = "Streams minute candle data over SSE every minute. Only MINUTE type supports streaming."
+      description = "Realtime chart update via SSE. Pushes new minute candle data every minute. "
+          + "Only MINUTE type supports continuous streaming; other types return a single snapshot then close."
   )
   @GetMapping(value = "/{ticker}/prices/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public SseEmitter streamStockPrices(
