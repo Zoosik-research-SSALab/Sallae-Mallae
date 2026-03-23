@@ -119,7 +119,12 @@ export default function StockPriceChart({
         renderer: "canvas",
       });
 
-      chart.on("datazoom", (event: { batch?: Array<Record<string, unknown>>; startValue?: number; endValue?: number }) => {
+      chart.on("datazoom", (...args: unknown[]) => {
+        const event = (args[0] ?? {}) as {
+          batch?: Array<Record<string, unknown>>;
+          startValue?: number;
+          endValue?: number;
+        };
         const detail = event.batch?.[0] ?? event;
         const startValue = Number(detail.startValue ?? 0);
         const endValue = Number(detail.endValue ?? 0);
