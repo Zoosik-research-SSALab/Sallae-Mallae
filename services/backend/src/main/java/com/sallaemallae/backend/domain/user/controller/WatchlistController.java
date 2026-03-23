@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -42,21 +44,27 @@ public class WatchlistController {
   private final UserService userService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
   private final ObjectMapper objectMapper;
+  private final ExecutorService sseExecutor = Executors.newCachedThreadPool();
 
   @Operation(summary = "관심종목 목록 조회 (SSE)", description = "로그인한 사용자의 관심종목 목록을 SSE로 조회합니다.")
   @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public SseEmitter getWatchlist() {
+    Long userId = getAuthenticatedUserId();
     SseEmitter emitter = new SseEmitter(Duration.ofMinutes(30).toMillis());
-    try {
-      WatchlistListResponse data = userService.getWatchlist(getAuthenticatedUserId());
-      emitter.send(SseEmitter.event()
-          .name("watchlist")
-          .data(objectMapper.writeValueAsString(ApiResponse.success(data)),
-              MediaType.APPLICATION_JSON));
-      emitter.complete();
-    } catch (IOException e) {
-      emitter.completeWithError(e);
-    }
+
+    sseExecutor.execute(() -> {
+      try {
+        WatchlistListResponse data = userService.getWatchlist(userId);
+        emitter.send(SseEmitter.event()
+            .name("watchlist")
+            .data(objectMapper.writeValueAsString(ApiResponse.success(data)),
+                MediaType.APPLICATION_JSON));
+        emitter.complete();
+      } catch (IOException e) {
+        emitter.completeWithError(e);
+      }
+    });
+
     return emitter;
   }
 
