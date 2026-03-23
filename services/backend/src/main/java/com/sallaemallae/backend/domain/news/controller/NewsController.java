@@ -8,7 +8,9 @@ import com.sallaemallae.backend.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,11 +31,16 @@ public class NewsController {
   public ApiResponse<NewsListResponse> getNewsList(
       @Parameter(description = "검색 키워드", example = "반도체")
       @RequestParam(required = false) String keyword,
+      @Parameter(description = "시작일 (전체 기간이면 생략)", example = "2026-03-01")
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+      @Parameter(description = "종료일 (기본값: 오늘)", example = "2026-03-23")
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
       @Parameter(description = "페이지 오프셋", example = "0")
       @RequestParam(defaultValue = "0") int offset,
       @Parameter(description = "페이지 크기", example = "6")
       @RequestParam(defaultValue = "6") int limit) {
-    return ApiResponse.success(newsService.getNewsList(keyword, offset, limit));
+    LocalDate resolvedEndDate = (endDate != null) ? endDate : LocalDate.now();
+    return ApiResponse.success(newsService.getNewsList(keyword, startDate, resolvedEndDate, offset, limit));
   }
 
   /** FS-NEWS-002: 많이 찾는 뉴스 키워드 순위 */
