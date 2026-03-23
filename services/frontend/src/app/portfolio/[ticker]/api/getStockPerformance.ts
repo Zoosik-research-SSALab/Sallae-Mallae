@@ -7,5 +7,6 @@ export async function getStockPerformance(
   return apiFetch<PerformanceResponse>(`/api/report/${stockId}/performance`, {
     cache: "no-store",
     useBaseUrl: false,
+    withAuth: true,
   });
 }

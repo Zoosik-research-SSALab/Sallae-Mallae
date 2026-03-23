@@ -16,5 +16,6 @@ export async function getStockReport(
   return apiFetch<ReportResponse>(url, {
     cache: "no-store",
     useBaseUrl: false,
+    withAuth: true,
   });
 }

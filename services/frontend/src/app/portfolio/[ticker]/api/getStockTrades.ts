@@ -16,5 +16,6 @@ export async function getStockTrades(
   return apiFetch<TradesResponse>(url, {
     cache: "no-store",
     useBaseUrl: false,
+    withAuth: true,
   });
 }

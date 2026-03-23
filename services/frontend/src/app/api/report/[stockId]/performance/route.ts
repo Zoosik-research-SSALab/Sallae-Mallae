@@ -20,7 +20,7 @@ function getApiBaseUrl() {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ stockId: string }> },
 ) {
   const { stockId } = await params;
@@ -33,15 +33,27 @@ export async function GET(
 
   const upstreamUrl = `${getApiBaseUrl()}/api/report/${stockId}/performance`;
 
+  const headers: HeadersInit = {};
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    headers["Authorization"] = authorization;
+  }
+
   const upstreamResponse = await fetch(upstreamUrl, {
     method: "GET",
+    headers,
     cache: "no-store",
   });
 
-  return new NextResponse(upstreamResponse.body, {
-    status: upstreamResponse.status,
-    headers: {
-      "content-type": upstreamResponse.headers.get("content-type") ?? "application/json",
-    },
-  });
+  if (!upstreamResponse.ok) {
+    return new NextResponse(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      headers: {
+        "content-type": upstreamResponse.headers.get("content-type") ?? "application/json",
+      },
+    });
+  }
+
+  const body = (await upstreamResponse.json()) as { data?: unknown };
+  return NextResponse.json(body.data ?? body);
 }
