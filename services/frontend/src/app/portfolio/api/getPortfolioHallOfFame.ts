@@ -27,7 +27,7 @@ type HallHitRateItem = {
 
 type PortfolioHallOfFamePayload = {
   hitRateTop5?: HallHitRateItem[] | null;
-  cumulativeReturnTop10?: HallRankingItem[] | null;
+  cumulativeReturnTop5?: HallRankingItem[] | null;
   maxSingleReturnTop5?: HallRankingItem[] | null;
   averageReturnTop5?: HallRankingItem[] | null;
 };
@@ -89,7 +89,7 @@ function normalizePortfolioHallOfFame(value: unknown): PortfolioHallOfFameSectio
       id: "cumulative-return",
       title: "누적 수익률 TOP 5",
       tone: "danger",
-      items: normalizeValueItems(candidate.cumulativeReturnTop10, "%", "종목"),
+      items: normalizeValueItems(candidate.cumulativeReturnTop5, "%", "종목"),
     },
     {
       id: "best-single-trade",

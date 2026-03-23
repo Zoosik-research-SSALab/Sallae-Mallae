@@ -206,7 +206,7 @@ export function getMockPortfolioHallOfFameResponse() {
       { rank: 4, stockId: 6, ticker: "000270", name: "기아", hitRate: 61.1, winningTrades: 11, totalTrades: 18 },
       { rank: 5, stockId: 5, ticker: "035420", name: "NAVER", hitRate: 59.4, winningTrades: 19, totalTrades: 32 },
     ],
-    cumulativeReturnTop10: [
+    cumulativeReturnTop5: [
       { rank: 1, stockId: 8, ticker: "005930", name: "삼성전자", value: 112.34 },
       { rank: 2, stockId: 2, ticker: "000660", name: "SK하이닉스", value: 98.12 },
       { rank: 3, stockId: 7, ticker: "005380", name: "현대차", value: 84.56 },
