@@ -54,6 +54,7 @@ export default function ReportsDetailPage() {
 
           <InvestmentPerformanceSection
             stockId={stockId}
+            companyName={companyName}
             hitRate={hitRate}
             hitCount={hitCount}
             averageReturn={averageReturn}
