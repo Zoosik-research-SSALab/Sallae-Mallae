@@ -8,10 +8,12 @@ export async function POST(request: NextRequest) {
     return clearMockAuthCookies(response);
   }
 
-  return proxyAuthRequest({
+  const response = await proxyAuthRequest({
     request,
     path: "/api/auth/logout",
     method: "POST",
     forwardAuthorization: true,
   });
+
+  return clearMockAuthCookies(response);
 }

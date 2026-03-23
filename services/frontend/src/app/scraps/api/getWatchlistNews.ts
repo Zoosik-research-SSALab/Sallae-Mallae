@@ -87,7 +87,6 @@ function createWatchlistNewsSearchParams(params?: WatchlistNewsQueryParams) {
 export async function getWatchlistNews(params?: WatchlistNewsQueryParams) {
   const payload = await authApiFetch<WatchlistNewsPayload | WatchlistNewsEnvelope>(`/api/users/watchlist/news${createWatchlistNewsSearchParams(params)}`, {
     cache: "no-store",
-    useBaseUrl: false,
   });
 
   const newsPayload = isWatchlistNewsEnvelope(payload)
