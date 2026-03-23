@@ -1,8 +1,14 @@
 package com.sallaemallae.backend.domain.stock.controller;
 
 import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementDetailResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockDataPipelinePreviewResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockFinancialsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockIndicatorsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockKeywordsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockPeriodPriceResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockQuoteResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinutePipelinePreviewResponse;
@@ -83,6 +89,68 @@ public class StockApiController {
       @PathVariable Long stockId
   ) {
     return ApiResponse.success(stockService.getStockBasicInfo(stockId));
+  }
+
+  @Operation(summary = "Get stock overview", description = "Returns stock overview including latest price and 52-week range.")
+  @GetMapping("/{stockId}/overview")
+  public ApiResponse<StockOverviewResponse> getStockOverview(
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
+  ) {
+    return ApiResponse.success(stockService.getStockOverview(stockId));
+  }
+
+  @Operation(summary = "Get stock indicators", description = "Returns valuation, earnings and dividend indicators for the given stockId.")
+  @GetMapping("/{stockId}/indicators")
+  public ApiResponse<StockIndicatorsResponse> getStockIndicators(
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
+  ) {
+    return ApiResponse.success(stockService.getStockIndicators(stockId));
+  }
+
+  @Operation(summary = "Get stock financials", description = "Returns yearly or quarterly financials for the given stockId.")
+  @GetMapping("/{stockId}/financials")
+  public ApiResponse<StockFinancialsResponse> getStockFinancials(
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
+      @Parameter(description = "Financial type: YEARLY or QUARTERLY", example = "YEARLY")
+      @RequestParam(defaultValue = "YEARLY") String type
+  ) {
+    return ApiResponse.success(stockService.getStockFinancials(stockId, type));
+  }
+
+  @Operation(summary = "Get stock keywords", description = "Returns top keywords and related news for the given stockId.")
+  @GetMapping("/{stockId}/keywords")
+  public ApiResponse<StockKeywordsResponse> getStockKeywords(
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
+  ) {
+    return ApiResponse.success(stockService.getStockKeywords(stockId));
+  }
+
+  @Operation(summary = "Get stock announcements", description = "Returns latest announcements for the given stockId.")
+  @GetMapping("/{stockId}/announcements")
+  public ApiResponse<StockAnnouncementsResponse> getStockAnnouncements(
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
+      @Parameter(description = "Number of announcements to return", example = "4")
+      @RequestParam(defaultValue = "4") int limit,
+      @Parameter(description = "Offset for pagination", example = "0")
+      @RequestParam(defaultValue = "0") int offset
+  ) {
+    return ApiResponse.success(stockService.getStockAnnouncements(stockId, limit, offset));
+  }
+
+  @Operation(summary = "Get stock announcement detail", description = "Returns announcement detail for the given stockId and announcementId.")
+  @GetMapping("/{stockId}/announcements/{announcementId}")
+  public ApiResponse<StockAnnouncementDetailResponse> getStockAnnouncement(
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
+      @Parameter(description = "Announcement ID", example = "10")
+      @PathVariable Long announcementId
+  ) {
+    return ApiResponse.success(stockService.getStockAnnouncement(stockId, announcementId));
   }
 
   @Operation(summary = "Get stock quote", description = "Returns the latest KIS quote for the given ticker.")

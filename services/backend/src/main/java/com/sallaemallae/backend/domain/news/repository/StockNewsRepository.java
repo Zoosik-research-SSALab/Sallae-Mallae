@@ -8,6 +8,17 @@ import org.springframework.data.repository.query.Param;
 
 public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
 
+  interface StockNewsSummaryProjection {
+
+    Long getId();
+
+    String getTitle();
+
+    String getPublisher();
+
+    java.time.OffsetDateTime getPublishedAt();
+  }
+
   // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 (keyword null이면 전체)
   @Query(value = """
       SELECT DISTINCT sn.id, sn.title, sn.publisher, sn.published_at
@@ -41,4 +52,24 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       WHERE snm.news_id = :newsId
       """, nativeQuery = true)
   List<Object[]> findRelatedStocksByNewsId(@Param("newsId") Long newsId);
+
+  @Query(value = """
+      SELECT DISTINCT sn.id AS id,
+             sn.title AS title,
+             sn.publisher AS publisher,
+             sn.published_at AS publishedAt
+      FROM stock_news sn
+      JOIN stock_news_map snm ON sn.id = snm.news_id
+      JOIN news_keyword_map nkm ON sn.id = nkm.news_id
+      WHERE snm.stock_id = :stockId
+        AND nkm.keyword_id IN :keywordIds
+        AND sn.published_at IS NOT NULL
+      ORDER BY sn.published_at DESC, sn.id DESC
+      LIMIT :limit
+      """, nativeQuery = true)
+  List<StockNewsSummaryProjection> findLatestNewsByStockIdAndKeywordIds(
+      @Param("stockId") Long stockId,
+      @Param("keywordIds") List<Long> keywordIds,
+      @Param("limit") int limit
+  );
 }
