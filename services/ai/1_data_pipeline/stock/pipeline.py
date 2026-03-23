@@ -223,6 +223,72 @@ def run_fundamental_metrics() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# DB 적재 단계
+# ---------------------------------------------------------------------------
+
+def run_db_load_financials() -> bool:
+    """
+    펀더멘탈 파생 지표를 stock_financials DB 테이블에 적재합니다.
+
+    processed/fundamental/fundamental_metrics.parquet → DB INSERT/UPSERT.
+
+    Returns:
+        성공 여부
+    """
+    logger.info("=== 재무 데이터 DB 적재 시작 ===")
+    try:
+        from loaders.load_financials_to_db import load_to_db, transform_for_db
+        from utils.db import get_connection, load_ticker_to_stock_id
+
+        src = PROCESSED_FUNDAMENTAL_PATH / "fundamental_metrics.parquet"
+        if not src.exists():
+            logger.warning("fundamental_metrics.parquet 없음 — DB 적재 건너뜀")
+            return False
+
+        import pandas as pd
+        df = pd.read_parquet(src)
+
+        conn = get_connection()
+        try:
+            ticker_map = load_ticker_to_stock_id(conn)
+            db_df = transform_for_db(df, ticker_map)
+            count = load_to_db(conn, db_df)
+            logger.info("=== 재무 데이터 DB 적재 완료: %d행 ===", count)
+            return True
+        finally:
+            conn.close()
+    except ImportError:
+        logger.warning("loaders.load_financials_to_db 모듈 없음 — 건너뜀")
+        return False
+    except Exception as exc:
+        logger.error("재무 데이터 DB 적재 실패: %s", exc)
+        return False
+
+
+def run_db_load_announcements() -> bool:
+    """
+    DART 정기공시 메타데이터를 stock_announcements DB 테이블에 적재합니다.
+
+    증분 수집(최근 90일)으로 실행됩니다.
+
+    Returns:
+        성공 여부
+    """
+    logger.info("=== 공시 메타데이터 DB 적재 시작 ===")
+    try:
+        from collectors.collect_announcements import collect_incremental
+        inserted = collect_incremental()
+        logger.info("=== 공시 메타데이터 DB 적재 완료: %d건 ===", inserted)
+        return True
+    except ImportError:
+        logger.warning("collectors.collect_announcements 모듈 없음 — 건너뜀")
+        return False
+    except Exception as exc:
+        logger.error("공시 메타데이터 DB 적재 실패: %s", exc)
+        return False
+
+
+# ---------------------------------------------------------------------------
 # 품질 검증 단계
 # ---------------------------------------------------------------------------
 
@@ -316,7 +382,7 @@ def run_full_pipeline(
 
     Args:
         mode:            "initial" 또는 "incremental"
-        skip_features:   True 이면 피처 엔지니어링 건너뜀
+        skip_features:   True 이면 피처 엔지니어링 및 DB 적재 건너뜀 (수집만 실행)
         skip_validation: True 이면 품질 검증 건너뜀
         use_universe:    True 이면 유니버스 파일(편출 종목 포함)로 OHLCV 수집
         ensure_financial: True 이면 rclone DOWN 단계 후 재무 데이터 볼륨 확인
@@ -399,6 +465,30 @@ def run_full_pipeline(
         except Exception as exc:
             logger.error("펀더멘탈 파생 지표 단계 예외: %s", exc)
             step_results["fundamental_metrics"] = f"FAIL: {exc}"
+
+    # 3-2. 재무 데이터 DB 적재 (펀더멘탈 지표 생성 후)
+    if skip_features:
+        logger.info("재무 DB 적재 건너뜀 (--skip-features)")
+        step_results["db_load_financials"] = "SKIPPED"
+    else:
+        try:
+            db_ok = run_db_load_financials()
+            step_results["db_load_financials"] = "OK" if db_ok else "PARTIAL"
+        except Exception as exc:
+            logger.error("재무 DB 적재 단계 예외: %s", exc)
+            step_results["db_load_financials"] = f"FAIL: {exc}"
+
+    # 3-3. 공시 메타데이터 DB 적재
+    if skip_features:
+        logger.info("공시 DB 적재 건너뜀 (--skip-features)")
+        step_results["db_load_announcements"] = "SKIPPED"
+    else:
+        try:
+            ann_ok = run_db_load_announcements()
+            step_results["db_load_announcements"] = "OK" if ann_ok else "PARTIAL"
+        except Exception as exc:
+            logger.error("공시 DB 적재 단계 예외: %s", exc)
+            step_results["db_load_announcements"] = f"FAIL: {exc}"
 
     # 4. 품질 검증
     if skip_validation:
@@ -507,7 +597,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-features",
         action="store_true",
-        help="피처 엔지니어링 단계를 건너뜁니다",
+        help="피처 엔지니어링 및 DB 적재 단계를 건너뜁니다 (수집만 실행)",
     )
     parser.add_argument(
         "--skip-validation",
