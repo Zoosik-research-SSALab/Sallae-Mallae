@@ -63,7 +63,7 @@ public class MainStockQueryRepository {
                 ORDER BY trade_date DESC LIMIT 1
             ) sp ON true
             WHERE s.is_active = true
-            ORDER BY r.debate_confidence DESC
+            ORDER BY r.debate_confidence DESC NULLS LAST
             LIMIT 10
             """;
 
