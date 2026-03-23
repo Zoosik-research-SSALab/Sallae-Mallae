@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,7 +40,7 @@ public class NewsController {
       @RequestParam(defaultValue = "0") int offset,
       @Parameter(description = "페이지 크기", example = "6")
       @RequestParam(defaultValue = "6") int limit) {
-    LocalDate resolvedEndDate = (endDate != null) ? endDate : LocalDate.now();
+    LocalDate resolvedEndDate = (endDate != null) ? endDate : LocalDate.now(ZoneId.of("Asia/Seoul"));
     return ApiResponse.success(newsService.getNewsList(keyword, startDate, resolvedEndDate, offset, limit));
   }
 

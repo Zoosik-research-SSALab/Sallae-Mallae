@@ -35,14 +35,15 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       @Param("startDateTime") OffsetDateTime startDateTime,
       @Param("endDateTime") OffsetDateTime endDateTime);
 
-  // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 조회 (URL 기준 중복 제거, 기간 필터)
+  // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 조회 (URL 기준 중복 제거, 같은 URL의 모든 row에서 키워드 검색, 기간 필터)
   @Query("""
       SELECT sn FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
         AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
-        AND sn.id IN (SELECT nkm.id.newsId FROM NewsKeywordMap nkm
-                       JOIN Keyword k ON nkm.id.keywordId = k.id
-                       WHERE k.name = :keyword)
+        AND EXISTS (SELECT 1 FROM StockNews sn3
+                    JOIN NewsKeywordMap nkm ON nkm.id.newsId = sn3.id
+                    JOIN Keyword k ON nkm.id.keywordId = k.id
+                    WHERE sn3.url = sn.url AND k.name = :keyword)
         AND (:startDateTime IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       ORDER BY sn.publishedAt DESC
@@ -53,14 +54,15 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       @Param("endDateTime") OffsetDateTime endDateTime,
       org.springframework.data.domain.Pageable pageable);
 
-  // FS-NEWS-001: 키워드 필터 적용된 뉴스 총 개수 (URL 기준 중복 제거, 기간 필터)
+  // FS-NEWS-001: 키워드 필터 적용된 뉴스 총 개수 (URL 기준 중복 제거, 같은 URL의 모든 row에서 키워드 검색, 기간 필터)
   @Query("""
       SELECT COUNT(sn) FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
         AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
-        AND sn.id IN (SELECT nkm.id.newsId FROM NewsKeywordMap nkm
-                       JOIN Keyword k ON nkm.id.keywordId = k.id
-                       WHERE k.name = :keyword)
+        AND EXISTS (SELECT 1 FROM StockNews sn3
+                    JOIN NewsKeywordMap nkm ON nkm.id.newsId = sn3.id
+                    JOIN Keyword k ON nkm.id.keywordId = k.id
+                    WHERE sn3.url = sn.url AND k.name = :keyword)
         AND (:startDateTime IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       """)
