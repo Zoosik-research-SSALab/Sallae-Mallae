@@ -42,7 +42,7 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
 
   private static final int POPULAR_SIGNAL_LIMIT = 5;
   private static final int HALL_OF_FAME_HIT_RATE_LIMIT = 5;
-  private static final int HALL_OF_FAME_CUMULATIVE_RETURN_LIMIT = 10;
+  private static final int HALL_OF_FAME_CUMULATIVE_RETURN_LIMIT = 5;
   private static final int HALL_OF_FAME_MAX_SINGLE_RETURN_LIMIT = 5;
   private static final int HALL_OF_FAME_AVERAGE_RETURN_LIMIT = 5;
 
