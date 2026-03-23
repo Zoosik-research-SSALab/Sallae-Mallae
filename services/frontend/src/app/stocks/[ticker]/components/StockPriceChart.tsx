@@ -1,7 +1,7 @@
 "use client";
 
 import type { EChartsType } from "echarts";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StockChartPeriod, StockPriceChartMode, StockPricePoint } from "@/app/stocks/types/stockDetail";
 import { cn } from "@/shared/utils/cn";
 import {
@@ -10,6 +10,8 @@ import {
   formatWon,
   getChartPriceRange,
   getDisplayChartPrices,
+  getInitialVisiblePointCount,
+  shouldShowChartLabel,
 } from "../utils/stockDetailFormatters";
 
 type Props = {
@@ -17,53 +19,217 @@ type Props = {
   period: StockChartPeriod;
   mode?: StockPriceChartMode;
   className?: string;
+  hasMore?: boolean;
+  isFetchingMore?: boolean;
+  onRequestMore?: () => void;
 };
 
-export default function StockPriceChart({ prices, period, mode = "line", className }: Props) {
+type ZoomWindow = {
+  startValue: number;
+  endValue: number;
+};
+
+function getLoadMoreThreshold(period: StockChartPeriod) {
+  switch (period) {
+    case "1W":
+      return 4;
+    case "1M":
+      return 2;
+    case "1Y":
+      return 1;
+    default:
+      return 10;
+  }
+}
+
+function buildInitialZoomWindow(period: StockChartPeriod, total: number): ZoomWindow {
+  const visibleCount = getInitialVisiblePointCount(period, total);
+
+  if (visibleCount <= 0 || visibleCount >= total) {
+    return {
+      startValue: 0,
+      endValue: Math.max(0, total - 1),
+    };
+  }
+
+  return {
+    startValue: Math.max(0, total - visibleCount),
+    endValue: Math.max(0, total - 1),
+  };
+}
+
+function clampZoomWindow(zoomWindow: ZoomWindow, total: number): ZoomWindow {
+  const maxIndex = Math.max(0, total - 1);
+  const startValue = Math.max(0, Math.min(zoomWindow.startValue, maxIndex));
+  const endValue = Math.max(startValue, Math.min(zoomWindow.endValue, maxIndex));
+
+  return {
+    startValue,
+    endValue,
+  };
+}
+
+export default function StockPriceChart({
+  prices,
+  period,
+  mode = "line",
+  className,
+  hasMore = false,
+  isFetchingMore = false,
+  onRequestMore,
+}: Props) {
   const chartRef = useRef<HTMLDivElement | null>(null);
+  const [chartReady, setChartReady] = useState(false);
+  const chartInstanceRef = useRef<EChartsType | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const zoomWindowRef = useRef<ZoomWindow | null>(null);
+  const previousMetaRef = useRef<{
+    length: number;
+    firstTimestamp: string | null;
+    lastTimestamp: string | null;
+  }>({
+    length: 0,
+    firstTimestamp: null,
+    lastTimestamp: null,
+  });
+  const requestMoreRef = useRef(onRequestMore);
+  const hasMoreRef = useRef(hasMore);
+  const isFetchingMoreRef = useRef(isFetchingMore);
+  const periodRef = useRef(period);
+
+  requestMoreRef.current = onRequestMore;
+  hasMoreRef.current = hasMore;
+  isFetchingMoreRef.current = isFetchingMore;
+  periodRef.current = period;
 
   useEffect(() => {
-    if (!chartRef.current || prices.length === 0) {
+    let disposed = false;
+
+    const initializeChart = async () => {
+      if (!chartRef.current) {
+        return;
+      }
+
+      const echarts = await import("echarts");
+      if (disposed || !chartRef.current) {
+        return;
+      }
+
+      const chart = echarts.init(chartRef.current, undefined, {
+        renderer: "canvas",
+      });
+
+      chart.on("datazoom", (event: { batch?: Array<Record<string, unknown>>; startValue?: number; endValue?: number }) => {
+        const detail = event.batch?.[0] ?? event;
+        const startValue = Number(detail.startValue ?? 0);
+        const endValue = Number(detail.endValue ?? 0);
+
+        zoomWindowRef.current = {
+          startValue,
+          endValue,
+        };
+
+        if (
+          hasMoreRef.current &&
+          !isFetchingMoreRef.current &&
+          typeof requestMoreRef.current === "function" &&
+          startValue <= getLoadMoreThreshold(periodRef.current)
+        ) {
+          requestMoreRef.current();
+        }
+      });
+
+      resizeObserverRef.current = new ResizeObserver(() => {
+        chart.resize();
+      });
+      resizeObserverRef.current.observe(chartRef.current);
+      chartInstanceRef.current = chart;
+      setChartReady(true);
+    };
+
+    void initializeChart();
+
+    return () => {
+      disposed = true;
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
+      chartInstanceRef.current?.dispose();
+      chartInstanceRef.current = null;
+      setChartReady(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    const chart = chartInstanceRef.current;
+    if (!chartReady || !chart || prices.length === 0) {
       return;
     }
 
-    let chart: EChartsType | null = null;
-    let resizeObserver: ResizeObserver | null = null;
-    let disposed = false;
-
-    const visiblePrices = getDisplayChartPrices(prices, period);
+    const visiblePrices = getDisplayChartPrices(prices);
     const labels = visiblePrices.map((item) => formatChartAxisLabel(item.timestamp, period));
     const closePrices = visiblePrices.map((item) => item.close);
     const candlePrices = visiblePrices.map((item) => [item.open, item.close, item.low, item.high]);
     const volumes = visiblePrices.map((item) => item.volume);
     const priceRange = getChartPriceRange(visiblePrices, mode);
 
-    const draw = async () => {
-      const echarts = await import("echarts");
+    const previousMeta = previousMetaRef.current;
+    const firstTimestamp = visiblePrices[0]?.timestamp ?? null;
+    const lastTimestamp = visiblePrices.at(-1)?.timestamp ?? null;
+    const addedCount = visiblePrices.length - previousMeta.length;
+    const prependedOlderPrices =
+      previousMeta.length > 0 &&
+      visiblePrices.length > previousMeta.length &&
+      previousMeta.firstTimestamp !== null &&
+      firstTimestamp !== previousMeta.firstTimestamp;
+    const appendedNewPrices =
+      previousMeta.length > 0 &&
+      visiblePrices.length > previousMeta.length &&
+      previousMeta.lastTimestamp !== null &&
+      lastTimestamp !== previousMeta.lastTimestamp &&
+      previousMeta.firstTimestamp === firstTimestamp;
 
-      if (disposed || !chartRef.current) {
-        return;
-      }
+    let zoomWindow = zoomWindowRef.current ?? buildInitialZoomWindow(period, visiblePrices.length);
 
-      const styles = getComputedStyle(document.documentElement);
-      const textPrimary = styles.getPropertyValue("--color-text-primary").trim();
-      const textSecondary = styles.getPropertyValue("--color-text-secondary").trim();
-      const borderPrimary = styles.getPropertyValue("--color-border-primary").trim();
-      const danger = styles.getPropertyValue("--color-text-danger-bold").trim();
-      const interactivePrimary = styles.getPropertyValue("--color-text-interactive-primary").trim();
-      const bgPrimary = styles.getPropertyValue("--color-bg-primary").trim();
+    if (prependedOlderPrices && addedCount > 0) {
+      zoomWindow = {
+        startValue: zoomWindow.startValue + addedCount,
+        endValue: zoomWindow.endValue + addedCount,
+      };
+    } else if (
+      appendedNewPrices &&
+      addedCount > 0 &&
+      zoomWindow.endValue >= Math.max(0, previousMeta.length - 1)
+    ) {
+      zoomWindow = {
+        startValue: zoomWindow.startValue + addedCount,
+        endValue: zoomWindow.endValue + addedCount,
+      };
+    }
 
-      chart = echarts.init(chartRef.current, undefined, {
-        renderer: "canvas",
-      });
+    zoomWindow = clampZoomWindow(zoomWindow, visiblePrices.length);
+    zoomWindowRef.current = zoomWindow;
+    previousMetaRef.current = {
+      length: visiblePrices.length,
+      firstTimestamp,
+      lastTimestamp,
+    };
 
-      chart.setOption({
+    const styles = getComputedStyle(document.documentElement);
+    const textPrimary = styles.getPropertyValue("--color-text-primary").trim();
+    const textSecondary = styles.getPropertyValue("--color-text-secondary").trim();
+    const borderPrimary = styles.getPropertyValue("--color-border-primary").trim();
+    const danger = styles.getPropertyValue("--color-text-danger-bold").trim();
+    const interactivePrimary = styles.getPropertyValue("--color-text-interactive-primary").trim();
+    const bgPrimary = styles.getPropertyValue("--color-bg-primary").trim();
+
+    chart.setOption(
+      {
         animation: false,
         grid: {
-          left: mode === "line" ? 0 : 8,
+          left: mode === "line" ? 8 : 12,
           right: 72,
           top: 18,
-          bottom: 10,
+          bottom: 40,
         },
         tooltip: {
           trigger: "axis",
@@ -115,6 +281,27 @@ export default function StockPriceChart({ prices, period, mode = "line", classNa
             return `${point.axisValueLabel}<br/>가격 ${formatWon(currentPrice)}<br/>거래량 ${formatVolume(volume)}`;
           },
         },
+        dataZoom: [
+          {
+            type: "inside",
+            xAxisIndex: 0,
+            filterMode: "none",
+            zoomOnMouseWheel: true,
+            moveOnMouseWheel: true,
+            moveOnMouseMove: true,
+            preventDefaultMouseMove: false,
+            startValue: zoomWindow.startValue,
+            endValue: zoomWindow.endValue,
+          },
+          {
+            type: "slider",
+            show: false,
+            xAxisIndex: 0,
+            filterMode: "none",
+            startValue: zoomWindow.startValue,
+            endValue: zoomWindow.endValue,
+          },
+        ],
         xAxis: {
           type: "category",
           boundaryGap: mode === "candlestick",
@@ -126,7 +313,11 @@ export default function StockPriceChart({ prices, period, mode = "line", classNa
             show: false,
           },
           axisLabel: {
-            show: false,
+            show: true,
+            color: textSecondary,
+            hideOverlap: true,
+            formatter: (value: string) => value,
+            interval: (index: number) => shouldShowChartLabel(index, labels.length, period),
           },
           splitLine: {
             show: false,
@@ -157,6 +348,42 @@ export default function StockPriceChart({ prices, period, mode = "line", classNa
             },
           },
         },
+        graphic: isFetchingMore
+          ? [
+              {
+                type: "group",
+                right: 16,
+                top: 16,
+                children: [
+                  {
+                    type: "rect",
+                    shape: {
+                      x: 0,
+                      y: 0,
+                      width: 126,
+                      height: 28,
+                      r: 14,
+                    },
+                    style: {
+                      fill: bgPrimary,
+                      shadowBlur: 16,
+                      shadowColor: "rgba(0, 0, 0, 0.14)",
+                    },
+                  },
+                  {
+                    type: "text",
+                    style: {
+                      x: 14,
+                      y: 19,
+                      text: "이전 데이터를 불러오는 중",
+                      fill: textPrimary,
+                      font: "600 12px var(--font-family-base)",
+                    },
+                  },
+                ],
+              },
+            ]
+          : [],
         series:
           mode === "candlestick"
             ? [
@@ -227,22 +454,10 @@ export default function StockPriceChart({ prices, period, mode = "line", classNa
                   },
                 },
               ],
-      });
-
-      resizeObserver = new ResizeObserver(() => {
-        chart?.resize();
-      });
-      resizeObserver.observe(chartRef.current);
-    };
-
-    void draw();
-
-    return () => {
-      disposed = true;
-      resizeObserver?.disconnect();
-      chart?.dispose();
-    };
-  }, [mode, period, prices]);
+      },
+      true,
+    );
+  }, [chartReady, hasMore, isFetchingMore, mode, onRequestMore, period, prices]);
 
   return <div ref={chartRef} className={cn("h-[320px] w-full md:h-[360px]", className)} />;
 }

@@ -8,6 +8,19 @@ export type StockDetailOverview = {
   gicsSector: string;
   category: string;
   baseTime: string;
+  latestPrice: {
+    tradeDate: string | null;
+    closePrice: number | null;
+    fluctuationRate: number | null;
+  } | null;
+  priceRange52w: {
+    highPrice: number | null;
+    highDate: string | null;
+    lowPrice: number | null;
+    lowDate: string | null;
+    distanceFromHighRate: number | null;
+    distanceFromLowRate: number | null;
+  } | null;
 };
 
 export type StockPricePoint = {
@@ -24,23 +37,23 @@ export type StockPricesPayload = {
 };
 
 export type StockValuationIndicators = {
-  per: number;
-  psr: number;
-  pbr: number;
+  per: number | null;
+  psr: number | null;
+  pbr: number | null;
 };
 
 export type StockEarningsIndicators = {
-  eps: number;
-  bps: number;
-  roe: number;
+  eps: number | null;
+  bps: number | null;
+  roe: number | null;
 };
 
 export type StockDividendIndicators = {
   periodLabel: string;
   paymentCount: number;
   paymentMonths: string;
-  annualDividendPerShare: number;
-  dividendYield: number;
+  annualDividendPerShare: number | null;
+  dividendYield: number | null;
 };
 
 export type StockIndicators = {
@@ -67,7 +80,6 @@ export type StockFinancialsPayload = {
 export type StockKeyword = {
   id: number;
   name: string;
-  news: StockKeywordNewsItem[];
 };
 
 export type StockKeywordNewsItem = {
@@ -80,7 +92,7 @@ export type StockKeywordNewsItem = {
 
 export type StockKeywordsPayload = {
   keywords: StockKeyword[];
-  totalNewsCount: number;
+  news: StockKeywordNewsItem[];
 };
 
 export type StockAnnouncementItem = {

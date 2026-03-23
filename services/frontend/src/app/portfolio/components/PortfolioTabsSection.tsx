@@ -215,7 +215,8 @@ function MonthlyReturnBoard({ items }: { items: PortfolioMonthlyReturn[] }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {items.map((item) => {
-        const barWidth = Math.min(100, Math.max(12, Math.abs(item.portfolioReturnRate) * 12));
+        const portfolioReturnRate = item.portfolioReturnRate ?? 0;
+        const barWidth = Math.min(100, Math.max(12, Math.abs(portfolioReturnRate) * 12));
 
         return (
           <article

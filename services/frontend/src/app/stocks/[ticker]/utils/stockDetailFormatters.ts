@@ -10,12 +10,11 @@ export const stockChartPeriods: Array<{
   value: StockChartPeriod;
   label: string;
 }> = [
-  { value: "1MIN", label: "1분봉" },
-  { value: "1D", label: "1일" },
-  { value: "1W", label: "1주" },
-  { value: "1M", label: "1개월" },
-  { value: "3M", label: "3개월" },
-  { value: "1Y", label: "1년" },
+  { value: "1MIN", label: "분봉" },
+  { value: "1D", label: "일봉" },
+  { value: "1W", label: "주봉" },
+  { value: "1M", label: "월봉" },
+  { value: "1Y", label: "년봉" },
 ];
 
 export const financialTypeOptions = [
@@ -23,25 +22,48 @@ export const financialTypeOptions = [
   { value: "QUARTERLY", label: "분기" },
 ] as const;
 
-export function formatWon(value: number) {
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+export function formatWon(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   return `${new Intl.NumberFormat("ko-KR").format(value)}원`;
 }
 
-export function formatSignedPercent(value: number, digits = 2) {
+export function formatSignedPercent(value: number | null | undefined, digits = 2) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(digits)}%`;
 }
 
-export function formatPercent(value: number, digits = 1) {
+export function formatPercent(value: number | null | undefined, digits = 1) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   return `${value.toFixed(digits)}%`;
 }
 
-export function formatMultiplier(value: number) {
+export function formatMultiplier(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   return `${value.toFixed(1)}배`;
 }
 
 export function formatAnnouncementDate(value: string) {
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
 
   return new Intl.DateTimeFormat("ko-KR", {
     year: "numeric",
@@ -52,6 +74,9 @@ export function formatAnnouncementDate(value: string) {
 
 export function formatBaseTime(value: string) {
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
 
   return new Intl.DateTimeFormat("ko-KR", {
     year: "numeric",
@@ -63,8 +88,16 @@ export function formatBaseTime(value: string) {
   }).format(date);
 }
 
-export function formatRelativePublishedAt(value: string) {
+export function formatRelativePublishedAt(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+
   const diffMs = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(diffMs)) {
+    return "-";
+  }
+
   const diffMinutes = Math.max(1, Math.floor(diffMs / 60_000));
 
   if (diffMinutes < 60) {
@@ -107,12 +140,33 @@ export function getChangeRate(prices: StockPricePoint[]) {
   return ((last - first) / first) * 100;
 }
 
-export function getDisplayChartPrices(prices: StockPricePoint[], period: StockChartPeriod) {
-  if (period === "1MIN") {
-    return prices.slice(-30);
+export function getDisplayChartPrices(prices: StockPricePoint[]) {
+  return prices;
+}
+
+export function getInitialVisiblePointCount(period: StockChartPeriod, total: number) {
+  if (total <= 0) {
+    return 0;
   }
 
-  return prices;
+  switch (period) {
+    case "1MIN":
+      return Math.min(total, 60);
+    case "1D":
+      return Math.min(total, 120);
+    case "1W":
+      return Math.min(total, 52);
+    case "1M":
+      return Math.min(total, 36);
+    case "1Y":
+      return total;
+    case "3M":
+      return Math.min(total, 36);
+    case "3Y":
+      return total;
+    default:
+      return Math.min(total, 60);
+  }
 }
 
 export function getChartPriceRange(prices: StockPricePoint[], mode: StockPriceChartMode = "line") {
@@ -189,7 +243,7 @@ export function getKoreanStockTickSize(price: number) {
 export function formatChartAxisLabel(timestamp: string, period: StockChartPeriod) {
   const date = new Date(timestamp);
 
-  if (period === "1MIN" || period === "1D") {
+  if (period === "1MIN") {
     return new Intl.DateTimeFormat("ko-KR", {
       hour: "2-digit",
       minute: "2-digit",
@@ -197,24 +251,30 @@ export function formatChartAxisLabel(timestamp: string, period: StockChartPeriod
     }).format(date);
   }
 
-  if (period === "1W" || period === "1M") {
+  if (period === "1D" || period === "1W") {
     return new Intl.DateTimeFormat("ko-KR", {
       month: "numeric",
       day: "numeric",
     }).format(date);
   }
 
+  if (period === "1M" || period === "3M") {
+    return new Intl.DateTimeFormat("ko-KR", {
+      year: "2-digit",
+      month: "numeric",
+    }).format(date);
+  }
+
   return new Intl.DateTimeFormat("ko-KR", {
-    year: "2-digit",
-    month: "numeric",
+    year: "numeric",
   }).format(date);
 }
 
 export function shouldShowChartLabel(index: number, total: number, period: StockChartPeriod) {
   const maxLabelCounts: Record<StockChartPeriod, number> = {
-    "1MIN": 4,
-    "1D": 5,
-    "1W": 5,
+    "1MIN": 5,
+    "1D": 6,
+    "1W": 6,
     "1M": 6,
     "3M": 6,
     "1Y": 6,
