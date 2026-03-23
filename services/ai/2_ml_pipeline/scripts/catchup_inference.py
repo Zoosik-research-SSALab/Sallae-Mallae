@@ -495,8 +495,8 @@ def _ensure_close_cache(tickers: set[str]) -> None:
             ohlcv = pd.read_parquet(str(path))
             ohlcv.index = pd.to_datetime(ohlcv.index)
             _close_cache[ticker] = ohlcv["close"].sort_index()
-        except Exception:
-            pass
+        except Exception as e:
+            log(f"  [WARN] {ticker} 종가 로드 실패: {e}")
 
 
 def get_close_price(ticker: str, date_str: str) -> float | None:
@@ -687,7 +687,14 @@ def main():
 
     # 시작일 결정
     if args.start:
-        start_date = pd.Timestamp(args.start)
+        try:
+            start_date = pd.Timestamp(args.start)
+        except ValueError:
+            log(f"잘못된 날짜 형식: {args.start}")
+            return
+        if start_date > pd.Timestamp(ohlcv_latest):
+            log(f"시작 날짜가 OHLCV 최신 날짜({ohlcv_latest}) 이후입니다: {args.start}")
+            return
     elif db_latest:
         start_date = pd.Timestamp(db_latest) + pd.Timedelta(days=1)
     else:
@@ -732,29 +739,37 @@ def main():
 
     # 6. 날짜별 추론 + DB 저장
     log("=" * 70)
+    failed_dates: list[str] = []
     for i, target_date in enumerate(missing_dates):
         log(f"[{i+1}/{len(missing_dates)}] {target_date} 추론 중...")
+        try:
+            signals_df = run_inference_for_date(target_date, df, feats, k200_tickers, models)
+            if signals_df.empty:
+                log(f"  → {target_date} 시퀀스 없음, 건너뜀")
+                continue
 
-        signals_df = run_inference_for_date(target_date, df, feats, k200_tickers, models)
-        if signals_df.empty:
-            log(f"  → {target_date} 시퀀스 없음, 건너뜀")
+            buy_cnt = len(signals_df[signals_df["signal"] == "BUY"])
+            log(f"  → {len(signals_df)}종목 (BUY={buy_cnt})")
+
+            # DB 저장
+            save_signals_to_db(engine, date.fromisoformat(target_date), signals_df.to_dict("records"))
+            log(f"  → 시그널 DB 저장 완료")
+
+            # 포트폴리오 시뮬레이션
+            snapshot = run_portfolio_simulation(target_date, signals_df)
+            log(f"  → 포트폴리오: 자산={snapshot['portfolio_value']:,}원, "
+                f"포지션={snapshot['n_positions']}, 매매={len(snapshot['trades'])}건")
+
+            # 포트폴리오 DB 저장
+            save_portfolio_to_db(engine, snapshot)
+            log(f"  → 포트폴리오 DB 저장 완료")
+        except Exception as e:
+            log(f"  [ERROR] {target_date} 처리 실패: {e}")
+            failed_dates.append(target_date)
             continue
 
-        buy_cnt = len(signals_df[signals_df["signal"] == "BUY"])
-        log(f"  → {len(signals_df)}종목 (BUY={buy_cnt})")
-
-        # DB 저장
-        save_signals_to_db(engine, date.fromisoformat(target_date), signals_df.to_dict("records"))
-        log(f"  → 시그널 DB 저장 완료")
-
-        # 포트폴리오 시뮬레이션
-        snapshot = run_portfolio_simulation(target_date, signals_df)
-        log(f"  → 포트폴리오: 자산={snapshot['portfolio_value']:,}원, "
-            f"포지션={snapshot['n_positions']}, 매매={len(snapshot['trades'])}건")
-
-        # 포트폴리오 DB 저장
-        save_portfolio_to_db(engine, snapshot)
-        log(f"  → 포트폴리오 DB 저장 완료")
+    if failed_dates:
+        log(f"[WARNING] 실패한 날짜 {len(failed_dates)}건: {', '.join(failed_dates)}")
 
     # 7. 최종 확인
     log("=" * 70)
