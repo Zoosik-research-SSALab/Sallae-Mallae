@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { getMockStockPrices } from "@/app/stocks/utils/mockStockDetailData";
-import type { StockPricePoint } from "@/app/stocks/types/stockDetail";
+import { useStockAnnouncementsQuery } from "@/app/stocks/[ticker]/hooks/useStockAnnouncementsQuery";
+import { useStockPriceStream } from "@/app/stocks/[ticker]/hooks/useStockPriceStream";
+import type { StockAnnouncementItem, StockPricePoint } from "@/app/stocks/types/stockDetail";
 import type { ReportEventItem } from "../types/report";
 
 interface ReportEventsSectionProps {
@@ -10,15 +12,27 @@ interface ReportEventsSectionProps {
   events: ReportEventItem[];
 }
 
-const chartWidth = 550;
-const chartHeight = 320;
+type EventTab = "전체" | "실적발표" | "주요공시" | "시세특이";
+
+const chartWidth = 720;
+const chartHeight = 420;
 const chartPadding = { top: 28, right: 16, bottom: 40, left: 16 };
+const eventTabs: EventTab[] = ["전체", "실적발표", "주요공시", "시세특이"];
 
 export default function ReportEventsSection({ stockId, events }: ReportEventsSectionProps) {
-  const prices = useMemo(() => getMockStockPrices(stockId, "1M").prices, [stockId]);
-  const [activeEventId, setActiveEventId] = useState(events[0]?.id ?? "");
+  const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
+  const priceStream = useStockPriceStream(stockId, "1M");
+  const prices = priceStream.data.prices.length > 1 ? priceStream.data.prices : getMockStockPrices(stockId, "1M").prices;
+  const announcementEvents = useMemo(
+    () => mapAnnouncementsToEvents(announcementsQuery.data?.announcements ?? []),
+    [announcementsQuery.data?.announcements],
+  );
+  const resolvedEvents = useMemo(() => mergeEvents(events, announcementEvents), [announcementEvents, events]);
+  const [activeTab, setActiveTab] = useState<EventTab>("전체");
+  const [activeEventId, setActiveEventId] = useState("");
+  const filteredEvents = useMemo(() => filterEventsByTab(resolvedEvents, activeTab), [activeTab, resolvedEvents]);
 
-  const chartData = buildChartData(prices, events);
+  const chartData = buildChartData(prices, filteredEvents);
   const activeEvent = chartData.eventPoints.find((item) => item.event.id === activeEventId) ?? chartData.eventPoints[0] ?? null;
 
   return (
@@ -29,18 +43,38 @@ export default function ReportEventsSection({ stockId, events }: ReportEventsSec
         </h2>
 
         <div className="flex items-start gap-4 border-b border-[color:var(--color-border-primary)]">
-          <span className="border-b-2 border-[color:var(--color-border-base)] pb-3 text-base font-semibold leading-6 text-[color:var(--color-text-primary)]">
-            전체
-          </span>
-          <span className="pb-3 text-base font-semibold leading-6 text-[color:var(--color-text-tertiary)]">실적발표</span>
-          <span className="pb-3 text-base font-semibold leading-6 text-[color:var(--color-text-tertiary)]">주요공시</span>
-          <span className="pb-3 text-base font-semibold leading-6 text-[color:var(--color-text-tertiary)]">시세특이</span>
+          {eventTabs.map((tab) => {
+            const isActive = activeTab === tab;
+
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab);
+                  setActiveEventId("");
+                }}
+                className={`border-b-2 pb-3 text-base font-semibold leading-6 transition-colors ${
+                  isActive
+                    ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
+                    : "border-transparent text-[color:var(--color-text-tertiary)]"
+                }`}
+              >
+                {tab}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex flex-col gap-8 pt-2 lg:flex-row lg:items-start lg:gap-16">
-          <div className="flex w-full max-w-[550px] flex-col gap-4">
-            <div className="relative h-80 w-full overflow-hidden rounded-xl bg-[linear-gradient(180deg,rgba(248,250,252,0.96)_0%,rgba(255,255,255,1)_100%)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-bg-disabled)]">
-              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-full w-full" preserveAspectRatio="none" aria-label={`${stockId} 주가 변동 차트`}>
+        <div className="flex flex-col gap-8 pt-2 lg:flex-row lg:items-start lg:gap-10">
+          <div className="flex w-full flex-col gap-4 lg:max-w-[720px] lg:flex-[1.35]">
+            <div className="relative aspect-[12/7] w-full overflow-hidden rounded-xl bg-[linear-gradient(180deg,rgba(248,250,252,0.96)_0%,rgba(255,255,255,1)_100%)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-bg-disabled)]">
+              <svg
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                className="h-full w-full"
+                preserveAspectRatio="xMidYMid meet"
+                aria-label={`${stockId} 주가 변동 차트`}
+              >
                 {chartData.gridLines.map((lineY) => (
                   <line
                     key={lineY}
@@ -65,6 +99,7 @@ export default function ReportEventsSection({ stockId, events }: ReportEventsSec
 
                 {chartData.eventPoints.map((point) => {
                   const isActive = point.event.id === activeEvent?.event.id;
+                  const labelY = Math.max(point.y - 18, 18);
 
                   return (
                     <g key={point.event.id}>
@@ -85,7 +120,7 @@ export default function ReportEventsSection({ stockId, events }: ReportEventsSec
                         strokeWidth={isActive ? 3 : 2}
                       />
                       <circle cx={point.x} cy={point.y} r="2.5" fill="var(--color-text-danger-bold)" />
-                      <g transform={`translate(${point.x}, ${point.y - 18})`}>
+                      <g transform={`translate(${point.x}, ${labelY})`}>
                         <rect
                           x="-13"
                           y="-15"
@@ -129,22 +164,10 @@ export default function ReportEventsSection({ stockId, events }: ReportEventsSec
                 </span>
               </div>
             </div>
-
-            {activeEvent ? (
-              <div className="rounded-xl bg-[color:var(--color-bg-secondary)] px-4 py-4 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-[color:var(--color-text-primary)] px-2.5 py-1 text-xs font-extrabold leading-4 text-[color:var(--color-text-base)]">
-                    {activeEvent.label}
-                  </span>
-                  <span className="text-sm font-semibold leading-5 text-[color:var(--color-text-primary)]">{activeEvent.event.title}</span>
-                </div>
-                <p className="mt-2 text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">{activeEvent.event.description}</p>
-              </div>
-            ) : null}
           </div>
 
-          <div className="flex w-full max-w-80 flex-col gap-5">
-            {events.map((event, index) => (
+          <div className="flex w-full flex-col gap-5 lg:max-w-[320px] lg:flex-[0.75]">
+            {filteredEvents.map((event, index) => (
               <EventItemRow
                 key={event.id}
                 event={event}
@@ -154,6 +177,11 @@ export default function ReportEventsSection({ stockId, events }: ReportEventsSec
                 onFocus={() => setActiveEventId(event.id)}
               />
             ))}
+            {filteredEvents.length === 0 ? (
+              <div className="rounded-xl bg-[color:var(--color-bg-secondary)] px-4 py-5 text-sm font-medium leading-6 text-[color:var(--color-text-tertiary)]">
+                해당 탭에 표시할 이벤트가 없습니다.
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -224,6 +252,52 @@ function EventItemRow({
   );
 }
 
+function mapAnnouncementsToEvents(announcements: StockAnnouncementItem[]): ReportEventItem[] {
+  return announcements.map((announcement) => ({
+    id: String(announcement.id),
+    date: formatEventDate(announcement.announcedAt),
+    category: "주요공시",
+    title: announcement.title,
+    description: "최신 공시 내용입니다.",
+    tone: "neutral",
+  }));
+}
+
+function mergeEvents(events: ReportEventItem[], announcementEvents: ReportEventItem[]) {
+  const nonAnnouncementEvents = events.filter((event) => normalizeEventTab(event.category) !== "주요공시");
+
+  if (announcementEvents.length === 0) {
+    return events;
+  }
+
+  return [...nonAnnouncementEvents, ...announcementEvents].sort((left, right) => {
+    const leftTime = parseEventDate(left.date)?.getTime() ?? 0;
+    const rightTime = parseEventDate(right.date)?.getTime() ?? 0;
+    return leftTime - rightTime;
+  });
+}
+
+function filterEventsByTab(events: ReportEventItem[], tab: EventTab) {
+  if (tab === "전체") {
+    return events;
+  }
+
+  return events.filter((event) => normalizeEventTab(event.category) === tab);
+}
+
+function normalizeEventTab(category: string): EventTab {
+  if (category.includes("실적")) {
+    return "실적발표";
+  }
+  if (category.includes("공시")) {
+    return "주요공시";
+  }
+  if (category.includes("시세")) {
+    return "시세특이";
+  }
+  return "전체";
+}
+
 function buildChartData(prices: StockPricePoint[], events: ReportEventItem[]) {
   const safePrices = prices.length > 1 ? prices : getMockStockPrices("005930", "1M").prices;
   const chartLeft = chartPadding.left;
@@ -266,6 +340,16 @@ function buildChartData(prices: StockPricePoint[], events: ReportEventItem[]) {
     endPriceLabel: `${Math.round(safePrices.at(-1)?.close ?? 0).toLocaleString("ko-KR")}원`,
     changeRate: (((safePrices.at(-1)?.close ?? 0) - (safePrices[0]?.close ?? 0)) / (safePrices[0]?.close ?? 1)) * 100,
   };
+}
+
+function formatEventDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function getEventPointIndex(event: ReportEventItem, eventIndex: number, totalEvents: number, prices: StockPricePoint[]) {
