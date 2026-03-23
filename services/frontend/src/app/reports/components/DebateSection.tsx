@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { VscLaw } from "react-icons/vsc";
+import { FaQuoteLeft } from "react-icons/fa6";
 import { cn } from "@/shared/utils/cn";
 import { getTtsAudio } from "../api/getTtsAudio";
 import type { DebateReport } from "../types/debate";
@@ -150,6 +150,10 @@ function getJudgmentHighlightClassName(stance: string) {
     : "text-[color:var(--color-neutral-500)] [text-shadow:0px_2px_4px_rgba(0,0,0,0.16)]";
 }
 
+function getSpeakerSpeechTitle(speaker: SpeakerConfig) {
+  return speaker.committeeName;
+}
+
 function getJudgmentSummaryItems(report?: DebateReport | null): JudgmentSummaryItem[] {
   if (!report) {
     return [];
@@ -235,6 +239,8 @@ export default function DebateSection({
   const readyTtsKeysRef = useRef<Set<string>>(new Set());
   const speechRunIdRef = useRef(0);
   const ttsAbortControllerRef = useRef<AbortController | null>(null);
+  const pauseListenersRef = useRef(new Set<(paused: boolean) => void>());
+  const isPausedRef = useRef(false);
   const [phase, setPhase] = useState<StagePhase>("ready");
   const [activeSpeechIndex, setActiveSpeechIndex] = useState(-1);
   const [judgementStep, setJudgementStep] = useState(0);
@@ -249,6 +255,7 @@ export default function DebateSection({
   const [isTtsReady, setIsTtsReady] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [debateStartIndex, setDebateStartIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const speeches = useMemo(() => getDebateSpeeches(report), [report]);
   const judgmentSummaryItems = useMemo(() => getJudgmentSummaryItems(report), [report]);
   const allTtsItems = useMemo(() => {
@@ -309,6 +316,11 @@ export default function DebateSection({
   }, [onRoundIntroChange, roundIntroTitle]);
 
   useEffect(() => {
+    isPausedRef.current = isPaused;
+    pauseListenersRef.current.forEach((listener) => listener(isPaused));
+  }, [isPaused]);
+
+  useEffect(() => {
     audioRef.current = new Audio();
     bgmAudioRef.current = new Audio(debateBgmSrc);
     bgmAudioRef.current.loop = true;
@@ -342,12 +354,15 @@ export default function DebateSection({
       return;
     }
 
-    const shouldPlayBgm = phase === "debate" || phase === "outro" || phase === "loading" || phase === "judge" || phase === "ended";
+    const shouldPlayBgm =
+      !isPaused && (phase === "debate" || phase === "outro" || phase === "loading" || phase === "judge" || phase === "ended");
 
     if (!shouldPlayBgm) {
       bgmAudio.pause();
-      bgmAudio.currentTime = 0;
-      bgmAudio.volume = BGM_BASE_VOLUME;
+      if (!isPaused) {
+        bgmAudio.currentTime = 0;
+        bgmAudio.volume = BGM_BASE_VOLUME;
+      }
       return;
     }
 
@@ -355,7 +370,7 @@ export default function DebateSection({
     void bgmAudio.play().catch(() => {
       // Ignore autoplay/playback failures and continue without BGM.
     });
-  }, [phase, roundIntroTitle]);
+  }, [isPaused, phase, roundIntroTitle]);
 
   useEffect(() => {
     const runId = ++preloadRunIdRef.current;
@@ -430,6 +445,8 @@ export default function DebateSection({
           const previousSpeech = speeches[index - 1];
           const isNewRound = !previousSpeech || previousSpeech.roundLabel !== speech.roundLabel;
 
+          await waitForResume(controller.signal);
+
           if (isNewRound) {
             setRoundIntroTitle(getRoundIntroTitle(speech.roundLabel));
             await waitForMs(ROUND_INTRO_DURATION_MS, controller.signal);
@@ -446,6 +463,8 @@ export default function DebateSection({
           if (speechRunIdRef.current !== runId) {
             return;
           }
+
+          await waitForResume(controller.signal);
 
           setActiveSpeechIndex(index);
           setSpeechBubbleVisible(true);
@@ -486,11 +505,22 @@ export default function DebateSection({
       return;
     }
 
-    const loadingTimer = window.setTimeout(() => {
-      setPhase("loading");
-    }, 900);
+    const controller = new AbortController();
 
-    return () => window.clearTimeout(loadingTimer);
+    const run = async () => {
+      try {
+        await waitForMs(900, controller.signal);
+        setPhase("loading");
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.error(error);
+        }
+      }
+    };
+
+    void run();
+
+    return () => controller.abort();
   }, [phase]);
 
   useEffect(() => {
@@ -498,11 +528,22 @@ export default function DebateSection({
       return;
     }
 
-    const judgeTimer = window.setTimeout(() => {
-      setPhase("judge");
-    }, 1600);
+    const controller = new AbortController();
 
-    return () => window.clearTimeout(judgeTimer);
+    const run = async () => {
+      try {
+        await waitForMs(1600, controller.signal);
+        setPhase("judge");
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.error(error);
+        }
+      }
+    };
+
+    void run();
+
+    return () => controller.abort();
   }, [phase]);
 
   useEffect(() => {
@@ -536,6 +577,7 @@ export default function DebateSection({
             return;
           }
 
+          await waitForResume(controller.signal);
           setJudgementStep(index + 1);
 
           await playTtsAudio(item.text, item.speakerId, controller.signal);
@@ -665,6 +707,38 @@ export default function DebateSection({
     jumpToFinalVerdict();
   };
 
+  const handlePauseToggle = async () => {
+    if (phase === "ready" || phase === "ended" || isPreparingStart) {
+      return;
+    }
+
+    if (isPaused) {
+      setIsPaused(false);
+
+      if (phase === "video" && videoRef.current) {
+        try {
+          await videoRef.current.play();
+        } catch {
+          setIsPaused(true);
+        }
+        return;
+      }
+
+      if (audioRef.current?.src && audioRef.current.paused) {
+        void audioRef.current.play().catch(() => {
+          setTtsError("일시정지 해제 후 음성 재생에 실패했습니다.");
+        });
+      }
+
+      return;
+    }
+
+    setIsPaused(true);
+    videoRef.current?.pause();
+    audioRef.current?.pause();
+    bgmAudioRef.current?.pause();
+  };
+
   const isControlVisible = phase !== "ready" && phase !== "ended";
 
   const activeSpeech = speeches[Math.max(activeSpeechIndex, 0)];
@@ -675,6 +749,7 @@ export default function DebateSection({
   const showEndedStage = phase === "ended";
   const finalVerdict = formatSignalLabel(report?.chairman.signal);
   const isRoundIntroVisible = roundIntroTitle !== null;
+  const activeSpeechTitle = getSpeakerSpeechTitle(activeSpeaker);
 
   function clearActiveAudioUrl() {
     if (audioUrlRef.current) {
@@ -710,6 +785,7 @@ export default function DebateSection({
     setIsSpeakerTalking(false);
     setTtsError(null);
     setIsPreparingStart(false);
+    setIsPaused(false);
   }
 
   function resetPlaybackState() {
@@ -795,6 +871,7 @@ export default function DebateSection({
       audioRef.current.load();
       audioRef.current.playbackRate = getTtsPlaybackRate(speakerId);
 
+      await waitForResume(signal);
       await audioRef.current.play();
       await waitForAudioEnd(audioRef.current, signal);
       return true;
@@ -827,6 +904,40 @@ export default function DebateSection({
 
   function getCurrentBgmVolume() {
     return roundIntroTitle !== null || phase === "loading" ? BGM_HIGHLIGHT_VOLUME : BGM_BASE_VOLUME;
+  }
+
+  function subscribePauseStateChange(listener: (paused: boolean) => void) {
+    pauseListenersRef.current.add(listener);
+    return () => {
+      pauseListenersRef.current.delete(listener);
+    };
+  }
+
+  function waitForResume(signal: AbortSignal) {
+    if (!isPausedRef.current) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const unsubscribe = subscribePauseStateChange((paused) => {
+        if (!paused) {
+          cleanup();
+          resolve();
+        }
+      });
+
+      const handleAbort = () => {
+        cleanup();
+        reject(new DOMException("Aborted", "AbortError"));
+      };
+
+      const cleanup = () => {
+        unsubscribe();
+        signal.removeEventListener("abort", handleAbort);
+      };
+
+      signal.addEventListener("abort", handleAbort, { once: true });
+    });
   }
 
   function getTtsPlaybackRate(speakerId: TtsSpeakerId) {
@@ -872,10 +983,40 @@ export default function DebateSection({
 
   function waitForMs(ms: number, signal: AbortSignal) {
     return new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(() => {
-        cleanup();
-        resolve();
-      }, ms);
+      let remaining = ms;
+      let timer: number | null = null;
+      let startedAt = 0;
+
+      const clearTimer = () => {
+        if (timer !== null) {
+          window.clearTimeout(timer);
+          timersRef.current = timersRef.current.filter((activeTimer) => activeTimer !== timer);
+          timer = null;
+        }
+      };
+
+      const startTimer = () => {
+        startedAt = Date.now();
+        timer = window.setTimeout(() => {
+          cleanup();
+          resolve();
+        }, remaining);
+        timersRef.current.push(timer);
+      };
+
+      const handlePauseChange = (paused: boolean) => {
+        if (paused) {
+          if (timer !== null) {
+            remaining = Math.max(0, remaining - (Date.now() - startedAt));
+            clearTimer();
+          }
+          return;
+        }
+
+        if (timer === null) {
+          startTimer();
+        }
+      };
 
       const handleAbort = () => {
         cleanup();
@@ -883,11 +1024,17 @@ export default function DebateSection({
       };
 
       const cleanup = () => {
-        window.clearTimeout(timer);
+        clearTimer();
+        unsubscribe();
         signal.removeEventListener("abort", handleAbort);
       };
 
+      const unsubscribe = subscribePauseStateChange(handlePauseChange);
       signal.addEventListener("abort", handleAbort, { once: true });
+
+      if (!isPausedRef.current) {
+        startTimer();
+      }
     });
   }
 
@@ -917,7 +1064,7 @@ export default function DebateSection({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_42%)]" />
 
       {isControlVisible ? (
-        <div className="absolute right-4 top-4 z-[65] flex max-w-[calc(100%-2rem)] flex-wrap justify-end gap-2 sm:right-6 sm:top-6">
+        <div className="absolute right-4 top-4 z-[90] flex max-w-[calc(100%-2rem)] flex-wrap justify-end gap-2 sm:right-6 sm:top-6">
           {phase === "video" ? (
             <button
               type="button"
@@ -954,6 +1101,13 @@ export default function DebateSection({
             className="typo-body-lg rounded-lg border border-[color:rgba(255,223,32,0.24)] bg-[color:rgba(255,223,32,0.16)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
           >
             최종판결
+          </button>
+          <button
+            type="button"
+            onClick={handlePauseToggle}
+            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+          >
+            {isPaused ? "재개" : "일시정지"}
           </button>
           <button
             type="button"
@@ -1049,82 +1203,82 @@ export default function DebateSection({
             : "pointer-events-none opacity-0",
         )}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(64,64,64,0.4)_0%,rgba(10,10,10,0.96)_58%,rgba(10,10,10,1)_100%)]" />
+        <div className="absolute inset-0 bg-[color:var(--color-black)]" />
 
         {showCommitteeStage ? (
           <>
-            <div className="absolute inset-x-0 top-6 z-40 flex justify-center px-4 sm:top-8">
-              <div className="rounded-lg bg-[color:var(--color-bg-info-subtle)] px-4 py-2 backdrop-blur-[6px]">
-                <span className="typo-body-lg text-[color:var(--color-text-primary)]">
-                  {activeSpeech?.roundLabel ?? "토론 준비 중"}
-                </span>
-              </div>
-            </div>
-
-            {phase === "debate" && !isRoundIntroVisible ? (
-              <div className="absolute inset-x-0 top-24 z-40 flex justify-center px-4 sm:top-28">
-                <div
-                  className={cn(
-                    "w-full max-w-[560px] rounded-xl bg-[color:rgba(255,255,255,0.95)] px-8 py-4 shadow-2xl backdrop-blur-[6px] transition-all duration-300",
-                    speechBubbleVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
-                  )}
-                >
-                  <div className="flex flex-col gap-2">
-                     <p className={cn("typo-heading-md", activeSpeaker.accentTextClassName)}>
-                        {activeSpeaker.roleName}
-                     </p>
-                     <p className="typo-body-lg text-[color:var(--color-text-primary)]">
-                       {activeSpeech?.message ?? "위원회 데이터를 불러오는 중입니다. "}
-                        <span className={cn("typo-body-lg", activeSpeaker.opinionClassName)}>
-                         {activeSpeech?.opinion ?? "판단 대기"}
-                       </span>
-                       입니다.
-                     </p>
+            <div className="absolute inset-0 z-30 px-4 py-6 sm:px-8 sm:py-8">
+              <div className="flex h-full flex-col items-center gap-6">
+                <div className="flex w-full justify-center">
+                  <div className="relative z-[90] rounded-lg bg-[color:var(--color-bg-info-subtle)] px-4 py-2">
+                    <span className="typo-body-lg whitespace-nowrap text-[color:var(--color-text-primary)]">
+                      {activeSpeech?.roundLabel ?? "토론 준비 중"}
+                    </span>
                   </div>
                 </div>
-              </div>
-            ) : null}
 
-            <div
-              className={cn(
-                "absolute inset-x-0 bottom-0 z-30 flex h-[70%] items-end justify-between px-6 pb-0 transition-opacity duration-700 sm:px-10",
-                phase === "outro" ? "opacity-0" : "opacity-100",
-              )}
-            >
-              {speakers.map((speaker) => {
-                const isActive =
-                  phase === "debate" && !isRoundIntroVisible && isSpeakerTalking && activeSpeaker.id === speaker.id;
-                const isInactive = phase === "debate" && !isRoundIntroVisible && activeSpeaker.id !== speaker.id;
+                <div
+                  className={cn(
+                    "flex w-full min-h-0 flex-1 items-end justify-between gap-3 overflow-visible px-1 sm:gap-5 sm:px-6 lg:px-12",
+                    phase === "outro" ? "opacity-0" : "opacity-100",
+                  )}
+                >
+                  {speakers.map((speaker) => {
+                    const isActive =
+                      phase === "debate" && !isRoundIntroVisible && isSpeakerTalking && activeSpeaker.id === speaker.id;
+                    return (
+                      <div
+                        key={speaker.id}
+                        className={cn(
+                          "relative flex h-full min-h-0 flex-1 origin-bottom flex-col items-center justify-end transition-all duration-500",
+                          phase === "outro" ? "scale-100 opacity-100" : "",
+                          isActive ? "z-20 scale-[1.06]" : "z-10 scale-100",
+                          "opacity-100",
+                        )}
+                      >
+                        <div className="flex h-full w-full translate-y-4 flex-col items-center justify-end overflow-visible sm:translate-y-5">
+                          <img
+                            src={isActive ? speaker.talkingImageSrc : speaker.imageSrc}
+                            alt={speaker.committeeName}
+                            className={cn(
+                              "w-full object-contain transition-all duration-500",
+                              isActive ? "max-h-[88%]" : "max-h-[78%]",
+                            )}
+                          />
+                          <div
+                            className={cn(
+                              "typo-body-md mt-3 whitespace-nowrap rounded-full border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-4 py-1.5 text-[color:var(--color-black)]",
+                              isActive ? "mb-8" : "mb-6",
+                            )}
+                          >
+                            {speaker.committeeName}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                return (
+                {phase === "debate" && !isRoundIntroVisible ? (
                   <div
-                    key={speaker.id}
                     className={cn(
-                      "relative flex h-full w-1/3 flex-col items-center justify-end transition-all duration-500",
-                      phase === "outro" ? "scale-100 opacity-100" : "",
-                      isActive ? "z-20 scale-[1.12]" : "z-10 scale-100",
-                      isInactive ? "opacity-50" : "opacity-100",
+                      "flex w-full max-w-[879px] flex-col items-start px-1 pb-2 transition-all duration-300 sm:px-4",
+                      speechBubbleVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
                     )}
                   >
-                    <img
-                      src={isActive ? speaker.talkingImageSrc : speaker.imageSrc}
-                      alt={speaker.committeeName}
-                      className={cn(
-                        "w-full object-contain drop-shadow-[0_25px_25px_rgba(0,0,0,0.15)] transition-all duration-500",
-                        isActive ? "max-h-[94%]" : "max-h-[82%]",
-                      )}
-                    />
-                    <div
-                      className={cn(
-                        "typo-heading-sm mb-6 mt-2 rounded-full border px-4 py-1.5 text-[color:rgba(255,255,255,0.8)] backdrop-blur-[6px]",
-                        isInactive ? "bg-[color:rgba(255,255,255,0.10)] opacity-50" : "bg-[color:rgba(255,255,255,0.10)]",
-                      )}
-                    >
-                      {speaker.committeeName}
+                    <div className="rounded-t-2xl bg-[color:var(--color-bg-danger-bold)] px-4 py-3">
+                      <p className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-interactive-inverse)]">
+                        {`${activeSpeechTitle} | ${activeSpeech?.opinion ?? "판단 대기"}`}
+                      </p>
+                    </div>
+                    <div className="w-full rounded-b-2xl rounded-tr-2xl border border-[color:var(--color-border-base)] bg-[color:var(--color-bg-primary)] px-5 py-4 sm:px-6 sm:py-5">
+                      <p className="typo-heading-md whitespace-pre-line [word-break:keep-all] text-center text-[color:var(--color-text-primary)] sm:typo-heading-lg">
+                        {`"${activeSpeech?.message?.trim() ?? "위원회 데이터를 불러오는 중입니다."}"`}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
+                ) : null}
+              </div>
             </div>
           </>
         ) : null}
@@ -1144,9 +1298,9 @@ export default function DebateSection({
         {showJudgeStage ? (
           <div className="absolute inset-0 z-40 bg-[color:var(--color-black)] px-4 pt-6 sm:px-6 sm:pt-8 md:px-8 lg:px-10 lg:pt-10">
             <div className="flex h-full min-h-0 flex-col gap-6 md:gap-8 lg:flex-row lg:items-stretch lg:gap-10">
-              <div className="flex min-h-0 flex-[1.05] flex-col justify-between gap-5 pb-6 sm:pb-8 lg:items-end lg:pb-10 lg:pt-6">
+              <div className="flex min-h-0 flex-[1.05] flex-col justify-between gap-5 pb-6 pl-4 sm:pb-8 sm:pl-6 lg:items-end lg:pb-10 lg:pl-12 lg:pt-6">
                 {judgeMode === "summary" ? (
-                  <div className="flex w-full max-w-none flex-col gap-3 sm:gap-4 lg:ml-auto lg:max-w-[clamp(320px,42vw,540px)]">
+                  <div className="flex w-full flex-1 flex-col justify-center gap-4 py-8 lg:items-end lg:py-16">
                     {judgmentSummaryItems.map((item, index) => {
                       const isVisible = judgementStep > index;
 
@@ -1154,69 +1308,91 @@ export default function DebateSection({
                         <div
                           key={item.id}
                           className={cn(
-                            "rounded-tl-xl rounded-tr-xl rounded-bl-xl rounded-br-sm bg-[color:var(--color-yellow-400)] px-4 py-4 text-right shadow-[0_22px_60px_rgba(0,0,0,0.28)] transition-all duration-700 sm:px-5 sm:py-5",
+                            "flex w-full max-w-[720px] items-stretch gap-3 p-2.5 transition-all duration-700",
                             isVisible ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0",
                           )}
                         >
-                          <p className="typo-heading-sm text-[color:var(--color-text-primary)]">
-                            {item.leadText}
-                          </p>
-                          <p
-                            className={cn("mt-1 typo-heading-sm", item.highlightClassName)}
-                          >
-                            {item.highlightText}
-                          </p>
+                          <div className="flex h-24 w-24 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)]">
+                            <p className="typo-heading-xl text-center text-[color:var(--color-text-interactive-inverse)] md:typo-heading-2xl">
+                              {String(index + 1).padStart(2, "0")}
+                            </p>
+                          </div>
+                          <div className="flex h-24 flex-1 flex-col justify-between bg-[color:var(--color-bg-primary)] px-4 py-3 text-right">
+                            <div className="flex items-center justify-end">
+                              <p className="typo-body-lg text-[color:var(--color-text-primary)]">
+                                {item.leadText}
+                              </p>
+                            </div>
+                            <div className="flex flex-1 items-end justify-end">
+                              <p className={cn("typo-heading-lg text-right", item.highlightClassName)}>
+                                {item.highlightText}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
 
                     {!judgmentSummaryItems.length ? (
-                      <div className="rounded-tl-xl rounded-tr-xl rounded-bl-xl rounded-br-sm bg-[color:var(--color-yellow-400)] px-4 py-4 text-right shadow-[0_22px_60px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5">
-                        <p className="typo-heading-sm text-[color:var(--color-text-primary)]">
-                          의장 AI가 위원회 의견을 종합 중입니다
-                        </p>
+                      <div className="flex w-full max-w-[720px] items-stretch gap-3 p-2.5">
+                        <div className="flex h-24 w-24 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)]">
+                          <p className="typo-heading-xl text-center text-[color:var(--color-text-interactive-inverse)] md:typo-heading-2xl">
+                            00
+                          </p>
+                        </div>
+                        <div className="flex h-24 flex-1 items-center justify-end bg-[color:var(--color-bg-primary)] px-4 py-3 text-right">
+                          <p className="typo-body-lg text-[color:var(--color-text-primary)]">
+                            의장 AI가 위원회 의견을 종합 중입니다
+                          </p>
+                        </div>
                       </div>
                     ) : null}
                   </div>
                 ) : (
-                  <div className="flex w-full flex-1 items-center lg:ml-auto lg:max-w-[clamp(340px,48vw,620px)]">
-                    <div className="flex w-full scale-100 flex-col gap-4 opacity-100 transition-all duration-700">
-                      <div className="inline-flex w-full items-stretch justify-start self-stretch">
-                        <div className="inline-flex items-center justify-center rounded-l-lg bg-[color:rgba(255,255,255,0.95)] px-4 py-3 sm:px-6">
-                          <VscLaw className="h-6 w-6 text-[color:var(--color-text-primary)]" aria-hidden="true" />
+                  <div className="flex w-full flex-1 items-center lg:ml-auto lg:max-w-[clamp(360px,50vw,720px)]">
+                    <div className="flex w-full scale-100 flex-col opacity-100 transition-all duration-700">
+                      <div className="flex w-full flex-col items-start">
+                        <div className="inline-flex justify-start items-start">
+                          <div className="inline-flex flex-col items-center gap-6 bg-[linear-gradient(180deg,var(--color-bg-primary)_0%,var(--color-yellow-400)_100%)] px-6 py-3">
+                            <div className="flex items-end justify-center gap-3">
+                              <p className="typo-heading-md whitespace-nowrap text-center text-[color:var(--color-text-primary)]">
+                                의장 최종 결론
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex flex-1 items-center justify-center rounded-r-lg bg-[color:var(--color-yellow-400)] px-4 py-3 sm:px-6">
-                          <p className="typo-heading-sm text-center text-[color:var(--color-text-primary)]">
-                            의장 최종 결론
-                          </p>
+                        <div className="flex w-full items-start justify-center gap-6 overflow-hidden bg-[color:var(--color-bg-primary)] px-6 py-8">
+                          <div className="flex shrink-0 items-start justify-center pt-1">
+                            <FaQuoteLeft
+                              className="h-9 w-9 text-[color:var(--color-text-primary)]"
+                              aria-hidden="true"
+                            />
+                          </div>
+                          <div className="flex flex-1 flex-col items-start gap-3 py-3">
+                            <div className="flex w-full items-end justify-start gap-3">
+                              <p className="typo-heading-xl text-[color:var(--color-text-primary)] md:typo-heading-2xl">
+                                결론은
+                              </p>
+                              <p className="typo-heading-xl text-[color:var(--color-red-400)] md:typo-heading-2xl">
+                                {finalVerdict}
+                              </p>
+                            </div>
+                            <div className="flex w-full items-center justify-center">
+                              <p className="typo-body-lg [word-break:keep-all] text-[color:var(--color-text-primary)]">
+                                {(report?.chairman.summary ?? "위원회 종합 판단 결과를 정리하고 있습니다.")
+                                  .split(". ")
+                                  .filter(Boolean)
+                                  .map((sentence, index, array) => (
+                                    <span key={`${sentence}-${index}`}>
+                                      {sentence.trim()}
+                                      {sentence.trim().endsWith(".") ? "" : index < array.length - 1 ? "." : ""}
+                                      {index < array.length - 1 ? <br /> : null}
+                                    </span>
+                                  ))}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-sm bg-[color:var(--color-yellow-400)] px-5 py-8 shadow-[0_28px_80px_rgba(0,0,0,0.34)] sm:px-7 sm:py-10">
-                        <div className="flex flex-wrap items-end justify-center gap-x-3 gap-y-2 text-center">
-                          <span className="typo-heading-md text-[color:var(--color-text-primary)] md:typo-heading-lg">
-                            결론은
-                          </span>
-                          <span className="typo-heading-xl text-[color:var(--color-red-400)] md:typo-heading-3xl">
-                            {finalVerdict}
-                          </span>
-                          <span className="typo-heading-md text-[color:var(--color-text-primary)] md:typo-heading-lg">
-                            입니다.
-                          </span>
-                        </div>
-
-                        <p className="mt-6 typo-body-lg text-center text-[color:var(--color-text-primary)]">
-                          {(report?.chairman.summary ?? "위원회 종합 판단 결과를 정리하고 있습니다.")
-                            .split(". ")
-                            .filter(Boolean)
-                            .map((sentence, index, array) => (
-                              <span key={`${sentence}-${index}`}>
-                                {sentence.trim()}
-                                {sentence.trim().endsWith(".") ? "" : index < array.length - 1 ? "." : ""}
-                                {index < array.length - 1 ? <br /> : null}
-                              </span>
-                            ))}
-                        </p>
                       </div>
                     </div>
                   </div>
