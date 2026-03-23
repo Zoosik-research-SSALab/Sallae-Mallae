@@ -56,8 +56,7 @@ public class WatchlistController {
       try {
         WatchlistListResponse data = userService.getWatchlist(userId);
         emitter.send(SseEmitter.event()
-            .name("watchlist")
-            .data(objectMapper.writeValueAsString(ApiResponse.success(data)),
+            .data(objectMapper.writeValueAsString(data),
                 MediaType.APPLICATION_JSON));
         emitter.complete();
       } catch (IOException e) {
