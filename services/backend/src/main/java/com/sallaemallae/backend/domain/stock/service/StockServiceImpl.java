@@ -68,6 +68,15 @@ public class StockServiceImpl implements StockService {
   private final StockNewsRepository stockNewsRepository;
 
   @Override
+  public Long resolveStockId(String ticker) {
+    return stockRepository.findByTickerAndIsActiveTrue(
+            StockRequestNormalizer.normalizeTicker(ticker, StockErrorCode.STOCK_NOT_FOUND)
+        )
+        .orElseThrow(() -> new BusinessException(StockErrorCode.STOCK_NOT_FOUND))
+        .getId();
+  }
+
+  @Override
   public List<StockSummaryResponse> getAllStocks() {
     return stockRepository.findAllByIsActiveTrueOrderByNameAsc().stream()
         .map(this::toSummaryResponse)
