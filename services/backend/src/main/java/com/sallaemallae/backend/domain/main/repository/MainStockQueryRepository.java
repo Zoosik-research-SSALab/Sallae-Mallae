@@ -5,7 +5,6 @@ import com.sallaemallae.backend.domain.main.dto.TopStockItemResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -35,28 +34,16 @@ public class MainStockQueryRepository {
         return nowKst.toLocalDate();
     }
 
-    /**
-     * 직전 장 마감 시각(KST 15:30) 계산.
-     * 예: 7일 14:00 → 6일 15:30, 7일 16:00 → 7일 15:30.
-     * created_at >= 이 시각 조건으로 장 마감 이후 생성된 데이터만 필터링.
-     */
-    private LocalDateTime getMarketCloseCutoff() {
-        ZonedDateTime nowKst = ZonedDateTime.now(KST);
-        LocalDate cutoffDate;
-        if (nowKst.toLocalTime().isBefore(MARKET_CLOSE)) {
-            cutoffDate = nowKst.toLocalDate().minusDays(1);
-        } else {
-            cutoffDate = nowKst.toLocalDate();
-        }
-        return cutoffDate.atTime(MARKET_CLOSE);
-    }
-
-    /** 의장 confidence 상위 10종목 조회 (장 마감 이후 생성된 데이터 기준) */
+    /** 의장 confidence 상위 10종목 조회 (직전 영업일 report_date 기준, 종목별 최신 1건) */
     public List<TopStockItemResponse> getTopTenStocksToday() {
         LocalDate tradingDate = getCurrentTradingDate();
-        LocalDateTime cutoff = getMarketCloseCutoff();
 
         String sql = """
+            WITH latest_date AS (
+                SELECT MAX(report_date) AS rd
+                FROM ai_debate_reports
+                WHERE report_date <= :tradingDate
+            )
             SELECT s.id AS stock_id, s.name AS stock_name,
                    sp.close_price, sp.fluctuation_rate,
                    r.chairman_signal, r.debate_confidence
@@ -65,9 +52,8 @@ public class MainStockQueryRepository {
                 SELECT chairman_signal, debate_confidence
                 FROM ai_debate_reports
                 WHERE stock_id = s.id
-                  AND report_date <= :tradingDate
-                  AND created_at >= :cutoff
-                ORDER BY report_date DESC, created_at DESC, id DESC LIMIT 1
+                  AND report_date = (SELECT rd FROM latest_date)
+                ORDER BY created_at DESC, id DESC LIMIT 1
             ) r ON true
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
@@ -77,13 +63,12 @@ public class MainStockQueryRepository {
                 ORDER BY trade_date DESC LIMIT 1
             ) sp ON true
             WHERE s.is_active = true
-            ORDER BY r.debate_confidence DESC
+            ORDER BY r.debate_confidence DESC NULLS LAST
             LIMIT 10
             """;
 
         List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
             .setParameter("tradingDate", tradingDate)
-            .setParameter("cutoff", cutoff)
             .getResultList();
         List<TopStockItemResponse> items = new ArrayList<>();
         int rank = 1;
@@ -144,16 +129,26 @@ public class MainStockQueryRepository {
 
     // ── private helpers ──
 
-    private List<NewSignalItemResponse> getSignalsByType(String tradeType) {
+    /** ai_debate_reports에서 직전 영업일 report_date 기준으로 BUY/SELL 시그널 조회 (종목별 최신 1건) */
+    private List<NewSignalItemResponse> getSignalsByType(String signalType) {
         LocalDate tradingDate = getCurrentTradingDate();
-        LocalDateTime cutoff = getMarketCloseCutoff();
 
         String sql = """
+            WITH latest_date AS (
+                SELECT MAX(report_date) AS rd
+                FROM ai_debate_reports
+                WHERE report_date <= :tradingDate
+            )
             SELECT s.id AS stock_id, s.ticker, s.name AS stock_name,
-                   r.debate_confidence, sp.close_price, sp.fluctuation_rate
-            FROM ai_trading_history h
-            JOIN stocks s ON s.id = h.stock_id
-            LEFT JOIN ai_debate_reports r ON r.id = h.debate_report_id
+                   latest.debate_confidence, sp.close_price, sp.fluctuation_rate
+            FROM (
+                SELECT DISTINCT ON (stock_id) stock_id, debate_confidence
+                FROM ai_debate_reports
+                WHERE report_date = (SELECT rd FROM latest_date)
+                  AND chairman_signal = :signalType
+                ORDER BY stock_id, created_at DESC, id DESC
+            ) latest
+            JOIN stocks s ON s.id = latest.stock_id
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
                 FROM stock_prices_daily
@@ -161,16 +156,14 @@ public class MainStockQueryRepository {
                   AND trade_date <= :tradingDate
                 ORDER BY trade_date DESC LIMIT 1
             ) sp ON true
-            WHERE h.created_at >= :cutoff
-              AND h.trade_type = :tradeType
-            ORDER BY r.debate_confidence DESC NULLS LAST
+            WHERE s.is_active = true
+            ORDER BY latest.debate_confidence DESC NULLS LAST
             LIMIT 3
             """;
 
         List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
-            .setParameter("tradeType", tradeType)
+            .setParameter("signalType", signalType)
             .setParameter("tradingDate", tradingDate)
-            .setParameter("cutoff", cutoff)
             .getResultList();
 
         List<NewSignalItemResponse> items = new ArrayList<>();
