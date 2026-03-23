@@ -237,9 +237,9 @@ function MetricCard({
   valueClassName: string;
 }) {
   return (
-    <div className="flex flex-1 flex-col gap-1 rounded-lg bg-[color:var(--color-bg-secondary)] px-2 py-3">
+    <div className="flex min-h-[126px] flex-1 flex-col rounded-lg bg-[color:var(--color-bg-secondary)] px-2 py-3">
       <div className="pb-1.5 text-center text-sm font-semibold leading-5 text-[color:var(--color-text-tertiary)]">{label}</div>
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-1 flex-col items-center justify-center gap-1">
         <div className={`text-3xl font-extrabold leading-9 ${valueClassName}`}>{value}</div>
         {caption ? <div className="text-sm font-semibold leading-5 text-[color:var(--color-text-tertiary)]">{caption}</div> : null}
       </div>
