@@ -57,6 +57,10 @@ public class MarketCacheTtlPolicy {
     return !endDate.isBefore(today) ? Duration.ofSeconds(30) : Duration.ofHours(6);
   }
 
+  public Duration minuteCandleTtl() {
+    return isMarketOpen() ? Duration.ofSeconds(30) : Duration.ofSeconds(60);
+  }
+
   public Duration bulkQuoteTtl() {
     return Duration.ofMinutes(2);
   }
