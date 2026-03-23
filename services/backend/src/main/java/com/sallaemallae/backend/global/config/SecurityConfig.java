@@ -87,6 +87,7 @@ public class SecurityConfig {
 
             .requestMatchers("/api/stocks/**").permitAll()
             .requestMatchers("/api/stream/stocks/*/prices").permitAll()
+            .requestMatchers("/api/stream/stocks/*/prices/stream").permitAll()
             // SSE 스트림 엔드포인트 (인증 불필요)
             .requestMatchers("/api/stream/main/**").permitAll()
             .requestMatchers("/api/internal/kis/**").hasRole("ADMIN")

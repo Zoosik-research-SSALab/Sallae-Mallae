@@ -160,7 +160,7 @@ public class StockApiController {
     return ApiResponse.success(stockService.getStockAnnouncement(stockId, announcementId));
   }
 
-  @Operation(summary = "Get stock quote", description = "Returns the latest KIS quote for the given ticker.")
+  @Operation(summary = "[Internal] Get stock quote", description = "Returns the latest KIS quote for the given ticker. Internal use for data pipeline — frontend should use /api/stream/stocks/{ticker}/prices instead.", tags = {"Stock Internal"})
   @GetMapping("/{ticker}/quote")
   public ApiResponse<StockQuoteResponse> getQuote(
       @Parameter(description = "Stock ticker", example = "005930")
@@ -171,7 +171,7 @@ public class StockApiController {
     return ApiResponse.success(stockMarketQueryService.getQuote(ticker, market));
   }
 
-  @Operation(summary = "Get period prices", description = "Returns KIS period price candles for the given ticker.")
+  @Operation(summary = "[Internal] Get period prices", description = "Returns KIS period price candles for the given ticker. Internal use for backfill pipeline — frontend should use /api/stream/stocks/{ticker}/prices instead.", tags = {"Stock Internal"})
   @GetMapping("/{ticker}/period-prices")
   public ApiResponse<StockPeriodPriceResponse> getPeriodPrices(
       @Parameter(description = "Stock ticker", example = "005930")
@@ -191,6 +191,7 @@ public class StockApiController {
     );
   }
 
+  @Operation(summary = "[Internal] Preview storage pipeline", description = "Preview KIS data before DB ingestion. Admin/debugging only.", tags = {"Stock Internal"})
   @GetMapping("/{ticker}/pipeline-preview")
   public ApiResponse<StockDataPipelinePreviewResponse> previewPipeline(
       @PathVariable String ticker,
@@ -205,7 +206,7 @@ public class StockApiController {
     );
   }
 
-  @Operation(summary = "Subscribe realtime stock feed", description = "Subscribes the ticker to the KIS realtime websocket feed.")
+  @Operation(summary = "[Internal] Subscribe realtime stock feed", description = "Subscribes the ticker to the KIS realtime websocket feed. Auto-triggered by stream service — no need to call directly.", tags = {"Stock Internal"})
   @PostMapping("/{ticker}/realtime/subscribe")
   public ApiResponse<StockRealtimeSubscriptionResponse> subscribeRealtime(
       @Parameter(description = "Stock ticker", example = "005930")
@@ -216,7 +217,7 @@ public class StockApiController {
     return ApiResponse.success(stockRealtimeMinuteService.subscribe(ticker, market));
   }
 
-  @Operation(summary = "Get realtime minute candles", description = "Returns the in-memory realtime minute candle snapshot.")
+  @Operation(summary = "[Internal] Get realtime minute candles", description = "Returns raw in-memory realtime minute candle snapshot with websocket debug info. Internal monitoring only — frontend should use /api/stream/stocks/{ticker}/prices?candleType=MINUTE instead.", tags = {"Stock Internal"})
   @GetMapping("/{ticker}/realtime/minute-candles")
   public ApiResponse<StockRealtimeMinuteSnapshotResponse> getRealtimeMinuteCandles(
       @Parameter(description = "Stock ticker", example = "005930")
@@ -228,6 +229,7 @@ public class StockApiController {
     return ApiResponse.success(stockRealtimeMinuteService.getSnapshot(ticker, market, limit));
   }
 
+  @Operation(summary = "[Internal] Preview realtime pipeline", description = "Preview realtime minute candle data before DB ingestion. Admin/debugging only.", tags = {"Stock Internal"})
   @GetMapping("/{ticker}/realtime/pipeline-preview")
   public ApiResponse<StockRealtimeMinutePipelinePreviewResponse> previewRealtimePipeline(
       @PathVariable String ticker,
