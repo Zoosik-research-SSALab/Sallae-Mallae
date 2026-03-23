@@ -1,6 +1,6 @@
-import type { NewsItem, NewsPayload, NewsQueryParams, NewsSearchPayload } from "../types/news";
+import type { NewsDetail, NewsItem, NewsPayload, NewsQueryParams, NewsSearchPayload } from "../types/news";
 import { normalizeNewsKeyword } from "./newsQueryUtils";
-import { NEWS_PAGE_SIZE } from "./newsConstants";
+import { getNewsStockTicker, NEWS_PAGE_SIZE } from "./newsConstants";
 
 export { NEWS_PAGE_SIZE };
 
@@ -93,6 +93,23 @@ function buildMockNewsUrl(id: number) {
   return `https://news.sallaemallae.mock/articles/${id}`;
 }
 
+function buildMockNewsSnippet(seed: MockNewsSeed) {
+  const stockSummary = seed.relatedStocks.slice(0, 3).join(", ");
+
+  return `${stockSummary} 관련 이슈가 시장에서 다시 주목받고 있습니다. ${seed.publisher}는 이번 기사에서 ${seed.title.replace(/\.+$/, "")} 흐름을 짚으며, 관련 종목 전반에 대한 투자심리와 수급 변화를 함께 전하고 있습니다.`;
+}
+
+function createMockRelatedStock(stockName: string, index: number) {
+  const ticker = getNewsStockTicker(stockName) ?? `MOCK${String(index + 1).padStart(3, "0")}`;
+  const numericId = Number.parseInt(ticker.replace(/\D/g, ""), 10);
+
+  return {
+    id: Number.isFinite(numericId) ? numericId : index + 1,
+    name: stockName,
+    ticker,
+  };
+}
+
 function buildMockNewsSeeds(): MockNewsSeed[] {
   const now = Date.now();
 
@@ -132,7 +149,10 @@ export function getMockNewsResponse(params: NewsQueryParams): NewsPayload {
       const haystack = [item.title, item.publisher, ...item.relatedStocks].join(" ").toLowerCase();
       return haystack.includes(normalizedKeyword);
     })
-    .sort((left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime());
+    .sort(
+      (left, right) =>
+        new Date(right.publishedAt ?? 0).getTime() - new Date(left.publishedAt ?? 0).getTime(),
+    );
 
   return {
     news: filteredNews
@@ -152,4 +172,42 @@ export function getMockNewsSearchResponse(keyword: string, limit: number): NewsS
   }).slice(0, limit);
 
   return { keywords: matchedKeywords };
+}
+
+export function getMockNewsTrendingResponse() {
+  const keywordCountMap = new Map<string, number>();
+
+  getMockNewsSeeds().forEach((item) => {
+    item.relatedStocks.forEach((stock) => {
+      keywordCountMap.set(stock, (keywordCountMap.get(stock) ?? 0) + 1);
+    });
+  });
+
+  return {
+    trending: [...keywordCountMap.entries()]
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "ko"))
+      .slice(0, 6)
+      .map(([keyword], index) => ({
+        rank: index + 1,
+        keyword,
+      })),
+  };
+}
+
+export function getMockNewsDetail(newsId: number): NewsDetail | null {
+  const matchedNews = getMockNewsSeeds().find((item) => item.id === newsId);
+
+  if (!matchedNews) {
+    return null;
+  }
+
+  return {
+    id: matchedNews.id,
+    title: matchedNews.title,
+    snippet: buildMockNewsSnippet(matchedNews),
+    publisher: matchedNews.publisher,
+    publishedAt: matchedNews.publishedAt,
+    url: matchedNews.url,
+    relatedStocks: matchedNews.relatedStocks.map((stockName, index) => createMockRelatedStock(stockName, index)),
+  };
 }

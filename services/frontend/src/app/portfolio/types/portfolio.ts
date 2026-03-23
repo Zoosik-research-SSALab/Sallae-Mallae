@@ -22,7 +22,7 @@ export type PortfolioHolding = {
   name: string;
   buyPrice: number;
   currentPrice: number;
-  holdingDays: number;
+  holdingDays: number | null;
   returnRate: number;
 };
 

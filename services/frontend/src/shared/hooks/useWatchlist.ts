@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addWatchlist, getWatchlistStatus, removeWatchlist, watchlistQueryKeys } from "@/shared/lib/watchlistApi";
+import { useAuthStore } from "@/shared/lib/authStore";
 import type { WatchlistStatus } from "@/shared/types/watchlist";
 
 type UseWatchlistResult = WatchlistStatus & {
@@ -13,11 +14,19 @@ type UseWatchlistResult = WatchlistStatus & {
 
 export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatchlistResult {
   const queryClient = useQueryClient();
+  const authStatus = useAuthStore((state) => state.status);
+  const isAuthenticated = authStatus === "authenticated";
   const statusQueryKey = watchlistQueryKeys.status(stockId);
-  const shouldFetchStatus = initialWatched === undefined;
+  const shouldFetchStatus = isAuthenticated && initialWatched === undefined;
+  const fallbackStatus: WatchlistStatus = {
+    isWatched: false,
+    isNotifiedEnabled: false,
+  };
   const initialStatus =
     initialWatched === undefined
-      ? undefined
+      ? isAuthenticated
+        ? undefined
+        : fallbackStatus
       : {
           isWatched: initialWatched,
           isNotifiedEnabled: false,
@@ -33,6 +42,10 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
 
   const toggleMutation = useMutation({
     mutationFn: async (currentStatus: WatchlistStatus | undefined) => {
+      if (!isAuthenticated) {
+        throw new Error("로그인 유저만 접속 가능합니다.");
+      }
+
       const nextWatched = !(currentStatus?.isWatched ?? false);
 
       if (nextWatched) {
@@ -47,9 +60,16 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
       };
     },
     onMutate: async (currentStatus) => {
+      const previousStatus = queryClient.getQueryData<WatchlistStatus>(statusQueryKey) ?? currentStatus ?? fallbackStatus;
+
+      if (!isAuthenticated) {
+        return {
+          previousStatus,
+        };
+      }
+
       await queryClient.cancelQueries({ queryKey: statusQueryKey });
 
-      const previousStatus = queryClient.getQueryData<WatchlistStatus>(statusQueryKey) ?? currentStatus;
       const nextStatus: WatchlistStatus = {
         isWatched: !(previousStatus?.isWatched ?? false),
         isNotifiedEnabled: !(previousStatus?.isWatched ?? false) ? (previousStatus?.isNotifiedEnabled ?? false) : false,

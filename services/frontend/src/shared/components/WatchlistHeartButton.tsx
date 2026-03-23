@@ -2,6 +2,7 @@
 
 import { IoHeart, IoHeartOutline } from "react-icons/io5";
 import { useWatchlist } from "@/shared/hooks/useWatchlist";
+import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import { cn } from "@/shared/utils/cn";
 
 type Props = {
@@ -41,9 +42,14 @@ export default function WatchlistHeartButton({
   onToggleSuccess,
 }: Props) {
   const { isWatched, isPending, toggle } = useWatchlist(stockId, initialWatched);
+  const requireAuthAction = useRequireAuthAction();
   const Icon = isWatched ? IoHeart : inactiveIconStyle === "outline" ? IoHeartOutline : IoHeart;
 
   const handleClick = async () => {
+    if (!requireAuthAction()) {
+      return;
+    }
+
     try {
       const nextIsWatched = await toggle();
       onToggleSuccess?.(nextIsWatched);

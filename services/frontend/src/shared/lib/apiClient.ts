@@ -67,7 +67,7 @@ function getResolvedBaseUrl() {
   return process.env.NEXT_PUBLIC_MOCK_BASE_URL?.trim() ?? "/api";
 }
 
-function resolveApiUrl(url: string, useBaseUrl = true) {
+export function resolveApiUrl(url: string, useBaseUrl = true) {
   if (!useBaseUrl || isAbsoluteUrl(url)) {
     return url;
   }
@@ -170,33 +170,85 @@ type ConnectSseOptions<TPayload> = {
   onError?: (error: Event) => void;
   onOpen?: () => void;
   useBaseUrl?: boolean;
+  headers?: HeadersInit;
+  credentials?: RequestCredentials;
 };
 
+function handleSseEvent<TPayload>(eventBlock: string, onMessage: (payload: TPayload) => void) {
+  const lines = eventBlock.split("\n");
+  const dataLines: string[] = [];
+
+  for (const line of lines) {
+    if (!line || line.startsWith(":")) {
+      continue;
+    }
+
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  }
+
+  const data = dataLines.join("\n");
+  if (!data) {
+    return;
+  }
+
+  try {
+    const payload = camelizeKeys<TPayload>(JSON.parse(data) as unknown);
+    onMessage(payload);
+  } catch {
+    // Ignore malformed SSE payloads so the stream can continue.
+  }
+}
+
 export function connectSse<TPayload>(url: string, options: ConnectSseOptions<TPayload>) {
-  const source = new EventSource(resolveApiUrl(url, options.useBaseUrl));
+  const controller = new AbortController();
+  const headers = new Headers(options.headers);
 
-  source.onopen = () => {
-    options.onOpen?.();
-  };
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "text/event-stream");
+  }
 
-  source.onmessage = (event) => {
-    if (!event.data) {
-      return;
-    }
-
+  void (async () => {
     try {
-      const payload = camelizeKeys<TPayload>(JSON.parse(event.data) as unknown);
-      options.onMessage(payload);
-    } catch {
-      // Ignore malformed SSE payloads so the stream can continue.
-    }
-  };
+      const response = await fetch(resolveApiUrl(url, options.useBaseUrl), {
+        method: "GET",
+        headers,
+        cache: "no-store",
+        credentials: options.credentials ?? "same-origin",
+        signal: controller.signal,
+      });
 
-  source.onerror = (error) => {
-    options.onError?.(error);
-  };
+      if (!response.ok || !response.body) {
+        throw new Error(`SSE request failed: ${response.status}`);
+      }
+
+      options.onOpen?.();
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        buffer = `${buffer}${decoder.decode(value, { stream: true })}`.replace(/\r\n/g, "\n");
+        const eventBlocks = buffer.split("\n\n");
+        buffer = eventBlocks.pop() ?? "";
+
+        eventBlocks.forEach((eventBlock) => handleSseEvent(eventBlock, options.onMessage));
+      }
+    } catch {
+      if (!controller.signal.aborted) {
+        options.onError?.(new Event("error"));
+      }
+    }
+  })();
 
   return () => {
-    source.close();
+    controller.abort();
   };
 }

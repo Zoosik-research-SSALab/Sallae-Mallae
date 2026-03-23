@@ -4,6 +4,7 @@ import PortfolioHallOfFame from "./components/PortfolioHallOfFame";
 import PortfolioHero from "./components/PortfolioHero";
 import PortfolioSidebar from "./components/PortfolioSidebar";
 import PortfolioTabsSection from "./components/PortfolioTabsSection";
+import { usePortfolioHallOfFameQuery } from "./hooks/usePortfolioHallOfFameQuery";
 import { usePortfolioQuery } from "./hooks/usePortfolioQuery";
 import Button from "@/shared/ui/Button";
 
@@ -37,6 +38,7 @@ function PortfolioLoadingState() {
 
 export default function PortfolioPageClient() {
   const { data, isLoading, error, refetch, isFetching } = usePortfolioQuery();
+  const { data: hallOfFameSections } = usePortfolioHallOfFameQuery();
 
   return (
     <main className="flex w-full justify-center bg-[color:var(--color-bg-primary)] py-8 md:py-10 lg:py-12">
@@ -63,7 +65,7 @@ export default function PortfolioPageClient() {
               <div className="lg:hidden">
                 <PortfolioSidebar signalSummary={data.signalSummary} popularSignals={data.popularSignals} />
               </div>
-              <PortfolioHallOfFame sections={data.hallOfFame} />
+              <PortfolioHallOfFame sections={hallOfFameSections ?? data.hallOfFame} />
             </>
           ) : null}
         </div>

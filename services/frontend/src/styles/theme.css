@@ -243,6 +243,8 @@
   --semantic-color-bg-inverse-bolder: var(--color-brand-secondary-900);
   --semantic-color-border-primary: var(--color-brand-secondary-300);
   --semantic-color-border-secondary: var(--color-brand-secondary-100);
+  --semantic-color-border-warning: var(--color-yellow-500);
+  --semantic-color-border-success: var(--color-green-600);
   --semantic-color-border-base: var(--color-black);
   --semantic-color-border-disabled: var(--color-brand-secondary-400);
   --semantic-color-border-interactive-primary: var(--color-brand-primary-600);
@@ -262,6 +264,9 @@
   --semantic-color-text-warning: var(--color-yellow-500);
   --semantic-color-text-warning-bold: var(--color-yellow-800);
   --semantic-color-text-info: var(--color-brand-primary-600);
+  --semantic-color-text-warning: var(--color-yellow-500);
+  --semantic-color-text-success: var(--color-green-600);
+  --semantic-color-text-success-bold: var(--color-green-800);
   --semantic-color-text-interactive-primary: var(--color-brand-primary-600);
   --semantic-color-text-interactive-secondary: var(--color-brand-secondary-600);
   --semantic-color-text-interactive-inverse: var(--color-white);
@@ -378,6 +383,8 @@
   --color-bg-inverse-bolder: var(--semantic-color-bg-inverse-bolder);
   --color-border-primary: var(--semantic-color-border-primary);
   --color-border-secondary: var(--semantic-color-border-secondary);
+  --color-border-warning: var(--semantic-color-border-warning);
+  --color-border-success: var(--semantic-color-border-success);
   --color-border-base: var(--semantic-color-border-base);
   --color-border-disabled: var(--semantic-color-border-disabled);
   --color-border-interactive-primary: var(
@@ -399,6 +406,9 @@
   --color-text-warning: var(--semantic-color-text-warning);
   --color-text-warning-bold: var(--semantic-color-text-warning-bold);
   --color-text-info: var(--semantic-color-text-info);
+  --color-text-warning: var(--semantic-color-text-warning);
+  --color-text-success: var(--semantic-color-text-success);
+  --color-text-success-bold: var(--semantic-color-text-success-bold);
   --color-text-interactive-primary: var(
     --semantic-color-text-interactive-primary
   );
@@ -457,6 +467,8 @@
   --semantic-color-bg-inverse-bolder: var(--color-white);
   --semantic-color-border-primary: var(--color-brand-secondary-500);
   --semantic-color-border-secondary: var(--color-brand-secondary-700);
+  --semantic-color-border-warning: var(--color-yellow-400);
+  --semantic-color-border-success: var(--color-green-400);
   --semantic-color-border-base: var(--color-white);
   --semantic-color-border-disabled: var(--color-brand-secondary-300);
   --semantic-color-border-interactive-primary: var(--color-brand-primary-400);
@@ -476,6 +488,9 @@
   --semantic-color-text-warning: var(--color-yellow-400);
   --semantic-color-text-warning-bold: var(--color-yellow-300);
   --semantic-color-text-info: var(--color-brand-primary-200);
+  --semantic-color-text-warning: var(--color-yellow-300);
+  --semantic-color-text-success: var(--color-green-300);
+  --semantic-color-text-success-bold: var(--color-green-800);
   --semantic-color-text-interactive-primary: var(--color-brand-primary-400);
   --semantic-color-text-interactive-secondary: var(--color-brand-secondary-100);
   --semantic-color-text-interactive-inverse: var(--color-brand-secondary-900);
@@ -523,6 +538,8 @@
     --semantic-color-bg-inverse-bolder: var(--color-white);
     --semantic-color-border-primary: var(--color-brand-secondary-500);
     --semantic-color-border-secondary: var(--color-brand-secondary-700);
+    --semantic-color-border-warning: var(--color-yellow-400);
+    --semantic-color-border-success: var(--color-green-400);
     --semantic-color-border-base: var(--color-white);
     --semantic-color-border-disabled: var(--color-brand-secondary-300);
     --semantic-color-border-interactive-primary: var(--color-brand-primary-400);
@@ -542,6 +559,9 @@
     --semantic-color-text-warning: var(--color-yellow-400);
     --semantic-color-text-warning-bold: var(--color-yellow-300);
     --semantic-color-text-info: var(--color-brand-primary-200);
+    --semantic-color-text-warning: var(--color-yellow-300);
+    --semantic-color-text-success: var(--color-green-300);
+    --semantic-color-text-success-bold: var(--color-green-800);
     --semantic-color-text-interactive-primary: var(--color-brand-primary-400);
     --semantic-color-text-interactive-secondary: var(
       --color-brand-secondary-100

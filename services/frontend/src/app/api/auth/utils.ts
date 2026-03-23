@@ -8,6 +8,30 @@ type DeviceIdState = {
   isNew: boolean;
 };
 
+function shouldLogProxyDebug() {
+  return process.env.NODE_ENV !== "production";
+}
+
+function createAuthorizationPreview(authorization: string | null) {
+  if (!authorization) {
+    return null;
+  }
+
+  if (authorization.length <= 20) {
+    return authorization;
+  }
+
+  return `${authorization.slice(0, 12)}...${authorization.slice(-6)}`;
+}
+
+function logAuthProxyDebug(label: string, payload: Record<string, unknown>) {
+  if (!shouldLogProxyDebug()) {
+    return;
+  }
+
+  console.info(`[auth-proxy:${label}]`, payload);
+}
+
 function isJsonContentType(contentType: string | null) {
   return typeof contentType === "string" && contentType.includes("application/json");
 }
@@ -185,9 +209,12 @@ export async function proxyAuthRequest({
   forwardAuthorization = false,
 }: ProxyAuthRequestOptions) {
   const deviceIdState = getOrCreateDeviceId(request);
+  const targetUrl = resolveAuthApiUrl(path);
 
   try {
     const headers = new Headers();
+    const authorization = request.headers.get("authorization");
+    const cookie = request.headers.get("cookie");
 
     if (includeDeviceId) {
       headers.set("X-Device-Id", deviceIdState.value);
@@ -198,22 +225,41 @@ export async function proxyAuthRequest({
     }
 
     if (forwardAuthorization) {
-      const authorization = request.headers.get("authorization");
       if (authorization) {
         headers.set("Authorization", authorization);
       }
     }
 
-    const cookie = request.headers.get("cookie");
     if (cookie) {
       headers.set("Cookie", cookie);
     }
 
-    const upstreamResponse = await fetch(resolveAuthApiUrl(path), {
+    logAuthProxyDebug("request", {
+      method,
+      path,
+      targetUrl,
+      includeDeviceId,
+      forwardedDeviceId: headers.get("X-Device-Id"),
+      hasAuthorization: Boolean(authorization),
+      authorizationPreview: createAuthorizationPreview(authorization),
+      hasRefreshTokenCookie: Boolean(request.cookies.get(AUTH_REFRESH_COOKIE_NAME)?.value),
+      hasDeviceIdCookie: Boolean(request.cookies.get(AUTH_DEVICE_COOKIE_NAME)?.value),
+    });
+
+    const upstreamResponse = await fetch(targetUrl, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: "no-store",
+    });
+
+    logAuthProxyDebug("response", {
+      method,
+      path,
+      targetUrl,
+      status: upstreamResponse.status,
+      ok: upstreamResponse.ok,
+      hasSetCookie: Boolean(upstreamResponse.headers.get("set-cookie")),
     });
 
     if (upstreamResponse.status === 204) {

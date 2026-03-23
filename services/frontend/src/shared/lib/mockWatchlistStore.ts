@@ -49,6 +49,11 @@ type MockWatchlistNewsPayload = {
   news: MockWatchlistNewsItem[];
 };
 
+type MockWatchlistNewsOptions = {
+  offset?: number;
+  limit?: number;
+};
+
 const watchlistCatalog = new Map<number, MockWatchlistSeed>([
   [
     1,
@@ -278,7 +283,7 @@ const watchlistStore = new Map<number, WatchlistEntry>([
 
 const watchlistNewsSeeds = [
   {
-    id: 1,
+    id: 1001,
     stockIds: [1, 102],
     title: '"AI 반도체 수요 폭발" 외국인 매수세에 관련주 강세',
     summary:
@@ -288,7 +293,7 @@ const watchlistNewsSeeds = [
     minutesAgo: 15,
   },
   {
-    id: 2,
+    id: 1002,
     stockIds: [201],
     title: "카카오, 신규 서비스 출시 지연에 성장성 우려 확대",
     summary:
@@ -298,7 +303,7 @@ const watchlistNewsSeeds = [
     minutesAgo: 120,
   },
   {
-    id: 3,
+    id: 1003,
     stockIds: [203, 4],
     title: "바이오 대형주, 임상 일정과 실적 기대 사이 엇갈린 흐름",
     summary:
@@ -308,7 +313,7 @@ const watchlistNewsSeeds = [
     minutesAgo: 240,
   },
   {
-    id: 4,
+    id: 1004,
     stockIds: [5, 7],
     title: "2차전지와 자동차 밸류체인, 수급 회복 여부에 주목",
     summary:
@@ -418,8 +423,10 @@ export function getMockWatchlistSnapshot({ page, limit }: MockWatchlistSnapshotO
   };
 }
 
-export function getMockWatchlistNews(): MockWatchlistNewsPayload {
+export function getMockWatchlistNews(options: MockWatchlistNewsOptions = {}): MockWatchlistNewsPayload {
   const watchedStockIds = new Set(watchlistStore.keys());
+  const safeOffset = Math.max(0, options.offset ?? 0);
+  const safeLimit = options.limit === undefined ? Number.POSITIVE_INFINITY : Math.max(1, options.limit);
 
   return {
     news: watchlistNewsSeeds
@@ -434,6 +441,7 @@ export function getMockWatchlistNews(): MockWatchlistNewsPayload {
         relatedStocks: item.stockIds
           .filter((stockId) => watchedStockIds.has(stockId))
           .map((stockId) => resolveCatalogItem(stockId).name),
-      })),
+      }))
+      .slice(safeOffset, safeOffset + safeLimit),
   };
 }
