@@ -16,31 +16,18 @@ import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import com.sallaemallae.backend.infra.kis.KisApiException;
-import com.sallaemallae.backend.infra.kis.KisProperties;
 import com.sallaemallae.backend.infra.kis.stock.CachedKisDomesticStockGateway;
 import com.sallaemallae.backend.infra.kis.stock.KisMinuteCandleData;
-import com.sallaemallae.backend.infra.kis.websocket.KisWebSocketClient;
-import jakarta.annotation.PreDestroy;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Slf4j
 @Service
@@ -48,21 +35,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class StockPriceStreamServiceImpl implements StockPriceStreamService {
 
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
-  private static final long STREAM_INTERVAL_MINUTES = 1L;
-  private static final long SSE_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
 
   private final StockRepository stockRepository;
   private final StockPriceDailyRepository stockPriceDailyRepository;
   private final StockPriceWeeklyRepository stockPriceWeeklyRepository;
   private final StockPriceMonthlyRepository stockPriceMonthlyRepository;
   private final StockPriceYearlyRepository stockPriceYearlyRepository;
-  private final KisProperties kisProperties;
-  private final KisWebSocketClient kisWebSocketClient;
   private final CachedKisDomesticStockGateway cachedGateway;
-  private final ScheduledExecutorService scheduler;
-  private final long schedulerShutdownWaitSeconds;
-
-  private final ConcurrentHashMap<String, AtomicInteger> sseRefCounts = new ConcurrentHashMap<>();
 
   public StockPriceStreamServiceImpl(
       StockRepository stockRepository,
@@ -70,26 +49,14 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
       StockPriceWeeklyRepository stockPriceWeeklyRepository,
       StockPriceMonthlyRepository stockPriceMonthlyRepository,
       StockPriceYearlyRepository stockPriceYearlyRepository,
-      KisProperties kisProperties,
-      KisWebSocketClient kisWebSocketClient,
-      CachedKisDomesticStockGateway cachedGateway,
-      @Value("${stock.stream.scheduler.pool-size:4}") int schedulerPoolSize,
-      @Value("${stock.stream.scheduler.shutdown-wait-seconds:5}") long schedulerShutdownWaitSeconds
+      CachedKisDomesticStockGateway cachedGateway
   ) {
     this.stockRepository = stockRepository;
     this.stockPriceDailyRepository = stockPriceDailyRepository;
     this.stockPriceWeeklyRepository = stockPriceWeeklyRepository;
     this.stockPriceMonthlyRepository = stockPriceMonthlyRepository;
     this.stockPriceYearlyRepository = stockPriceYearlyRepository;
-    this.kisProperties = kisProperties;
-    this.kisWebSocketClient = kisWebSocketClient;
     this.cachedGateway = cachedGateway;
-    ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
-        Math.max(2, schedulerPoolSize)
-    );
-    executor.setRemoveOnCancelPolicy(true);
-    this.scheduler = executor;
-    this.schedulerShutdownWaitSeconds = Math.max(1L, schedulerShutdownWaitSeconds);
   }
 
   @Override
@@ -104,67 +71,6 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
       case MONTHLY -> loadMonthlyPricesWithCursor(stock, cursor);
       case YEARLY -> loadYearlyPricesWithCursor(stock, cursor);
     };
-  }
-
-  @Override
-  public SseEmitter streamPrices(Long stockId, String candleType) {
-    ResolvedStock resolvedStock = resolveStock(stockId);
-    CandleType type = CandleType.from(candleType);
-
-    SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
-    AtomicReference<ScheduledFuture<?>> futureRef = new AtomicReference<>();
-
-    if (type == CandleType.MINUTE) {
-      acquireSseRef(resolvedStock);
-      Runnable cleanup = () -> {
-        cancel(futureRef.get());
-        releaseSseRef(resolvedStock);
-      };
-      emitter.onCompletion(cleanup);
-      emitter.onTimeout(cleanup);
-      emitter.onError(error -> cleanup.run());
-    } else {
-      emitter.onCompletion(() -> cancel(futureRef.get()));
-      emitter.onTimeout(() -> cancel(futureRef.get()));
-      emitter.onError(error -> cancel(futureRef.get()));
-    }
-
-    if (!sendSnapshot(emitter, resolvedStock, type)) {
-      return emitter;
-    }
-
-    if (type == CandleType.MINUTE) {
-      ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(
-          () -> {
-            if (!sendSnapshot(emitter, resolvedStock, type)) {
-              cancel(futureRef.get());
-              releaseSseRef(resolvedStock);
-            }
-          },
-          STREAM_INTERVAL_MINUTES,
-          STREAM_INTERVAL_MINUTES,
-          TimeUnit.MINUTES
-      );
-      futureRef.set(future);
-    } else {
-      emitter.complete();
-    }
-
-    return emitter;
-  }
-
-  @PreDestroy
-  public void shutdown() {
-    scheduler.shutdown();
-    try {
-      if (!scheduler.awaitTermination(schedulerShutdownWaitSeconds, TimeUnit.SECONDS)) {
-        scheduler.shutdownNow();
-        scheduler.awaitTermination(schedulerShutdownWaitSeconds, TimeUnit.SECONDS);
-      }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      scheduler.shutdownNow();
-    }
   }
 
   // ===== 분봉 (KIS REST API) =====
@@ -341,69 +247,12 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     return List.copyOf(ordered);
   }
 
-  // ===== SSE Reference Counting + WebSocket Subscribe/Unsubscribe =====
-
-  private void acquireSseRef(ResolvedStock stock) {
-    String key = stock.marketCode() + ":" + stock.ticker();
-    int count = sseRefCounts.computeIfAbsent(key, k -> new AtomicInteger(0)).incrementAndGet();
-    log.info("SSE ref acquired. ticker={}, refCount={}", stock.ticker(), count);
-
-    if (count == 1 && kisProperties.isConfigured()) {
-      kisWebSocketClient.subscribeDomesticTrade(stock.marketCode(), stock.ticker())
-          .thenAccept(ack -> log.info(
-              "KIS realtime subscription ready. ticker={}, success={}", stock.ticker(), ack.success()))
-          .exceptionally(error -> {
-            log.warn("Failed to subscribe KIS realtime. ticker={}", stock.ticker(), error);
-            return null;
-          });
-    }
-  }
-
-  private void releaseSseRef(ResolvedStock stock) {
-    String key = stock.marketCode() + ":" + stock.ticker();
-    AtomicInteger ref = sseRefCounts.get(key);
-    if (ref == null) {
-      return;
-    }
-    int count = ref.decrementAndGet();
-    log.info("SSE ref released. ticker={}, refCount={}", stock.ticker(), count);
-
-    if (count <= 0) {
-      sseRefCounts.remove(key);
-      if (kisProperties.isConfigured()) {
-        kisWebSocketClient.unsubscribeDomesticTrade(stock.marketCode(), stock.ticker());
-      }
-    }
-  }
-
-  // ===== SSE =====
-
-  private boolean sendSnapshot(SseEmitter emitter, ResolvedStock stock, CandleType candleType) {
-    try {
-      emitter.send(SseEmitter.event()
-          .name("prices")
-          .data(getLatestPrices(stock.stockId(), candleType.code, null)));
-      return true;
-    } catch (Exception e) {
-      log.warn("Failed to send stock price snapshot. stockId={}, ticker={}, candleType={}",
-          stock.stockId(), stock.ticker(), candleType.code, e);
-      emitter.completeWithError(e);
-      return false;
-    }
-  }
-
   // ===== Resolve =====
 
   private ResolvedStock resolveStock(Long stockId) {
     Stock stock = stockRepository.findByIdAndIsActiveTrue(stockId)
         .orElseThrow(() -> new BusinessException(StockErrorCode.STOCK_NOT_FOUND));
     return new ResolvedStock(stock.getId(), stock.getTicker(), StockMarketConstants.DOMESTIC_MARKET_CODE);
-  }
-
-  private void cancel(ScheduledFuture<?> future) {
-    if (future != null) {
-      future.cancel(true);
-    }
   }
 
   // ===== CandleType =====
