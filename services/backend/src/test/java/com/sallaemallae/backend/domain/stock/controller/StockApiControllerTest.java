@@ -14,7 +14,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sallaemallae.backend.domain.stock.dto.StockListFilterCountsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListItemResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementDetailResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementsResponse.AnnouncementItem;
 import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockFinancialsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockFinancialsResponse.FinancialItem;
+import com.sallaemallae.backend.domain.stock.dto.StockIndicatorsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockIndicatorsResponse.Dividend;
+import com.sallaemallae.backend.domain.stock.dto.StockIndicatorsResponse.Earnings;
+import com.sallaemallae.backend.domain.stock.dto.StockIndicatorsResponse.Valuation;
+import com.sallaemallae.backend.domain.stock.dto.StockKeywordsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockKeywordsResponse.KeywordItem;
+import com.sallaemallae.backend.domain.stock.dto.StockKeywordsResponse.NewsItem;
 import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse.LatestPrice;
 import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse.PriceRange52w;
@@ -156,6 +168,41 @@ class StockApiControllerTest {
             new LatestPrice(LocalDate.parse("2026-03-17"), 70300, 2.03f),
             new PriceRange52w(88800, LocalDate.parse("2025-07-11"), 61200, LocalDate.parse("2025-04-09"), -20.83f, 14.87f)
         ));
+    given(stockService.getStockIndicators(1L))
+        .willReturn(new StockIndicatorsResponse(
+            new Valuation(26.1f, 3.5f, 2.7f),
+            new Earnings(6563L, 63997L, 10.8f),
+            new Dividend("최근 12개월", 4, "3월, 6월, 9월, 12월", 1668, 0.96f)
+        ));
+    given(stockService.getStockFinancials(1L, "YEARLY"))
+        .willReturn(new StockFinancialsResponse(List.of(
+            new FinancialItem(2025, null, 302100000000L, 32400000000L)
+        )));
+    given(stockService.getStockKeywords(1L))
+        .willReturn(new StockKeywordsResponse(
+            List.of(
+                new KeywordItem(1L, "HBM 공급망"),
+                new KeywordItem(2L, "반도체 사이클"),
+                new KeywordItem(3L, "AI 서버")
+            ),
+            List.of(
+                new NewsItem(101L, "삼성전자, 차세대 HBM 양산 본격화 전망", "한국경제",
+                    OffsetDateTime.parse("2026-03-12T14:30:00+09:00"))
+            )
+        ));
+    given(stockService.getStockAnnouncements(1L, 4, 0))
+        .willReturn(new StockAnnouncementsResponse(
+            12,
+            List.of(new AnnouncementItem(1L, "현금ㆍ현물배당결정 (결산배당)", LocalDate.parse("2026-02-15")))
+        ));
+    given(stockService.getStockAnnouncement(1L, 10L))
+        .willReturn(new StockAnnouncementDetailResponse(
+            10L,
+            "현금ㆍ현물배당결정 (결산배당)",
+            LocalDate.parse("2026-02-15"),
+            "공시 상세 본문",
+            "https://example.com/announcement/10"
+        ));
     given(stockPriceStreamService.streamPrices(anyLong(), anyString()))
         .willReturn(new SseEmitter());
     createTablesIfNeeded();
@@ -208,6 +255,60 @@ class StockApiControllerTest {
         .andExpect(jsonPath("$.data.price_range_52w.high_price").value(88800))
         .andExpect(jsonPath("$.data.price_range_52w.high_date").value("2025-07-11"))
         .andExpect(jsonPath("$.data.price_range_52w.distance_from_high_rate").value(-20.83));
+  }
+
+  @Test
+  void getStockIndicators_returnsWrappedSnakeCasePayload() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/indicators", 1L))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.valuation.per").value(26.1))
+        .andExpect(jsonPath("$.data.earnings.eps").value(6563))
+        .andExpect(jsonPath("$.data.dividend.period_label").value("최근 12개월"))
+        .andExpect(jsonPath("$.data.dividend.payment_count").value(4));
+  }
+
+  @Test
+  void getStockFinancials_returnsWrappedSnakeCasePayload() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/financials", 1L).param("type", "YEARLY"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.financials[0].year").value(2025))
+        .andExpect(jsonPath("$.data.financials[0].revenue").value(302100000000L))
+        .andExpect(jsonPath("$.data.financials[0].operating_profit").value(32400000000L));
+  }
+
+  @Test
+  void getStockKeywords_returnsWrappedSnakeCasePayload() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/keywords", 1L))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.keywords[0].id").value(1))
+        .andExpect(jsonPath("$.data.keywords[0].name").value("HBM 공급망"))
+        .andExpect(jsonPath("$.data.news[0].id").value(101))
+        .andExpect(jsonPath("$.data.news[0].publisher").value("한국경제"));
+  }
+
+  @Test
+  void getStockAnnouncements_returnsWrappedSnakeCasePayload() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/announcements", 1L)
+            .param("limit", "4")
+            .param("offset", "0"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.total").value(12))
+        .andExpect(jsonPath("$.data.announcements[0].id").value(1))
+        .andExpect(jsonPath("$.data.announcements[0].announced_at").value("2026-02-15"));
+  }
+
+  @Test
+  void getStockAnnouncement_returnsWrappedSnakeCasePayload() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/announcements/{announcementId}", 1L, 10L))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.id").value(10))
+        .andExpect(jsonPath("$.data.title").value("현금ㆍ현물배당결정 (결산배당)"))
+        .andExpect(jsonPath("$.data.content").value("공시 상세 본문"));
   }
 
   @Test
