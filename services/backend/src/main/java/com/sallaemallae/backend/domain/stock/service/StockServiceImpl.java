@@ -31,14 +31,14 @@ import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepositor
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockRequestNormalizer;
 import com.sallaemallae.backend.domain.news.repository.KeywordRepository;
+import com.sallaemallae.backend.domain.news.repository.KeywordRepository.KeywordSummaryProjection;
 import com.sallaemallae.backend.domain.news.repository.StockNewsRepository;
+import com.sallaemallae.backend.domain.news.repository.StockNewsRepository.StockNewsSummaryProjection;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Month;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -54,6 +54,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class StockServiceImpl implements StockService {
+
+  private static final int TOP_KEYWORD_LIMIT = 3;
+  private static final int KEYWORD_NEWS_LIMIT = 9;
+  private static final String DIVIDEND_ANNOUNCEMENT_KEYWORD = "배당";
 
   private final StockRepository stockRepository;
   private final StockPriceDailyRepository stockPriceDailyRepository;
@@ -135,7 +139,7 @@ public class StockServiceImpl implements StockService {
     List<StockAnnouncement> dividendAnnouncements = stockAnnouncementRepository.findDividendAnnouncements(
         stockId,
         LocalDate.now().minusYears(1),
-        "배당"
+        DIVIDEND_ANNOUNCEMENT_KEYWORD
     );
 
     return new StockIndicatorsResponse(
@@ -164,14 +168,14 @@ public class StockServiceImpl implements StockService {
   @Override
   public StockKeywordsResponse getStockKeywords(Long stockId) {
     getActiveStock(stockId);
-    List<Object[]> keywordRows = keywordRepository.findTopKeywordsByStockId(stockId, 3);
+    List<KeywordSummaryProjection> keywordRows = keywordRepository.findTopKeywordsByStockId(stockId, TOP_KEYWORD_LIMIT);
     List<KeywordItem> keywords = keywordRows.stream()
-        .map(row -> new KeywordItem(toLong(row[0]), (String) row[1]))
+        .map(row -> new KeywordItem(row.getId(), row.getName()))
         .toList();
 
     List<Long> keywordIds = keywords.stream().map(KeywordItem::id).toList();
     List<NewsItem> news = keywordIds.isEmpty() ? List.of() : stockNewsRepository
-        .findLatestNewsByStockIdAndKeywordIds(stockId, keywordIds, 9)
+        .findLatestNewsByStockIdAndKeywordIds(stockId, keywordIds, KEYWORD_NEWS_LIMIT)
         .stream()
         .map(this::toNewsItem)
         .toList();
@@ -322,7 +326,15 @@ public class StockServiceImpl implements StockService {
       return null;
     }
     if (reportQuarter.endsWith("Q")) {
-      return Integer.valueOf(reportQuarter.substring(0, 1));
+      String numericPart = reportQuarter.replace("Q", "");
+      if (numericPart.isBlank()) {
+        return null;
+      }
+      try {
+        return Integer.parseInt(numericPart);
+      } catch (NumberFormatException ignored) {
+        return null;
+      }
     }
     return null;
   }
@@ -390,26 +402,12 @@ public class StockServiceImpl implements StockService {
     );
   }
 
-  private NewsItem toNewsItem(Object[] row) {
+  private NewsItem toNewsItem(StockNewsSummaryProjection row) {
     return new NewsItem(
-        toLong(row[0]),
-        (String) row[1],
-        (String) row[2],
-        toOffsetDateTime(row[3])
+        row.getId(),
+        row.getTitle(),
+        row.getPublisher(),
+        row.getPublishedAt()
     );
-  }
-
-  private Long toLong(Object value) {
-    return value instanceof Number number ? number.longValue() : null;
-  }
-
-  private OffsetDateTime toOffsetDateTime(Object value) {
-    if (value instanceof OffsetDateTime offsetDateTime) {
-      return offsetDateTime;
-    }
-    if (value instanceof java.sql.Timestamp timestamp) {
-      return timestamp.toInstant().atOffset(ZoneOffset.UTC);
-    }
-    return null;
   }
 }

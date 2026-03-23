@@ -24,6 +24,7 @@ public record StockOverviewResponse(
     @Schema(description = "최신 시세 정보")
     LatestPrice latestPrice,
     @Schema(description = "52주 가격 범위 정보")
+    // Jackson snake_case 규칙만으로는 `52w`가 `52_w`처럼 직렬화될 수 있어 API 계약 키를 명시적으로 고정한다.
     @JsonProperty("price_range_52w")
     PriceRange52w priceRange52w
 ) {

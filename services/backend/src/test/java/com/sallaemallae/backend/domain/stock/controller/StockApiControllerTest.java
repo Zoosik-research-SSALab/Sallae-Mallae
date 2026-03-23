@@ -178,6 +178,8 @@ class StockApiControllerTest {
         .willReturn(new StockFinancialsResponse(List.of(
             new FinancialItem(2025, null, 302100000000L, 32400000000L)
         )));
+    given(stockService.getStockFinancials(1L, "INVALID"))
+        .willThrow(new BusinessException(StockErrorCode.STOCK_FINANCIAL_TYPE_INVALID));
     given(stockService.getStockKeywords(1L))
         .willReturn(new StockKeywordsResponse(
             List.of(
@@ -202,6 +204,19 @@ class StockApiControllerTest {
             LocalDate.parse("2026-02-15"),
             "공시 상세 본문",
             "https://example.com/announcement/10"
+        ));
+    given(stockService.getStockAnnouncement(1L, 999L))
+        .willThrow(new BusinessException(StockErrorCode.STOCK_ANNOUNCEMENT_NOT_FOUND));
+    given(stockService.getStockOverview(2L))
+        .willReturn(new StockOverviewResponse(
+            2L,
+            "000660",
+            "SK hynix",
+            "KOSPI",
+            "Information Technology",
+            "Semiconductor",
+            null,
+            null
         ));
     given(stockPriceStreamService.streamPrices(anyLong(), anyString()))
         .willReturn(new SseEmitter());
@@ -258,6 +273,16 @@ class StockApiControllerTest {
   }
 
   @Test
+  void getStockOverview_returnsNullFieldsWhenPriceDataMissing() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/overview", 2L))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.stock_id").value(2))
+        .andExpect(jsonPath("$.data.latest_price").isEmpty())
+        .andExpect(jsonPath("$.data.price_range_52w").isEmpty());
+  }
+
+  @Test
   void getStockIndicators_returnsWrappedSnakeCasePayload() throws Exception {
     mockMvc.perform(get("/api/stocks/{stockId}/indicators", 1L))
         .andExpect(status().isOk())
@@ -276,6 +301,15 @@ class StockApiControllerTest {
         .andExpect(jsonPath("$.data.financials[0].year").value(2025))
         .andExpect(jsonPath("$.data.financials[0].revenue").value(302100000000L))
         .andExpect(jsonPath("$.data.financials[0].operating_profit").value(32400000000L));
+  }
+
+  @Test
+  void getStockFinancials_returnsBadRequestWhenTypeInvalid() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/financials", 1L).param("type", "INVALID"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.error.code").value("STOCK_005"))
+        .andExpect(jsonPath("$.error.message").value("실적 조회 타입이 올바르지 않습니다."));
   }
 
   @Test
@@ -309,6 +343,15 @@ class StockApiControllerTest {
         .andExpect(jsonPath("$.data.id").value(10))
         .andExpect(jsonPath("$.data.title").value("현금ㆍ현물배당결정 (결산배당)"))
         .andExpect(jsonPath("$.data.content").value("공시 상세 본문"));
+  }
+
+  @Test
+  void getStockAnnouncement_returnsNotFoundWhenAnnouncementMissing() throws Exception {
+    mockMvc.perform(get("/api/stocks/{stockId}/announcements/{announcementId}", 1L, 999L))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.error.code").value("STOCK_006"))
+        .andExpect(jsonPath("$.error.message").value("공시를 찾을 수 없습니다."));
   }
 
   @Test
