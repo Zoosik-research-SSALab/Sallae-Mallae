@@ -15,8 +15,12 @@ import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -26,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "Watchlist", description = "관심종목 API")
 @RestController
@@ -36,11 +41,23 @@ public class WatchlistController {
   private final WatchlistService watchlistService;
   private final UserService userService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
+  private final ObjectMapper objectMapper;
 
-  @Operation(summary = "관심종목 목록 조회", description = "로그인한 사용자의 관심종목 목록을 조회합니다.")
-  @GetMapping
-  public ApiResponse<WatchlistListResponse> getWatchlist() {
-    return ApiResponse.success(userService.getWatchlist(getAuthenticatedUserId()));
+  @Operation(summary = "관심종목 목록 조회 (SSE)", description = "로그인한 사용자의 관심종목 목록을 SSE로 조회합니다.")
+  @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public SseEmitter getWatchlist() {
+    SseEmitter emitter = new SseEmitter(Duration.ofMinutes(30).toMillis());
+    try {
+      WatchlistListResponse data = userService.getWatchlist(getAuthenticatedUserId());
+      emitter.send(SseEmitter.event()
+          .name("watchlist")
+          .data(objectMapper.writeValueAsString(ApiResponse.success(data)),
+              MediaType.APPLICATION_JSON));
+      emitter.complete();
+    } catch (IOException e) {
+      emitter.completeWithError(e);
+    }
+    return emitter;
   }
 
   @Operation(summary = "관심종목 등록 여부 조회", description = "특정 종목이 관심종목에 등록되어 있는지 확인합니다.")
