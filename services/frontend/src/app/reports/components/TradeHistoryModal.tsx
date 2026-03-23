@@ -40,7 +40,7 @@ export default function TradeHistoryModal({
       <div className="relative z-[1] inline-flex w-full max-w-[576px] flex-col items-start rounded-2xl bg-[color:var(--color-bg-primary)] shadow-[0px_16px_24px_-4px_rgba(0,0,0,0.16)]">
         <div className="inline-flex w-full items-center justify-between self-stretch border-b border-[color:var(--color-border-primary)] px-6 pb-3 pt-4">
           <div className="flex items-center gap-2">
-            <h3 className="text-xl font-extrabold leading-6 text-[color:var(--color-text-primary)]">전체 매매 신호</h3>
+            <h3 className="typo-heading-md text-[color:var(--color-text-primary)]">전체 매매 신호</h3>
           </div>
           <button
             type="button"
@@ -53,11 +53,8 @@ export default function TradeHistoryModal({
         </div>
 
         <div className="flex w-full flex-col items-start gap-6 overflow-hidden p-8">
-          <div className="flex w-full flex-col items-start gap-2">
-            <div className="flex w-full flex-col items-start">
-              <div className="text-xl font-extrabold leading-6 text-[color:var(--color-text-primary)]">{companyName} 전체 매매 신호</div>
-            </div>
-            {error ? <div className="text-sm font-medium leading-5 text-[color:var(--color-text-tertiary)]">실시간 데이터를 불러오지 못해 임시 데이터를 표시합니다.</div> : null}
+          <div className="flex w-full flex-col items-start">
+            <div className="typo-heading-md text-[color:var(--color-text-primary)]">{companyName} 전체 매매 신호</div>
           </div>
 
           <div className="flex w-full flex-col items-center gap-2 pt-2 pb-[0.01px]">
@@ -70,11 +67,11 @@ export default function TradeHistoryModal({
 
             <div className="-mr-3 flex max-h-[460px] w-[calc(100%+12px)] flex-col items-start overflow-y-auto pr-3">
               {isLoading ? (
-                <div className="flex min-h-40 w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-secondary)] text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">
+                <div className="flex min-h-40 w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-secondary)] typo-body-lg text-[color:var(--color-text-secondary)]">
                   매매 내역을 불러오는 중입니다.
                 </div>
               ) : rows.length === 0 ? (
-                <div className="flex min-h-40 w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-secondary)] text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">
+                <div className="flex min-h-40 w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-secondary)] typo-body-lg text-[color:var(--color-text-secondary)]">
                   표시할 매매 내역이 없습니다.
                 </div>
               ) : (
@@ -104,7 +101,7 @@ export default function TradeHistoryModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-inverse-bolder)] py-3 text-base font-bold leading-6 text-[color:var(--color-text-base)] transition-opacity hover:opacity-90"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-inverse-bolder)] py-3 typo-body-lg text-[color:var(--color-text-base)] transition-opacity hover:opacity-90"
           >
             닫기
           </button>
@@ -117,7 +114,7 @@ export default function TradeHistoryModal({
 function ModalHeaderCell({ label }: { label: string }) {
   return (
     <div className="inline-flex h-6 flex-1 flex-col items-center justify-start">
-      <div className="text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">{label}</div>
+      <div className="typo-body-lg text-[color:var(--color-text-primary)]">{label}</div>
     </div>
   );
 }
@@ -145,7 +142,7 @@ function ModalBodyCell({
   return (
     <div className={`flex-1 ${backgroundClassName} ${roundedClassName}`}>
       <div className="inline-flex min-h-12 w-full items-center justify-center px-2 py-3">
-        <div className={`text-center text-base font-semibold leading-6 ${resolvedValueClassName}`}>{value}</div>
+        <div className={`typo-body-lg text-center ${resolvedValueClassName}`}>{value}</div>
       </div>
     </div>
   );

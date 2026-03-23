@@ -159,7 +159,7 @@ export default function InvestmentPerformanceSection({
                     x2={point.x}
                     y1={point.y}
                     y2="280"
-                    stroke={point.tone === "buy" ? "var(--color-text-danger-bold)" : "var(--color-text-info)"}
+                    stroke={point.tone === "buy" ? "var(--color-text-danger)" : "var(--color-text-info)"}
                     strokeDasharray="4 6"
                     opacity="0.8"
                   />
@@ -168,7 +168,7 @@ export default function InvestmentPerformanceSection({
                     cy={point.y}
                     r="11"
                     fill={point.tone === "buy" ? "var(--color-bg-danger-subtle)" : "var(--color-bg-info-subtle)"}
-                    stroke={point.tone === "buy" ? "var(--color-text-danger-bold)" : "var(--color-text-info)"}
+                    stroke={point.tone === "buy" ? "var(--color-text-danger)" : "var(--color-text-info)"}
                     strokeWidth="2.5"
                   />
                   <text
@@ -197,7 +197,7 @@ export default function InvestmentPerformanceSection({
           <div className="flex items-center justify-between border-t border-[color:var(--color-border-secondary)] px-6 py-4">
             <div className="flex items-center gap-4 text-sm font-semibold leading-5">
               <div className="flex items-center gap-2 text-[color:var(--color-text-secondary)]">
-                <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-text-danger-bold)]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-text-danger)]" />
                 <span>매수</span>
               </div>
               <div className="flex items-center gap-2 text-[color:var(--color-text-secondary)]">

@@ -192,11 +192,11 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
         </div>
         <div
           ref={scrollRef}
-          className="flex h-[420px] flex-col gap-6 overflow-y-auto bg-[linear-gradient(180deg,rgba(248,250,252,0.9)_0%,rgba(255,255,255,1)_24%)] px-6 py-6"
+          className="flex h-[420px] flex-col gap-6 overflow-y-auto bg-[color:var(--color-bg-primary)] px-6 py-6"
         >
           {!showTranscript ? (
-            <div className="flex min-h-full items-center justify-center rounded-2xl border border-dashed border-[color:var(--color-border-primary)] bg-[color:rgba(249,250,251,0.9)] px-6 text-center">
-              <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+              <div className="flex min-h-full items-center justify-center rounded-2xl border border-dashed border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-6 text-center">
+              <p className="typo-body-lg text-[color:var(--color-text-tertiary)]">
                 영상을 재생하면 입장 알림, 라운드 시작선, 위원 발언이 채팅처럼 순서대로 표시됩니다.
               </p>
             </div>
@@ -206,7 +206,7 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
                 if (item.type === "entry") {
                   return (
                     <div key={item.id} className="flex justify-center">
-                      <div className="typo-body-lg rounded-full bg-[color:var(--color-bg-disabled)] px-5 py-2 text-center text-[color:var(--color-text-primary)]">
+                      <div className="typo-body-lg rounded-full bg-[color:var(--color-bg-primary)] px-5 py-2 text-center text-[color:var(--color-text-primary)]">
                         {item.message}
                       </div>
                     </div>

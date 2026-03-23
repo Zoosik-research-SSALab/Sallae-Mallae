@@ -1133,7 +1133,7 @@ export default function DebateSection({
           </button>
 
           <div className="relative z-20 text-center">
-            <h3 className="heading-reset typo-heading-lg text-[color:var(--color-text-base)]">
+            <h3 className="heading-reset typo-heading-lg text-[color:var(--color-white)]">
               위원회 소집하기
             </h3>
             <p className="typo-body-lg mt-3 text-[color:var(--color-neutral-300)]">
