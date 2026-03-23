@@ -8,68 +8,47 @@ import org.springframework.data.repository.query.Param;
 
 public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
 
-  interface StockNewsSummaryProjection {
+  // FS-NEWS-001: 키워드 없이 전체 뉴스 목록 조회 (URL 기준 중복 제거)
+  @Query("""
+      SELECT sn FROM StockNews sn
+      WHERE sn.publishedAt IS NOT NULL
+        AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
+      ORDER BY sn.publishedAt DESC
+      """)
+  List<StockNews> findAllNews(org.springframework.data.domain.Pageable pageable);
 
-    Long getId();
-
-    String getTitle();
-
-    String getPublisher();
-
-    java.time.OffsetDateTime getPublishedAt();
-  }
-
-  // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 (keyword null이면 전체)
-  @Query(value = """
-      SELECT DISTINCT sn.id, sn.title, sn.publisher, sn.published_at
-      FROM stock_news sn
-      LEFT JOIN news_keyword_map nkm ON sn.id = nkm.news_id
-      LEFT JOIN keywords k ON nkm.keyword_id = k.id
-      WHERE sn.published_at IS NOT NULL
-        AND (:keyword IS NULL OR k.name = :keyword)
-      ORDER BY sn.published_at DESC
-      LIMIT :limit OFFSET :offset
-      """, nativeQuery = true)
-  List<Object[]> findNewsWithOptionalKeyword(
+  // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 조회 (URL 기준 중복 제거)
+  @Query("""
+      SELECT sn FROM StockNews sn
+      WHERE sn.publishedAt IS NOT NULL
+        AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
+        AND sn.id IN (SELECT nkm.id.newsId FROM NewsKeywordMap nkm
+                       JOIN Keyword k ON nkm.id.keywordId = k.id
+                       WHERE k.name = :keyword)
+      ORDER BY sn.publishedAt DESC
+      """)
+  List<StockNews> findNewsByKeyword(
       @Param("keyword") String keyword,
-      @Param("limit") int limit,
-      @Param("offset") int offset);
+      org.springframework.data.domain.Pageable pageable);
 
-  // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (N+1 방지)
-  @Query(value = """
-      SELECT snm.news_id, s.name
-      FROM stock_news_map snm
-      JOIN stocks s ON snm.stock_id = s.id
-      WHERE snm.news_id IN :newsIds
-      """, nativeQuery = true)
+  // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (같은 URL의 모든 매핑 종목 포함, N+1 방지)
+  @Query("""
+      SELECT sn.id, s.name
+      FROM StockNews sn
+      JOIN StockNews sn2 ON sn2.url = sn.url
+      JOIN StockNewsMap snm ON snm.id.newsId = sn2.id
+      JOIN Stock s ON snm.id.stockId = s.id
+      WHERE sn.id IN :newsIds
+      GROUP BY sn.id, s.name
+      """)
   List<Object[]> findStockNamesByNewsIds(@Param("newsIds") List<Long> newsIds);
 
   // FS-STOCK-008: 뉴스 모달용 관련 종목 상세 조회
-  @Query(value = """
+  @Query("""
       SELECT s.id, s.name, s.ticker
-      FROM stock_news_map snm
-      JOIN stocks s ON snm.stock_id = s.id
-      WHERE snm.news_id = :newsId
-      """, nativeQuery = true)
+      FROM StockNewsMap snm
+      JOIN Stock s ON snm.id.stockId = s.id
+      WHERE snm.id.newsId = :newsId
+      """)
   List<Object[]> findRelatedStocksByNewsId(@Param("newsId") Long newsId);
-
-  @Query(value = """
-      SELECT DISTINCT sn.id AS id,
-             sn.title AS title,
-             sn.publisher AS publisher,
-             sn.published_at AS publishedAt
-      FROM stock_news sn
-      JOIN stock_news_map snm ON sn.id = snm.news_id
-      JOIN news_keyword_map nkm ON sn.id = nkm.news_id
-      WHERE snm.stock_id = :stockId
-        AND nkm.keyword_id IN :keywordIds
-        AND sn.published_at IS NOT NULL
-      ORDER BY sn.published_at DESC, sn.id DESC
-      LIMIT :limit
-      """, nativeQuery = true)
-  List<StockNewsSummaryProjection> findLatestNewsByStockIdAndKeywordIds(
-      @Param("stockId") Long stockId,
-      @Param("keywordIds") List<Long> keywordIds,
-      @Param("limit") int limit
-  );
 }

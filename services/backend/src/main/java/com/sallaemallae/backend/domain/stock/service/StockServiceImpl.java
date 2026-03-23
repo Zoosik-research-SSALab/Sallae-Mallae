@@ -32,8 +32,8 @@ import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockRequestNormalizer;
 import com.sallaemallae.backend.domain.news.repository.KeywordRepository;
 import com.sallaemallae.backend.domain.news.repository.KeywordRepository.KeywordSummaryProjection;
-import com.sallaemallae.backend.domain.news.repository.StockNewsRepository;
-import com.sallaemallae.backend.domain.news.repository.StockNewsRepository.StockNewsSummaryProjection;
+import com.sallaemallae.backend.domain.stock.repository.StockNewsQueryRepository;
+import com.sallaemallae.backend.domain.stock.repository.StockNewsQueryRepository.StockNewsSummaryProjection;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -65,7 +65,7 @@ public class StockServiceImpl implements StockService {
   private final StockAnnouncementRepository stockAnnouncementRepository;
   private final StockDividendYieldSnapshotRepository stockDividendYieldSnapshotRepository;
   private final KeywordRepository keywordRepository;
-  private final StockNewsRepository stockNewsRepository;
+  private final StockNewsQueryRepository stockNewsQueryRepository;
 
   @Override
   public Long resolveStockId(String ticker) {
@@ -183,7 +183,7 @@ public class StockServiceImpl implements StockService {
         .toList();
 
     List<Long> keywordIds = keywords.stream().map(KeywordItem::id).toList();
-    List<NewsItem> news = keywordIds.isEmpty() ? List.of() : stockNewsRepository
+    List<NewsItem> news = keywordIds.isEmpty() ? List.of() : stockNewsQueryRepository
         .findLatestNewsByStockIdAndKeywordIds(stockId, keywordIds, KEYWORD_NEWS_LIMIT)
         .stream()
         .map(this::toNewsItem)
