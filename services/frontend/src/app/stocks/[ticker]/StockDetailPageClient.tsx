@@ -30,8 +30,9 @@ export default function StockDetailPageClient({ ticker }: Props) {
   const financialsQuery = useStockFinancialsQuery(ticker, financialType);
   const keywordsQuery = useStockKeywordsQuery(ticker);
   const announcementsQuery = useStockAnnouncementsQuery(ticker, 4, 0);
-  const chartPriceStream = useStockPriceStream(ticker, chartPeriod);
-  const minutePriceStream = useStockPriceStream(ticker, "1MIN", {
+  const stockId = overviewQuery.data?.id;
+  const chartPriceStream = useStockPriceStream(ticker, stockId, chartPeriod);
+  const minutePriceStream = useStockPriceStream(ticker, stockId, "1MIN", {
     enabled: chartPeriod !== "1MIN",
   });
 

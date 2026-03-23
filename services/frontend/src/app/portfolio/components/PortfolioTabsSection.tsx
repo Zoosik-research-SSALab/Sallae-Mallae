@@ -211,6 +211,16 @@ function MobileTradeCards({ items }: { items: PortfolioTodayTrade[] }) {
   ));
 }
 
+function EmptyTradeState() {
+  return (
+    <div className="flex min-h-[240px] items-center justify-center rounded-3xl bg-[color:var(--color-bg-secondary)] px-6 py-10 text-center outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
+      <p className="text-sm font-semibold leading-5 text-[color:var(--color-text-secondary)] md:text-base md:leading-6">
+        오늘 매매 내역이 없습니다.
+      </p>
+    </div>
+  );
+}
+
 function MonthlyReturnBoard({ items }: { items: PortfolioMonthlyReturn[] }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -320,15 +330,19 @@ export default function PortfolioTabsSection({ holdings, todayTrades, monthlyRet
       ) : null}
 
       {activeTab === "todayTrades" ? (
-        <>
-          <div className="hidden border-b border-[color:var(--color-border-secondary)] lg:block">
-            <TradeRows items={todayTrades} />
-          </div>
+        todayTrades.length > 0 ? (
+          <>
+            <div className="hidden border-b border-[color:var(--color-border-secondary)] lg:block">
+              <TradeRows items={todayTrades} />
+            </div>
 
-          <div className="border-b border-[color:var(--color-border-secondary)] lg:hidden">
-            <MobileTradeCards items={todayTrades} />
-          </div>
-        </>
+            <div className="border-b border-[color:var(--color-border-secondary)] lg:hidden">
+              <MobileTradeCards items={todayTrades} />
+            </div>
+          </>
+        ) : (
+          <EmptyTradeState />
+        )
       ) : null}
 
       {activeTab === "monthlyReturns" ? <MonthlyReturnBoard items={monthlyReturns} /> : null}

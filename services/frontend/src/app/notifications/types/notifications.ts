@@ -16,6 +16,7 @@ export type NotificationItem = {
 
 export type NotificationListPayload = {
   notifications: NotificationItem[];
+  hasMore: boolean;
 };
 
 export type NotificationSettings = {

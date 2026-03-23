@@ -1,6 +1,7 @@
 import type { StockChartPeriod, StockPricePoint } from "@/app/stocks/types/stockDetail";
 import { getMockStockPrices } from "@/app/stocks/utils/mockStockDetailData";
-import { apiFetch, connectSse } from "@/shared/lib/apiClient";
+import { apiFetch, connectSse, resolveApiUrl } from "@/shared/lib/apiClient";
+import { camelizeKeys } from "@/shared/utils/case";
 
 type StockPriceApiPoint = {
   timestamp?: string | null;
@@ -43,6 +44,10 @@ function shouldUseMockApi() {
 
   const raw = process.env.NEXT_PUBLIC_API_MOCKING?.trim().toLowerCase();
   return raw !== "false" && raw !== "disabled";
+}
+
+export function isStockPriceMockApiEnabled() {
+  return shouldUseMockApi();
 }
 
 function mapPricePoint(point: StockPriceApiPoint): StockPricePoint | null {
@@ -109,23 +114,80 @@ function normalizePricePage(payload: StockPricesApiPayload, period: StockChartPe
   };
 }
 
-function getCandleType(period: StockChartPeriod) {
-  switch (period) {
-    case "1MIN":
-      return "MINUTE";
-    case "1D":
-      return "DAILY";
-    case "1W":
-      return "WEEKLY";
-    case "1M":
-    case "3M":
-      return "MONTHLY";
-    case "1Y":
-    case "3Y":
-      return "YEARLY";
-    default:
-      return "DAILY";
+function parseSseEventBlock<TPayload>(eventBlock: string) {
+  const lines = eventBlock.split("\n");
+  const dataLines: string[] = [];
+
+  for (const line of lines) {
+    if (!line || line.startsWith(":")) {
+      continue;
+    }
+
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
   }
+
+  const data = dataLines.join("\n");
+  if (!data) {
+    return null;
+  }
+
+  return camelizeKeys<TPayload>(JSON.parse(data) as unknown);
+}
+
+async function readFirstSseMessage<TPayload>(url: string) {
+  const response = await fetch(resolveApiUrl(url), {
+    method: "GET",
+    headers: {
+      Accept: "text/event-stream",
+    },
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`SSE request failed: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      buffer = `${buffer}${decoder.decode(value, { stream: true })}`.replace(/\r\n/g, "\n");
+      const eventBlocks = buffer.split("\n\n");
+      buffer = eventBlocks.pop() ?? "";
+
+      for (const eventBlock of eventBlocks) {
+        const payload = parseSseEventBlock<TPayload>(eventBlock);
+
+        if (payload) {
+          await reader.cancel();
+          return payload;
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  throw new Error("차트 데이터를 불러오지 못했습니다.");
+}
+
+function getPriceStreamPath(stockId: number, period: StockChartPeriod) {
+  const query = new URLSearchParams({
+    period,
+  });
+
+  return `/api/stream/stocks/${stockId}/prices?${query.toString()}`;
 }
 
 function getMockPricePage(ticker: string, period: StockChartPeriod): StockPricePage {
@@ -138,22 +200,26 @@ function getMockPricePage(ticker: string, period: StockChartPeriod): StockPriceP
   };
 }
 
-export async function fetchStockPricePage(ticker: string, period: StockChartPeriod, cursor?: string | null) {
+export async function fetchStockPricePage(
+  ticker: string,
+  stockId: number | null | undefined,
+  period: StockChartPeriod,
+  cursor?: string | null,
+) {
   if (shouldUseMockApi()) {
     return getMockPricePage(ticker, period);
   }
 
-  const query = new URLSearchParams({
-    candleType: getCandleType(period),
-  });
-
-  if (cursor) {
-    query.set("cursor", cursor);
+  if (!stockId) {
+    throw new Error("종목 정보를 불러오는 중입니다.");
   }
 
-  const payload = await apiFetch<StockPricesApiPayload>(`/api/stream/stocks/${ticker}/prices?${query.toString()}`, {
-    cache: "no-store",
-  });
+  const streamPath = getPriceStreamPath(stockId, period);
+  const payload = cursor
+    ? await apiFetch<StockPricesApiPayload>(`${streamPath}&cursor=${encodeURIComponent(cursor)}`, {
+        cache: "no-store",
+      })
+    : await readFirstSseMessage<StockPricesApiPayload>(streamPath);
 
   if (!isStockPriceArrayPayload(payload)) {
     throw new Error("차트 데이터를 불러오지 못했습니다.");
@@ -162,7 +228,11 @@ export async function fetchStockPricePage(ticker: string, period: StockChartPeri
   return normalizePricePage(payload, period);
 }
 
-export function subscribeMinutePriceStream(ticker: string, handlers: StockMinuteStreamHandlers) {
+export function subscribeMinutePriceStream(
+  ticker: string,
+  stockId: number | null | undefined,
+  handlers: StockMinuteStreamHandlers,
+) {
   if (shouldUseMockApi()) {
     const emitSnapshot = () => {
       handlers.onSnapshot({
@@ -178,7 +248,11 @@ export function subscribeMinutePriceStream(ticker: string, handlers: StockMinute
     };
   }
 
-  return connectSse<StockPricesApiPayload | StockPriceApiPoint>(`/api/stream/stocks/${ticker}/prices/stream?candleType=MINUTE`, {
+  if (!stockId) {
+    return () => {};
+  }
+
+  return connectSse<StockPricesApiPayload | StockPriceApiPoint>(getPriceStreamPath(stockId, "1MIN"), {
     onMessage(payload) {
       if (isStockPriceArrayPayload(payload)) {
         const page = normalizePricePage(payload, "1MIN");

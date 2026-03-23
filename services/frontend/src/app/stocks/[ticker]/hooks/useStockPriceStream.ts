@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StockChartPeriod, StockPricePoint, StockPricesPayload } from "@/app/stocks/types/stockDetail";
-import { fetchStockPricePage, subscribeMinutePriceStream } from "../api/connectStockPriceStream";
+import {
+  fetchStockPricePage,
+  isStockPriceMockApiEnabled,
+  subscribeMinutePriceStream,
+} from "../api/connectStockPriceStream";
 
 type UseStockPriceStreamOptions = {
   enabled?: boolean;
@@ -31,13 +35,13 @@ function mergePrices(existing: StockPricePoint[], incoming: StockPricePoint[]) {
   return Array.from(priceMap.values()).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
-async function fetchAllYearlyPages(ticker: string) {
+async function fetchAllYearlyPages(ticker: string, stockId: number | null | undefined) {
   let cursor: string | null = null;
   let hasMore = true;
   let prices: StockPricePoint[] = [];
 
   while (hasMore) {
-    const page = await fetchStockPricePage(ticker, "1Y", cursor);
+    const page = await fetchStockPricePage(ticker, stockId, "1Y", cursor);
     prices = mergePrices(prices, page.prices);
     hasMore = page.hasMore;
     cursor = page.nextCursor;
@@ -56,6 +60,7 @@ async function fetchAllYearlyPages(ticker: string) {
 
 export function useStockPriceStream(
   ticker: string,
+  stockId: number | null | undefined,
   period: StockChartPeriod,
   options: UseStockPriceStreamOptions = {},
 ): StockPriceStreamState {
@@ -69,7 +74,7 @@ export function useStockPriceStream(
   const isFetchingMoreRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || !ticker) {
+    if (!enabled || !ticker || (!isStockPriceMockApiEnabled() && !stockId)) {
       setData(initialPayload);
       setIsLoading(false);
       setIsFetchingMore(false);
@@ -106,13 +111,16 @@ export function useStockPriceStream(
         nextCursorRef.current = null;
         isFetchingMoreRef.current = false;
 
-        const page = period === "1Y" ? await fetchAllYearlyPages(ticker) : await fetchStockPricePage(ticker, period);
+        const page =
+          period === "1Y"
+            ? await fetchAllYearlyPages(ticker, stockId)
+            : await fetchStockPricePage(ticker, stockId, period);
         applyPage(page.prices, page.hasMore, page.nextCursor);
 
         if (period === "1MIN") {
           const refreshMinuteSnapshot = async () => {
             try {
-              const snapshot = await fetchStockPricePage(ticker, "1MIN");
+              const snapshot = await fetchStockPricePage(ticker, stockId, "1MIN");
               applyPage(snapshot.prices, false, null);
             } catch {
               if (!disposed) {
@@ -121,7 +129,7 @@ export function useStockPriceStream(
             }
           };
 
-          unsubscribe = subscribeMinutePriceStream(ticker, {
+          unsubscribe = subscribeMinutePriceStream(ticker, stockId, {
             onSnapshot(payload) {
               applyPage(payload.prices, false, null);
             },
@@ -164,7 +172,7 @@ export function useStockPriceStream(
         clearInterval(fallbackPollingTimer);
       }
     };
-  }, [enabled, period, ticker]);
+  }, [enabled, period, stockId, ticker]);
 
   const loadMore = useCallback(() => {
     if (!enabled || period === "1MIN" || isFetchingMoreRef.current || !hasMoreRef.current || !nextCursorRef.current) {
@@ -176,7 +184,7 @@ export function useStockPriceStream(
 
     void (async () => {
       try {
-        const page = await fetchStockPricePage(ticker, period, nextCursorRef.current);
+        const page = await fetchStockPricePage(ticker, stockId, period, nextCursorRef.current);
 
         setData((prev) => ({
           prices: mergePrices(page.prices, prev.prices),
@@ -191,7 +199,7 @@ export function useStockPriceStream(
         setIsFetchingMore(false);
       }
     })();
-  }, [enabled, period, ticker]);
+  }, [enabled, period, stockId, ticker]);
 
   return useMemo(
     () => ({
