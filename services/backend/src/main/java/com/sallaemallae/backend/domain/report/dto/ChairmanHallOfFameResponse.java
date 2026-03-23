@@ -9,8 +9,8 @@ import java.util.List;
 public record ChairmanHallOfFameResponse(
     @Schema(description = "예측 적중률 TOP 5")
     List<HitRateItem> hitRateTop5,
-    @Schema(description = "누적 수익률 TOP 10")
-    List<ReturnMetricItem> cumulativeReturnTop10,
+    @Schema(description = "누적 수익률 TOP 5")
+    List<ReturnMetricItem> cumulativeReturnTop5,
     @Schema(description = "최대 단일 수익률 TOP 5")
     List<ReturnMetricItem> maxSingleReturnTop5,
     @Schema(description = "매매당 평균 수익률 TOP 5")

@@ -90,6 +90,7 @@ public class SecurityConfig {
             // SSE 스트림 엔드포인트 (인증 불필요)
             .requestMatchers("/api/stream/main/**").permitAll()
             .requestMatchers("/api/internal/kis/**").hasRole("ADMIN")
+            .requestMatchers("/admin/backfill/**").permitAll()
 
             // Swagger / API docs (개발용)
             .requestMatchers(

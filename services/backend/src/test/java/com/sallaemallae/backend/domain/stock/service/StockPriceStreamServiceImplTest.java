@@ -44,21 +44,19 @@ class StockPriceStreamServiceImplTest {
   }
 
   @Test
-  void getLatestPrices_usesDailyWindowForOneWeek() {
-    StockPricesResponse response = stockPriceStreamService.getLatestPrices(1L, "1W");
+  void getLatestPrices_returnsDailyCandlesForDailyType() {
+    StockPricesResponse response = stockPriceStreamService.getLatestPrices(1L, "DAILY", null);
 
-    assertThat(response.prices()).hasSize(7);
-    assertThat(response.prices().getFirst().timestamp())
-        .isEqualTo(LocalDate.of(2026, 3, 2).atStartOfDay(ZoneOffset.ofHours(9)).toOffsetDateTime());
-    assertThat(response.prices().getLast().timestamp())
-        .isEqualTo(LocalDate.of(2026, 3, 8).atStartOfDay(ZoneOffset.ofHours(9)).toOffsetDateTime());
+    assertThat(response.prices()).hasSize(8);
+    assertThat(response.candleType()).isEqualTo("DAILY");
   }
 
   @Test
-  void getLatestPrices_usesMinuteWindowForOneDayPeriod() {
-    StockPricesResponse response = stockPriceStreamService.getLatestPrices(1L, "1D");
+  void getLatestPrices_returnsMinuteCandlesForMinuteType() {
+    StockPricesResponse response = stockPriceStreamService.getLatestPrices(1L, "MINUTE", null);
 
     assertThat(response.prices()).hasSize(3);
+    assertThat(response.candleType()).isEqualTo("MINUTE");
     assertThat(response.prices().getFirst().timestamp())
         .isEqualTo(OffsetDateTime.parse("2026-03-12T09:00:00+09:00"));
     assertThat(response.prices().getLast().close()).isEqualTo(70300);
@@ -139,9 +137,25 @@ class StockPriceStreamServiceImplTest {
             created_at TIMESTAMP WITH TIME ZONE
         )
         """);
+
+    jdbcTemplate.execute("""
+        CREATE TABLE IF NOT EXISTS stock_prices_yearly (
+            id BIGINT PRIMARY KEY,
+            stock_id BIGINT NOT NULL,
+            trade_year INT NOT NULL,
+            open_price INT,
+            high_price INT,
+            low_price INT,
+            close_price INT NOT NULL,
+            volume BIGINT,
+            fluctuation_rate REAL,
+            created_at TIMESTAMP WITH TIME ZONE
+        )
+        """);
   }
 
   private void clearTables() {
+    jdbcTemplate.execute("DELETE FROM stock_prices_yearly");
     jdbcTemplate.execute("DELETE FROM stock_prices_monthly");
     jdbcTemplate.execute("DELETE FROM stock_prices_weekly");
     jdbcTemplate.execute("DELETE FROM stock_prices_daily");

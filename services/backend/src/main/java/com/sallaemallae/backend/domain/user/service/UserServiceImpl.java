@@ -6,8 +6,12 @@ import com.sallaemallae.backend.domain.auth.exception.AuthErrorCode;
 import com.sallaemallae.backend.domain.auth.repository.PasswordHistoryRepository;
 import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import com.sallaemallae.backend.domain.auth.service.PasswordValidator;
+import com.sallaemallae.backend.domain.signal.repository.SignalQueryRepository;
+import com.sallaemallae.backend.domain.signal.repository.SignalQueryRepository.SignalCandidateRow;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
+import com.sallaemallae.backend.domain.stock.service.StockQuoteCacheService;
+import com.sallaemallae.backend.infra.kis.stock.KisQuoteData;
 import com.sallaemallae.backend.domain.user.dto.request.UserEmailOptInRequest;
 import com.sallaemallae.backend.domain.user.dto.request.UserPasswordUpdateRequest;
 import com.sallaemallae.backend.domain.user.dto.request.UserProfileUpdateRequest;
@@ -50,6 +54,8 @@ public class UserServiceImpl implements UserService {
   private final WatchlistRepository watchlistRepository;
   private final StockRepository stockRepository;
   private final FileStorageService fileStorageService;
+  private final StockQuoteCacheService stockQuoteCacheService;
+  private final SignalQueryRepository signalQueryRepository;
 
   private static final int WATCHLIST_MAX_SIZE = 50;
 
@@ -59,7 +65,7 @@ public class UserServiceImpl implements UserService {
     List<UserWatchlist> watchlistItems = watchlistRepository.findAllByIdUserId(userId);
 
     if (watchlistItems.isEmpty()) {
-      return new WatchlistListResponse(0, List.of());
+      return new WatchlistListResponse(0, 0, 0, 0, List.of());
     }
 
     List<Long> stockIds = watchlistItems.stream()
@@ -69,21 +75,62 @@ public class UserServiceImpl implements UserService {
     Map<Long, Stock> stockMap = stockRepository.findAllById(stockIds).stream()
         .collect(Collectors.toMap(Stock::getId, Function.identity()));
 
+    // Redis 캐시에서 가격 조회 (ticker → KisQuoteData)
+    List<String> tickers = stockIds.stream()
+        .filter(stockMap::containsKey)
+        .map(id -> stockMap.get(id).getTicker())
+        .toList();
+    Map<String, KisQuoteData> quoteMap = stockQuoteCacheService.getAll("J", tickers);
+
+    // AI 시그널 조회 (stockId → SignalCandidateRow)
+    Map<Long, SignalCandidateRow> signalMap = signalQueryRepository.findLatestSignalCandidates()
+        .stream()
+        .collect(Collectors.toMap(SignalCandidateRow::stockId, Function.identity(), (a, b) -> a));
+
     List<WatchlistItemResponse> items = watchlistItems.stream()
         .filter(item -> stockMap.containsKey(item.getId().getStockId()))
         .map(item -> {
-          Stock stock = stockMap.get(item.getId().getStockId());
+          Long stockId = item.getId().getStockId();
+          Stock stock = stockMap.get(stockId);
+
+          // 가격 정보: Redis 캐시 우선
+          KisQuoteData quote = quoteMap.get(stock.getTicker());
+          Integer price = quote != null ? quote.currentPrice() : null;
+          Float fluctuationRate = quote != null ? quote.changeRate() : null;
+
+          // AI 시그널 정보
+          SignalCandidateRow signal = signalMap.get(stockId);
+          String signalType = signal != null ? signal.signal() : null;
+          Integer confidence = signal != null && signal.confidence() != null
+              ? Math.round(signal.confidence() * 100) : null;
+
+          // 가격 fallback: 시그널 쿼리에 포함된 일봉 종가
+          if (price == null && signal != null && signal.price() != null) {
+            price = signal.price();
+            fluctuationRate = signal.fluctuationRate();
+          }
+
           return new WatchlistItemResponse(
-              item.getId().getStockId(),
+              stockId,
               stock.getTicker(),
               stock.getName(),
               item.isNotiEnabled(),
+              price,
+              fluctuationRate,
+              signalType,
+              confidence,
               item.getCreatedAt()
           );
         })
         .toList();
 
-    return new WatchlistListResponse(items.size(), items);
+    long buyCount = items.stream().filter(i -> "BUY".equals(i.signal())).count();
+    long sellCount = items.stream().filter(i -> "SELL".equals(i.signal())).count();
+    long upCount = items.stream()
+        .filter(i -> i.fluctuationRate() != null && i.fluctuationRate() > 0)
+        .count();
+
+    return new WatchlistListResponse(items.size(), buyCount, sellCount, upCount, items);
   }
 
   @Override

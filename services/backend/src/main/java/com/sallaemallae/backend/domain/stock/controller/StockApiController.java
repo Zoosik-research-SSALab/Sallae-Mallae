@@ -1,8 +1,14 @@
 package com.sallaemallae.backend.domain.stock.controller;
 
 import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementDetailResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockDataPipelinePreviewResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockFinancialsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockIndicatorsResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockKeywordsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockPeriodPriceResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockQuoteResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinutePipelinePreviewResponse;
@@ -76,13 +82,82 @@ public class StockApiController {
     ));
   }
 
-  @Operation(summary = "Get stock basic info", description = "Returns the basic stock info for the given stockId.")
-  @GetMapping("/{stockId}")
+  @Operation(summary = "Get stock basic info", description = "Returns the basic stock info for the given ticker.")
+  @GetMapping("/{ticker}")
   public ApiResponse<StockBasicInfoResponse> getStockBasicInfo(
-      @Parameter(description = "Stock ID", example = "1")
-      @PathVariable Long stockId
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker
   ) {
+    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockBasicInfo(stockId));
+  }
+
+  @Operation(summary = "Get stock overview", description = "Returns stock overview including latest price and 52-week range.")
+  @GetMapping("/{ticker}/overview")
+  public ApiResponse<StockOverviewResponse> getStockOverview(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker
+  ) {
+    Long stockId = stockService.resolveStockId(ticker);
+    return ApiResponse.success(stockService.getStockOverview(stockId));
+  }
+
+  @Operation(summary = "Get stock indicators", description = "Returns valuation, earnings and dividend indicators for the given ticker.")
+  @GetMapping("/{ticker}/indicators")
+  public ApiResponse<StockIndicatorsResponse> getStockIndicators(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker
+  ) {
+    Long stockId = stockService.resolveStockId(ticker);
+    return ApiResponse.success(stockService.getStockIndicators(stockId));
+  }
+
+  @Operation(summary = "Get stock financials", description = "Returns yearly or quarterly financials for the given ticker.")
+  @GetMapping("/{ticker}/financials")
+  public ApiResponse<StockFinancialsResponse> getStockFinancials(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Financial type: YEARLY or QUARTERLY", example = "YEARLY")
+      @RequestParam(defaultValue = "YEARLY") String type
+  ) {
+    Long stockId = stockService.resolveStockId(ticker);
+    return ApiResponse.success(stockService.getStockFinancials(stockId, type));
+  }
+
+  @Operation(summary = "Get stock keywords", description = "Returns top keywords and related news for the given ticker.")
+  @GetMapping("/{ticker}/keywords")
+  public ApiResponse<StockKeywordsResponse> getStockKeywords(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker
+  ) {
+    Long stockId = stockService.resolveStockId(ticker);
+    return ApiResponse.success(stockService.getStockKeywords(stockId));
+  }
+
+  @Operation(summary = "Get stock announcements", description = "Returns latest announcements for the given ticker.")
+  @GetMapping("/{ticker}/announcements")
+  public ApiResponse<StockAnnouncementsResponse> getStockAnnouncements(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Number of announcements to return", example = "4")
+      @RequestParam(defaultValue = "4") int limit,
+      @Parameter(description = "Offset for pagination", example = "0")
+      @RequestParam(defaultValue = "0") int offset
+  ) {
+    Long stockId = stockService.resolveStockId(ticker);
+    return ApiResponse.success(stockService.getStockAnnouncements(stockId, limit, offset));
+  }
+
+  @Operation(summary = "Get stock announcement detail", description = "Returns announcement detail for the given ticker and announcementId.")
+  @GetMapping("/{ticker}/announcements/{announcementId}")
+  public ApiResponse<StockAnnouncementDetailResponse> getStockAnnouncement(
+      @Parameter(description = "Stock ticker", example = "005930")
+      @PathVariable String ticker,
+      @Parameter(description = "Announcement ID", example = "10")
+      @PathVariable Long announcementId
+  ) {
+    Long stockId = stockService.resolveStockId(ticker);
+    return ApiResponse.success(stockService.getStockAnnouncement(stockId, announcementId));
   }
 
   @Operation(summary = "Get stock quote", description = "Returns the latest KIS quote for the given ticker.")
@@ -116,18 +191,12 @@ public class StockApiController {
     );
   }
 
-  @Operation(summary = "Preview stock storage pipeline", description = "Returns DB-ready preview data without persisting it.")
   @GetMapping("/{ticker}/pipeline-preview")
   public ApiResponse<StockDataPipelinePreviewResponse> previewPipeline(
-      @Parameter(description = "Stock ticker", example = "005930")
       @PathVariable String ticker,
-      @Parameter(description = "Market code", example = "J")
       @RequestParam(defaultValue = "J") String market,
-      @Parameter(description = "Period code", example = "D")
       @RequestParam(defaultValue = "D") String period,
-      @Parameter(description = "Start date (yyyyMMdd)", example = "20260310")
       @RequestParam String startDate,
-      @Parameter(description = "End date (yyyyMMdd)", example = "20260317")
       @RequestParam String endDate,
       @RequestParam(defaultValue = "true") boolean adjusted
   ) {
@@ -159,12 +228,9 @@ public class StockApiController {
     return ApiResponse.success(stockRealtimeMinuteService.getSnapshot(ticker, market, limit));
   }
 
-  @Operation(summary = "Preview realtime minute storage pipeline", description = "Returns DB-ready realtime minute preview data without persisting it.")
   @GetMapping("/{ticker}/realtime/pipeline-preview")
   public ApiResponse<StockRealtimeMinutePipelinePreviewResponse> previewRealtimePipeline(
-      @Parameter(description = "Stock ticker", example = "005930")
       @PathVariable String ticker,
-      @Parameter(description = "Market code", example = "J")
       @RequestParam(defaultValue = "J") String market,
       @RequestParam(defaultValue = "5") int limit
   ) {
