@@ -19,10 +19,8 @@ Python 3.10+ 호환.
 from __future__ import annotations
 
 import argparse
-import os
 
 import pandas as pd
-import psycopg2
 from psycopg2.extras import execute_values
 
 from config import PROCESSED_FUNDAMENTAL_PATH
@@ -99,16 +97,17 @@ def transform_for_db(df: pd.DataFrame, ticker_map: dict[str, int]) -> pd.DataFra
 def _has_unique_constraint(conn) -> bool:
     """stock_financials에 (stock_id, report_year, report_quarter) UNIQUE 제약이 있는지 확인."""
     cur = conn.cursor()
-    cur.execute("""
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'stock_financials'::regclass
-          AND contype = 'u'
-          AND pg_get_constraintdef(oid) LIKE '%stock_id%report_year%report_quarter%'
-        LIMIT 1
-    """)
-    result = cur.fetchone() is not None
-    cur.close()
-    return result
+    try:
+        cur.execute("""
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'stock_financials'::regclass
+              AND contype = 'u'
+              AND pg_get_constraintdef(oid) LIKE '%stock_id%report_year%report_quarter%'
+            LIMIT 1
+        """)
+        return cur.fetchone() is not None
+    finally:
+        cur.close()
 
 
 def load_to_db(conn, df: pd.DataFrame) -> int:
@@ -127,8 +126,12 @@ def load_to_db(conn, df: pd.DataFrame) -> int:
 
     cur = conn.cursor()
 
-    # NaN → None 변환
-    records = df.where(df.notna(), None).values.tolist()
+    # NaN → None 변환 (dict 리스트로 직접 변환)
+    col_names = df.columns.tolist()
+    dict_records = [
+        {col: (None if pd.isna(val) else val) for col, val in zip(col_names, row)}
+        for row in df.values.tolist()
+    ]
 
     use_upsert = _has_unique_constraint(conn)
 
@@ -171,13 +174,6 @@ def load_to_db(conn, df: pd.DataFrame) -> int:
         " %(revenue)s::BIGINT, %(operating_profit)s::BIGINT, %(net_income)s::BIGINT,"
         " %(operating_cash_flow)s::BIGINT, %(per)s::REAL, %(pbr)s::REAL, %(roe)s::REAL)"
     )
-
-    # records를 dict 리스트로 변환
-    col_names = df.columns.tolist()
-    dict_records = [
-        {col: (None if pd.isna(val) else val) for col, val in zip(col_names, row)}
-        for row in records
-    ]
 
     try:
         execute_values(cur, sql, dict_records, template=template)

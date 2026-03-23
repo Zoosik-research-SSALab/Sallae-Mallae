@@ -382,7 +382,7 @@ def run_full_pipeline(
 
     Args:
         mode:            "initial" 또는 "incremental"
-        skip_features:   True 이면 피처 엔지니어링 건너뜀
+        skip_features:   True 이면 피처 엔지니어링 및 DB 적재 건너뜀 (수집만 실행)
         skip_validation: True 이면 품질 검증 건너뜀
         use_universe:    True 이면 유니버스 파일(편출 종목 포함)로 OHLCV 수집
         ensure_financial: True 이면 rclone DOWN 단계 후 재무 데이터 볼륨 확인
@@ -597,7 +597,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-features",
         action="store_true",
-        help="피처 엔지니어링 단계를 건너뜁니다",
+        help="피처 엔지니어링 및 DB 적재 단계를 건너뜁니다 (수집만 실행)",
     )
     parser.add_argument(
         "--skip-validation",
