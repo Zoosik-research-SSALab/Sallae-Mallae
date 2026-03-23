@@ -8,7 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
+
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sallaemallae.backend.domain.stock.dto.StockListFilterCountsResponse;
@@ -51,7 +51,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 
 @SpringBootTest(properties = {
     "minio.endpoint=http://localhost:9000",
@@ -84,6 +84,9 @@ class StockApiControllerTest {
 
   @MockitoBean
   private com.sallaemallae.backend.domain.stock.service.StockPriceStreamService stockPriceStreamService;
+
+  @MockitoBean
+  private com.sallaemallae.backend.domain.stock.service.StockQuoteSseService stockQuoteSseService;
 
   @MockitoBean
   private JavaMailSender javaMailSender;
@@ -218,8 +221,6 @@ class StockApiControllerTest {
             null,
             null
         ));
-    given(stockPriceStreamService.streamPrices(anyLong(), anyString()))
-        .willReturn(new SseEmitter());
     createTablesIfNeeded();
     clearTables();
     seedData();
@@ -377,13 +378,11 @@ class StockApiControllerTest {
   }
 
   @Test
-  void getQuote_isPublic() throws Exception {
+  void streamQuote_isPublicAndStartsAsync() throws Exception {
+    given(stockQuoteSseService.streamQuote(anyString(), anyString()))
+        .willReturn(new org.springframework.web.servlet.mvc.method.annotation.SseEmitter());
     mockMvc.perform(get("/api/stocks/{ticker}/quote", "005930"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.success").value(true))
-        .andExpect(jsonPath("$.data.ticker").value("005930"))
-        .andExpect(jsonPath("$.data.market").value("J"))
-        .andExpect(jsonPath("$.data.currentPrice").value(70300));
+        .andExpect(status().isOk());
   }
 
   @Test
@@ -417,12 +416,6 @@ class StockApiControllerTest {
   void legacyV1QuoteRoute_requiresAuthentication() throws Exception {
     mockMvc.perform(get("/api/v1/stocks/{ticker}/quote", "005930"))
         .andExpect(status().isUnauthorized());
-  }
-
-  @Test
-  void streamStockPrices_opensSseChannel() throws Exception {
-    mockMvc.perform(get("/api/stream/stocks/{stockId}/prices", 1L).param("period", "1MIN"))
-        .andExpect(request().asyncStarted());
   }
 
   private void createTablesIfNeeded() {

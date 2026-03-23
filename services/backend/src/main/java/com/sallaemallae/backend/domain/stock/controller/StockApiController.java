@@ -15,6 +15,7 @@ import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinutePipelinePrev
 import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinuteSnapshotResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockRealtimeSubscriptionResponse;
 import com.sallaemallae.backend.domain.stock.service.StockMarketQueryService;
+import com.sallaemallae.backend.domain.stock.service.StockQuoteSseService;
 import com.sallaemallae.backend.domain.stock.service.StockRealtimeMinuteService;
 import com.sallaemallae.backend.domain.stock.service.StockService;
 import com.sallaemallae.backend.domain.stock.service.StockTopListService;
@@ -26,12 +27,14 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "Stock Detail", description = "Stock basic info and market data APIs")
 @SecurityRequirements
@@ -43,6 +46,7 @@ public class StockApiController {
   private final StockService stockService;
   private final StockTopListService stockTopListService;
   private final StockMarketQueryService stockMarketQueryService;
+  private final StockQuoteSseService stockQuoteSseService;
   private final StockRealtimeMinuteService stockRealtimeMinuteService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
 
@@ -160,15 +164,15 @@ public class StockApiController {
     return ApiResponse.success(stockService.getStockAnnouncement(stockId, announcementId));
   }
 
-  @Operation(summary = "[Internal] Get stock quote", description = "Returns the latest KIS quote for the given ticker. Internal use for data pipeline — frontend should use /api/stream/stocks/{ticker}/prices instead.", tags = {"Stock Internal"})
-  @GetMapping("/{ticker}/quote")
-  public ApiResponse<StockQuoteResponse> getQuote(
+  @Operation(summary = "Stream stock quote via SSE", description = "Realtime stock quote stream. Pushes StockQuoteResponse on every trade tick from KIS WebSocket.")
+  @GetMapping(value = "/{ticker}/quote", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public SseEmitter streamQuote(
       @Parameter(description = "Stock ticker", example = "005930")
       @PathVariable String ticker,
       @Parameter(description = "Market code", example = "J")
       @RequestParam(defaultValue = "J") String market
   ) {
-    return ApiResponse.success(stockMarketQueryService.getQuote(ticker, market));
+    return stockQuoteSseService.streamQuote(ticker, market);
   }
 
   @Operation(summary = "[Internal] Get period prices", description = "Returns KIS period price candles for the given ticker. Internal use for backfill pipeline — frontend should use /api/stream/stocks/{ticker}/prices instead.", tags = {"Stock Internal"})

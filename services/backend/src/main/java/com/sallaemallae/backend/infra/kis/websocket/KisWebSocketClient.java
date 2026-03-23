@@ -20,10 +20,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -44,6 +46,7 @@ public class KisWebSocketClient {
   private final KisRealtimeMinuteCandleAggregator aggregator;
   private final HttpClient httpClient;
 
+  private final List<Consumer<List<KisRealtimeTradeTickData>>> tickListeners = new CopyOnWriteArrayList<>();
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
   private final AtomicBoolean connecting = new AtomicBoolean(false);
   private final AtomicBoolean connected = new AtomicBoolean(false);
@@ -73,6 +76,10 @@ public class KisWebSocketClient {
     this.httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
         .build();
+  }
+
+  public void addTickListener(Consumer<List<KisRealtimeTradeTickData>> listener) {
+    tickListeners.add(listener);
   }
 
   public CompletableFuture<KisWebSocketSubscriptionAck> subscribeDomesticTrade(String marketCode, String ticker) {
@@ -298,6 +305,13 @@ public class KisWebSocketClient {
         );
       }
       aggregator.acceptTicks(ticks);
+      for (Consumer<List<KisRealtimeTradeTickData>> listener : tickListeners) {
+        try {
+          listener.accept(ticks);
+        } catch (Exception e) {
+          log.warn("Tick listener failed.", e);
+        }
+      }
     }
   }
 
