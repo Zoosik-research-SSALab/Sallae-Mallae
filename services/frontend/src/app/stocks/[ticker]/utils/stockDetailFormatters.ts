@@ -22,6 +22,11 @@ export const financialTypeOptions = [
   { value: "QUARTERLY", label: "분기" },
 ] as const;
 
+const KOREAN_WON_PER_EOK = 100_000_000;
+const KOREAN_WON_PER_JO = 1_000_000_000_000;
+
+export type FinancialDisplayUnit = "조" | "억";
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -155,7 +160,7 @@ export function getInitialVisiblePointCount(period: StockChartPeriod, total: num
     case "1D":
       return Math.min(total, 120);
     case "1W":
-      return Math.min(total, 52);
+      return Math.min(total, 60);
     case "1M":
       return Math.min(total, 36);
     case "1Y":
@@ -240,53 +245,170 @@ export function getKoreanStockTickSize(price: number) {
   return 1_000;
 }
 
-export function formatChartAxisLabel(timestamp: string, period: StockChartPeriod) {
+function parseChartDate(timestamp: string) {
   const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function padTimeUnit(value: number) {
+  return value.toString().padStart(2, "0");
+}
+
+function getSeoulDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const readPart = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "00";
+
+  return {
+    year: Number(readPart("year")),
+    month: Number(readPart("month")),
+    day: Number(readPart("day")),
+    hour: Number(readPart("hour")),
+    minute: Number(readPart("minute")),
+  };
+}
+
+export function formatChartTooltipLabel(timestamp: string, period: StockChartPeriod) {
+  const date = parseChartDate(timestamp);
+
+  if (!date) {
+    return "-";
+  }
+
+  const parts = getSeoulDateParts(date);
 
   if (period === "1MIN") {
-    return new Intl.DateTimeFormat("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(date);
+    return `${padTimeUnit(parts.hour)}:${padTimeUnit(parts.minute)}`;
   }
 
   if (period === "1D" || period === "1W") {
-    return new Intl.DateTimeFormat("ko-KR", {
-      month: "numeric",
-      day: "numeric",
-    }).format(date);
+    return `${parts.year}.${parts.month}.${parts.day}`;
   }
 
   if (period === "1M" || period === "3M") {
-    return new Intl.DateTimeFormat("ko-KR", {
-      year: "2-digit",
-      month: "numeric",
-    }).format(date);
+    return `${parts.year}.${parts.month}`;
   }
 
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-  }).format(date);
+  return `${parts.year}`;
 }
 
-export function shouldShowChartLabel(index: number, total: number, period: StockChartPeriod) {
+export function formatChartAxisLabel(
+  timestamp: string,
+  period: StockChartPeriod,
+) {
+  const date = parseChartDate(timestamp);
+
+  if (!date) {
+    return "";
+  }
+
+  const parts = getSeoulDateParts(date);
+
+  if (period === "1MIN") {
+    return `${padTimeUnit(parts.hour)}:${padTimeUnit(parts.minute)}`;
+  }
+
+  if (period === "1D" || period === "1W") {
+    return parts.month === 1 ? `${parts.year}년` : `${parts.month}월`;
+  }
+
+  if (period === "1M" || period === "3M" || period === "1Y" || period === "3Y") {
+    return `${parts.year}년`;
+  }
+
+  return "";
+}
+
+export function shouldShowChartLabel(
+  index: number,
+  total: number,
+  period: StockChartPeriod,
+  timestamps: string[] = [],
+  visibleRange?: {
+    startValue: number;
+    endValue: number;
+  } | null,
+) {
   const maxLabelCounts: Record<StockChartPeriod, number> = {
-    "1MIN": 5,
-    "1D": 6,
-    "1W": 6,
-    "1M": 6,
-    "3M": 6,
-    "1Y": 6,
-    "3Y": 6,
+    "1MIN": 6,
+    "1D": 7,
+    "1W": 8,
+    "1M": 7,
+    "3M": 7,
+    "1Y": 7,
+    "3Y": 7,
   };
-  const interval = Math.max(1, Math.ceil((total - 1) / Math.max(1, maxLabelCounts[period] - 1)));
 
-  return index === 0 || index === total - 1 || index % interval === 0;
+  const visibleStart = Math.max(0, Math.min(total - 1, visibleRange?.startValue ?? 0));
+  const visibleEnd = Math.max(visibleStart, Math.min(total - 1, visibleRange?.endValue ?? total - 1));
+
+  if (index < visibleStart || index > visibleEnd) {
+    return false;
+  }
+
+  if ((period === "1M" || period === "3M") && timestamps.length > 0) {
+    const currentDate = parseChartDate(timestamps[index] ?? "");
+    const previousDate = index > visibleStart ? parseChartDate(timestamps[index - 1] ?? "") : null;
+
+    if (!currentDate) {
+      return false;
+    }
+
+    const currentYear = getSeoulDateParts(currentDate).year;
+    const previousYear = previousDate ? getSeoulDateParts(previousDate).year : null;
+
+    return index === visibleStart || currentYear !== previousYear;
+  }
+
+  const labelCount = Math.max(2, maxLabelCounts[period]);
+  const visibleTotal = visibleEnd - visibleStart + 1;
+
+  if (visibleTotal <= labelCount) {
+    return true;
+  }
+
+  const targetIndexes = new Set<number>();
+
+  for (let step = 0; step < labelCount; step += 1) {
+    const distributedIndex = visibleStart + Math.round((step * (visibleTotal - 1)) / (labelCount - 1));
+    targetIndexes.add(distributedIndex);
+  }
+
+  return targetIndexes.has(index);
 }
 
-export function formatFinancialValue(value: number) {
-  return value.toFixed(1);
+export function getFinancialDisplayUnit(values: Array<number | null | undefined>): FinancialDisplayUnit {
+  const finiteValues = values.filter((value): value is number => isFiniteNumber(value));
+  const maxAbsValue = finiteValues.reduce((max, value) => Math.max(max, Math.abs(value)), 0);
+
+  return maxAbsValue >= KOREAN_WON_PER_JO ? "조" : "억";
+}
+
+export function formatFinancialValue(
+  value: number | null | undefined,
+  unit: FinancialDisplayUnit = "조",
+) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
+  const divisor = unit === "조" ? KOREAN_WON_PER_JO : KOREAN_WON_PER_EOK;
+  const scaledValue = value / divisor;
+  const absScaledValue = Math.abs(scaledValue);
+  const digits = absScaledValue >= 100 ? 0 : absScaledValue >= 10 ? 1 : 2;
+
+  return scaledValue
+    .toFixed(digits)
+    .replace(/(\.\d*?[1-9])0+$/, "$1")
+    .replace(/\.0+$/, "");
 }
 
 export function formatVolume(value: number) {

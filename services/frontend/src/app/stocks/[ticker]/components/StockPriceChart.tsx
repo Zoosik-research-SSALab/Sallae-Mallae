@@ -6,6 +6,7 @@ import type { StockChartPeriod, StockPriceChartMode, StockPricePoint } from "@/a
 import { cn } from "@/shared/utils/cn";
 import {
   formatChartAxisLabel,
+  formatChartTooltipLabel,
   formatVolume,
   formatWon,
   getChartPriceRange,
@@ -28,6 +29,27 @@ type ZoomWindow = {
   startValue: number;
   endValue: number;
 };
+
+function toFiniteNumber(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getZoomWindowFromOption(chart: EChartsType | null) {
+  const dataZoomOptions = chart?.getOption()?.dataZoom;
+  const firstDataZoom = Array.isArray(dataZoomOptions) ? dataZoomOptions[0] : undefined;
+  const startValue = toFiniteNumber(firstDataZoom?.startValue);
+  const endValue = toFiniteNumber(firstDataZoom?.endValue);
+
+  if (startValue === null || endValue === null) {
+    return null;
+  }
+
+  return {
+    startValue,
+    endValue,
+  } satisfies ZoomWindow;
+}
 
 function getLoadMoreThreshold(period: StockChartPeriod) {
   switch (period) {
@@ -83,6 +105,8 @@ export default function StockPriceChart({
   const chartInstanceRef = useRef<EChartsType | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const zoomWindowRef = useRef<ZoomWindow | null>(null);
+  const dataLengthRef = useRef(0);
+  const isApplyingZoomRef = useRef(false);
   const previousMetaRef = useRef<{
     length: number;
     firstTimestamp: string | null;
@@ -101,6 +125,15 @@ export default function StockPriceChart({
   hasMoreRef.current = hasMore;
   isFetchingMoreRef.current = isFetchingMore;
   periodRef.current = period;
+
+  useEffect(() => {
+    zoomWindowRef.current = null;
+    previousMetaRef.current = {
+      length: 0,
+      firstTimestamp: null,
+      lastTimestamp: null,
+    };
+  }, [period]);
 
   useEffect(() => {
     let disposed = false;
@@ -126,19 +159,75 @@ export default function StockPriceChart({
           endValue?: number;
         };
         const detail = event.batch?.[0] ?? event;
-        const startValue = Number(detail.startValue ?? 0);
-        const endValue = Number(detail.endValue ?? 0);
+        const startValue = toFiniteNumber(detail.startValue);
+        const endValue = toFiniteNumber(detail.endValue);
+        const nextZoomWindow =
+          startValue !== null && endValue !== null
+            ? {
+                startValue,
+                endValue,
+              }
+            : getZoomWindowFromOption(chart) ?? zoomWindowRef.current;
 
-        zoomWindowRef.current = {
-          startValue,
-          endValue,
-        };
+        if (!nextZoomWindow) {
+          return;
+        }
+
+        const previousZoomWindow =
+          zoomWindowRef.current ?? {
+            startValue: 0,
+            endValue: Math.max(0, dataLengthRef.current - 1),
+          };
+        const previousSpan = previousZoomWindow.endValue - previousZoomWindow.startValue;
+        const nextSpan = nextZoomWindow.endValue - nextZoomWindow.startValue;
+
+        if (isApplyingZoomRef.current) {
+          isApplyingZoomRef.current = false;
+          zoomWindowRef.current = nextZoomWindow;
+          return;
+        }
+
+        if (dataLengthRef.current > 0 && nextSpan !== previousSpan) {
+          const anchoredZoomWindow = clampZoomWindow(
+            {
+              startValue: dataLengthRef.current - (nextSpan + 1),
+              endValue: dataLengthRef.current - 1,
+            },
+            dataLengthRef.current,
+          );
+
+          if (
+            anchoredZoomWindow.startValue !== nextZoomWindow.startValue ||
+            anchoredZoomWindow.endValue !== nextZoomWindow.endValue
+          ) {
+            isApplyingZoomRef.current = true;
+            zoomWindowRef.current = anchoredZoomWindow;
+            chart.setOption(
+              {
+                dataZoom: [
+                  {
+                    startValue: anchoredZoomWindow.startValue,
+                    endValue: anchoredZoomWindow.endValue,
+                  },
+                  {
+                    startValue: anchoredZoomWindow.startValue,
+                    endValue: anchoredZoomWindow.endValue,
+                  },
+                ],
+              },
+              false,
+            );
+            return;
+          }
+        }
+
+        zoomWindowRef.current = nextZoomWindow;
 
         if (
           hasMoreRef.current &&
           !isFetchingMoreRef.current &&
           typeof requestMoreRef.current === "function" &&
-          startValue <= getLoadMoreThreshold(periodRef.current)
+          nextZoomWindow.startValue <= getLoadMoreThreshold(periodRef.current)
         ) {
           requestMoreRef.current();
         }
@@ -171,11 +260,13 @@ export default function StockPriceChart({
     }
 
     const visiblePrices = getDisplayChartPrices(prices);
-    const labels = visiblePrices.map((item) => formatChartAxisLabel(item.timestamp, period));
+    dataLengthRef.current = visiblePrices.length;
+    const timestamps = visiblePrices.map((item) => item.timestamp);
     const closePrices = visiblePrices.map((item) => item.close);
     const candlePrices = visiblePrices.map((item) => [item.open, item.close, item.low, item.high]);
     const volumes = visiblePrices.map((item) => item.volume);
     const priceRange = getChartPriceRange(visiblePrices, mode);
+    const latestClose = visiblePrices.at(-1)?.close ?? 0;
 
     const previousMeta = previousMetaRef.current;
     const firstTimestamp = visiblePrices[0]?.timestamp ?? null;
@@ -264,10 +355,13 @@ export default function StockPriceChart({
             const pointIndex = point?.dataIndex ?? 0;
             const volume = volumes[pointIndex] ?? 0;
             const pricePoint = visiblePrices[pointIndex];
+            const timeLabel = pricePoint
+              ? formatChartTooltipLabel(pricePoint.timestamp, period)
+              : point.axisValueLabel;
 
             if (mode === "candlestick" && pricePoint) {
               return [
-                point.axisValueLabel,
+                timeLabel,
                 `시가 ${formatWon(pricePoint.open)}`,
                 `고가 ${formatWon(pricePoint.high)}`,
                 `저가 ${formatWon(pricePoint.low)}`,
@@ -283,14 +377,22 @@ export default function StockPriceChart({
                   ? Number(point.data.at(1) ?? 0)
                   : 0;
 
-            return `${point.axisValueLabel}<br/>가격 ${formatWon(currentPrice)}<br/>거래량 ${formatVolume(volume)}`;
+            return [
+              timeLabel,
+              `가격 ${formatWon(currentPrice)}`,
+              pricePoint ? `최고가 ${formatWon(pricePoint.high)}` : null,
+              pricePoint ? `최저가 ${formatWon(pricePoint.low)}` : null,
+              `거래량 ${formatVolume(volume)}`,
+            ]
+              .filter(Boolean)
+              .join("<br/>");
           },
         },
         dataZoom: [
           {
             type: "inside",
             xAxisIndex: 0,
-            filterMode: "none",
+            filterMode: "filter",
             zoomOnMouseWheel: true,
             moveOnMouseWheel: true,
             moveOnMouseMove: true,
@@ -302,7 +404,7 @@ export default function StockPriceChart({
             type: "slider",
             show: false,
             xAxisIndex: 0,
-            filterMode: "none",
+            filterMode: "filter",
             startValue: zoomWindow.startValue,
             endValue: zoomWindow.endValue,
           },
@@ -310,7 +412,7 @@ export default function StockPriceChart({
         xAxis: {
           type: "category",
           boundaryGap: mode === "candlestick",
-          data: labels,
+          data: timestamps,
           axisLine: {
             show: false,
           },
@@ -321,8 +423,9 @@ export default function StockPriceChart({
             show: true,
             color: textSecondary,
             hideOverlap: true,
-            formatter: (value: string) => value,
-            interval: (index: number) => shouldShowChartLabel(index, labels.length, period),
+            formatter: (value: string) => formatChartAxisLabel(value, period),
+            interval: (index: number) =>
+              shouldShowChartLabel(index, timestamps.length, period, timestamps, zoomWindowRef.current),
           },
           splitLine: {
             show: false,
@@ -409,13 +512,35 @@ export default function StockPriceChart({
                       borderColor0: interactivePrimary,
                     },
                   },
+                  markLine: {
+                    symbol: ["none", "none"],
+                    silent: true,
+                    animation: false,
+                    lineStyle: {
+                      opacity: 0,
+                    },
+                    label: {
+                      show: true,
+                      position: "end",
+                      formatter: () => new Intl.NumberFormat("ko-KR").format(latestClose),
+                      color: "#ffffff",
+                      backgroundColor: danger,
+                      borderRadius: 8,
+                      padding: [5, 8],
+                      distance: 12,
+                    },
+                    data: [
+                      {
+                        yAxis: latestClose,
+                      },
+                    ],
+                  },
                 },
               ]
             : [
                 {
                   type: "line",
                   data: closePrices,
-                  clip: false,
                   symbol: "circle",
                   showSymbol: false,
                   symbolSize: 12,

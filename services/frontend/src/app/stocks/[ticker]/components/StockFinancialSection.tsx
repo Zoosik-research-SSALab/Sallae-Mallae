@@ -1,5 +1,15 @@
-import type { StockAnnouncementItem, StockFinancialItem, StockFinancialType } from "@/app/stocks/types/stockDetail";
-import { financialTypeOptions, formatFinancialLabel, formatFinancialValue, getVisibleFinancials } from "../utils/stockDetailFormatters";
+import type {
+  StockAnnouncementItem,
+  StockFinancialItem,
+  StockFinancialType,
+} from "@/app/stocks/types/stockDetail";
+import {
+  financialTypeOptions,
+  formatFinancialLabel,
+  formatFinancialValue,
+  getFinancialDisplayUnit,
+  getVisibleFinancials,
+} from "../utils/stockDetailFormatters";
 import StockSectionLoadingOverlay from "./common/StockSectionLoadingOverlay";
 import StockFinancialChart from "./StockFinancialChart";
 
@@ -18,7 +28,12 @@ export default function StockFinancialSection({
   latestAnnouncement,
   isLoading,
 }: Props) {
-  const visibleFinancials = type === "QUARTERLY" ? getVisibleFinancials(financials, type) : financials.slice(-2);
+  const visibleFinancials =
+    type === "QUARTERLY" ? getVisibleFinancials(financials, type) : financials.slice(-2);
+  const revenueUnit = getFinancialDisplayUnit(visibleFinancials.map((item) => item.revenue));
+  const operatingProfitUnit = getFinancialDisplayUnit(
+    visibleFinancials.map((item) => item.operatingProfit),
+  );
 
   return (
     <section className="py-10 md:py-12">
@@ -56,11 +71,15 @@ export default function StockFinancialSection({
               <div className="mb-4 flex items-center justify-end gap-4">
                 <div className="inline-flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded-full bg-[color:var(--color-icon-disabled)]" />
-                  <span className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">매출</span>
+                  <span className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">
+                    매출
+                  </span>
                 </div>
                 <div className="inline-flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded-full bg-[color:var(--color-icon-interactive-primary)]" />
-                  <span className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">영업이익</span>
+                  <span className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">
+                    영업이익
+                  </span>
                 </div>
               </div>
 
@@ -75,8 +94,8 @@ export default function StockFinancialSection({
               <div className="bg-[color:var(--color-bg-primary)]">
                 <div className="grid grid-cols-3 border-b border-[color:var(--color-border-base)] bg-[color:var(--color-bg-primary)] px-[1px] py-3.5 text-xs font-semibold text-[color:var(--color-text-primary)] md:text-sm">
                   <span>{type === "YEARLY" ? "연간" : "분기"}</span>
-                  <span className="text-right">매출 (조)</span>
-                  <span className="text-right">영업익 (조)</span>
+                  <span className="text-right">{`매출 (${revenueUnit})`}</span>
+                  <span className="text-right">{`영업익 (${operatingProfitUnit})`}</span>
                 </div>
 
                 <div className="flex flex-col">
@@ -95,17 +114,19 @@ export default function StockFinancialSection({
                         <div
                           key={`${item.year}-${item.quarter ?? "Y"}`}
                           className={`grid grid-cols-3 gap-4 border-b border-[color:var(--color-border-secondary)] px-[1px] py-4 ${
-                            index === visibleFinancials.length - 1 ? "bg-[color:var(--color-bg-secondary)]" : ""
+                            index === visibleFinancials.length - 1
+                              ? "bg-[color:var(--color-bg-secondary)]"
+                              : ""
                           }`}
                         >
                           <span className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">
                             {formatFinancialLabel(item)}
                           </span>
                           <span className="text-right text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
-                            {formatFinancialValue(item.revenue)}
+                            {formatFinancialValue(item.revenue, revenueUnit)}
                           </span>
                           <span className="text-right text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
-                            {formatFinancialValue(item.operatingProfit)}
+                            {formatFinancialValue(item.operatingProfit, operatingProfitUnit)}
                           </span>
                         </div>
                       ))}
@@ -126,7 +147,7 @@ export default function StockFinancialSection({
                       </div>
                     </div>
                     <span className="shrink-0 text-sm font-medium leading-5 text-[color:var(--color-text-tertiary)]">
-                      전문보기
+                      원문보기
                     </span>
                   </div>
                 </div>
