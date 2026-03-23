@@ -17,12 +17,10 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
-import java.io.IOException;
-import java.time.Duration;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -32,7 +30,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "Watchlist", description = "관심종목 API")
 @RestController
@@ -44,27 +41,16 @@ public class WatchlistController {
   private final UserService userService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
   private final ObjectMapper objectMapper;
-  private final ExecutorService sseExecutor = Executors.newCachedThreadPool();
 
+  @SneakyThrows
   @Operation(summary = "관심종목 목록 조회 (SSE)", description = "로그인한 사용자의 관심종목 목록을 SSE로 조회합니다.")
   @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-  public SseEmitter getWatchlist() {
-    Long userId = getAuthenticatedUserId();
-    SseEmitter emitter = new SseEmitter(Duration.ofMinutes(30).toMillis());
-
-    sseExecutor.execute(() -> {
-      try {
-        WatchlistListResponse data = userService.getWatchlist(userId);
-        emitter.send(SseEmitter.event()
-            .data(objectMapper.writeValueAsString(data),
-                MediaType.APPLICATION_JSON));
-        emitter.complete();
-      } catch (IOException e) {
-        emitter.completeWithError(e);
-      }
-    });
-
-    return emitter;
+  public ResponseEntity<String> getWatchlist() {
+    WatchlistListResponse data = userService.getWatchlist(getAuthenticatedUserId());
+    String sseBody = "data: " + objectMapper.writeValueAsString(data) + "\n\n";
+    return ResponseEntity.ok()
+        .contentType(MediaType.TEXT_EVENT_STREAM)
+        .body(sseBody);
   }
 
   @Operation(summary = "관심종목 등록 여부 조회", description = "특정 종목이 관심종목에 등록되어 있는지 확인합니다.")
