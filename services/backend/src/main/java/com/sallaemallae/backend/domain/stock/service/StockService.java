@@ -13,6 +13,8 @@ import java.util.List;
 
 public interface StockService {
 
+  Long resolveStockId(String ticker);
+
   List<StockSummaryResponse> getAllStocks();
 
   StockDetailResponse getStockDetail(String ticker);
