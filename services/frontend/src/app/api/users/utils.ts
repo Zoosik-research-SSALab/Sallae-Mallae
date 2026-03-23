@@ -98,9 +98,10 @@ type ProxyUsersApiRequestOptions = {
   request: NextRequest;
   path: string;
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  acceptOverride?: string;
 };
 
-export async function proxyUsersApiRequest({ request, path, method }: ProxyUsersApiRequestOptions) {
+export async function proxyUsersApiRequest({ request, path, method, acceptOverride }: ProxyUsersApiRequestOptions) {
   const headers = new Headers();
   const authorization = request.headers.get("authorization");
   const cookie = request.headers.get("cookie");
@@ -113,6 +114,10 @@ export async function proxyUsersApiRequest({ request, path, method }: ProxyUsers
     headers.set("Authorization", authorization);
   }
 
+  if (deviceId) {
+    headers.set("X-Device-Id", deviceId);
+  }
+
   if (cookie) {
     headers.set("Cookie", cookie);
   }
@@ -121,7 +126,9 @@ export async function proxyUsersApiRequest({ request, path, method }: ProxyUsers
     headers.set("Content-Type", contentType);
   }
 
-  if (accept) {
+  if (acceptOverride) {
+    headers.set("Accept", acceptOverride);
+  } else if (accept) {
     headers.set("Accept", accept);
   }
 

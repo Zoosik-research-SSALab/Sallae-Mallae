@@ -1,20 +1,26 @@
 "use client";
 
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { LuSearch, LuSlidersHorizontal } from "react-icons/lu";
+import Button from "@/shared/ui/Button";
+import Pagination from "@/shared/ui/Pagination";
 import NewsArticleCard from "./NewsArticleCard";
+import NewsDetailModal from "./NewsDetailModal";
 import NewsFilterModal from "./NewsFilterModal";
 import NewsKeywordSidebar from "./NewsKeywordSidebar";
 import { useNewsQuery } from "../hooks/useNewsQuery";
-import type { NewsPeriodOption, NewsSortOption, NewsTab } from "../types/news";
-import { buildRankedNewsKeywords, filterNewsByPeriod, filterNewsByTab, sortNewsItems } from "../utils/newsFormatters";
+import { useNewsTrendingQuery } from "../hooks/useNewsTrendingQuery";
+import { useNewsWatchlistQuery } from "../hooks/useNewsWatchlistQuery";
+import type { NewsPeriodFilter, NewsSortOption, NewsTab } from "../types/news";
 import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/newsConstants";
-import Button from "@/shared/ui/Button";
-import Pagination from "@/shared/ui/Pagination";
+import { buildRankedNewsKeywords, filterNewsByPeriod, sortNewsItems } from "../utils/newsFormatters";
+
+const NEWS_PAGES_PER_BATCH = 4;
+const NEWS_BATCH_LIMIT = NEWS_PAGE_SIZE * NEWS_PAGES_PER_BATCH;
 
 const tabs: Array<{ value: NewsTab; label: string }> = [
-  { value: "LATEST", label: "최신뉴스" },
-  { value: "WATCHLIST", label: "관심주식" },
+  { value: "LATEST", label: "최신 뉴스" },
+  { value: "WATCHLIST", label: "관심 주식" },
 ];
 
 function NewsLoadingState() {
@@ -23,10 +29,10 @@ function NewsLoadingState() {
       {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)] px-4 py-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]"
+          className="animate-pulse rounded-2xl bg-bg-secondary px-4 py-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]"
         >
           <div className="mb-4 flex gap-2">
-            <div className="h-6 w-20 rounded bg-[color:var(--color-bg-tertiary)]" />
+            <div className="h-6 w-20 rounded bg-bg-tertiary" />
             <div className="h-6 w-24 rounded bg-[color:var(--color-bg-tertiary)]" />
           </div>
           <div className="h-6 w-full rounded bg-[color:var(--color-bg-tertiary)]" />
@@ -43,27 +49,50 @@ export default function NewsPageClient() {
   const deferredKeyword = useDeferredValue(searchInput.trim());
   const [activeTab, setActiveTab] = useState<NewsTab>("LATEST");
   const [sortOption, setSortOption] = useState<NewsSortOption>("LATEST");
-  const [periodOption, setPeriodOption] = useState<NewsPeriodOption>("MONTH");
+  const [periodOption, setPeriodOption] = useState<NewsPeriodFilter>(null);
   const [draftSortOption, setDraftSortOption] = useState<NewsSortOption>("LATEST");
-  const [draftPeriodOption, setDraftPeriodOption] = useState<NewsPeriodOption>("MONTH");
+  const [draftPeriodOption, setDraftPeriodOption] = useState<NewsPeriodFilter>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null);
 
-  const { data, isLoading, error, refetch, isFetching } = useNewsQuery({
+  const requestedPageEnd = currentPage + NEWS_PAGES_PER_BATCH - 1;
+  const requestedBatchCount = Math.max(1, Math.ceil(requestedPageEnd / NEWS_PAGES_PER_BATCH));
+  const requestedLimit = requestedBatchCount * NEWS_BATCH_LIMIT;
+  const needsWideClientFiltering =
+    periodOption !== null ||
+    sortOption !== "LATEST";
+  const effectiveLimit = needsWideClientFiltering
+    ? Math.max(NEWS_FETCH_LIMIT, requestedLimit)
+    : requestedLimit;
+
+  const latestNewsQuery = useNewsQuery({
     offset: 0,
-    // TODO: switch to server-side pagination once the production news API supports filtered paging.
-    limit: NEWS_FETCH_LIMIT,
+    limit: effectiveLimit,
     keyword: deferredKeyword,
+  }, {
+    enabled: activeTab === "LATEST",
   });
+  const watchlistNewsQuery = useNewsWatchlistQuery(
+    {
+      offset: 0,
+      limit: effectiveLimit,
+    },
+    {
+      enabled: activeTab === "WATCHLIST",
+    },
+  );
+  const trendingKeywordsQuery = useNewsTrendingQuery();
 
-  const queriedNews = data?.news ?? [];
-  const tabFilteredNews = filterNewsByTab(queriedNews, activeTab);
-  const periodFilteredNews = filterNewsByPeriod(tabFilteredNews, periodOption);
-  const sortedNews = sortNewsItems(periodFilteredNews, sortOption, deferredKeyword);
-  const totalPages = Math.max(1, Math.ceil(sortedNews.length / NEWS_PAGE_SIZE));
+  const activeNewsQuery = activeTab === "WATCHLIST" ? watchlistNewsQuery : latestNewsQuery;
+  const queriedNews = useMemo(() => activeNewsQuery.data?.news ?? [], [activeNewsQuery.data]);
+  const periodFilteredNews = useMemo(() => filterNewsByPeriod(queriedNews, periodOption), [queriedNews, periodOption]);
+  const sortedNews = useMemo(() => sortNewsItems(periodFilteredNews, sortOption, deferredKeyword), [periodFilteredNews, sortOption, deferredKeyword]);
+  const rankedKeywords = trendingKeywordsQuery.data?.trending ?? buildRankedNewsKeywords(latestNewsQuery.data?.news ?? []);
+  const totalKnownPages = Math.ceil(sortedNews.length / NEWS_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.min(totalKnownPages, requestedPageEnd));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pagedNews = sortedNews.slice((safeCurrentPage - 1) * NEWS_PAGE_SIZE, safeCurrentPage * NEWS_PAGE_SIZE);
-  const rankedKeywords = buildRankedNewsKeywords(queriedNews);
 
   const openFilterModal = () => {
     setDraftSortOption(sortOption);
@@ -98,7 +127,7 @@ export default function NewsPageClient() {
                 </div>
                 <div>
                   <p className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)] md:text-base md:leading-6">
-                    언급된 종목과 시장의 흐름을 빠르게 파악하세요
+                    궁금한 종목과 시장의 흐름을 빠르게 파악하세요.
                   </p>
                 </div>
               </div>
@@ -160,27 +189,33 @@ export default function NewsPageClient() {
                 ))}
               </div>
 
-              {isLoading ? <NewsLoadingState /> : null}
+              {activeNewsQuery.isLoading ? <NewsLoadingState /> : null}
 
-              {!isLoading && error ? (
+              {!activeNewsQuery.isLoading && activeNewsQuery.error ? (
                 <div className="rounded-3xl bg-[color:var(--color-bg-secondary)] p-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
                   <h2 className="text-xl font-extrabold leading-6 text-[color:var(--color-text-primary)]">
                     뉴스를 불러오지 못했습니다.
                   </h2>
                   <p className="mt-2 text-sm font-medium leading-5 text-[color:var(--color-text-secondary)]">
-                    {error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요."}
+                    {activeNewsQuery.error instanceof Error ? activeNewsQuery.error.message : "잠시 후 다시 시도해 주세요."}
                   </p>
-                  <Button variant="soft" onClick={() => void refetch()} disabled={isFetching} className="mt-4 rounded-xl">
+                  <Button variant="soft" onClick={() => void activeNewsQuery.refetch()} disabled={activeNewsQuery.isFetching} className="mt-4 rounded-xl">
                     다시 시도
                   </Button>
                 </div>
               ) : null}
 
-              {!isLoading && !error ? (
+              {!activeNewsQuery.isLoading && !activeNewsQuery.error ? (
                 <>
                   <div className="flex flex-col">
                     {pagedNews.length > 0 ? (
-                      pagedNews.map((item) => <NewsArticleCard key={item.id} item={item} />)
+                      pagedNews.map((item) => (
+                        <NewsArticleCard
+                          key={item.id}
+                          item={item}
+                          onSelect={setSelectedNewsId}
+                        />
+                      ))
                     ) : (
                       <div className="rounded-2xl bg-[color:var(--color-bg-secondary)] px-4 py-10 text-center">
                         <p className="text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">
@@ -191,7 +226,13 @@ export default function NewsPageClient() {
                   </div>
 
                   <div className="py-3 md:py-12">
-                    <Pagination currentPage={safeCurrentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+                    <Pagination
+                      currentPage={safeCurrentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                      maxVisiblePages={4}
+                      windowMode="forward"
+                    />
                   </div>
                 </>
               ) : null}
@@ -203,6 +244,13 @@ export default function NewsPageClient() {
           </aside>
         </div>
       </div>
+
+      {selectedNewsId !== null ? (
+        <NewsDetailModal
+          newsId={selectedNewsId}
+          onClose={() => setSelectedNewsId(null)}
+        />
+      ) : null}
     </main>
   );
 }

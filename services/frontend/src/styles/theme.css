@@ -262,6 +262,7 @@
   --semantic-color-text-info: var(--color-brand-primary-600);
   --semantic-color-text-warning: var(--color-yellow-500);
   --semantic-color-text-success: var(--color-green-600);
+  --semantic-color-text-success-bold: var(--color-green-800);
   --semantic-color-text-interactive-primary: var(--color-brand-primary-600);
   --semantic-color-text-interactive-secondary: var(--color-brand-secondary-600);
   --semantic-color-text-interactive-inverse: var(--color-white);
@@ -400,6 +401,7 @@
   --color-text-info: var(--semantic-color-text-info);
   --color-text-warning: var(--semantic-color-text-warning);
   --color-text-success: var(--semantic-color-text-success);
+  --color-text-success-bold: var(--semantic-color-text-success-bold);
   --color-text-interactive-primary: var(
     --semantic-color-text-interactive-primary
   );
@@ -478,6 +480,7 @@
   --semantic-color-text-info: var(--color-brand-primary-200);
   --semantic-color-text-warning: var(--color-yellow-300);
   --semantic-color-text-success: var(--color-green-300);
+  --semantic-color-text-success-bold: var(--color-green-800);
   --semantic-color-text-interactive-primary: var(--color-brand-primary-400);
   --semantic-color-text-interactive-secondary: var(--color-brand-secondary-100);
   --semantic-color-text-interactive-inverse: var(--color-brand-secondary-900);
@@ -545,6 +548,7 @@
     --semantic-color-text-info: var(--color-brand-primary-200);
     --semantic-color-text-warning: var(--color-yellow-300);
     --semantic-color-text-success: var(--color-green-300);
+    --semantic-color-text-success-bold: var(--color-green-800);
     --semantic-color-text-interactive-primary: var(--color-brand-primary-400);
     --semantic-color-text-interactive-secondary: var(
       --color-brand-secondary-100
