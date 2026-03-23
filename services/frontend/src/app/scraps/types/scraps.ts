@@ -25,7 +25,7 @@ export type WatchlistNewsItem = {
   summary: string;
   source: string;
   url?: string;
-  publishedAt: string;
+  publishedAt: string | null;
   relatedStocks: string[];
 };
 

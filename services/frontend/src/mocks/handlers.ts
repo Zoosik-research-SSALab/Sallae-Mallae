@@ -14,7 +14,10 @@ import {
   removeMockWatchlist,
   toggleMockWatchlistNotification,
 } from "@/shared/lib/mockWatchlistStore";
-import { getMockPortfolioPage } from "@/app/portfolio/utils/mockPortfolioData";
+import {
+  getMockPortfolioChairmanResponse,
+  getMockPortfolioHallOfFameResponse,
+} from "@/app/portfolio/utils/mockPortfolioData";
 import { getMockStocksResponse } from "@/app/stocks/utils/mockStocksData";
 import {
   getMockAnnouncementDetail,
@@ -302,12 +305,22 @@ export const handlers = [
 
   // ── Portfolio ───────────────────────────────────────────────────────────────
 
-  http.get("/api/portfolio", () => {
+  http.get("/api/portfolio/chairman", () => {
     return HttpResponse.json(
       snakelizeKeys({
         success: true,
-        data: getMockPortfolioPage(),
-        message: null,
+        data: getMockPortfolioChairmanResponse(),
+        error: null,
+      }),
+    );
+  }),
+
+  http.get("/api/portfolio/chairman/hall-of-fame", () => {
+    return HttpResponse.json(
+      snakelizeKeys({
+        success: true,
+        data: getMockPortfolioHallOfFameResponse(),
+        error: null,
       }),
     );
   }),

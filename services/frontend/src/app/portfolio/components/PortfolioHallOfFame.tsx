@@ -17,6 +17,30 @@ const hallOfFameHeaderIcons: Record<string, IconType> = {
   "average-return": HiMiniPresentationChartLine,
 };
 
+function getHallOfFameHeaderMarkerClassName(sectionId: string, defaultClassName: string) {
+  if (sectionId === "best-single-trade") {
+    return "bg-[color:var(--color-bg-warning-subtle)]";
+  }
+
+  if (sectionId === "average-return") {
+    return "bg-[color:var(--color-bg-success-subtle)]";
+  }
+
+  return defaultClassName;
+}
+
+function getHallOfFameHeaderIconClassName(sectionId: string) {
+  if (sectionId === "best-single-trade") {
+    return "text-[color:var(--color-border-warning)]";
+  }
+
+  if (sectionId === "average-return") {
+    return "text-[color:var(--color-border-success)]";
+  }
+
+  return "";
+}
+
 function getHallOfFameValueClassName(sectionId: string, rank: number) {
   if (sectionId === "hit-rate") {
     return rank <= 3 ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-secondary)]";
@@ -26,6 +50,10 @@ function getHallOfFameValueClassName(sectionId: string, rank: number) {
 }
 
 export default function PortfolioHallOfFame({ sections }: Props) {
+  if (sections.length === 0) {
+    return null;
+  }
+
   return (
     <section className="flex flex-col gap-6 md:gap-8">
       <div className="flex flex-col gap-1">
@@ -46,8 +74,17 @@ export default function PortfolioHallOfFame({ sections }: Props) {
               className="rounded-3xl bg-[color:var(--color-bg-secondary)] p-6 outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]"
             >
               <div className="flex items-center gap-3 border-b border-[color:var(--color-border-primary)] pb-3">
-                <span className={cn("inline-flex h-8 w-8 items-center justify-center rounded-full", tone.marker)}>
-                  {HeaderIcon ? <HeaderIcon className="h-4 w-4" /> : <span className="text-sm font-extrabold">{section.items[0]?.rank ?? 1}</span>}
+                <span
+                  className={cn(
+                    "inline-flex h-8 w-8 items-center justify-center rounded-full",
+                    getHallOfFameHeaderMarkerClassName(section.id, tone.marker),
+                  )}
+                >
+                  {HeaderIcon ? (
+                    <HeaderIcon className={cn("h-4 w-4", getHallOfFameHeaderIconClassName(section.id))} />
+                  ) : (
+                    <span className="text-sm font-extrabold">{section.items[0]?.rank ?? 1}</span>
+                  )}
                 </span>
                 <h3 className="text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">{section.title}</h3>
               </div>

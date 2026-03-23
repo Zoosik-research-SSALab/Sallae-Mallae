@@ -67,8 +67,6 @@ export function getMockPortfolioPage(): PortfolioPageData {
   return {
     hero: {
       updatedAtLabel: "오늘 09:00 업데이트 완료",
-      title: "의장 모의투자 포트폴리오",
-      description: "KOSPI 200 전 종목을 대상으로 매일 위원회 합의를 거쳐 운용되는 공식 모델 포트폴리오입니다",
       metrics: [
         { id: "cumulative-return", label: "누적 수익률", value: 42.5, unit: "%", decimals: 1, tone: "danger" },
         { id: "hit-rate", label: "예측 적중률", value: 85.2, unit: "%", decimals: 1, tone: "default" },
@@ -135,7 +133,7 @@ export function getMockPortfolioPage(): PortfolioPageData {
           { rank: 1, name: "에코프로", value: 185.2, suffix: "%" },
           { rank: 2, name: "포스코퓨처엠", value: 112.5, suffix: "%" },
           { rank: 3, name: "한미반도체", value: 95.4, suffix: "%" },
-          { rank: 4, name: "알테오젠", value: 88.1, suffix: "%" },
+          { rank: 4, name: "현대로템", value: 88.1, suffix: "%" },
           { rank: 5, name: "레인보우로보틱스", value: 75.2, suffix: "%" },
         ],
       },
@@ -151,6 +149,83 @@ export function getMockPortfolioPage(): PortfolioPageData {
           { rank: 5, name: "SK하이닉스", value: 13.8, suffix: "%" },
         ],
       },
+    ],
+  };
+}
+
+export function getMockPortfolioChairmanResponse() {
+  return {
+    updatedAt: "2026-02-24T06:30:00Z",
+    summary: {
+      cumulativeReturn: 92.320335,
+      hitRate: 50.0,
+      yesterdayReturn: null,
+      alphaVsKospi: null,
+      holdingCount: holdingsSeed.length,
+    },
+    signalSummary: {
+      buyCount: 15,
+      sellCount: 8,
+      holdCount: 124,
+      watchCount: 53,
+    },
+    popularSignals: [
+      { rank: 1, stockId: 1, ticker: "005930", name: "삼성전자", price: 74300, signal: "BUY" },
+      { rank: 2, stockId: 2, ticker: "000660", name: "SK하이닉스", price: 162500, signal: "BUY" },
+      { rank: 3, stockId: 7, ticker: "005380", name: "현대차", price: 253500, signal: "HOLD" },
+      { rank: 4, stockId: 16, ticker: "035720", name: "카카오", price: 48000, signal: "SELL" },
+      { rank: 5, stockId: 5, ticker: "035420", name: "NAVER", price: 185400, signal: "WATCH" },
+    ],
+    tab: "HOLDINGS",
+    holdings: holdingsSeed.map((item) => ({
+      ...item,
+      returnRate: Number((((item.currentPrice - item.buyPrice) / item.buyPrice) * 100).toFixed(6)),
+    })),
+    todayTrades: todayTradesSeed.map((item) => ({
+      ...item,
+      returnRate: Number((((item.currentPrice - item.executedPrice) / item.executedPrice) * 100).toFixed(6)),
+    })),
+    monthlyReturns: monthlyReturnsSeed.map((item) => ({
+      ...item,
+      excessReturnRate: Number((item.portfolioReturnRate - item.kospiReturnRate).toFixed(1)),
+    })),
+    page: {
+      offset: 0,
+      limit: 6,
+      totalCount: holdingsSeed.length,
+    },
+  };
+}
+
+export function getMockPortfolioHallOfFameResponse() {
+  return {
+    hitRateTop5: [
+      { rank: 1, stockId: 8, ticker: "005930", name: "삼성전자", hitRate: 66.67, winningTrades: 2, totalTrades: 3 },
+      { rank: 2, stockId: 2, ticker: "000660", name: "SK하이닉스", hitRate: 64.5, winningTrades: 20, totalTrades: 31 },
+      { rank: 3, stockId: 7, ticker: "005380", name: "현대차", hitRate: 62.3, winningTrades: 18, totalTrades: 29 },
+      { rank: 4, stockId: 6, ticker: "000270", name: "기아", hitRate: 61.1, winningTrades: 11, totalTrades: 18 },
+      { rank: 5, stockId: 5, ticker: "035420", name: "NAVER", hitRate: 59.4, winningTrades: 19, totalTrades: 32 },
+    ],
+    cumulativeReturnTop5: [
+      { rank: 1, stockId: 8, ticker: "005930", name: "삼성전자", value: 112.34 },
+      { rank: 2, stockId: 2, ticker: "000660", name: "SK하이닉스", value: 98.12 },
+      { rank: 3, stockId: 7, ticker: "005380", name: "현대차", value: 84.56 },
+      { rank: 4, stockId: 6, ticker: "000270", name: "기아", value: 71.23 },
+      { rank: 5, stockId: 5, ticker: "035420", name: "NAVER", value: 63.45 },
+    ],
+    maxSingleReturnTop5: [
+      { rank: 1, stockId: 147, ticker: "042700", name: "한미반도체", value: 28.91 },
+      { rank: 2, stockId: 8, ticker: "005930", name: "삼성전자", value: 24.32 },
+      { rank: 3, stockId: 2, ticker: "000660", name: "SK하이닉스", value: 22.18 },
+      { rank: 4, stockId: 7, ticker: "005380", name: "현대차", value: 19.76 },
+      { rank: 5, stockId: 6, ticker: "000270", name: "기아", value: 17.45 },
+    ],
+    averageReturnTop5: [
+      { rank: 1, stockId: 8, ticker: "005930", name: "삼성전자", value: 14.56 },
+      { rank: 2, stockId: 2, ticker: "000660", name: "SK하이닉스", value: 12.91 },
+      { rank: 3, stockId: 7, ticker: "005380", name: "현대차", value: 10.34 },
+      { rank: 4, stockId: 6, ticker: "000270", name: "기아", value: 9.82 },
+      { rank: 5, stockId: 5, ticker: "035420", name: "NAVER", value: 8.64 },
     ],
   };
 }

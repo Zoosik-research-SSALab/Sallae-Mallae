@@ -28,6 +28,30 @@ function normalizeBaseUrl(value: string) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
+function shouldLogProxyDebug() {
+  return process.env.NODE_ENV !== "production";
+}
+
+function createAuthorizationPreview(authorization: string | null) {
+  if (!authorization) {
+    return null;
+  }
+
+  if (authorization.length <= 20) {
+    return authorization;
+  }
+
+  return `${authorization.slice(0, 12)}...${authorization.slice(-6)}`;
+}
+
+function logUsersProxyDebug(label: string, payload: Record<string, unknown>) {
+  if (!shouldLogProxyDebug()) {
+    return;
+  }
+
+  console.info(`[users-proxy:${label}]`, payload);
+}
+
 function joinApiUrl(baseUrl: string, path: string) {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -74,17 +98,24 @@ type ProxyUsersApiRequestOptions = {
   request: NextRequest;
   path: string;
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  acceptOverride?: string;
 };
 
-export async function proxyUsersApiRequest({ request, path, method }: ProxyUsersApiRequestOptions) {
+export async function proxyUsersApiRequest({ request, path, method, acceptOverride }: ProxyUsersApiRequestOptions) {
   const headers = new Headers();
   const authorization = request.headers.get("authorization");
   const cookie = request.headers.get("cookie");
   const contentType = request.headers.get("content-type");
   const accept = request.headers.get("accept");
+  const deviceId = request.headers.get("x-device-id");
+  const targetUrl = joinApiUrl(getApiBaseUrl(), `${path}${request.nextUrl.search}`);
 
   if (authorization) {
     headers.set("Authorization", authorization);
+  }
+
+  if (deviceId) {
+    headers.set("X-Device-Id", deviceId);
   }
 
   if (cookie) {
@@ -95,16 +126,39 @@ export async function proxyUsersApiRequest({ request, path, method }: ProxyUsers
     headers.set("Content-Type", contentType);
   }
 
-  if (accept) {
+  if (acceptOverride) {
+    headers.set("Accept", acceptOverride);
+  } else if (accept) {
     headers.set("Accept", accept);
   }
 
   const body = method === "GET" ? undefined : await request.text();
-  const upstreamResponse = await fetch(joinApiUrl(getApiBaseUrl(), `${path}${request.nextUrl.search}`), {
+
+  logUsersProxyDebug("request", {
+    method,
+    path,
+    targetUrl,
+    hasAuthorization: Boolean(authorization),
+    authorizationPreview: createAuthorizationPreview(authorization),
+    clientDeviceId: deviceId,
+    forwardedDeviceId: headers.get("X-Device-Id"),
+    hasRefreshTokenCookie: Boolean(request.cookies.get("refreshToken")?.value),
+  });
+
+  const upstreamResponse = await fetch(targetUrl, {
     method,
     headers,
     body: body && body.length > 0 ? body : undefined,
     cache: "no-store",
+  });
+
+  logUsersProxyDebug("response", {
+    method,
+    path,
+    targetUrl,
+    status: upstreamResponse.status,
+    ok: upstreamResponse.ok,
+    hasSetCookie: Boolean(upstreamResponse.headers.get("set-cookie")),
   });
 
   const response = new NextResponse(upstreamResponse.body, {

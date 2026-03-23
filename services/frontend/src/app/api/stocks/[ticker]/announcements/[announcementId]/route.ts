@@ -6,16 +6,16 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = {
   params: Promise<{
-    stockId: string;
+    ticker: string;
     announcementId: string;
   }>;
 };
 
 export async function GET(_: Request, context: RouteContext) {
-  const { stockId, announcementId } = await context.params;
+  const { ticker, announcementId } = await context.params;
   const parsedAnnouncementId = Number(announcementId);
 
-  if (!stockId || !Number.isFinite(parsedAnnouncementId)) {
+  if (!ticker || !Number.isFinite(parsedAnnouncementId)) {
     return NextResponse.json(
       {
         message: "Invalid announcement request",
@@ -24,7 +24,7 @@ export async function GET(_: Request, context: RouteContext) {
     );
   }
 
-  const announcement = getMockAnnouncementDetail(stockId, parsedAnnouncementId);
+  const announcement = getMockAnnouncementDetail(ticker, parsedAnnouncementId);
 
   if (!announcement) {
     return NextResponse.json(
