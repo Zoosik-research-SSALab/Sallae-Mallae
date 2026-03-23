@@ -96,6 +96,15 @@ public class KisWebSocketClient {
     return acknowledgement;
   }
 
+  public void unsubscribeDomesticTrade(String marketCode, String ticker) {
+    String lookupKey = subscriptionLookupKey(resolveTopic(marketCode), ticker);
+    Subscription subscription = subscriptionsByLookupKey.get(lookupKey);
+    if (subscription != null) {
+      log.info("KIS websocket unsubscribing. market={}, ticker={}", marketCode, ticker);
+      unsubscribeAndEvict(subscription, "SSE 연결 해제로 구독을 종료합니다.");
+    }
+  }
+
   public boolean isConnected() {
     return connected.get();
   }

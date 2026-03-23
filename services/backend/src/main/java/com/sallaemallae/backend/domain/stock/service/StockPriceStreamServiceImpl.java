@@ -4,38 +4,36 @@ import com.sallaemallae.backend.domain.stock.dto.StockPricePointResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockPricesResponse;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
-import com.sallaemallae.backend.domain.stock.entity.StockPriceMinute;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceMonthly;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceWeekly;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceYearly;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
-import com.sallaemallae.backend.domain.stock.repository.StockPriceMinuteRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceMonthlyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceWeeklyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceYearlyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.global.exception.BusinessException;
+import com.sallaemallae.backend.infra.kis.KisApiException;
 import com.sallaemallae.backend.infra.kis.KisProperties;
-import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleAggregator;
-import com.sallaemallae.backend.infra.kis.websocket.KisRealtimeMinuteCandleData;
+import com.sallaemallae.backend.infra.kis.stock.CachedKisDomesticStockGateway;
+import com.sallaemallae.backend.infra.kis.stock.KisMinuteCandleData;
 import com.sallaemallae.backend.infra.kis.websocket.KisWebSocketClient;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,39 +52,38 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
   private static final long SSE_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
 
   private final StockRepository stockRepository;
-  private final StockPriceMinuteRepository stockPriceMinuteRepository;
   private final StockPriceDailyRepository stockPriceDailyRepository;
   private final StockPriceWeeklyRepository stockPriceWeeklyRepository;
   private final StockPriceMonthlyRepository stockPriceMonthlyRepository;
   private final StockPriceYearlyRepository stockPriceYearlyRepository;
   private final KisProperties kisProperties;
   private final KisWebSocketClient kisWebSocketClient;
-  private final KisRealtimeMinuteCandleAggregator candleAggregator;
+  private final CachedKisDomesticStockGateway cachedGateway;
   private final ScheduledExecutorService scheduler;
   private final long schedulerShutdownWaitSeconds;
 
+  private final ConcurrentHashMap<String, AtomicInteger> sseRefCounts = new ConcurrentHashMap<>();
+
   public StockPriceStreamServiceImpl(
       StockRepository stockRepository,
-      StockPriceMinuteRepository stockPriceMinuteRepository,
       StockPriceDailyRepository stockPriceDailyRepository,
       StockPriceWeeklyRepository stockPriceWeeklyRepository,
       StockPriceMonthlyRepository stockPriceMonthlyRepository,
       StockPriceYearlyRepository stockPriceYearlyRepository,
       KisProperties kisProperties,
       KisWebSocketClient kisWebSocketClient,
-      KisRealtimeMinuteCandleAggregator candleAggregator,
+      CachedKisDomesticStockGateway cachedGateway,
       @Value("${stock.stream.scheduler.pool-size:4}") int schedulerPoolSize,
       @Value("${stock.stream.scheduler.shutdown-wait-seconds:5}") long schedulerShutdownWaitSeconds
   ) {
     this.stockRepository = stockRepository;
-    this.stockPriceMinuteRepository = stockPriceMinuteRepository;
     this.stockPriceDailyRepository = stockPriceDailyRepository;
     this.stockPriceWeeklyRepository = stockPriceWeeklyRepository;
     this.stockPriceMonthlyRepository = stockPriceMonthlyRepository;
     this.stockPriceYearlyRepository = stockPriceYearlyRepository;
     this.kisProperties = kisProperties;
     this.kisWebSocketClient = kisWebSocketClient;
-    this.candleAggregator = candleAggregator;
+    this.cachedGateway = cachedGateway;
     ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
         Math.max(2, schedulerPoolSize)
     );
@@ -117,9 +114,20 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
     AtomicReference<ScheduledFuture<?>> futureRef = new AtomicReference<>();
 
-    emitter.onCompletion(() -> cancel(futureRef.get()));
-    emitter.onTimeout(() -> cancel(futureRef.get()));
-    emitter.onError(error -> cancel(futureRef.get()));
+    if (type == CandleType.MINUTE) {
+      acquireSseRef(resolvedStock);
+      Runnable cleanup = () -> {
+        cancel(futureRef.get());
+        releaseSseRef(resolvedStock);
+      };
+      emitter.onCompletion(cleanup);
+      emitter.onTimeout(cleanup);
+      emitter.onError(error -> cleanup.run());
+    } else {
+      emitter.onCompletion(() -> cancel(futureRef.get()));
+      emitter.onTimeout(() -> cancel(futureRef.get()));
+      emitter.onError(error -> cancel(futureRef.get()));
+    }
 
     if (!sendSnapshot(emitter, resolvedStock, type)) {
       return emitter;
@@ -130,6 +138,7 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
           () -> {
             if (!sendSnapshot(emitter, resolvedStock, type)) {
               cancel(futureRef.get());
+              releaseSseRef(resolvedStock);
             }
           },
           STREAM_INTERVAL_MINUTES,
@@ -158,19 +167,30 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     }
   }
 
-  // ===== 분봉 =====
+  // ===== 분봉 (KIS REST API) =====
 
   private StockPricesResponse loadMinutePricesResponse(ResolvedStock stock) {
-    ensureRealtimeSubscription(stock);
+    try {
+      KisMinuteCandleData data = cachedGateway.getMinuteCandles(
+          stock.marketCode(), stock.ticker()
+      ).value();
 
-    // DB 분봉 + 실시간 분봉 merge
-    List<StockPricePointResponse> dbPrices = mapMinutePrices(
-        stockPriceMinuteRepository.findByStockIdOrderByTradeTimestampDesc(
-            stock.stockId(), PageRequest.of(0, 390))
-    );
-    List<StockPricePointResponse> merged = mergeRealtimeMinutePrices(stock, dbPrices, 390);
+      List<StockPricePointResponse> prices = data.candles().stream()
+          .map(candle -> new StockPricePointResponse(
+              candle.timestamp(),
+              candle.openPrice(),
+              candle.highPrice(),
+              candle.lowPrice(),
+              candle.closePrice(),
+              candle.volume()
+          ))
+          .toList();
 
-    return new StockPricesResponse("MINUTE", false, null, merged);
+      return new StockPricesResponse("MINUTE", false, null, ascending(prices));
+    } catch (KisApiException e) {
+      log.warn("Failed to fetch KIS minute candles. ticker={}", stock.ticker(), e);
+      throw new BusinessException(StockErrorCode.STOCK_MARKET_DATA_UNAVAILABLE);
+    }
   }
 
   // ===== 일봉 (커서 페이지네이션) =====
@@ -263,19 +283,6 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
 
   // ===== Mapper =====
 
-  private List<StockPricePointResponse> mapMinutePrices(List<StockPriceMinute> prices) {
-    return ascending(prices.stream()
-        .map(price -> new StockPricePointResponse(
-            price.getTradeTimestamp(),
-            price.getOpenPrice(),
-            price.getHighPrice(),
-            price.getLowPrice(),
-            price.getClosePrice(),
-            price.getVolume()
-        ))
-        .toList());
-  }
-
   private List<StockPricePointResponse> mapDailyPrices(List<StockPriceDaily> prices) {
     return ascending(prices.stream()
         .map(price -> new StockPricePointResponse(
@@ -334,62 +341,39 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     return List.copyOf(ordered);
   }
 
-  // ===== Realtime Minute Merge =====
+  // ===== SSE Reference Counting + WebSocket Subscribe/Unsubscribe =====
 
-  private List<StockPricePointResponse> mergeRealtimeMinutePrices(
-      ResolvedStock stock,
-      List<StockPricePointResponse> databasePrices,
-      int limit
-  ) {
-    Map<OffsetDateTime, StockPricePointResponse> merged = new LinkedHashMap<>();
-    for (StockPricePointResponse databasePrice : databasePrices) {
-      merged.put(databasePrice.timestamp(), databasePrice);
+  private void acquireSseRef(ResolvedStock stock) {
+    String key = stock.marketCode() + ":" + stock.ticker();
+    int count = sseRefCounts.computeIfAbsent(key, k -> new AtomicInteger(0)).incrementAndGet();
+    log.info("SSE ref acquired. ticker={}, refCount={}", stock.ticker(), count);
+
+    if (count == 1 && kisProperties.isConfigured()) {
+      kisWebSocketClient.subscribeDomesticTrade(stock.marketCode(), stock.ticker())
+          .thenAccept(ack -> log.info(
+              "KIS realtime subscription ready. ticker={}, success={}", stock.ticker(), ack.success()))
+          .exceptionally(error -> {
+            log.warn("Failed to subscribe KIS realtime. ticker={}", stock.ticker(), error);
+            return null;
+          });
     }
-
-    candleAggregator.getCurrentMinuteCandle(stock.marketCode(), stock.ticker())
-        .map(this::toRealtimePricePoint)
-        .ifPresent(price -> merged.put(price.timestamp(), price));
-
-    for (KisRealtimeMinuteCandleData recentClosedCandle :
-        candleAggregator.getRecentClosedMinuteCandles(stock.marketCode(), stock.ticker(), limit)) {
-      StockPricePointResponse realtimePrice = toRealtimePricePoint(recentClosedCandle);
-      merged.put(realtimePrice.timestamp(), realtimePrice);
-    }
-
-    List<StockPricePointResponse> ordered = ascending(new ArrayList<>(merged.values()));
-    if (ordered.size() <= limit) {
-      return ordered;
-    }
-    return List.copyOf(ordered.subList(ordered.size() - limit, ordered.size()));
   }
 
-  private StockPricePointResponse toRealtimePricePoint(KisRealtimeMinuteCandleData candle) {
-    return new StockPricePointResponse(
-        candle.bucketStart(),
-        candle.openPrice(),
-        candle.highPrice(),
-        candle.lowPrice(),
-        candle.closePrice(),
-        candle.minuteVolume()
-    );
-  }
+  private void releaseSseRef(ResolvedStock stock) {
+    String key = stock.marketCode() + ":" + stock.ticker();
+    AtomicInteger ref = sseRefCounts.get(key);
+    if (ref == null) {
+      return;
+    }
+    int count = ref.decrementAndGet();
+    log.info("SSE ref released. ticker={}, refCount={}", stock.ticker(), count);
 
-  private void ensureRealtimeSubscription(ResolvedStock stock) {
-    if (!kisProperties.isConfigured()) {
-      return;
+    if (count <= 0) {
+      sseRefCounts.remove(key);
+      if (kisProperties.isConfigured()) {
+        kisWebSocketClient.unsubscribeDomesticTrade(stock.marketCode(), stock.ticker());
+      }
     }
-    boolean alreadyAcknowledged = kisWebSocketClient.isSubscriptionAcknowledged(stock.marketCode(), stock.ticker());
-    if (alreadyAcknowledged) {
-      return;
-    }
-    kisWebSocketClient.subscribeDomesticTrade(stock.marketCode(), stock.ticker())
-        .thenAccept(ack -> log.info(
-            "KIS realtime minute subscription ready. stockId={}, ticker={}, success={}",
-            stock.stockId(), stock.ticker(), ack.success()))
-        .exceptionally(error -> {
-          log.warn("Failed to subscribe KIS realtime. stockId={}, ticker={}", stock.stockId(), stock.ticker(), error);
-          return null;
-        });
   }
 
   // ===== SSE =====

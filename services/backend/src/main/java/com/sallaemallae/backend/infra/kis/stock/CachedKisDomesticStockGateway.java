@@ -49,6 +49,17 @@ public class CachedKisDomesticStockGateway {
         });
   }
 
+  public CachedResult<KisMinuteCandleData> getMinuteCandles(String marketCode, String ticker) {
+    String cacheKey = cacheKeyFactory.minuteCandle(marketCode, ticker);
+    return cacheRepository.get(cacheKey, KisMinuteCandleData.class)
+        .map(value -> new CachedResult<>(cacheKey, true, value))
+        .orElseGet(() -> {
+          KisMinuteCandleData fresh = kisDomesticStockClient.getMinuteCandles(marketCode, ticker);
+          cacheRepository.put(cacheKey, fresh, ttlPolicy.minuteCandleTtl());
+          return new CachedResult<>(cacheKey, false, fresh);
+        });
+  }
+
   public CachedResult<KisPeriodPriceData> getPeriodPrices(
       String marketCode,
       String ticker,

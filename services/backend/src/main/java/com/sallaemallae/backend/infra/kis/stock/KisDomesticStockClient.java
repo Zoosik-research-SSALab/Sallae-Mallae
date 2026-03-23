@@ -217,6 +217,59 @@ public class KisDomesticStockClient {
     );
   }
 
+  public KisMinuteCandleData getMinuteCandles(String marketCode, String ticker) {
+    String query = "FID_ETC_CLS_CODE="
+        + "&FID_COND_MRKT_DIV_CODE=" + marketCode
+        + "&FID_INPUT_ISCD=" + ticker
+        + "&FID_INPUT_HOUR_1="
+        + "&FID_PW_DATA_INCU_YN=N";
+
+    JsonNode body = get(
+        "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice",
+        "FHKST03010200",
+        query
+    );
+
+    JsonNode summary = body.path("output1");
+    JsonNode candlesNode = body.path("output2");
+
+    LocalDate today = LocalDate.now(ZONE_ID);
+    List<KisMinuteCandleItem> candles = new ArrayList<>();
+    for (JsonNode row : candlesNode) {
+      String hour = row.path("stck_cntg_hour").asText("");
+      if (hour.length() < 6) {
+        continue;
+      }
+      OffsetDateTime timestamp = today
+          .atTime(Integer.parseInt(hour.substring(0, 2)),
+              Integer.parseInt(hour.substring(2, 4)))
+          .atZone(ZONE_ID)
+          .toOffsetDateTime();
+
+      candles.add(new KisMinuteCandleItem(
+          timestamp,
+          toInt(row.path("stck_oprc")),
+          toInt(row.path("stck_hgpr")),
+          toInt(row.path("stck_lwpr")),
+          toInt(row.path("stck_prpr")),
+          toLong(row.path("cntg_vol"))
+      ));
+    }
+
+    return new KisMinuteCandleData(
+        marketCode,
+        ticker,
+        nullableText(summary, "hts_kor_isnm"),
+        toInt(summary.path("stck_prpr")),
+        toInt(summary.path("stck_sdpr")),
+        toInt(summary.path("prdy_vrss")),
+        toFloat(summary.path("prdy_ctrt")),
+        OffsetDateTime.now(ZONE_ID),
+        candles,
+        "KIS"
+    );
+  }
+
   public KisPeriodPriceData getPeriodPrices(
       String marketCode,
       String ticker,
