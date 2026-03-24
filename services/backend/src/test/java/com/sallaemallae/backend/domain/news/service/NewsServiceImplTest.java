@@ -3,6 +3,7 @@ package com.sallaemallae.backend.domain.news.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
@@ -215,7 +216,7 @@ class NewsServiceImplTest {
 
     assertThat(result.totalCount()).isEqualTo(500L);
     verify(stockNewsRepository, never()).countAllNews(any(), any());
-    verify(valueOperations, never()).set(any(), any(), any(Long.class), any(TimeUnit.class));
+    verify(valueOperations, never()).set(any(), any(), anyLong(), any(TimeUnit.class));
   }
 
   @Test
