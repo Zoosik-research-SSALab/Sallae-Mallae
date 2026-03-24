@@ -104,7 +104,7 @@ FROM (
 -- STEP 3: stock_news_map 재매핑
 -- =========================================================================
 
--- 중복 row들의 종목 매핑을 대표 id로 합침 (DISTINCT로 중복 제거)
+-- 중복 row들의 종목 매핑을 대표 id로 합침 (감성값이 있는 row 우선 선택)
 CREATE TABLE stock_news_map_clean (LIKE stock_news_map INCLUDING ALL);
 
 INSERT INTO stock_news_map_clean (stock_id, news_id, sentiment_score, sentiment_label)
@@ -115,7 +115,9 @@ SELECT DISTINCT ON (snm.stock_id, m.representative_id)
   snm.sentiment_label
 FROM stock_news_map snm
 JOIN url_normalize_map m ON snm.news_id = m.old_id
-ORDER BY snm.stock_id, m.representative_id, snm.news_id;
+ORDER BY snm.stock_id, m.representative_id,
+         snm.sentiment_score IS NOT NULL DESC,  -- 감성값 있는 row 우선
+         snm.news_id;
 
 -- STEP 3 검증: 종목 매핑 누락 없는지 확인
 -- 기존에 매핑된 (stock_id, normalized_url) 조합 수 = 새 테이블 건수
@@ -231,6 +233,25 @@ ALTER TABLE news_keyword_map
 -- 인덱스 재확인 (LIKE INCLUDING ALL로 복사되었지만 이름 충돌 가능)
 CREATE INDEX IF NOT EXISTS idx_stock_news_map_news ON stock_news_map(news_id);
 CREATE INDEX IF NOT EXISTS idx_stock_news_url_id ON stock_news(url, id) WHERE url IS NOT NULL;
+
+-- 시퀀스 ownership을 새 테이블로 이전
+-- (old 테이블 삭제 시 시퀀스가 같이 삭제되어 자동 증가가 깨지는 것 방지)
+DO $$
+DECLARE
+  seq_name TEXT;
+BEGIN
+  SELECT pg_get_serial_sequence('stock_news', 'id') INTO seq_name;
+  IF seq_name IS NOT NULL THEN
+    EXECUTE format('ALTER SEQUENCE %s OWNED BY stock_news.id', seq_name);
+    RAISE NOTICE 'Sequence % ownership transferred to stock_news.id', seq_name;
+  ELSE
+    RAISE NOTICE 'No sequence found for stock_news.id — manual check needed';
+  END IF;
+END $$;
+
+-- 시퀀스 현재값이 max(id) 이상인지 확인 (새 INSERT 충돌 방지)
+SELECT setval(pg_get_serial_sequence('stock_news', 'id'),
+              (SELECT MAX(id) FROM stock_news));
 
 COMMIT;
 
