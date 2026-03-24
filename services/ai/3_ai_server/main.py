@@ -31,9 +31,9 @@ register_exception_handlers(app)
 
 app.include_router(debate_router, prefix="/ai/debate", tags=["debate"])
 app.include_router(news_router, prefix="/ai/news", tags=["news"])
-app.include_router(signal_router, prefix="/signal", tags=["signal"])
-app.include_router(stock_router, prefix="/stock", tags=["stock"])
-app.include_router(finance_router, prefix="/finance", tags=["finance"])
+app.include_router(signal_router, prefix="/ai/signal", tags=["signal"])
+app.include_router(stock_router, prefix="/ai/stock", tags=["stock"])
+app.include_router(finance_router, prefix="/ai/finance", tags=["finance"])
 
 
 @app.get("/health")
