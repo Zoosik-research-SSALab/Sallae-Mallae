@@ -5,7 +5,6 @@ import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.infra.kis.KisProperties;
 import com.sallaemallae.backend.infra.kis.stock.KisDomesticStockClient;
-import com.sallaemallae.backend.infra.kis.stock.KisQuoteData;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -31,13 +30,8 @@ public class StockQuoteRefreshScheduler {
   private static final LocalTime REGULAR_OPEN = LocalTime.of(9, 0);
   private static final LocalTime REGULAR_CLOSE = LocalTime.of(15, 30);
 
-  // 장후 시간외 종가
-  private static final LocalTime AFTER_CLOSE_START = LocalTime.of(15, 40);
-  private static final LocalTime AFTER_CLOSE_END = LocalTime.of(16, 0);
-
-  // 시간외 단일가 매매
-  private static final LocalTime AFTER_SINGLE_START = LocalTime.of(16, 0);
-  private static final LocalTime AFTER_SINGLE_END = LocalTime.of(18, 0);
+  // 장 마감 후 캐시 유지 (정규장 종가 기준)
+  private static final LocalTime CACHE_REFRESH_END = LocalTime.of(18, 0);
 
   private final StockRepository stockRepository;
   private final KisDomesticStockClient kisDomesticStockClient;
@@ -64,13 +58,9 @@ public class StockQuoteRefreshScheduler {
     int success = 0;
     int fail = 0;
 
-    boolean overtime = isOvertimeSingleSession();
-
     for (Stock stock : activeStocks) {
       try {
-        KisQuoteData quote = overtime
-            ? kisDomesticStockClient.getOvertimeQuote(marketCode, stock.getTicker())
-            : kisDomesticStockClient.getQuote(marketCode, stock.getTicker());
+        var quote = kisDomesticStockClient.getQuote(marketCode, stock.getTicker());
         stockQuoteCacheService.put(marketCode, stock.getTicker(), quote);
         success++;
       } catch (Exception e) {
@@ -80,15 +70,14 @@ public class StockQuoteRefreshScheduler {
       throttle();
     }
 
-    log.info("Bulk quote refresh completed. total={}, success={}, fail={}, overtime={}", activeStocks.size(), success, fail, overtime);
+    log.info("Bulk quote refresh completed. total={}, success={}, fail={}", activeStocks.size(), success, fail);
   }
 
   /**
    * 시세 갱신이 의미 있는 시간대인지 확인.
    * - 프리마켓 (동시호가): 08:30 ~ 09:00
    * - 정규장: 09:00 ~ 15:30
-   * - 장후 시간외 종가: 15:40 ~ 16:00
-   * - 시간외 단일가: 16:00 ~ 18:00
+   * - 장 마감 후 캐시 유지: 15:30 ~ 18:00 (정규장 종가 기준 getQuote 사용)
    * - 주말 제외
    */
   private boolean isTradingTime() {
@@ -99,12 +88,7 @@ public class StockQuoteRefreshScheduler {
     }
 
     LocalTime time = now.toLocalTime();
-    return !time.isBefore(PRE_MARKET_START) && time.isBefore(AFTER_SINGLE_END);
-  }
-
-  private boolean isOvertimeSingleSession() {
-    LocalTime time = ZonedDateTime.now(KST).toLocalTime();
-    return !time.isBefore(AFTER_SINGLE_START) && time.isBefore(AFTER_SINGLE_END);
+    return !time.isBefore(PRE_MARKET_START) && time.isBefore(CACHE_REFRESH_END);
   }
 
   private void throttle() {

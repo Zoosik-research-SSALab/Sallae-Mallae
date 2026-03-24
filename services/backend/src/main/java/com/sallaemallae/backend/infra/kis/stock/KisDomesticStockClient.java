@@ -75,31 +75,6 @@ public class KisDomesticStockClient {
     );
   }
 
-  public KisQuoteData getOvertimeQuote(String marketCode, String ticker) {
-    JsonNode body = get(
-        "/uapi/domestic-stock/v1/quotations/inquire-overtime-price",
-        "FHPST02300000",
-        "FID_COND_MRKT_DIV_CODE=" + marketCode + "&FID_INPUT_ISCD=" + ticker
-    );
-
-    JsonNode output = body.path("output");
-    return new KisQuoteData(
-        marketCode,
-        ticker,
-        nullableText(output, "hts_kor_isnm"),
-        toInt(output.path("ovtm_untp_prpr")),
-        toInt(output.path("stck_sdpr")),
-        toInt(output.path("ovtm_untp_prdy_vrss")),
-        toFloat(output.path("ovtm_untp_prdy_ctrt")),
-        toInt(output.path("ovtm_untp_oprc")),
-        toInt(output.path("ovtm_untp_hgpr")),
-        toInt(output.path("ovtm_untp_lwpr")),
-        toLong(output.path("ovtm_untp_vol")),
-        OffsetDateTime.now(ZONE_ID),
-        "KIS"
-    );
-  }
-
   public KisTopInterestStockData getTopInterestStocks(String marketCode, int maxItems) {
     String normalizedMarketCode = marketCode == null || marketCode.isBlank()
         ? DEFAULT_MARKET_CODE
