@@ -38,7 +38,7 @@ public class NewsServiceImpl implements NewsService {
   private final StringRedisTemplate redisTemplate;
 
   private static final String TRENDING_KEY_PREFIX = "trending:keywords:";
-  private static final String TOTAL_COUNT_KEY = "news:total_count";
+  private static final String TOTAL_COUNT_KEY_PREFIX = "news:total_count:";
   private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
   // 뉴스 목록 조회 (키워드 필터, 기간 필터, 페이지네이션, 관련 종목명 포함)
@@ -61,8 +61,9 @@ public class NewsServiceImpl implements NewsService {
       totalCount = stockNewsRepository.countNewsByKeyword(keyword, startDateTime, endDateTime);
     } else {
       rows = stockNewsRepository.findAllNews(startDateTime, endDateTime, pageable);
-      // 필터 없는 전체 조회는 Redis 캐시 우선 사용 (count 쿼리 비용 절감)
-      totalCount = (startDate == null) ? getCachedTotalCount(endDateTime) :
+      // 필터 없는 전체 조회 + endDate가 오늘인 경우만 Redis 캐시 사용 (count 쿼리 비용 절감)
+      boolean isToday = endDate.equals(LocalDate.now(KST));
+      totalCount = (startDate == null && isToday) ? getCachedTotalCount(endDate, endDateTime) :
           stockNewsRepository.countAllNews(startDateTime, endDateTime);
     }
 
@@ -145,9 +146,10 @@ public class NewsServiceImpl implements NewsService {
     return stockMap;
   }
 
-  // Redis에서 전체 기사 수 캐시 조회. 없으면 DB fallback.
-  private long getCachedTotalCount(OffsetDateTime endDateTime) {
-    String cached = redisTemplate.opsForValue().get(TOTAL_COUNT_KEY);
+  // Redis에서 날짜별 전체 기사 수 캐시 조회. 없으면 DB fallback.
+  private long getCachedTotalCount(LocalDate date, OffsetDateTime endDateTime) {
+    String redisKey = TOTAL_COUNT_KEY_PREFIX + date;
+    String cached = redisTemplate.opsForValue().get(redisKey);
     if (cached != null) {
       try {
         return Long.parseLong(cached);

@@ -27,7 +27,7 @@ public class NewsTotalCountScheduler {
   private final StockNewsRepository stockNewsRepository;
   private final StringRedisTemplate redisTemplate;
 
-  private static final String REDIS_KEY = "news:total_count";
+  private static final String REDIS_KEY_PREFIX = "news:total_count:";
   private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
   // 매일 20시, 21시(KST) 실행 (20시에 신호 없으면 21시에 재시도)
@@ -49,7 +49,8 @@ public class NewsTotalCountScheduler {
     OffsetDateTime now = OffsetDateTime.now(KST);
     long totalCount = stockNewsRepository.countAllNews(null, now);
 
-    redisTemplate.opsForValue().set(REDIS_KEY, String.valueOf(totalCount));
-    log.info("[뉴스 카운트] Redis 갱신 완료: {} = {}", REDIS_KEY, totalCount);
+    String redisKey = REDIS_KEY_PREFIX + LocalDate.now(KST);
+    redisTemplate.opsForValue().set(redisKey, String.valueOf(totalCount));
+    log.info("[뉴스 카운트] Redis 갱신 완료: {} = {}", redisKey, totalCount);
   }
 }

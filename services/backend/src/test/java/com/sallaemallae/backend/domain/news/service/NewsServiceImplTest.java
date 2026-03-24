@@ -93,8 +93,9 @@ class NewsServiceImplTest {
     stockRows.add(new Object[]{1L, "SK하이닉스"});
     stockRows.add(new Object[]{2L, "LG전자"});
 
+    String todayKey = "news:total_count:" + LocalDate.now();
     given(redisTemplate.opsForValue()).willReturn(valueOperations);
-    given(valueOperations.get("news:total_count")).willReturn("2");
+    given(valueOperations.get(todayKey)).willReturn("2");
     given(stockNewsRepository.findAllNews(isNull(), any(), any()))
         .willReturn(rows);
     given(stockNewsRepository.findStockNamesByNewsIds(List.of(1L, 2L)))
@@ -157,8 +158,9 @@ class NewsServiceImplTest {
   @Test
   @DisplayName("뉴스 목록이 비어있으면 빈 리스트 반환")
   void getNewsList_empty_noStockQuery() {
+    String todayKey = "news:total_count:" + LocalDate.now();
     given(redisTemplate.opsForValue()).willReturn(valueOperations);
-    given(valueOperations.get("news:total_count")).willReturn("0");
+    given(valueOperations.get(todayKey)).willReturn("0");
     given(stockNewsRepository.findAllNews(isNull(), any(), any()))
         .willReturn(new ArrayList<>());
 
