@@ -10,7 +10,7 @@ import ReportDebateSection from "../components/ReportDebateSection";
 import ReportEventsSection, { mapAnnouncementsToEvents } from "../components/ReportEventsSection";
 import ReportHeroSection from "../components/ReportHeroSection";
 import ReportTopBarSection from "../components/ReportTopBarSection";
-import { useDebateReports } from "../hooks/useDebateReports";
+import { useDebateReportsQuery } from "../hooks/useDebateReportsQuery";
 import { useInvestmentPerformance } from "../hooks/useInvestmentPerformance";
 import { useTradeHistory } from "../hooks/useTradeHistory";
 
@@ -19,7 +19,11 @@ interface ReportsDetailPageClientProps {
 }
 
 export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageClientProps) {
-  const { reports: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReports(stockId, 0, 6);
+  const { reports: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReportsQuery(
+    stockId,
+    0,
+    6,
+  );
   const overviewQuery = useStockOverviewQuery(stockId);
   const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
   const priceStream = useStockPriceStream(stockId, "1Y");
@@ -52,6 +56,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
   const verdictQuote = debateReport ? `"${debateReport.chairman.summary}"` : "실제 리포트 데이터가 없습니다.";
   const isMetaLoading = overviewQuery.isLoading || priceStream.isLoading;
   const metaError = overviewQuery.error instanceof Error ? overviewQuery.error.message : priceStream.error;
+  const debateErrorMessage = debateError instanceof Error ? debateError.message : null;
   const eventsError = announcementsQuery.error instanceof Error ? announcementsQuery.error.message : null;
   const tradeHistoryError = tradeHistoryQuery.error instanceof Error ? tradeHistoryQuery.error.message : null;
   const performanceError = investmentPerformanceQuery.error instanceof Error ? investmentPerformanceQuery.error.message : null;
@@ -122,7 +127,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
         )}
       </div>
 
-      {isDebateLoading || debateError || isMetaLoading || metaError ? (
+      {isDebateLoading || debateErrorMessage || isMetaLoading || metaError ? (
         <div className="fixed bottom-4 right-4 flex flex-col gap-2">
           {isMetaLoading ? (
             <div className="rounded-md bg-[color:var(--color-bg-secondary)] px-3 py-2 text-sm text-[color:var(--color-text-secondary)]">
@@ -139,9 +144,9 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
               {metaError}
             </div>
           ) : null}
-          {debateError ? (
+          {debateErrorMessage ? (
             <div className="rounded-md bg-[color:var(--color-bg-danger-subtle)] px-3 py-2 text-sm text-[color:var(--color-text-danger-bold)]">
-              {debateError}
+              {debateErrorMessage}
             </div>
           ) : null}
         </div>
