@@ -13,7 +13,7 @@ type Props = {
 
 function formatPortfolioMetricValue(metric: PortfolioHeroType["metrics"][number]) {
   if (typeof metric.value !== "number" || !Number.isFinite(metric.value)) {
-    return `?${metric.unit}`;
+    return "-";
   }
 
   return metric.decimals === 0

@@ -77,7 +77,7 @@ export function getMockPortfolioPage(): PortfolioPageData {
       metrics: [
         { id: "cumulative-return", label: "누적 수익률", value: 42.5, unit: "%", decimals: 1, tone: "danger" },
         { id: "hit-rate", label: "적중 확률", value: 85.2, unit: "%", decimals: 1, tone: "default" },
-        { id: "yesterday_return", label: "전날 대비 수익률", value: 15.4, unit: "%", decimals: 1, tone: "danger" },
+        { id: "yesterday_return", label: "전날 대비 수익률", value: 0.2, unit: "%", decimals: 1, tone: "danger" },
         { id: "holding-count", label: "현재 보유 종목", value: holdingsSeed.length, unit: "개", decimals: 0, tone: "default" },
       ],
     },
@@ -213,7 +213,7 @@ export function getMockPortfolioChairmanResponse(
     summary: {
       cumulativeReturn: 92.320335,
       hitRate: 50.0,
-      yesterdayReturn: null,
+      yesterdayReturn: 0.2,
       alphaVsKospi: null,
       holdingCount: holdingsSeed.length,
     },
