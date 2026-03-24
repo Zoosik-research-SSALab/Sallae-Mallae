@@ -115,8 +115,8 @@ export function getMockTradesResponse(
     },
     {
       status: "sold",
-      buyDate: "2023-05-12",
-      sellDate: "2023-06-26",
+      buyDate: "2025-04-10",
+      sellDate: "2025-05-25",
       buyPrice: 88000,
       sellPrice: 127700,
       holdingDays: 45,
@@ -124,8 +124,8 @@ export function getMockTradesResponse(
     },
     {
       status: "sold",
-      buyDate: "2024-03-01",
-      sellDate: "2024-05-15",
+      buyDate: "2025-06-01",
+      sellDate: "2025-08-14",
       buyPrice: 115000,
       sellPrice: 138000,
       holdingDays: 75,
@@ -133,8 +133,8 @@ export function getMockTradesResponse(
     },
     {
       status: "sold",
-      buyDate: "2024-08-10",
-      sellDate: "2024-10-22",
+      buyDate: "2025-08-20",
+      sellDate: "2025-11-01",
       buyPrice: 128000,
       sellPrice: 119000,
       holdingDays: 73,

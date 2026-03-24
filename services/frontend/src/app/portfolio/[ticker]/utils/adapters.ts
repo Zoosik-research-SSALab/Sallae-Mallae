@@ -100,17 +100,17 @@ export function adaptBacktestFromTrades(trades: TradeItem[]): {
     sellPrice: best.sellPrice ?? best.currentPrice ?? best.buyPrice,
   };
 
-  // Three-year boundary
-  const threeYearsAgo = new Date();
-  threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+  // One-year boundary
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   const recentTrades = trades.filter(
-    (t) => new Date(t.buyDate) >= threeYearsAgo
+    (t) => new Date(t.buyDate) >= oneYearAgo
   );
 
   // TODO: Replace placeholder sum with a proper cumulative compound return
   // calculation once the backend provides raw equity-curve data.
-  const threeYearReturn = recentTrades.reduce(
+  const oneYearReturn = recentTrades.reduce(
     (acc, t) => acc + t.returnRate,
     0
   );
@@ -124,8 +124,8 @@ export function adaptBacktestFromTrades(trades: TradeItem[]): {
       : String(new Date().getFullYear());
 
   const stats: BacktestStats = {
-    threeYearReturn,
-    threeYearTradeCount: recentTrades.length,
+    oneYearReturn,
+    oneYearTradeCount: recentTrades.length,
     allTimeTradeCount: trades.length,
     allTimeSince,
   };

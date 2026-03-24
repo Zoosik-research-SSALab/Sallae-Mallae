@@ -74,8 +74,8 @@ function calcBacktest(trades: TradeItem[]): {
   const totalReturn = soldTrades.reduce((sum, t) => sum + t.returnRate, 0);
 
   const stats: BacktestStats = {
-    threeYearReturn: Number(totalReturn.toFixed(2)),
-    threeYearTradeCount: soldTrades.length,
+    oneYearReturn: Number(totalReturn.toFixed(2)),
+    oneYearTradeCount: soldTrades.length,
     allTimeTradeCount: trades.length,
     allTimeSince: "",
   };
