@@ -92,7 +92,7 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
         queryClient.invalidateQueries({ queryKey: statusQueryKey });
       }
 
-      queryClient.invalidateQueries({ queryKey: watchlistQueryKeys.all });
+      queryClient.invalidateQueries({ queryKey: watchlistQueryKeys.lists });
     },
   });
 
