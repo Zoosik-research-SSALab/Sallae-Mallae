@@ -204,11 +204,14 @@ HAVING COUNT(snm.stock_id) > 1
 ORDER BY stock_count DESC
 LIMIT 10;
 
--- 새 테이블의 URL에 code= 파라미터가 남아있지 않은지
+-- 정규화 대상(article_id+office_id 둘 다 있음)인데 code= 파라미터가 남아있는 URL 확인
 SELECT COUNT(*) AS remaining_code_params
 FROM stock_news_clean
-WHERE url LIKE '%&code=%';
--- 결과가 0이어야 함
+WHERE url LIKE '%&code=%'
+  AND url ~ 'article_id=[^&]+'
+  AND url ~ 'office_id=[^&]+';
+-- 결과가 0이어야 함 (0이 아니면 정규화 누락)
+-- 참고: article_id/office_id 없는 URL은 원본 유지되므로 code= 잔존 정상
 
 
 -- =========================================================================
