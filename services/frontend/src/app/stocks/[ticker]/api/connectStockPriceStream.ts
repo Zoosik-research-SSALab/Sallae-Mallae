@@ -193,18 +193,6 @@ export async function fetchStockPricePage(ticker: string, period: StockChartPeri
   return normalizePricePage(payload, period);
 }
 
-export async function fetchStockQuote(ticker: string) {
-  if (shouldUseMockApi()) {
-    return getMockQuoteSnapshot(ticker);
-  }
-
-  const payload = await apiFetch<StockQuoteApiPayload>(`/api/stocks/${ticker}/quote`, {
-    cache: "no-store",
-  });
-
-  return normalizeQuotePayload(payload);
-}
-
 export function subscribeStockQuoteStream(
   ticker: string,
   handlers: {

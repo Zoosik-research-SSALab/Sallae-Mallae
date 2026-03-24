@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  fetchStockQuote,
   subscribeStockQuoteStream,
   type StockQuoteSnapshot,
 } from "../api/connectStockPriceStream";
@@ -22,6 +21,7 @@ export function useStockQuoteStream(ticker: string, options: UseStockQuoteStream
   const [data, setData] = useState<StockQuoteSnapshot>(initialData);
   const [isLoading, setIsLoading] = useState(Boolean(enabled));
   const [error, setError] = useState<string | null>(null);
+  const [resolvedTicker, setResolvedTicker] = useState<string | null>(null);
 
   useEffect(() => {
     if (isInactive) {
@@ -29,7 +29,6 @@ export function useStockQuoteStream(ticker: string, options: UseStockQuoteStream
     }
 
     let disposed = false;
-    let fallbackPollingTimer: ReturnType<typeof setInterval> | null = null;
     let unsubscribe = () => {};
 
     const applySnapshot = (snapshot: StockQuoteSnapshot) => {
@@ -38,55 +37,27 @@ export function useStockQuoteStream(ticker: string, options: UseStockQuoteStream
       }
 
       setData(snapshot);
+      setResolvedTicker(ticker);
       setIsLoading(false);
       setError(null);
     };
 
-    const loadInitial = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        applySnapshot(await fetchStockQuote(ticker));
-
-        unsubscribe = subscribeStockQuoteStream(ticker, {
-          onMessage(snapshot) {
-            applySnapshot(snapshot);
-          },
-          onError() {
-            if (disposed || fallbackPollingTimer) {
-              return;
-            }
-
-            fallbackPollingTimer = setInterval(() => {
-              void (async () => {
-                try {
-                  applySnapshot(await fetchStockQuote(ticker));
-                } catch {
-                  if (!disposed) {
-                    setError("stream_error");
-                    setIsLoading(false);
-                  }
-                }
-              })();
-            }, 60_000);
-          },
-        });
-      } catch {
+    unsubscribe = subscribeStockQuoteStream(ticker, {
+      onMessage(snapshot) {
+        applySnapshot(snapshot);
+      },
+      onError() {
         if (!disposed) {
-          setIsLoading(false);
+          setResolvedTicker(ticker);
           setError("stream_error");
+          setIsLoading(false);
         }
-      }
-    };
-
-    void loadInitial();
+      },
+    });
 
     return () => {
       disposed = true;
       unsubscribe();
-      if (fallbackPollingTimer) {
-        clearInterval(fallbackPollingTimer);
-      }
     };
   }, [isInactive, ticker]);
 
@@ -98,9 +69,11 @@ export function useStockQuoteStream(ticker: string, options: UseStockQuoteStream
     };
   }
 
+  const isResolvedForCurrentTicker = resolvedTicker === ticker;
+
   return {
-    data,
-    isLoading,
-    error,
+    data: isResolvedForCurrentTicker ? data : initialData,
+    isLoading: isResolvedForCurrentTicker ? isLoading : true,
+    error: isResolvedForCurrentTicker ? error : null,
   };
 }

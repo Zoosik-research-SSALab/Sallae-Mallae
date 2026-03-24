@@ -18,6 +18,7 @@ import {
   stockChartPeriods,
 } from "../utils/stockDetailFormatters";
 import StockPriceChart from "./StockPriceChart";
+import StockPriceChartSkeleton from "./StockPriceChartSkeleton";
 import StockSectionLoadingOverlay from "./common/StockSectionLoadingOverlay";
 
 type Props = {
@@ -149,7 +150,7 @@ export default function StockOverviewSection({
           <StockSectionLoadingOverlay active={isChartLoading} className="overflow-hidden rounded-[24px]">
             <div className="overflow-hidden rounded-[24px] bg-[color:var(--color-bg-primary)]">
               {isChartLoading ? (
-                <div className="h-[320px] w-full animate-pulse bg-[color:var(--color-bg-secondary)] md:h-[340px] xl:h-[360px]" />
+                <StockPriceChartSkeleton />
               ) : (
                 <StockPriceChart
                   prices={prices}

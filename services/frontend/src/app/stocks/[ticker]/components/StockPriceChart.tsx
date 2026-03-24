@@ -285,6 +285,7 @@ export default function StockPriceChart({
   const chartInstanceRef = useRef<EChartsType | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const zoomWindowRef = useRef<ZoomWindow | null>(null);
+  const syncingLatestZoomRef = useRef(false);
   const minimumZoomSpanRef = useRef(1);
   const dataLengthRef = useRef(0);
   const previousMetaRef = useRef<{
@@ -348,6 +349,11 @@ export default function StockPriceChart({
       chartThemeRef.current = readChartTheme();
 
       chart.on("datazoom", (...args: unknown[]) => {
+        if (syncingLatestZoomRef.current) {
+          syncingLatestZoomRef.current = false;
+          return;
+        }
+
         const event = (args[0] ?? {}) as {
           batch?: Array<Record<string, unknown>>;
           startValue?: number;
@@ -373,6 +379,48 @@ export default function StockPriceChart({
           dataLengthRef.current,
           minimumZoomSpanRef.current,
         );
+        const currentZoomWindow = zoomWindowRef.current;
+        const nextSpan = getZoomWindowSpan(clampedZoomWindow);
+        const previousSpan = currentZoomWindow ? getZoomWindowSpan(currentZoomWindow) : nextSpan;
+        const maxIndex = Math.max(0, dataLengthRef.current - 1);
+
+        if (nextSpan > previousSpan && clampedZoomWindow.endValue < maxIndex) {
+          const anchoredZoomWindow = clampZoomWindow(
+            {
+              startValue: maxIndex - nextSpan + 1,
+              endValue: maxIndex,
+            },
+            dataLengthRef.current,
+            minimumZoomSpanRef.current,
+          );
+
+          zoomWindowRef.current = anchoredZoomWindow;
+          axisLabelStateRef.current = buildAxisLabelState(
+            timestampsRef.current,
+            axisDatePartsRef.current,
+            periodRef.current,
+            anchoredZoomWindow,
+          );
+
+          syncingLatestZoomRef.current = true;
+          chart.dispatchAction({
+            type: "dataZoom",
+            batch: [
+              {
+                dataZoomIndex: 0,
+                startValue: anchoredZoomWindow.startValue,
+                endValue: anchoredZoomWindow.endValue,
+              },
+              {
+                dataZoomIndex: 1,
+                startValue: anchoredZoomWindow.startValue,
+                endValue: anchoredZoomWindow.endValue,
+              },
+            ],
+          });
+          return;
+        }
+
         zoomWindowRef.current = clampedZoomWindow;
         axisLabelStateRef.current = buildAxisLabelState(
           timestampsRef.current,
