@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.sallaemallae.backend.domain.news.dto.NewsDetailResponse;
@@ -24,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -190,6 +192,30 @@ class NewsServiceImplTest {
 
     assertThat(result.totalCount()).isEqualTo(100L);
     verify(stockNewsRepository).countAllNews(isNull(), any());
+    // DB fallback 후 Redis에 캐시 저장 확인
+    String todayKey2 = "news:total_count:" + LocalDate.now();
+    verify(valueOperations).set(todayKey2, "100", 1, TimeUnit.DAYS);
+  }
+
+  @Test
+  @DisplayName("Redis 캐시 hit 시 DB count 쿼리 미호출 및 Redis 재저장 안 함")
+  void getNewsList_cacheHit_noDbCount() throws Exception {
+    List<StockNews> rows = List.of(
+        createStockNews(8L, "캐시히트뉴스", null, "JTBC", null, NOW));
+
+    String todayKey = "news:total_count:" + LocalDate.now();
+    given(redisTemplate.opsForValue()).willReturn(valueOperations);
+    given(valueOperations.get(todayKey)).willReturn("500");
+    given(stockNewsRepository.findAllNews(isNull(), any(), any()))
+        .willReturn(rows);
+    given(stockNewsRepository.findStockNamesByNewsIds(List.of(8L)))
+        .willReturn(new ArrayList<>());
+
+    NewsListResponse result = newsService.getNewsList(null, null, LocalDate.now(), 0, 10);
+
+    assertThat(result.totalCount()).isEqualTo(500L);
+    verify(stockNewsRepository, never()).countAllNews(any(), any());
+    verify(valueOperations, never()).set(any(), any(), any(Long.class), any(TimeUnit.class));
   }
 
   @Test

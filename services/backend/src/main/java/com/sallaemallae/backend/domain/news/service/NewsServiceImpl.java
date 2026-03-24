@@ -146,7 +146,7 @@ public class NewsServiceImpl implements NewsService {
     return stockMap;
   }
 
-  // Redis에서 날짜별 전체 기사 수 캐시 조회. 없으면 DB fallback.
+  // Redis에서 날짜별 전체 기사 수 캐시 조회. 없으면 DB fallback 후 캐시에 저장.
   private long getCachedTotalCount(LocalDate date, OffsetDateTime endDateTime) {
     String redisKey = TOTAL_COUNT_KEY_PREFIX + date;
     String cached = redisTemplate.opsForValue().get(redisKey);
@@ -156,7 +156,9 @@ public class NewsServiceImpl implements NewsService {
       } catch (NumberFormatException ignored) {
       }
     }
-    return stockNewsRepository.countAllNews(null, endDateTime);
+    long count = stockNewsRepository.countAllNews(null, endDateTime);
+    redisTemplate.opsForValue().set(redisKey, String.valueOf(count), 1, TimeUnit.DAYS);
+    return count;
   }
 
   private Long toLong(Object obj) {
