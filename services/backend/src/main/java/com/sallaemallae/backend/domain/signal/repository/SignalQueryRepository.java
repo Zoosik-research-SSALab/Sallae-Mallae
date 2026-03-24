@@ -38,7 +38,13 @@ public class SignalQueryRepository {
         SELECT s.id AS stock_id,
                s.ticker,
                s.name,
+               s.category,
                p.close_price,
+               CASE
+                   WHEN p.close_price IS NOT NULL AND s.outstanding_shares IS NOT NULL
+                       THEN p.close_price::bigint * s.outstanding_shares
+                   ELSE NULL
+               END AS market_cap,
                p.fluctuation_rate,
                lr.signal,
                lr.confidence,
@@ -64,7 +70,9 @@ public class SignalQueryRepository {
           toLong(row.get("stock_id")),
           row.get("ticker", String.class),
           row.get("name", String.class),
+          row.get("category", String.class),
           toInteger(row.get("close_price")),
+          toLong(row.get("market_cap")),
           toFloat(row.get("fluctuation_rate")),
           row.get("signal", String.class),
           toFloat(row.get("confidence")),
@@ -78,7 +86,9 @@ public class SignalQueryRepository {
       Long stockId,
       String ticker,
       String name,
+      String category,
       Integer price,
+      Long marketCap,
       Float fluctuationRate,
       String signal,
       Float confidence,

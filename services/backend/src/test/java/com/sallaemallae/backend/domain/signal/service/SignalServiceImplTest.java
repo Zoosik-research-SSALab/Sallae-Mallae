@@ -32,9 +32,9 @@ class SignalServiceImplTest {
   void getSignals_returnsFilteredAndSortedSignals() {
     OffsetDateTime now = OffsetDateTime.of(2026, 3, 17, 10, 0, 0, 0, ZoneOffset.UTC);
     given(signalQueryRepository.findLatestSignalCandidates()).willReturn(List.of(
-        new SignalQueryRepository.SignalCandidateRow(1L, "005930", "삼성전자", 74300, 1.24f, "BUY", 0.98f, now),
-        new SignalQueryRepository.SignalCandidateRow(2L, "035720", "카카오", 48000, -1.52f, "SELL", 0.92f, now.minusMinutes(1)),
-        new SignalQueryRepository.SignalCandidateRow(3L, "000660", "SK하이닉스", 162500, 0.42f, "BUY", 0.85f, now.minusMinutes(2))
+        new SignalQueryRepository.SignalCandidateRow(1L, "005930", "삼성전자", "반도체", 74300, 439300000000000L, 1.24f, "BUY", 0.98f, now),
+        new SignalQueryRepository.SignalCandidateRow(2L, "035720", "카카오", "IT플랫폼 / 소프트웨어", 48000, null, -1.52f, "SELL", 0.92f, now.minusMinutes(1)),
+        new SignalQueryRepository.SignalCandidateRow(3L, "000660", "SK하이닉스", "반도체", 162500, 118300000000000L, 0.42f, "BUY", 0.85f, now.minusMinutes(2))
     ));
 
     SignalListResponse response = signalService.getSignals("BUY", "UP", 0, 10);
@@ -43,6 +43,8 @@ class SignalServiceImplTest {
     assertThat(response.sellCount()).isEqualTo(1);
     assertThat(response.signals()).hasSize(2);
     assertThat(response.signals().get(0).ticker()).isEqualTo("005930");
+    assertThat(response.signals().get(0).category()).isEqualTo("반도체");
+    assertThat(response.signals().get(0).marketCap()).isEqualTo(439300000000000L);
     assertThat(response.signals().get(0).confidence()).isEqualTo(98);
     assertThat(response.signals().get(1).ticker()).isEqualTo("000660");
   }
