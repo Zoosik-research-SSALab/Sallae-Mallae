@@ -30,8 +30,8 @@ public class NewsTotalCountScheduler {
   private static final String REDIS_KEY = "news:total_count";
   private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
-  // 매일 20시(KST) 실행
-  @Scheduled(cron = "0 0 20 * * *", zone = "Asia/Seoul")
+  // 매일 20시, 21시(KST) 실행 (20시에 신호 없으면 21시에 재시도)
+  @Scheduled(cron = "0 0 20,21 * * *", zone = "Asia/Seoul")
   public void refreshTotalCount() {
     // 오늘 00:00 KST 이후의 완료 신호 확인
     OffsetDateTime todayStart = LocalDate.now(KST)
