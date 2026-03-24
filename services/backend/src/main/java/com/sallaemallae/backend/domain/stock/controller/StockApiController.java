@@ -175,7 +175,7 @@ public class StockApiController {
       @Parameter(description = "Stock ticker", example = "005930")
       @PathVariable String ticker,
       @Parameter(description = "Candle type: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY", example = "DAILY")
-      @RequestParam(defaultValue = "DAILY") String candleType,
+      @RequestParam(name = "candle_type", defaultValue = "DAILY") String candleType,
       @Parameter(description = "Cursor for pagination (oldest date from previous page)", example = "2024-01-01")
       @RequestParam(required = false) String cursor
   ) {
