@@ -22,7 +22,7 @@ import {
   getMockReportResponse,
   getMockPerformanceResponse,
   getMockTradesResponse,
-} from "@/app/portfolio/[ticker]/utils/mockApiData";
+} from "@/app/portfolio/[stockId]/utils/mockApiData";
 import { getMockStocksResponse } from "@/app/stocks/utils/mockStocksData";
 import {
   getMockAnnouncementDetail,
@@ -166,6 +166,22 @@ export const handlers = [
     }
 
     return HttpResponse.json(snakelizeKeys(getMockStockOverview(stockId)));
+  }),
+
+  http.get("/api/stocks/:stockId/overview", ({ params }) => {
+    const { stockId } = params as { stockId: string };
+    const overview = getMockStockOverview(stockId);
+
+    return HttpResponse.json(snakelizeKeys({
+      stockId: overview.id,
+      ticker: overview.ticker,
+      name: overview.name,
+      marketType: overview.marketType,
+      gicsSector: overview.gicsSector,
+      category: overview.category,
+      latestPrice: overview.latestPrice,
+      priceRange52w: overview.priceRange52w,
+    }));
   }),
 
   http.get("/api/stocks/:stockId/prices", ({ request, params }) => {

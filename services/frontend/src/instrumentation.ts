@@ -6,5 +6,6 @@ export async function register() {
   ) {
     const { server } = await import("@/mocks/node");
     server.listen({ onUnhandledRequest: "bypass" });
+    console.log("played");
   }
 }

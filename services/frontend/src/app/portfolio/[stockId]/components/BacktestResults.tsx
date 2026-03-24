@@ -22,7 +22,7 @@ export default function BacktestResults({
           AI 과거 매매 백테스팅 성과
         </h2>
         <p className="typo-body-md font-medium text-text-secondary tracking-tight">
-          최근 3년간(2023~2026) {stockName} 매매 요약
+          최근 1년간(2025~현재) {stockName} 매매 요약
         </p>
       </div>
 
@@ -58,7 +58,7 @@ export default function BacktestResults({
                   <span className="text-text-secondary">보유 기간: </span>
                   <span className="text-text-primary">45일</span>
                 </p>
-                <p className="text-text-secondary">(23.05.12 ~ 23.06.26)</p>
+                <p className="text-text-secondary">({bestTrade.period})</p>
               </div>
               {/* Desktop: 1 line */}
               <p className="hidden md:block">
@@ -70,7 +70,7 @@ export default function BacktestResults({
                 </span>
                 <span className="text-[color:var(--color-text-secondary)]">
                   {" "}
-                  (23.05.12 ~ 23.06.26)
+                  ({bestTrade.period})
                 </span>
               </p>
             </div>
@@ -108,23 +108,23 @@ export default function BacktestResults({
 
       {/* Stats row */}
       <div className="flex border-b border-border-primary pb-6">
-        {/* 최근 3년 누적 수익률 */}
+        {/* 최근 1년 누적 수익률 */}
         <div className="flex flex-1 flex-col gap-1">
           <p className="pb-1 typo-body-md font-semibold text-text-tertiary tracking-tight">
-            최근 3년 누적 수익률
+            최근 1년 누적 수익률
           </p>
           <p className="typo-heading-lg font-extrabold text-text-danger tracking-tight">
-            +{stats.threeYearReturn}%
+            +{stats.oneYearReturn}%
           </p>
         </div>
 
-        {/* 최근 3년 매매 횟수 */}
+        {/* 최근 1년 매매 횟수 */}
         <div className="flex flex-1 flex-col gap-1">
           <p className="pb-1 typo-body-md font-semibold text-text-tertiary tracking-tight">
-            최근 3년 매매 횟수
+            최근 1년 매매 횟수
           </p>
           <p className="typo-heading-lg font-extrabold text-text-primary tracking-tight">
-            {stats.threeYearTradeCount}회
+            {stats.oneYearTradeCount}회
           </p>
         </div>
 
