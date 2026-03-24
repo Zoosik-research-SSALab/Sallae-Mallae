@@ -137,7 +137,7 @@ def upsert_ml_reports(db: Session, report_date: date, model_version: str, signal
                 (stock_id, report_date, model_version, ml_signal, ml_confidence,
                  signal_agreement, confidence_gap, risk_flag, report_data)
             SELECT st.id, :report_date, :model_version, :ml_signal, :ml_confidence,
-                   :signal_agreement, :confidence_gap, :risk_flag, :report_data::jsonb
+                   :signal_agreement, :confidence_gap, :risk_flag, CAST(:report_data AS jsonb)
             FROM stocks st WHERE st.ticker = :ticker
             ON CONFLICT (stock_id, report_date, model_version) DO UPDATE
             SET ml_signal = EXCLUDED.ml_signal, ml_confidence = EXCLUDED.ml_confidence,
