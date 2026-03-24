@@ -86,13 +86,12 @@ public class StockApiController {
     ));
   }
 
-  @Operation(summary = "Get stock basic info", description = "Returns the basic stock info for the given ticker.")
-  @GetMapping("/{ticker}")
+  @Operation(summary = "Get stock basic info", description = "Returns the basic stock info for the given stock.")
+  @GetMapping("/{stockId}")
   public ApiResponse<StockBasicInfoResponse> getStockBasicInfo(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockBasicInfo(stockId));
   }
 
@@ -164,16 +163,15 @@ public class StockApiController {
           + "Allowed candleType: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY. "
           + "Use cursor for pagination (oldest timestamp from previous response)."
   )
-  @GetMapping("/{ticker}/prices")
+  @GetMapping("/{stockId}/prices")
   public ResponseEntity<StockPricesResponse> getStockPrices(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker,
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
       @Parameter(description = "Candle type: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY", example = "DAILY")
       @RequestParam(name = "candle_type", defaultValue = "DAILY") String candleType,
       @Parameter(description = "Cursor for pagination (oldest date from previous page)", example = "2024-01-01")
       @RequestParam(required = false) String cursor
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ResponseEntity.ok(stockPriceStreamService.getLatestPrices(stockId, candleType, cursor));
   }
 
