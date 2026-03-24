@@ -44,7 +44,10 @@ class ChairmanPortfolioServiceImplTest {
   @DisplayName("보유 종목 탭 조회 시 요약과 리스트를 함께 반환한다")
   void getChairmanPortfolio_returnsHoldingsTab() {
     AiPortfolio portfolio = portfolio(1L, 42.5f, 20, 17);
+    AiDailyPerformance latestPerformance = latestDailyPerformance(1.34f);
     given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
+        .willReturn(Optional.of(latestPerformance));
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(2);
     given(chairmanPortfolioQueryRepository.findSignalSummary())
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
@@ -65,6 +68,7 @@ class ChairmanPortfolioServiceImplTest {
 
     assertThat(response.summary().cumulativeReturn()).isEqualTo(42.5f);
     assertThat(response.summary().hitRate()).isEqualTo(85f);
+    assertThat(response.summary().yesterdayReturn()).isEqualTo(1.34f);
     assertThat(response.signalSummary().buyCount()).isEqualTo(15);
     assertThat(response.holdings()).hasSize(1);
     assertThat(response.todayTrades()).isNull();
@@ -75,7 +79,10 @@ class ChairmanPortfolioServiceImplTest {
   @DisplayName("월간 수익률 탭 조회 시 일별 성과를 월별로 묶어 반환한다")
   void getChairmanPortfolio_returnsMonthlyReturnsTab() {
     AiPortfolio portfolio = portfolio(1L, 42.5f, 10, 8);
+    AiDailyPerformance latestPerformance = latestDailyPerformance(2.0f);
     given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
+        .willReturn(Optional.of(latestPerformance));
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(1);
     given(chairmanPortfolioQueryRepository.findSignalSummary())
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
@@ -94,6 +101,7 @@ class ChairmanPortfolioServiceImplTest {
 
     assertThat(response.monthlyReturns()).hasSize(2);
     assertThat(response.monthlyReturns().get(0).month()).isEqualTo("2026-03");
+    assertThat(response.summary().yesterdayReturn()).isEqualTo(2.0f);
     assertThat(response.page().totalCount()).isEqualTo(2);
     assertThat(response.holdings()).isNull();
   }
@@ -105,6 +113,25 @@ class ChairmanPortfolioServiceImplTest {
         .isInstanceOfSatisfying(BusinessException.class, exception ->
             assertThat(exception.getErrorCode()).isEqualTo(ReportErrorCode.REPORT_INPUT_INVALID)
         );
+  }
+
+  @Test
+  @DisplayName("오늘 성과 row가 있어도 yesterdayReturn은 오늘 이전 최신 일별 수익률을 사용한다")
+  void getChairmanPortfolio_usesPreviousDayReturnForYesterdayReturn() {
+    AiPortfolio portfolio = portfolio(1L, 42.5f, 20, 17);
+    AiDailyPerformance yesterdayPerformance = latestDailyPerformance(-0.75f);
+    given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
+        .willReturn(Optional.of(yesterdayPerformance));
+    given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(0);
+    given(chairmanPortfolioQueryRepository.findSignalSummary())
+        .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
+    given(chairmanPortfolioQueryRepository.findPopularSignalRows(5)).willReturn(List.of());
+    given(chairmanPortfolioQueryRepository.findHoldingRows(1L, 0, 6)).willReturn(List.of());
+
+    ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("HOLDINGS", 0, 6);
+
+    assertThat(response.summary().yesterdayReturn()).isEqualTo(-0.75f);
   }
 
   private AiPortfolio portfolio(Long id, float cumulativeReturn, int totalTrades, int winningTrades) {
@@ -120,6 +147,12 @@ class ChairmanPortfolioServiceImplTest {
   private AiDailyPerformance dailyPerformance(LocalDate date, Float dailyReturn) {
     AiDailyPerformance performance = mock(AiDailyPerformance.class);
     given(performance.getRecordDate()).willReturn(date);
+    given(performance.getDailyReturn()).willReturn(dailyReturn);
+    return performance;
+  }
+
+  private AiDailyPerformance latestDailyPerformance(Float dailyReturn) {
+    AiDailyPerformance performance = mock(AiDailyPerformance.class);
     given(performance.getDailyReturn()).willReturn(dailyReturn);
     return performance;
   }
