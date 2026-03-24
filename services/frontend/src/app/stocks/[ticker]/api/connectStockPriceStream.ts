@@ -147,7 +147,7 @@ function getPricePath(ticker: string, period: StockChartPeriod, cursor?: string 
 }
 
 function getQuotePath(ticker: string) {
-  return `/api/stream/stocks/${ticker}/quote`;
+  return `/api/stream/stocks/${ticker}/quote?market=J`;
 }
 
 function getMockPricePage(ticker: string, period: StockChartPeriod): StockPricePage {
