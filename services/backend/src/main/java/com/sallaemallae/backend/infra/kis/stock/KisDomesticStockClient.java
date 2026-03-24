@@ -218,10 +218,18 @@ public class KisDomesticStockClient {
   }
 
   /**
-   * 최신 30건 분봉 조회 (단일 호출).
+   * 현재 시각 기준 최신 30건 분봉 조회 (단일 호출).
+   * 장 시간 외에는 153000(장 마감)으로 조회.
    */
   public KisMinuteCandleData getMinuteCandles(String marketCode, String ticker) {
-    return getMinuteCandlesFrom(marketCode, ticker, "153000");
+    java.time.LocalTime now = java.time.LocalTime.now(ZONE_ID);
+    String inputHour;
+    if (now.isBefore(java.time.LocalTime.of(9, 0)) || now.isAfter(java.time.LocalTime.of(15, 30))) {
+      inputHour = "153000";
+    } else {
+      inputHour = String.format("%02d%02d00", now.getHour(), now.getMinute());
+    }
+    return getMinuteCandlesFrom(marketCode, ticker, inputHour);
   }
 
   /**
@@ -298,14 +306,20 @@ public class KisDomesticStockClient {
     JsonNode summary = body.path("output1");
     JsonNode candlesNode = body.path("output2");
 
-    LocalDate today = LocalDate.now(ZONE_ID);
     List<KisMinuteCandleItem> candles = new ArrayList<>();
     for (JsonNode row : candlesNode) {
       String hour = row.path("stck_cntg_hour").asText("");
       if (hour.length() < 6) {
         continue;
       }
-      OffsetDateTime timestamp = today
+      String dateStr = row.path("stck_bsop_date").asText("");
+      LocalDate tradeDate;
+      if (dateStr.length() == 8) {
+        tradeDate = LocalDate.parse(dateStr, DateTimeFormatter.BASIC_ISO_DATE);
+      } else {
+        tradeDate = LocalDate.now(ZONE_ID);
+      }
+      OffsetDateTime timestamp = tradeDate
           .atTime(Integer.parseInt(hour.substring(0, 2)),
               Integer.parseInt(hour.substring(2, 4)))
           .atZone(ZONE_ID)
