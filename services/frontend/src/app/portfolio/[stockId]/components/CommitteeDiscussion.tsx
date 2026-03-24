@@ -12,6 +12,7 @@ const AVATAR_MAP: Record<string, string> = {
   차트: "/images/chart_talk.png",
   펀더멘탈: "/images/fund_talk.png",
   센티멘트: "/images/news_talk.png",
+  뉴스: "/images/news_talk.png",
   의장: "/images/judge_talk.png",
 };
 
