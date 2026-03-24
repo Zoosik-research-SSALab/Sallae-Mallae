@@ -30,6 +30,7 @@ import com.sallaemallae.backend.global.exception.BusinessException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -158,11 +159,8 @@ public class ReportServiceImpl implements ReportService {
     Map<Integer, Map<String, String>> opinionByRoundAndAgent = parseDebateOpinions(report.getDebateFullLog());
 
     List<Round> rounds = new ArrayList<>();
-    List<Integer> roundNumbers = new ArrayList<>();
-    roundNumbers.addAll(summaryByRoundAndAgent.keySet());
-    opinionByRoundAndAgent.keySet().stream()
-        .filter(roundNo -> !roundNumbers.contains(roundNo))
-        .forEach(roundNumbers::add);
+    LinkedHashSet<Integer> roundNumbers = new LinkedHashSet<>(summaryByRoundAndAgent.keySet());
+    roundNumbers.addAll(opinionByRoundAndAgent.keySet());
 
     roundNumbers.stream()
         .sorted()
@@ -170,11 +168,8 @@ public class ReportServiceImpl implements ReportService {
           Map<String, String> summaries = summaryByRoundAndAgent.getOrDefault(roundNo, Map.of());
           Map<String, String> opinions = opinionByRoundAndAgent.getOrDefault(roundNo, Map.of());
 
-          List<String> agentNames = new ArrayList<>();
-          agentNames.addAll(summaries.keySet());
-          opinions.keySet().stream()
-              .filter(agentName -> !agentNames.contains(agentName))
-              .forEach(agentNames::add);
+          LinkedHashSet<String> agentNames = new LinkedHashSet<>(summaries.keySet());
+          agentNames.addAll(opinions.keySet());
 
           List<Agent> agents = agentNames.stream()
               .map(agentName -> new Agent(
@@ -345,22 +340,18 @@ public class ReportServiceImpl implements ReportService {
     String risks = joinJsonText(opinionNode.path("risks"));
     String actionPoints = joinJsonText(opinionNode.path("action_points"));
 
-    StringBuilder builder = new StringBuilder();
-    appendSection(builder, thesis);
-    appendSection(builder, prefixIfPresent("근거: ", evidence));
-    appendSection(builder, prefixIfPresent("리스크: ", risks));
-    appendSection(builder, prefixIfPresent("실행: ", actionPoints));
-    return builder.toString().isBlank() ? null : builder.toString();
+    List<String> sections = new ArrayList<>();
+    addIfPresent(sections, thesis);
+    addIfPresent(sections, prefixIfPresent("근거: ", evidence));
+    addIfPresent(sections, prefixIfPresent("리스크: ", risks));
+    addIfPresent(sections, prefixIfPresent("실행: ", actionPoints));
+    return sections.isEmpty() ? null : String.join("\n", sections);
   }
 
-  private void appendSection(StringBuilder builder, String text) {
-    if (text == null || text.isBlank()) {
-      return;
+  private void addIfPresent(List<String> sections, String text) {
+    if (text != null && !text.isBlank()) {
+      sections.add(text);
     }
-    if (!builder.isEmpty()) {
-      builder.append('\n');
-    }
-    builder.append(text);
   }
 
   private String prefixIfPresent(String prefix, String value) {
