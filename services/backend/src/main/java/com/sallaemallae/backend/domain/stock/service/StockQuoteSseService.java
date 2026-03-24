@@ -50,13 +50,17 @@ public class StockQuoteSseService {
     SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
     String channel = CHANNEL_PREFIX + ticker;
 
-    Runnable cleanup = () -> releaseSseRef(market, ticker);
+    acquireSseRef(market, ticker);
+    sseManager.addEmitter(channel, emitter);
+
+    // addEmitter 이후에 콜백 등록 (SseEmitter는 마지막 콜백만 유효)
+    Runnable cleanup = () -> {
+      sseManager.removeEmitter(channel, emitter);
+      releaseSseRef(market, ticker);
+    };
     emitter.onCompletion(cleanup);
     emitter.onTimeout(cleanup);
     emitter.onError(error -> cleanup.run());
-
-    acquireSseRef(market, ticker);
-    sseManager.addEmitter(channel, emitter);
 
     try {
       StockQuoteResponse initialQuote = stockMarketQueryService.getQuote(ticker, market);
