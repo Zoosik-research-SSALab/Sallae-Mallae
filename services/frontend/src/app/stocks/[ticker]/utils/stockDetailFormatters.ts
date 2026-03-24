@@ -10,12 +10,11 @@ export const stockChartPeriods: Array<{
   value: StockChartPeriod;
   label: string;
 }> = [
-  { value: "1MIN", label: "1분봉" },
-  { value: "1D", label: "1일" },
-  { value: "1W", label: "1주" },
-  { value: "1M", label: "1개월" },
-  { value: "3M", label: "3개월" },
-  { value: "1Y", label: "1년" },
+  { value: "1MIN", label: "분봉" },
+  { value: "1D", label: "일봉" },
+  { value: "1W", label: "주봉" },
+  { value: "1M", label: "월봉" },
+  { value: "1Y", label: "년봉" },
 ];
 
 export const financialTypeOptions = [
@@ -23,25 +22,53 @@ export const financialTypeOptions = [
   { value: "QUARTERLY", label: "분기" },
 ] as const;
 
-export function formatWon(value: number) {
+const KOREAN_WON_PER_EOK = 100_000_000;
+const KOREAN_WON_PER_JO = 1_000_000_000_000;
+
+export type FinancialDisplayUnit = "조" | "억";
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+export function formatWon(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   return `${new Intl.NumberFormat("ko-KR").format(value)}원`;
 }
 
-export function formatSignedPercent(value: number, digits = 2) {
+export function formatSignedPercent(value: number | null | undefined, digits = 2) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(digits)}%`;
 }
 
-export function formatPercent(value: number, digits = 1) {
+export function formatPercent(value: number | null | undefined, digits = 1) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   return `${value.toFixed(digits)}%`;
 }
 
-export function formatMultiplier(value: number) {
+export function formatMultiplier(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   return `${value.toFixed(1)}배`;
 }
 
 export function formatAnnouncementDate(value: string) {
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
 
   return new Intl.DateTimeFormat("ko-KR", {
     year: "numeric",
@@ -52,6 +79,9 @@ export function formatAnnouncementDate(value: string) {
 
 export function formatBaseTime(value: string) {
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
 
   return new Intl.DateTimeFormat("ko-KR", {
     year: "numeric",
@@ -63,10 +93,17 @@ export function formatBaseTime(value: string) {
   }).format(date);
 }
 
-export function formatRelativePublishedAt(value: string) {
-  const diffMs = Date.now() - new Date(value).getTime();
-  const diffMinutes = Math.max(1, Math.floor(diffMs / 60_000));
+export function formatRelativePublishedAt(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
 
+  const diffMs = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(diffMs)) {
+    return "-";
+  }
+
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60_000));
   if (diffMinutes < 60) {
     return `${diffMinutes}분 전`;
   }
@@ -107,12 +144,29 @@ export function getChangeRate(prices: StockPricePoint[]) {
   return ((last - first) / first) * 100;
 }
 
-export function getDisplayChartPrices(prices: StockPricePoint[], period: StockChartPeriod) {
-  if (period === "1MIN") {
-    return prices.slice(-30);
+export function getDisplayChartPrices(prices: StockPricePoint[]) {
+  return prices;
+}
+
+export function getInitialVisiblePointCount(period: StockChartPeriod, total: number) {
+  if (total <= 0) {
+    return 0;
   }
 
-  return prices;
+  switch (period) {
+    case "1MIN":
+      return Math.min(total, 60);
+    case "1D":
+      return Math.min(total, 120);
+    case "1W":
+      return Math.min(total, 60);
+    case "1M":
+      return Math.min(total, 36);
+    case "1Y":
+      return total;
+    default:
+      return Math.min(total, 60);
+  }
 }
 
 export function getChartPriceRange(prices: StockPricePoint[], mode: StockPriceChartMode = "line") {
@@ -186,47 +240,246 @@ export function getKoreanStockTickSize(price: number) {
   return 1_000;
 }
 
-export function formatChartAxisLabel(timestamp: string, period: StockChartPeriod) {
+function parseChartDate(timestamp: string) {
   const date = new Date(timestamp);
-
-  if (period === "1MIN" || period === "1D") {
-    return new Intl.DateTimeFormat("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(date);
-  }
-
-  if (period === "1W" || period === "1M") {
-    return new Intl.DateTimeFormat("ko-KR", {
-      month: "numeric",
-      day: "numeric",
-    }).format(date);
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "2-digit",
-    month: "numeric",
-  }).format(date);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function shouldShowChartLabel(index: number, total: number, period: StockChartPeriod) {
-  const maxLabelCounts: Record<StockChartPeriod, number> = {
-    "1MIN": 4,
-    "1D": 5,
-    "1W": 5,
-    "1M": 6,
-    "3M": 6,
-    "1Y": 6,
-    "3Y": 6,
+function padTimeUnit(value: number) {
+  return value.toString().padStart(2, "0");
+}
+
+function getSeoulDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const readPart = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "00";
+
+  return {
+    year: Number(readPart("year")),
+    month: Number(readPart("month")),
+    day: Number(readPart("day")),
+    hour: Number(readPart("hour")),
+    minute: Number(readPart("minute")),
   };
-  const interval = Math.max(1, Math.ceil((total - 1) / Math.max(1, maxLabelCounts[period] - 1)));
-
-  return index === 0 || index === total - 1 || index % interval === 0;
 }
 
-export function formatFinancialValue(value: number) {
-  return value.toFixed(1);
+export function formatChartTooltipLabel(timestamp: string, period: StockChartPeriod) {
+  const date = parseChartDate(timestamp);
+
+  if (!date) {
+    return "-";
+  }
+
+  const parts = getSeoulDateParts(date);
+
+  if (period === "1MIN") {
+    return `${padTimeUnit(parts.hour)}:${padTimeUnit(parts.minute)}`;
+  }
+
+  if (period === "1D" || period === "1W") {
+    return `${parts.year}.${parts.month}.${parts.day}`;
+  }
+
+  if (period === "1M") {
+    return `${parts.year}.${parts.month}`;
+  }
+
+  return `${parts.year}`;
+}
+
+function getVisibleChartBounds(
+  total: number,
+  visibleRange?: {
+    startValue: number;
+    endValue: number;
+  } | null,
+) {
+  const maxIndex = Math.max(0, total - 1);
+  const visibleStart = Math.max(0, Math.min(maxIndex, visibleRange?.startValue ?? 0));
+  const visibleEnd = Math.max(visibleStart, Math.min(maxIndex, visibleRange?.endValue ?? maxIndex));
+
+  return {
+    visibleStart,
+    visibleEnd,
+  };
+}
+
+function getVisibleDistinctYearCount(
+  timestamps: string[],
+  visibleRange?: {
+    startValue: number;
+    endValue: number;
+  } | null,
+) {
+  if (timestamps.length === 0) {
+    return 0;
+  }
+
+  const { visibleStart, visibleEnd } = getVisibleChartBounds(timestamps.length, visibleRange);
+  const years = new Set<number>();
+
+  for (let index = visibleStart; index <= visibleEnd; index += 1) {
+    const date = parseChartDate(timestamps[index] ?? "");
+
+    if (!date) {
+      continue;
+    }
+
+    years.add(getSeoulDateParts(date).year);
+  }
+
+  return years.size;
+}
+
+function shouldUseYearOnlyChartLabels(
+  period: StockChartPeriod,
+  timestamps: string[],
+  visibleRange?: {
+    startValue: number;
+    endValue: number;
+  } | null,
+) {
+  if (period === "1MIN" || period === "1Y") {
+    return false;
+  }
+
+  return getVisibleDistinctYearCount(timestamps, visibleRange) >= 4;
+}
+
+export function formatChartAxisLabel(
+  timestamp: string,
+  period: StockChartPeriod,
+  timestamps: string[] = [],
+  visibleRange?: {
+    startValue: number;
+    endValue: number;
+  } | null,
+) {
+  const date = parseChartDate(timestamp);
+
+  if (!date) {
+    return "";
+  }
+
+  const parts = getSeoulDateParts(date);
+
+  if (period === "1MIN") {
+    return `${padTimeUnit(parts.hour)}:${padTimeUnit(parts.minute)}`;
+  }
+
+  if (shouldUseYearOnlyChartLabels(period, timestamps, visibleRange)) {
+    return `${parts.year}년`;
+  }
+
+  if (period === "1D" || period === "1W") {
+    return parts.month === 1 ? `${parts.year}년` : `${parts.month}월`;
+  }
+
+  if (period === "1M" || period === "1Y") {
+    return `${parts.year}년`;
+  }
+
+  return "";
+}
+
+export function shouldShowChartLabel(
+  index: number,
+  total: number,
+  period: StockChartPeriod,
+  timestamps: string[] = [],
+  visibleRange?: {
+    startValue: number;
+    endValue: number;
+  } | null,
+) {
+  const maxLabelCounts: Record<StockChartPeriod, number> = {
+    "1MIN": 6,
+    "1D": 7,
+    "1W": 8,
+    "1M": 7,
+    "1Y": 7,
+  };
+
+  const { visibleStart, visibleEnd } = getVisibleChartBounds(total, visibleRange);
+
+  if (index < visibleStart || index > visibleEnd) {
+    return false;
+  }
+
+  if (shouldUseYearOnlyChartLabels(period, timestamps, visibleRange) && timestamps.length > 0) {
+    const currentDate = parseChartDate(timestamps[index] ?? "");
+    const previousDate = index > visibleStart ? parseChartDate(timestamps[index - 1] ?? "") : null;
+
+    if (!currentDate) {
+      return false;
+    }
+
+    const currentYear = getSeoulDateParts(currentDate).year;
+    const previousYear = previousDate ? getSeoulDateParts(previousDate).year : null;
+
+    return index === visibleStart || currentYear !== previousYear;
+  }
+
+  if (period === "1M" && timestamps.length > 0) {
+    const currentDate = parseChartDate(timestamps[index] ?? "");
+    const previousDate = index > visibleStart ? parseChartDate(timestamps[index - 1] ?? "") : null;
+
+    if (!currentDate) {
+      return false;
+    }
+
+    const currentYear = getSeoulDateParts(currentDate).year;
+    const previousYear = previousDate ? getSeoulDateParts(previousDate).year : null;
+
+    return index === visibleStart || currentYear !== previousYear;
+  }
+
+  const labelCount = Math.max(2, maxLabelCounts[period]);
+  const visibleTotal = visibleEnd - visibleStart + 1;
+
+  if (visibleTotal <= labelCount) {
+    return true;
+  }
+
+  const targetIndexes = new Set<number>();
+
+  for (let step = 0; step < labelCount; step += 1) {
+    const distributedIndex = visibleStart + Math.round((step * (visibleTotal - 1)) / (labelCount - 1));
+    targetIndexes.add(distributedIndex);
+  }
+
+  return targetIndexes.has(index);
+}
+
+export function getFinancialDisplayUnit(values: Array<number | null | undefined>): FinancialDisplayUnit {
+  const finiteValues = values.filter((value): value is number => isFiniteNumber(value));
+  const maxAbsValue = finiteValues.reduce((max, value) => Math.max(max, Math.abs(value)), 0);
+
+  return maxAbsValue >= KOREAN_WON_PER_JO ? "조" : "억";
+}
+
+export function formatFinancialValue(value: number | null | undefined, unit: FinancialDisplayUnit = "조") {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
+  const divisor = unit === "조" ? KOREAN_WON_PER_JO : KOREAN_WON_PER_EOK;
+  const scaledValue = value / divisor;
+  const absScaledValue = Math.abs(scaledValue);
+  const digits = absScaledValue >= 100 ? 0 : absScaledValue >= 10 ? 1 : 2;
+
+  return scaledValue
+    .toFixed(digits)
+    .replace(/(\.\d*?[1-9])0+$/, "$1")
+    .replace(/\.0+$/, "");
 }
 
 export function formatVolume(value: number) {

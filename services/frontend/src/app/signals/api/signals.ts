@@ -1,5 +1,5 @@
 import { authApiFetch } from "@/shared/lib/authApiClient";
-import type { SignalResponse, SignalsQueryParams } from "../types/signals";
+import type { SignalResponseEnvelope, SignalsQueryParams } from "../types/signals";
 
 function buildSignalsQueryString(params: SignalsQueryParams) {
   const searchParams = new URLSearchParams({
@@ -25,7 +25,13 @@ function buildSignalsQueryString(params: SignalsQueryParams) {
 }
 
 export function getSignals(params: SignalsQueryParams) {
-  return authApiFetch<SignalResponse>(`/api/signals?${buildSignalsQueryString(params)}`, {
+  return authApiFetch<SignalResponseEnvelope>(`/api/signals?${buildSignalsQueryString(params)}`, {
     cache: "no-store",
+  }).then((payload) => {
+    if (!payload.data) {
+      throw new Error("매매신호 데이터를 불러오지 못했습니다.");
+    }
+
+    return payload.data;
   });
 }

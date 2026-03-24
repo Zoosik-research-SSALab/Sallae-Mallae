@@ -20,10 +20,10 @@ export type PortfolioHolding = {
   stockId: number;
   ticker: string;
   name: string;
-  buyPrice: number;
-  currentPrice: number;
+  buyPrice: number | null;
+  currentPrice: number | null;
   holdingDays: number | null;
-  returnRate: number;
+  returnRate: number | null;
 };
 
 export type PortfolioTradeAction = "BUY" | "SELL";
@@ -35,16 +35,16 @@ export type PortfolioTodayTrade = {
   name: string;
   action: PortfolioTradeAction;
   executedAt: string;
-  executedPrice: number;
-  currentPrice: number;
-  returnRate: number;
+  executedPrice: number | null;
+  currentPrice: number | null;
+  returnRate: number | null;
 };
 
 export type PortfolioMonthlyReturn = {
   month: string;
-  portfolioReturnRate: number;
-  kospiReturnRate: number;
-  excessReturnRate: number;
+  portfolioReturnRate: number | null;
+  kospiReturnRate: number | null;
+  excessReturnRate: number | null;
 };
 
 export type PortfolioSignalSummary = {

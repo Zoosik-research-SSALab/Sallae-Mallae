@@ -10,19 +10,25 @@ export type SignalItem = {
   stockId: number;
   ticker: string;
   name: string;
-  category: SignalSectorName;
-  marketCapSize: SignalMarketCapSize;
+  category?: SignalSectorName | string | null;
+  marketCapSize?: SignalMarketCapSize | null;
   price: number;
   fluctuationRate: number;
   signal: Exclude<SignalQueryFilter, "ALL">;
   confidence: number;
-  createdAt: string;
+  createdAt: string | null;
 };
 
 export type SignalResponse = {
   buyCount: number;
   sellCount: number;
   signals: SignalItem[];
+};
+
+export type SignalResponseEnvelope = {
+  success: boolean;
+  data: SignalResponse | null;
+  error: unknown;
 };
 
 export type SignalsQueryParams = {

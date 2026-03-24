@@ -12,6 +12,10 @@ import { normalizeNotificationType } from "../utils/notificationFormatters";
 
 const NOTIFICATION_COUNT_FETCH_LIMIT = 1000;
 
+type NotificationListApiPayload = {
+  notifications?: NotificationListItemApi[] | null;
+};
+
 type ApiEnvelope<T> = {
   success?: boolean;
   data?: T;
@@ -46,13 +50,20 @@ function normalizeNotificationSettings(payload: NotificationSettingsApi): Notifi
   };
 }
 
-export async function getNotifications(params: { tab: NotificationTab; limit: number }) {
+export async function getNotifications(params: {
+  tab: NotificationTab;
+  limit: number;
+  includeHasMore?: boolean;
+}) {
+  const requestLimit = params.includeHasMore ? params.limit + 1 : params.limit;
   const search = new URLSearchParams({
     tab: params.tab,
-    limit: String(params.limit),
+    limit: String(requestLimit),
   });
 
-  const payload = await authApiFetch<ApiEnvelope<NotificationListPayload> | NotificationListPayload>(
+  const payload = await authApiFetch<
+    ApiEnvelope<NotificationListApiPayload> | NotificationListApiPayload
+  >(
     `/api/notifications/list?${search.toString()}`,
     {
       cache: "no-store",
@@ -60,15 +71,17 @@ export async function getNotifications(params: { tab: NotificationTab; limit: nu
     },
   );
 
-  const listPayload: NotificationListPayload = hasDataEnvelope(payload)
+  const listPayload: NotificationListApiPayload = hasDataEnvelope(payload)
     ? payload.data ?? { notifications: [] }
     : payload;
   const notifications = Array.isArray(listPayload.notifications)
     ? listPayload.notifications.map((item) => normalizeNotificationItem(item as NotificationListItemApi))
     : [];
+  const hasMore = params.includeHasMore ? notifications.length > params.limit : false;
 
   return {
-    notifications,
+    notifications: params.includeHasMore ? notifications.slice(0, params.limit) : notifications,
+    hasMore,
   } satisfies NotificationListPayload;
 }
 
