@@ -25,7 +25,7 @@ def normalize_news_url(url: str | None) -> str | None:
         if "finance.naver.com" in (parsed.hostname or ""):
             params = parse_qs(parsed.query, keep_blank_values=False)
             filtered = {k: v[0] for k, v in params.items() if k in _NAVER_KEEP_PARAMS}
-            if filtered:
+            if "article_id" in filtered and "office_id" in filtered:
                 new_query = urlencode(sorted(filtered.items()))
                 return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", new_query, ""))
 

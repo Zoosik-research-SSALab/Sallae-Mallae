@@ -61,6 +61,18 @@ def test_naver_without_params():
     assert normalize_news_url(url) == url
 
 
+def test_only_article_id_returns_original():
+    """article_id만 있고 office_id 없으면 원본 URL 유지"""
+    url = "https://finance.naver.com/item/news_read.naver?article_id=123&code=005930"
+    assert normalize_news_url(url) == url
+
+
+def test_only_office_id_returns_original():
+    """office_id만 있고 article_id 없으면 원본 URL 유지"""
+    url = "https://finance.naver.com/item/news_read.naver?office_id=374&code=005930"
+    assert normalize_news_url(url) == url
+
+
 def test_malformed_url():
     """잘못된 URL은 그대로 반환"""
     url = "not-a-valid-url"
