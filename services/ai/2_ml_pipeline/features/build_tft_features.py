@@ -351,7 +351,7 @@ def _clip_at_sigma(series: pd.Series, sigma: float = CLIP_SIGMA) -> pd.Series:
 # 메인 함수
 # ---------------------------------------------------------------------------
 
-def build_tft_features(group_by: str = "cluster") -> None:
+def build_tft_features(group_by: str = "cluster", *, inference_mode: bool = False) -> None:
     """
     전체 종목에 대해 TFT 학습용 피처 데이터셋을 생성하고 Parquet으로 저장합니다.
 
@@ -370,6 +370,7 @@ def build_tft_features(group_by: str = "cluster") -> None:
 
     Args:
         group_by: 섹터 그룹 기준 — "cluster" (3그룹) 또는 "sector" (11그룹)
+        inference_mode: True이면 target_5d가 NaN인 최신 행도 유지 (추론용)
     """
     logger.info("=== TFT 피처 생성 파이프라인 시작 (group_by=%s) ===", group_by)
 
@@ -537,8 +538,11 @@ def build_tft_features(group_by: str = "cluster") -> None:
         # date 열 추가 (인덱스 보존)
         feat_df["date"] = feat_df.index
 
-        # NaN 드롭 (웜업 기간 제거 및 타겟 없는 마지막 행 제거)
-        drop_cols = TECHNICAL_COLS + SUPPLY_COLS + ["target_5d"]
+        # NaN 드롭 (웜업 기간 제거)
+        # inference_mode: 타겟(target_5d) NaN인 최신 행 유지 (추론 시 필요)
+        drop_cols = TECHNICAL_COLS + SUPPLY_COLS
+        if not inference_mode:
+            drop_cols = drop_cols + ["target_5d"]
         feat_df = feat_df.dropna(subset=drop_cols)
 
         if feat_df.empty:
@@ -580,7 +584,10 @@ def build_tft_features(group_by: str = "cluster") -> None:
     result_df["sector_id"] = result_df["sector_id"].astype(str)
     result_df["ticker_encoded"] = result_df["ticker_encoded"].astype(int)
     result_df["time_idx"] = result_df["time_idx"].astype(int)
-    result_df["target_5d"] = result_df["target_5d"].astype(int)
+    if inference_mode:
+        result_df["target_5d"] = result_df["target_5d"].fillna(-1).astype(int)
+    else:
+        result_df["target_5d"] = result_df["target_5d"].astype(int)
     result_df["date"] = pd.to_datetime(result_df["date"])
 
     # 정수형 캘린더 피처

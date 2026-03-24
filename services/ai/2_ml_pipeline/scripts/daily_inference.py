@@ -10,9 +10,9 @@ scripts/daily_inference.py
   2. tft_features 피처 생성 (build_tft_features)
   3. TFT + LightGBM + 메타모델 추론 (GPU)
   4. KOSPI200 200종목 필터링
-  5. POST /signal/upload → EC2 DB 저장
+  5. POST /ai/signal/upload → EC2 DB 저장
   6. 포트폴리오 시뮬레이션 (v6 알고리즘)
-  7. POST /signal/portfolio → EC2 DB 저장
+  7. POST /ai/signal/portfolio → EC2 DB 저장
 """
 
 from __future__ import annotations
@@ -93,9 +93,9 @@ def get_latest_trade_date() -> str:
 # ── Step 2: 피처 생성 ──
 
 def build_features() -> None:
-    """tft_features.parquet를 재생성."""
+    """tft_features.parquet를 재생성 (추론용: 최신 날짜 유지)."""
     from features.build_tft_features import build_tft_features
-    build_tft_features()
+    build_tft_features(inference_mode=True)
 
 
 # ── Step 3: 추론 ──
@@ -305,7 +305,7 @@ def run_inference(target_date: str) -> pd.DataFrame:
 # ── Step 4: API 전송 ──
 
 def post_signals(target_date: str, result_df: pd.DataFrame) -> bool:
-    """POST /signal/upload 으로 시그널 전송."""
+    """POST /ai/signal/upload 으로 시그널 전송."""
     payload = {
         "date": target_date,
         "model_version": "tft-v2",
@@ -313,7 +313,7 @@ def post_signals(target_date: str, result_df: pd.DataFrame) -> bool:
     }
     try:
         resp = requests.post(
-            f"{API_BASE_URL}/signal/upload",
+            f"{API_BASE_URL}/ai/signal/upload",
             json=payload,
             headers={"X-API-Key": API_KEY},
             timeout=30,
@@ -322,16 +322,20 @@ def post_signals(target_date: str, result_df: pd.DataFrame) -> bool:
         data = resp.json()
         log(f"시그널 업로드 성공: {data.get('message', 'OK')}")
         return True
+    except requests.exceptions.HTTPError as e:
+        log(f"시그널 업로드 실패: {e}")
+        log(f"응답 본문: {resp.content.decode('utf-8', errors='replace')}")
+        return False
     except Exception as e:
         log(f"시그널 업로드 실패: {e}")
         return False
 
 
 def post_portfolio(target_date: str, snapshot: dict) -> bool:
-    """POST /signal/portfolio 으로 포트폴리오 전송."""
+    """POST /ai/signal/portfolio 으로 포트폴리오 전송."""
     try:
         resp = requests.post(
-            f"{API_BASE_URL}/signal/portfolio",
+            f"{API_BASE_URL}/ai/signal/portfolio",
             json=snapshot,
             headers={"X-API-Key": API_KEY},
             timeout=30,

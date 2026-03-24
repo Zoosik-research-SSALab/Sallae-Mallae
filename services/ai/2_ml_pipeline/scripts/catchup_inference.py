@@ -715,7 +715,7 @@ def main():
     if not args.skip_features:
         log("피처 재생성 중...")
         from features.build_tft_features import build_tft_features
-        build_tft_features()
+        build_tft_features(inference_mode=True)
         log("피처 재생성 완료")
     else:
         log("피처 재생성 건너뜀 (--skip-features)")
