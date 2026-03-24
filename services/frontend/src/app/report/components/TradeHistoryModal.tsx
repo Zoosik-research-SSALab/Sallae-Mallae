@@ -1,14 +1,7 @@
 "use client";
 
 import type { TradeHistoryItem } from "../types/report";
-
-type TradeRow = {
-  id: string;
-  date: string;
-  signal: "매수" | "매도";
-  price: number;
-  returnRate?: number;
-};
+import { buildTradeSignalEvents } from "../utils/tradeSignals";
 
 interface TradeHistoryModalProps {
   open: boolean;
@@ -31,7 +24,7 @@ export default function TradeHistoryModal({
     return null;
   }
 
-  const rows = buildTradeRows(trades);
+  const rows = buildTradeSignalEvents(trades);
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-6">
@@ -69,6 +62,10 @@ export default function TradeHistoryModal({
               {isLoading ? (
                 <div className="flex min-h-40 w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-secondary)] typo-body-lg text-[color:var(--color-text-secondary)]">
                   매매 내역을 불러오는 중입니다.
+                </div>
+              ) : error ? (
+                <div className="flex min-h-40 w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-danger-subtle)] px-4 text-center typo-body-lg text-[color:var(--color-text-danger-bold)]">
+                  {error}
                 </div>
               ) : rows.length === 0 ? (
                 <div className="flex min-h-40 w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-secondary)] typo-body-lg text-[color:var(--color-text-secondary)]">
@@ -156,34 +153,6 @@ function CloseIcon() {
   );
 }
 
-function buildTradeRows(trades: TradeHistoryItem[]): TradeRow[] {
-  return trades
-    .flatMap((trade, index) => {
-      const rows: TradeRow[] = [
-        {
-          id: `${trade.buy_date}-buy-${index}`,
-          date: trade.buy_date,
-          signal: "매수",
-          price: trade.buy_price,
-          returnRate: trade.status === "HOLDING" ? trade.return_rate : undefined,
-        },
-      ];
-
-      if (trade.sell_date && trade.sell_price) {
-        rows.push({
-          id: `${trade.sell_date}-sell-${index}`,
-          date: trade.sell_date,
-          signal: "매도",
-          price: trade.sell_price,
-          returnRate: trade.return_rate,
-        });
-      }
-
-      return rows;
-    })
-    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-}
-
 function formatTradeDate(value: string) {
   const date = new Date(value);
 
@@ -194,7 +163,11 @@ function formatTradeDate(value: string) {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function formatTradePrice(value: number) {
+function formatTradePrice(value?: number) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "-";
+  }
+
   return value.toLocaleString("ko-KR");
 }
 

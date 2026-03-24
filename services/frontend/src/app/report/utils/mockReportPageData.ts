@@ -22,16 +22,16 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
         summary:
           "HBM와 파운드리 기대감, 밸류에이션 매력이 동시에 확인됩니다. 단기 변동성은 있더라도 중장기 관점의 비중 확대가 유효합니다.",
       },
-      final_stances: [
-        { agent_id: "chart", agent_name: "차트 분석가", stance: "분할 매수" },
-        { agent_id: "news", agent_name: "뉴스 전문가", stance: "매수" },
-        { agent_id: "fund", agent_name: "펀더멘탈 위원", stance: "강력 매수" },
+      finalStances: [
+        { agentId: "chart", agentName: "차트 분석가", stance: "분할 매수" },
+        { agentId: "news", agentName: "뉴스 전문가", stance: "매수" },
+        { agentId: "fund", agentName: "펀더멘탈 위원", stance: "강력 매수" },
       ],
-      created_at: "2026-03-19T09:10:00+09:00",
+      createdAt: "2026-03-19T09:10:00+09:00",
       debate: {
         rounds: [
           {
-            round_no: 1,
+            roundNo: 1,
             agents: [
               { name: "차트 분석가", opinion: "매수", summary: "중기 추세선 회복과 거래량 증가가 동반돼 추세 전환 가능성이 높습니다." },
               { name: "뉴스 전문가", opinion: "매수", summary: "AI 반도체 수요와 실적 기대 관련 긍정 뉴스 비중이 우세합니다." },
@@ -39,7 +39,7 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
             ],
           },
           {
-            round_no: 2,
+            roundNo: 2,
             agents: [
               { name: "차트 분석가", opinion: "분할 매수", summary: "단기 이격 부담을 감안하면 눌림 시 분할 접근이 적절합니다." },
               { name: "뉴스 전문가", opinion: "매수 유지", summary: "대형 고객사 수요와 공급 부족 뉴스 흐름이 여전히 우호적입니다." },
@@ -56,16 +56,16 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
         confidence: 86,
         summary: "실적 모멘텀은 유효하지만 단기 속도 조절 가능성을 감안한 분할 매수 전략이 적절합니다.",
       },
-      final_stances: [
-        { agent_id: "chart", agent_name: "차트 분석가", stance: "매수" },
-        { agent_id: "news", agent_name: "뉴스 전문가", stance: "보유 후 매수" },
-        { agent_id: "fund", agent_name: "펀더멘탈 위원", stance: "매수" },
+      finalStances: [
+        { agentId: "chart", agentName: "차트 분석가", stance: "매수" },
+        { agentId: "news", agentName: "뉴스 전문가", stance: "보유 후 매수" },
+        { agentId: "fund", agentName: "펀더멘탈 위원", stance: "매수" },
       ],
-      created_at: "2026-03-12T10:20:00+09:00",
+      createdAt: "2026-03-12T10:20:00+09:00",
       debate: {
         rounds: [
           {
-            round_no: 1,
+            roundNo: 1,
             agents: [
               { name: "차트 분석가", opinion: "매수", summary: "단기 조정 이후 지지선 반등이 확인됐습니다." },
               { name: "뉴스 전문가", opinion: "보유 후 매수", summary: "실적 기대 뉴스는 좋지만 단기 과열 우려도 존재합니다." },
@@ -82,16 +82,16 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
         confidence: 84,
         summary: "메모리 업황 반등 기대가 살아있고 기관 수급이 개선돼 매수 우위 의견입니다.",
       },
-      final_stances: [
-        { agent_id: "chart", agent_name: "차트 분석가", stance: "매수" },
-        { agent_id: "news", agent_name: "뉴스 전문가", stance: "매수" },
-        { agent_id: "fund", agent_name: "펀더멘탈 위원", stance: "보유 후 매수" },
+      finalStances: [
+        { agentId: "chart", agentName: "차트 분석가", stance: "매수" },
+        { agentId: "news", agentName: "뉴스 전문가", stance: "매수" },
+        { agentId: "fund", agentName: "펀더멘탈 위원", stance: "보유 후 매수" },
       ],
-      created_at: "2026-03-05T11:00:00+09:00",
+      createdAt: "2026-03-05T11:00:00+09:00",
       debate: {
         rounds: [
           {
-            round_no: 1,
+            roundNo: 1,
             agents: [
               { name: "차트 분석가", opinion: "매수", summary: "거래량이 개선되며 추세 반전 시그널이 확인됐습니다." },
               { name: "뉴스 전문가", opinion: "매수", summary: "AI 수요 관련 긍정 뉴스가 우세합니다." },
@@ -108,16 +108,16 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
         confidence: 73,
         summary: "방향성은 긍정적이지만 단기 이벤트를 앞두고 관망 비중이 일부 필요합니다.",
       },
-      final_stances: [
-        { agent_id: "chart", agent_name: "차트 분석가", stance: "관망" },
-        { agent_id: "news", agent_name: "뉴스 전문가", stance: "보유" },
-        { agent_id: "fund", agent_name: "펀더멘탈 위원", stance: "매수" },
+      finalStances: [
+        { agentId: "chart", agentName: "차트 분석가", stance: "관망" },
+        { agentId: "news", agentName: "뉴스 전문가", stance: "보유" },
+        { agentId: "fund", agentName: "펀더멘탈 위원", stance: "매수" },
       ],
-      created_at: "2026-02-26T15:30:00+09:00",
+      createdAt: "2026-02-26T15:30:00+09:00",
       debate: {
         rounds: [
           {
-            round_no: 1,
+            roundNo: 1,
             agents: [
               { name: "차트 분석가", opinion: "관망", summary: "상단 저항 돌파 확인이 먼저 필요합니다." },
               { name: "뉴스 전문가", opinion: "보유", summary: "실적 시즌 전 뉴스 흐름은 중립 이상입니다." },
@@ -134,16 +134,16 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
         confidence: 80,
         summary: "외국인 수급과 이익 추정치 상향이 동반되며 매수 관점이 강화됐습니다.",
       },
-      final_stances: [
-        { agent_id: "chart", agent_name: "차트 분석가", stance: "매수" },
-        { agent_id: "news", agent_name: "뉴스 전문가", stance: "매수" },
-        { agent_id: "fund", agent_name: "펀더멘탈 위원", stance: "매수" },
+      finalStances: [
+        { agentId: "chart", agentName: "차트 분석가", stance: "매수" },
+        { agentId: "news", agentName: "뉴스 전문가", stance: "매수" },
+        { agentId: "fund", agentName: "펀더멘탈 위원", stance: "매수" },
       ],
-      created_at: "2026-02-19T14:05:00+09:00",
+      createdAt: "2026-02-19T14:05:00+09:00",
       debate: {
         rounds: [
           {
-            round_no: 1,
+            roundNo: 1,
             agents: [
               { name: "차트 분석가", opinion: "매수", summary: "단기 박스권 상단 돌파가 나왔습니다." },
               { name: "뉴스 전문가", opinion: "매수", summary: "대형주 선호 심리가 회복되고 있습니다." },
@@ -160,16 +160,16 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
         confidence: 78,
         summary: "단기 박스권 구간이지만 리스크 대비 기대수익이 더 높습니다.",
       },
-      final_stances: [
-        { agent_id: "chart", agent_name: "차트 분석가", stance: "분할 매수" },
-        { agent_id: "news", agent_name: "뉴스 전문가", stance: "보유 후 매수" },
-        { agent_id: "fund", agent_name: "펀더멘탈 위원", stance: "매수" },
+      finalStances: [
+        { agentId: "chart", agentName: "차트 분석가", stance: "분할 매수" },
+        { agentId: "news", agentName: "뉴스 전문가", stance: "보유 후 매수" },
+        { agentId: "fund", agentName: "펀더멘탈 위원", stance: "매수" },
       ],
-      created_at: "2026-02-12T13:40:00+09:00",
+      createdAt: "2026-02-12T13:40:00+09:00",
       debate: {
         rounds: [
           {
-            round_no: 1,
+            roundNo: 1,
             agents: [
               { name: "차트 분석가", opinion: "분할 매수", summary: "박스권 하단 인근에서는 매수 우위입니다." },
               { name: "뉴스 전문가", opinion: "보유 후 매수", summary: "촉매 확인 전까지는 속도 조절이 필요합니다." },
@@ -184,23 +184,54 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
 
 const fallbackChairmanReports = mockChairmanAnalysisReportsByStockId["005930"];
 
+const mockTradeHistoryByStockId: Record<string, TradeHistoryResponse> = {
+  "005930": {
+    trades: [
+      { status: "HOLDING", buyDate: "2026-02-10", buyPrice: 68200, currentPrice: 74300, holdingDays: 38, returnRate: 8.94 },
+      { status: "CLOSED", buyDate: "2026-01-14", sellDate: "2026-02-03", buyPrice: 65500, sellPrice: 68900, holdingDays: 20, returnRate: 5.19 },
+      { status: "CLOSED", buyDate: "2025-12-18", sellDate: "2026-01-07", buyPrice: 63100, sellPrice: 66700, holdingDays: 20, returnRate: 5.71 },
+      { status: "CLOSED", buyDate: "2025-11-20", sellDate: "2025-12-05", buyPrice: 61200, sellPrice: 64100, holdingDays: 15, returnRate: 4.74 },
+      { status: "CLOSED", buyDate: "2025-10-15", sellDate: "2025-11-04", buyPrice: 60100, sellPrice: 64500, holdingDays: 20, returnRate: 7.32 },
+      { status: "CLOSED", buyDate: "2025-09-11", sellDate: "2025-10-01", buyPrice: 58400, sellPrice: 60300, holdingDays: 20, returnRate: 3.25 },
+      { status: "CLOSED", buyDate: "2025-08-06", sellDate: "2025-08-28", buyPrice: 57100, sellPrice: 59800, holdingDays: 22, returnRate: 4.73 },
+      { status: "CLOSED", buyDate: "2025-07-09", sellDate: "2025-07-29", buyPrice: 56300, sellPrice: 57900, holdingDays: 20, returnRate: 2.84 },
+      { status: "CLOSED", buyDate: "2025-06-11", sellDate: "2025-07-01", buyPrice: 55200, sellPrice: 58800, holdingDays: 20, returnRate: 6.52 },
+      { status: "CLOSED", buyDate: "2025-05-13", sellDate: "2025-06-03", buyPrice: 54100, sellPrice: 56600, holdingDays: 21, returnRate: 4.62 },
+    ],
+  },
+  "000660": {
+    trades: [
+      { status: "HOLDING", buyDate: "2026-02-12", buyPrice: 189500, currentPrice: 213500, holdingDays: 40, returnRate: 12.66 },
+      { status: "CLOSED", buyDate: "2026-01-16", sellDate: "2026-02-05", buyPrice: 176000, sellPrice: 188500, holdingDays: 20, returnRate: 7.10 },
+      { status: "CLOSED", buyDate: "2025-12-19", sellDate: "2026-01-09", buyPrice: 169500, sellPrice: 180000, holdingDays: 21, returnRate: 6.19 },
+      { status: "CLOSED", buyDate: "2025-11-24", sellDate: "2025-12-11", buyPrice: 162000, sellPrice: 171500, holdingDays: 17, returnRate: 5.86 },
+      { status: "CLOSED", buyDate: "2025-10-20", sellDate: "2025-11-06", buyPrice: 154500, sellPrice: 163800, holdingDays: 17, returnRate: 6.02 },
+      { status: "CLOSED", buyDate: "2025-09-15", sellDate: "2025-10-02", buyPrice: 148000, sellPrice: 144500, holdingDays: 17, returnRate: -2.36 },
+      { status: "CLOSED", buyDate: "2025-08-11", sellDate: "2025-08-28", buyPrice: 141500, sellPrice: 149000, holdingDays: 17, returnRate: 5.30 },
+      { status: "CLOSED", buyDate: "2025-07-14", sellDate: "2025-07-31", buyPrice: 137000, sellPrice: 145500, holdingDays: 17, returnRate: 6.20 },
+      { status: "CLOSED", buyDate: "2025-06-16", sellDate: "2025-07-03", buyPrice: 132500, sellPrice: 138500, holdingDays: 17, returnRate: 4.53 },
+      { status: "CLOSED", buyDate: "2025-05-19", sellDate: "2025-06-05", buyPrice: 128000, sellPrice: 134500, holdingDays: 17, returnRate: 5.08 },
+    ],
+  },
+};
+
 const mockInvestmentPerformanceByStockId: Record<string, InvestmentPerformanceResponse> = {
   "005930": {
-    cumulative_return: 38.7,
-    win_rate: 85.2,
-    recent_return: 12.4,
+    cumulativeReturn: 38.7,
+    winRate: 85.2,
+    recentReturn: 12.4,
     holding: {
-      buy_date: "2026-02-10",
-      buy_price: 68200,
-      current_price: 74300,
-      holding_quantity: 14,
-      investment_amount: 954800,
-      evaluation_profit: 85400,
-      current_return: 8.94,
-      holding_days: 38,
+      buyDate: "2026-02-10",
+      buyPrice: 68200,
+      currentPrice: 74300,
+      holdingQuantity: 14,
+      investmentAmount: 954800,
+      evaluationProfit: 85400,
+      currentReturn: 8.94,
+      holdingDays: 38,
     },
     chart: [
-      { date: "2026-02-10", price: 68200, trade_type: "BUY" },
+      { date: "2026-02-10", price: 68200, tradeType: "BUY" },
       { date: "2026-02-14", price: 69100 },
       { date: "2026-02-18", price: 70500 },
       { date: "2026-02-24", price: 69800 },
@@ -210,26 +241,34 @@ const mockInvestmentPerformanceByStockId: Record<string, InvestmentPerformanceRe
       { date: "2026-03-19", price: 74300 },
     ],
   },
-};
-
-const fallbackInvestmentPerformance = mockInvestmentPerformanceByStockId["005930"];
-
-const mockTradeHistoryByStockId: Record<string, TradeHistoryResponse> = {
-  "005930": {
-    trades: [
-      { status: "HOLDING", buy_date: "2026-02-10", buy_price: 68200, current_price: 74300, holding_days: 38, return_rate: 8.94 },
-      { status: "CLOSED", buy_date: "2026-01-14", sell_date: "2026-02-03", buy_price: 65500, sell_price: 68900, holding_days: 20, return_rate: 5.19 },
-      { status: "CLOSED", buy_date: "2025-12-18", sell_date: "2026-01-07", buy_price: 63100, sell_price: 66700, holding_days: 20, return_rate: 5.71 },
-      { status: "CLOSED", buy_date: "2025-11-20", sell_date: "2025-12-05", buy_price: 61200, sell_price: 64100, holding_days: 15, return_rate: 4.74 },
-      { status: "CLOSED", buy_date: "2025-10-15", sell_date: "2025-11-04", buy_price: 60100, sell_price: 64500, holding_days: 20, return_rate: 7.32 },
-      { status: "CLOSED", buy_date: "2025-09-11", sell_date: "2025-10-01", buy_price: 58400, sell_price: 60300, holding_days: 20, return_rate: 3.25 },
-      { status: "CLOSED", buy_date: "2025-08-06", sell_date: "2025-08-28", buy_price: 57100, sell_price: 59800, holding_days: 22, return_rate: 4.73 },
-      { status: "CLOSED", buy_date: "2025-07-09", sell_date: "2025-07-29", buy_price: 56300, sell_price: 57900, holding_days: 20, return_rate: 2.84 },
-      { status: "CLOSED", buy_date: "2025-06-11", sell_date: "2025-07-01", buy_price: 55200, sell_price: 58800, holding_days: 20, return_rate: 6.52 },
-      { status: "CLOSED", buy_date: "2025-05-13", sell_date: "2025-06-03", buy_price: 54100, sell_price: 56600, holding_days: 21, return_rate: 4.62 },
+  "000660": {
+    cumulativeReturn: 42.3,
+    winRate: 77.8,
+    recentReturn: 14.6,
+    holding: {
+      buyDate: "2026-02-12",
+      buyPrice: 189500,
+      currentPrice: 213500,
+      holdingQuantity: 5,
+      investmentAmount: 947500,
+      evaluationProfit: 120000,
+      currentReturn: 12.66,
+      holdingDays: 40,
+    },
+    chart: [
+      { date: "2026-02-12", price: 189500, tradeType: "BUY" },
+      { date: "2026-02-17", price: 193000 },
+      { date: "2026-02-24", price: 197500 },
+      { date: "2026-02-28", price: 195800 },
+      { date: "2026-03-05", price: 201200 },
+      { date: "2026-03-10", price: 206500 },
+      { date: "2026-03-17", price: 210800 },
+      { date: "2026-03-23", price: 213500 },
     ],
   },
 };
+
+const fallbackInvestmentPerformance = mockInvestmentPerformanceByStockId["005930"];
 
 const fallbackTradeHistory = mockTradeHistoryByStockId["005930"];
 
@@ -266,6 +305,38 @@ const mockReportPagePresentationByStockId: Record<string, ReportPagePresentation
       },
     ],
   },
+  "000660": {
+    market: "KOSPI 200",
+    price: 213500,
+    changeRate: 1.8,
+    benchmarkTime: "2026.03.23 15:30 마감 기준",
+    events: [
+      {
+        id: "a",
+        date: "2026.03.07",
+        category: "실적",
+        title: "HBM 수요 확대에 연간 영업이익 전망 상향",
+        description: "증권가에서 AI 서버 메모리 출하 증가를 반영해 실적 추정치를 상향 조정했습니다.",
+        tone: "info",
+      },
+      {
+        id: "b",
+        date: "2026.03.14",
+        category: "공시",
+        title: "대규모 메모리 공급계약 체결 공시",
+        description: "주요 고객사향 공급계약 체결 소식이 전해지며 수주 가시성이 높아졌습니다.",
+        tone: "neutral",
+      },
+      {
+        id: "c",
+        date: "2026.03.20",
+        category: "시세특이",
+        title: "외국인 순매수 유입으로 신고가 경신",
+        description: "메모리 업황 개선 기대가 반영되며 외국인 순매수가 이어졌습니다.",
+        tone: "danger",
+      },
+    ],
+  },
 };
 
 const fallbackPresentationSeed = mockReportPagePresentationByStockId["005930"];
@@ -292,6 +363,10 @@ export function getMockTradeHistory(stockId: string, query: TradeHistoryQuery = 
   return {
     trades: trades.slice(offset, offset + limit),
   };
+}
+
+export function hasMockTradeHistory(stockId: string) {
+  return Boolean(mockTradeHistoryByStockId[stockId]);
 }
 
 export function getMockReportPagePresentation(stockId: string): ReportPagePresentationSeed {

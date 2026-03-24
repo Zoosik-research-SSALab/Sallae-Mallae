@@ -1,7 +1,7 @@
 type TtsSpeakerId = "chart" | "news" | "fund" | "judge";
 
 export async function getTtsAudio(text: string, speaker: TtsSpeakerId, signal?: AbortSignal) {
-  const response = await fetch("/api/reports/tts", {
+  const response = await fetch("/api/report/tts", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

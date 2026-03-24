@@ -40,7 +40,7 @@ export default function StockAnnouncementsSection({ ticker, announcements, isLoa
       </div>
 
       <ProtectedLink
-        href={`/reports/${ticker}`}
+        href={`/report/${ticker}`}
         className="ai-report-link-text inline-flex w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-inverse-bolder)] px-4 py-4 text-sm font-semibold shadow-[0px_4px_8px_0px_rgba(0,0,0,0.16)] transition-opacity hover:opacity-90 md:text-base"
       >
         AI 분석 리포트 보기

@@ -11,7 +11,7 @@ export default function ReportIndexList() {
             <strong>{stockId}</strong>
             <p className="muted">최신 AI 리포트 조회</p>
           </div>
-          <Link href={`/reports/${stockId}`} className="link">
+          <Link href={`/report/${stockId}`} className="link">
             상세 보기
           </Link>
         </article>

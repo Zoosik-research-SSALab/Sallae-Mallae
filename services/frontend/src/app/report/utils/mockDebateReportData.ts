@@ -523,6 +523,10 @@ export const mockDebateReportsByStockId: Record<string, DebateReport[]> = Object
   debateSeeds.map((seed) => [seed.stockId, [createDebateReport(seed)]]),
 );
 
+export function hasMockDebateReports(stockId: string) {
+  return Boolean(mockDebateReportsByStockId[stockId]);
+}
+
 export function getMockDebateReportsResponse(stockId: string): DebateReportsResponse {
   return {
     reports: mockDebateReportsByStockId[stockId] ?? mockDebateReportsByStockId["005930"],

@@ -23,21 +23,21 @@ export interface ChairmanAnalysisReport {
     confidence: number;
     summary: string;
   };
-  final_stances: ChairmanFinalStance[];
-  created_at: string;
+  finalStances: ChairmanFinalStance[];
+  createdAt: string;
   debate: {
     rounds: ChairmanDebateRound[];
   };
 }
 
 export interface ChairmanFinalStance {
-  agent_id: string;
-  agent_name: string;
+  agentId: string;
+  agentName: string;
   stance: string;
 }
 
 export interface ChairmanDebateRound {
-  round_no: number;
+  roundNo: number;
   agents: ChairmanDebateAgent[];
 }
 
@@ -48,18 +48,18 @@ export interface ChairmanDebateAgent {
 }
 
 export interface InvestmentPerformanceResponse {
-  cumulative_return: number;
-  win_rate: number;
-  recent_return: number;
+  cumulativeReturn: number;
+  winRate: number;
+  recentReturn: number;
   holding: {
-    buy_date: string;
-    buy_price: number;
-    current_price: number;
-    holding_quantity: number;
-    investment_amount: number;
-    evaluation_profit: number;
-    current_return: number;
-    holding_days: number;
+    buyDate: string;
+    buyPrice: number;
+    currentPrice: number;
+    holdingQuantity: number;
+    investmentAmount: number;
+    evaluationProfit: number;
+    currentReturn: number;
+    holdingDays: number;
   };
   chart: InvestmentPerformanceChartPoint[];
 }
@@ -67,7 +67,7 @@ export interface InvestmentPerformanceResponse {
 export interface InvestmentPerformanceChartPoint {
   date: string;
   price: number;
-  trade_type?: "BUY" | "SELL";
+  tradeType?: "BUY" | "SELL";
 }
 
 export interface TradeHistoryQuery {
@@ -81,13 +81,13 @@ export interface TradeHistoryResponse {
 
 export interface TradeHistoryItem {
   status: "HOLDING" | "CLOSED";
-  buy_date: string;
-  sell_date?: string;
-  buy_price: number;
-  sell_price?: number;
-  current_price?: number;
-  holding_days: number;
-  return_rate: number;
+  buyDate: string;
+  sellDate?: string;
+  buyPrice: number;
+  sellPrice?: number;
+  currentPrice?: number;
+  holdingDays: number;
+  returnRate: number;
 }
 
 export interface ReportPagePresentationSeed {
