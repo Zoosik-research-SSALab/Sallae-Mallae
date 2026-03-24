@@ -1,7 +1,10 @@
 import Image from "next/image";
 import { cn } from "@/shared/utils/cn";
 import type { PortfolioHero as PortfolioHeroType } from "../types/portfolio";
-import { PORTFOLIO_HERO_DESCRIPTION, PORTFOLIO_HERO_TITLE } from "../utils/portfolioStaticContent";
+import {
+  PORTFOLIO_HERO_DESCRIPTION,
+  PORTFOLIO_HERO_TITLE,
+} from "../utils/portfolioStaticContent";
 import { formatInteger, formatSignedValue } from "../utils/portfolioFormatters";
 
 type Props = {
@@ -22,11 +25,13 @@ export default function PortfolioHero({ hero }: Props) {
   const titleWords = PORTFOLIO_HERO_TITLE.split(" ");
 
   return (
-    <section className="flex flex-col gap-6 md:gap-8">
-      <div className="flex flex-col gap-6 md:flex-row md:items-stretch md:justify-between md:gap-6 lg:gap-10">
-        <div className="grid items-start gap-4 [grid-template-columns:minmax(0,1fr)_112px] md:flex-1 md:grid-cols-1">
+    <section className="flex flex-col gap-6 md:flex-row md:items-stretch md:gap-8 lg:gap-10">
+      <div className="flex min-w-0 flex-1 flex-col gap-6 md:gap-8">
+        <div className="grid items-start gap-4 [grid-template-columns:minmax(0,1fr)_112px] md:block">
           <div className="flex min-w-0 flex-col gap-2 md:max-w-[18rem] md:gap-2.5 lg:max-w-none lg:gap-4">
-            <p className="typo-body-xs text-[color:var(--color-text-tertiary)] md:typo-body-sm">{hero.updatedAtLabel}</p>
+            <p className="typo-body-xs text-[color:var(--color-text-tertiary)] md:typo-body-sm">
+              {hero.updatedAtLabel}
+            </p>
             <h1 className="typo-heading-lg text-[color:var(--color-text-primary)] md:typo-heading-2xl xl:typo-heading-3xl">
               {titleWords.map((word, index) => (
                 <span
@@ -48,7 +53,7 @@ export default function PortfolioHero({ hero }: Props) {
           <div className="overflow-hidden md:hidden">
             <Image
               src="/images/horse.png"
-              alt="의장 포트폴리오 대표 일러스트"
+              alt="의장 포트폴리오 일러스트"
               width={496}
               height={744}
               priority
@@ -57,41 +62,43 @@ export default function PortfolioHero({ hero }: Props) {
           </div>
         </div>
 
-        <div className="hidden overflow-hidden md:flex md:w-[208px] md:shrink-0 md:self-stretch md:items-end lg:w-[248px]">
-          <Image
-            src="/images/horse.png"
-            alt="의장 포트폴리오 대표 일러스트"
-            width={496}
-            height={744}
-            priority
-            className="relative z-10 ml-auto h-full w-auto max-w-none object-contain [clip-path:inset(0_12px_0_0)] lg:[clip-path:inset(0_16px_0_0)]"
-          />
+        <div className="grid grid-cols-2 gap-3 md:max-w-[480px] md:gap-4">
+          {hero.metrics.map((metric) => {
+            const value = formatPortfolioMetricValue(metric);
+
+            return (
+              <article
+                key={metric.id}
+                className="flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl bg-[color:var(--color-bg-secondary)] px-3 py-3 text-center outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)] md:min-h-[96px]"
+              >
+                <p className="typo-body-xs font-semibold text-[color:var(--color-text-tertiary)] md:typo-body-sm">
+                  {metric.label}
+                </p>
+                <p
+                  className={cn(
+                    "text-[24px] leading-7 font-extrabold md:text-[32px] md:leading-9",
+                    metric.tone === "danger"
+                      ? "text-[color:var(--color-text-danger)]"
+                      : "text-[color:var(--color-text-primary)]",
+                  )}
+                >
+                  {value}
+                </p>
+              </article>
+            );
+          })}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:max-w-[480px] md:gap-4">
-        {hero.metrics.map((metric) => {
-          const value = formatPortfolioMetricValue(metric);
-
-          return (
-            <article
-              key={metric.id}
-              className="flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl bg-[color:var(--color-bg-secondary)] px-3 py-3 text-center outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)] md:min-h-[96px]"
-            >
-              <p className="typo-body-xs font-semibold text-[color:var(--color-text-tertiary)] md:typo-body-sm">{metric.label}</p>
-              <p
-                className={cn(
-                  "text-[24px] leading-7 font-extrabold md:text-[32px] md:leading-9",
-                  metric.tone === "danger"
-                    ? "text-[color:var(--color-text-danger)]"
-                    : "text-[color:var(--color-text-primary)]",
-                )}
-              >
-                {value}
-              </p>
-            </article>
-          );
-        })}
+      <div className="hidden overflow-hidden md:flex md:w-[248px] md:shrink-0 md:self-stretch md:items-end">
+        <Image
+          src="/images/horse.png"
+          alt="의장 포트폴리오 일러스트"
+          width={496}
+          height={744}
+          priority
+          className="relative z-10 ml-auto h-full w-full object-contain object-bottom"
+        />
       </div>
     </section>
   );
