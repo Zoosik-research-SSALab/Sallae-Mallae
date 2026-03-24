@@ -12,14 +12,16 @@ import com.sallaemallae.backend.domain.news.repository.KeywordRepository;
 import com.sallaemallae.backend.domain.news.repository.StockNewsRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import com.sallaemallae.backend.global.util.OffsetBasedPageRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
@@ -36,15 +38,31 @@ public class NewsServiceImpl implements NewsService {
   private final StringRedisTemplate redisTemplate;
 
   private static final String TRENDING_KEY_PREFIX = "trending:keywords:";
+  private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
-  // 뉴스 목록 조회 (키워드 필터, 페이지네이션, 관련 종목명 포함)
+  // 뉴스 목록 조회 (키워드 필터, 기간 필터, 페이지네이션, 관련 종목명 포함)
   @Override
-  public NewsListResponse getNewsList(String keyword, int offset, int limit) {
-    Pageable pageable = PageRequest.of(offset / limit, limit);
+  public NewsListResponse getNewsList(String keyword, LocalDate startDate, LocalDate endDate, int offset, int limit) {
+    OffsetBasedPageRequest pageable = new OffsetBasedPageRequest(offset, limit);
+    boolean hasKeyword = keyword != null && !keyword.isBlank();
+
+    // LocalDate → KST 기준 OffsetDateTime 변환 (startDate null이면 전체 기간)
+    OffsetDateTime startDateTime = (startDate != null)
+        ? startDate.atStartOfDay(KST).toOffsetDateTime()
+        : null;
+    OffsetDateTime endDateTime = endDate.atTime(LocalTime.MAX).atZone(KST).toOffsetDateTime();
+
     // 키워드 유무에 따라 쿼리 분기 (키워드 없으면 JOIN+DISTINCT 생략)
-    List<StockNews> rows = (keyword == null || keyword.isBlank())
-        ? stockNewsRepository.findAllNews(pageable)
-        : stockNewsRepository.findNewsByKeyword(keyword, pageable);
+    List<StockNews> rows;
+    long totalCount;
+    if (hasKeyword) {
+      rows = stockNewsRepository.findNewsByKeyword(keyword, startDateTime, endDateTime, pageable);
+      totalCount = stockNewsRepository.countNewsByKeyword(keyword, startDateTime, endDateTime);
+    } else {
+      rows = stockNewsRepository.findAllNews(startDateTime, endDateTime, pageable);
+      totalCount = stockNewsRepository.countAllNews(startDateTime, endDateTime);
+    }
+
     List<Long> newsIds = rows.stream().map(StockNews::getId).toList();
     Map<Long, List<String>> stockMap = buildStockNameMap(newsIds);
 
@@ -57,7 +75,7 @@ public class NewsServiceImpl implements NewsService {
             stockMap.getOrDefault(sn.getId(), List.of())))
         .toList();
 
-    return new NewsListResponse(news);
+    return new NewsListResponse(totalCount, news);
   }
 
   // 뉴스 상세 조회 (관련 종목 포함, 조회 시 키워드 Redis 트렌딩 점수 증가)

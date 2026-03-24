@@ -79,7 +79,7 @@ class NewsServiceImplTest {
   // ── getNewsList ───────────────────────────────────────────────────────────
 
   @Test
-  @DisplayName("키워드 없이 뉴스 목록 조회 - 관련 종목 포함")
+  @DisplayName("키워드 없이 뉴스 목록 조회 - 관련 종목 포함, 전체 기간")
   void getNewsList_noKeyword_withRelatedStocks() throws Exception {
     List<StockNews> rows = List.of(
         createStockNews(1L, "뉴스1", null, "연합뉴스", null, NOW),
@@ -90,13 +90,16 @@ class NewsServiceImplTest {
     stockRows.add(new Object[]{1L, "SK하이닉스"});
     stockRows.add(new Object[]{2L, "LG전자"});
 
-    given(stockNewsRepository.findAllNews(any()))
+    given(stockNewsRepository.findAllNews(isNull(), any(), any()))
         .willReturn(rows);
+    given(stockNewsRepository.countAllNews(isNull(), any()))
+        .willReturn(2L);
     given(stockNewsRepository.findStockNamesByNewsIds(List.of(1L, 2L)))
         .willReturn(stockRows);
 
-    NewsListResponse result = newsService.getNewsList(null, 0, 20);
+    NewsListResponse result = newsService.getNewsList(null, null, LocalDate.now(), 0, 20);
 
+    assertThat(result.totalCount()).isEqualTo(2L);
     assertThat(result.news()).hasSize(2);
     assertThat(result.news().get(0).id()).isEqualTo(1L);
     assertThat(result.news().get(0).title()).isEqualTo("뉴스1");
@@ -111,26 +114,54 @@ class NewsServiceImplTest {
     List<StockNews> rows = List.of(
         createStockNews(3L, "키워드뉴스", null, "MBC", null, NOW));
 
-    given(stockNewsRepository.findNewsByKeyword(eq("AI"), any()))
+    given(stockNewsRepository.findNewsByKeyword(eq("AI"), isNull(), any(), any()))
         .willReturn(rows);
+    given(stockNewsRepository.countNewsByKeyword(eq("AI"), isNull(), any()))
+        .willReturn(1L);
     given(stockNewsRepository.findStockNamesByNewsIds(List.of(3L)))
         .willReturn(new ArrayList<>());
 
-    NewsListResponse result = newsService.getNewsList("AI", 0, 10);
+    NewsListResponse result = newsService.getNewsList("AI", null, LocalDate.now(), 0, 10);
 
+    assertThat(result.totalCount()).isEqualTo(1L);
     assertThat(result.news()).hasSize(1);
     assertThat(result.news().get(0).publisher()).isEqualTo("MBC");
     assertThat(result.news().get(0).relatedStocks()).isEmpty();
   }
 
   @Test
-  @DisplayName("뉴스 목록이 비어있으면 빈 리스트 반환")
-  void getNewsList_empty_noStockQuery() {
-    given(stockNewsRepository.findAllNews(any()))
+  @DisplayName("기간 필터 적용 뉴스 목록 조회")
+  void getNewsList_withDateRange() throws Exception {
+    List<StockNews> rows = List.of(
+        createStockNews(4L, "기간뉴스", null, "SBS", null, NOW));
+
+    given(stockNewsRepository.findAllNews(any(), any(), any()))
+        .willReturn(rows);
+    given(stockNewsRepository.countAllNews(any(), any()))
+        .willReturn(1L);
+    given(stockNewsRepository.findStockNamesByNewsIds(List.of(4L)))
         .willReturn(new ArrayList<>());
 
-    NewsListResponse result = newsService.getNewsList(null, 0, 20);
+    LocalDate start = LocalDate.of(2025, 3, 1);
+    LocalDate end = LocalDate.of(2025, 3, 6);
+    NewsListResponse result = newsService.getNewsList(null, start, end, 0, 10);
 
+    assertThat(result.totalCount()).isEqualTo(1L);
+    assertThat(result.news()).hasSize(1);
+    assertThat(result.news().get(0).title()).isEqualTo("기간뉴스");
+  }
+
+  @Test
+  @DisplayName("뉴스 목록이 비어있으면 빈 리스트 반환")
+  void getNewsList_empty_noStockQuery() {
+    given(stockNewsRepository.findAllNews(isNull(), any(), any()))
+        .willReturn(new ArrayList<>());
+    given(stockNewsRepository.countAllNews(isNull(), any()))
+        .willReturn(0L);
+
+    NewsListResponse result = newsService.getNewsList(null, null, LocalDate.now(), 0, 20);
+
+    assertThat(result.totalCount()).isEqualTo(0L);
     assertThat(result.news()).isEmpty();
   }
 
