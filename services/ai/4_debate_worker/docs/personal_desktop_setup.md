@@ -9,7 +9,8 @@
 - EC2: `3_ai_server`
 - DB: EC2 PostgreSQL
 
-로컬 워커는 DB에 직접 접속하지 않고 EC2 FastAPI만 호출합니다.
+토론 워커는 EC2 FastAPI를 호출하고, 일일 자동화 오케스트레이터는 `pipeline_signals` 조회와
+포트폴리오 일일 반영을 위해 EC2 PostgreSQL에도 직접 접근합니다.
 
 ## 권장 환경
 
@@ -80,12 +81,16 @@ cp .env.example .env
 AI_SERVER_BASE_URL=https://<ec2-domain>
 INTERNAL_API_KEY=<ec2-ai-server-internal-key>
 AI_SERVER_TIMEOUT_SECONDS=30
+AI_DB_URL=postgresql+psycopg2://app_user:<password>@<host>:5432/app
 LLM_PROVIDER=ollama
 LLM_BASE_URL=http://localhost:11434
 LLM_MODEL=qwen2.5:7b-instruct
 WORKER_NAME=desktop-seoul-01
 TARGET_SOURCE=trading_history
 TARGET_PORTFOLIO_ID=1
+PORTFOLIO_SCRIPT_PATH=../3_ai_server/scripts/chairman_portfolio_daily.py
+PORTFOLIO_NAME=의장 포트폴리오
+PORTFOLIO_MODEL_VERSION=chairman-v1
 ```
 
 ## 4. 워커 실행
@@ -106,6 +111,33 @@ python main.py
 - 주기적으로 대상 조회
 - 체크포인트 확인
 - 미완료/실패 재시도
+
+## 4-1. 뉴스 → 토론 → 포트폴리오 자동화 실행
+
+지금 기준 일일 자동화는 아래 순서로 동작합니다.
+
+- `pipeline_signals`에서 당일 `NEWS_PIPELINE_DONE(status=DONE)` 확인
+- 포트폴리오 마지막 반영일 다음날부터 목표 날짜까지 토론 워커 순차 실행
+- 성공 시 `DEBATE_PIPELINE_DONE(status=DONE)` 기록
+- 포트폴리오 일일 반영 스크립트가 누락 날짜 포함 순차 반영
+- 성공 시 `PORTFOLIO_PIPELINE_DONE(status=DONE)` 기록
+
+계속 실행:
+
+```bash
+python daily_main.py
+```
+
+한 번만 점검:
+
+```bash
+python daily_main.py --once --report-date 2026-03-24
+```
+
+주의:
+- `daily_main.py`는 `AI_DB_URL`이 반드시 필요합니다.
+- 포트폴리오 반영은 `../3_ai_server/scripts/chairman_portfolio_daily.py`를 호출하므로,
+  개인 PC에도 `dev-ai/services/ai/3_ai_server` 디렉토리가 함께 있어야 합니다.
 
 ## 5. 개인 데스크탑 자동 실행 권장
 

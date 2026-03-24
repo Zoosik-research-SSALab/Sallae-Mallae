@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import sys
 
@@ -115,11 +115,43 @@ def main() -> int:
             _print_checkpoint(checkpoint)
             return 0
 
-        summary = builder.append_daily(
-            report_date=report_date,
+        start_date = report_date if last_record_date is None else (last_record_date + timedelta(days=1))
+        replay_dates = builder.list_replay_dates(
+            start_date=start_date,
+            end_date=report_date,
             debate_version=args.debate_version,
             stock_ids=stock_ids,
         )
+        if not replay_dates:
+            checkpoint["status"] = "failed"
+            checkpoint["error"] = (
+                f"{start_date} ~ {report_date} 구간에 replay 가능한 의장 토론 결과가 없습니다."
+            )
+            checkpoint["last_updated"] = now_iso()
+            save_checkpoint(progress_path, checkpoint)
+            raise ValueError(checkpoint["error"])
+
+        if replay_dates[-1] != report_date:
+            checkpoint["status"] = "failed"
+            checkpoint["error"] = (
+                f"목표 날짜({report_date})의 의장 토론 결과가 없어 daily update를 완료할 수 없습니다. "
+                f"현재 마지막 replay 가능 날짜는 {replay_dates[-1]} 입니다."
+            )
+            checkpoint["last_updated"] = now_iso()
+            save_checkpoint(progress_path, checkpoint)
+            raise ValueError(checkpoint["error"])
+
+        summary = None
+        inserted_trades_total = 0
+        for replay_date in replay_dates:
+            summary = builder.append_daily(
+                report_date=replay_date,
+                debate_version=args.debate_version,
+                stock_ids=stock_ids,
+            )
+            inserted_trades_total += summary.inserted_trades
+
+        assert summary is not None
         checkpoint["status"] = "succeeded"
         checkpoint["last_completed_date"] = report_date.isoformat()
         checkpoint["finished_at"] = now_iso()
@@ -128,8 +160,9 @@ def main() -> int:
         checkpoint["last_summary"] = {
             "portfolio_id": summary.portfolio_id,
             "report_date": report_date.isoformat(),
-            "processed_dates": summary.processed_dates,
-            "inserted_trades": summary.inserted_trades,
+            "processed_dates": len(replay_dates),
+            "replayed_dates": [item.isoformat() for item in replay_dates],
+            "inserted_trades": inserted_trades_total,
             "final_holdings": summary.final_holdings,
             "cumulative_return": round(summary.cumulative_return, 6),
             "total_trades": summary.total_trades,
