@@ -1,26 +1,49 @@
 import { NextResponse } from "next/server";
-import { getMockInvestmentPerformance } from "@/app/report/utils/mockReportPageData";
-import { snakelizeKeys } from "@/shared/utils/case";
+import { getApiBaseUrl } from "../../utils";
 
 export const dynamic = "force-dynamic";
 
-type RouteContext = {
-  params: Promise<{
-    stockId: string;
-  }>;
-};
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ stockId: string }> },
+) {
+  const { stockId } = await params;
 
-export async function GET(_: Request, context: RouteContext) {
-  const { stockId } = await context.params;
+  const upstreamUrl = `${getApiBaseUrl()}/api/report/${encodeURIComponent(stockId)}/performance`;
 
-  if (!stockId) {
-    return NextResponse.json(
-      {
-        message: "stockId is required",
-      },
-      { status: 400 },
-    );
+  const headers: HeadersInit = {};
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    headers["Authorization"] = authorization;
   }
 
-  return NextResponse.json(snakelizeKeys(getMockInvestmentPerformance(stockId)));
+  try {
+    const upstreamResponse = await fetch(upstreamUrl, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+
+    if (!upstreamResponse.ok) {
+      return new NextResponse(upstreamResponse.body, {
+        status: upstreamResponse.status,
+        headers: {
+          "content-type":
+            upstreamResponse.headers.get("content-type") ?? "application/json",
+        },
+      });
+    }
+
+    const body = (await upstreamResponse.json()) as { data?: unknown };
+    return NextResponse.json(body.data ?? body);
+  } catch (error) {
+    console.error(
+      `[report/${stockId}/performance] upstream fetch failed:`,
+      error,
+    );
+    return NextResponse.json(
+      { message: "Failed to fetch from upstream" },
+      { status: 502 },
+    );
+  }
 }
