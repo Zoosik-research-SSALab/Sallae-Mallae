@@ -49,6 +49,9 @@ class NewsServiceImplTest {
   @Mock
   private ZSetOperations<String, String> zSetOperations;
 
+  @Mock
+  private org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
+
   @InjectMocks
   private NewsServiceImpl newsService;
 
@@ -90,10 +93,10 @@ class NewsServiceImplTest {
     stockRows.add(new Object[]{1L, "SK하이닉스"});
     stockRows.add(new Object[]{2L, "LG전자"});
 
+    given(redisTemplate.opsForValue()).willReturn(valueOperations);
+    given(valueOperations.get("news:total_count")).willReturn("2");
     given(stockNewsRepository.findAllNews(isNull(), any(), any()))
         .willReturn(rows);
-    given(stockNewsRepository.countAllNews(isNull(), any()))
-        .willReturn(2L);
     given(stockNewsRepository.findStockNamesByNewsIds(List.of(1L, 2L)))
         .willReturn(stockRows);
 
@@ -154,10 +157,10 @@ class NewsServiceImplTest {
   @Test
   @DisplayName("뉴스 목록이 비어있으면 빈 리스트 반환")
   void getNewsList_empty_noStockQuery() {
+    given(redisTemplate.opsForValue()).willReturn(valueOperations);
+    given(valueOperations.get("news:total_count")).willReturn("0");
     given(stockNewsRepository.findAllNews(isNull(), any(), any()))
         .willReturn(new ArrayList<>());
-    given(stockNewsRepository.countAllNews(isNull(), any()))
-        .willReturn(0L);
 
     NewsListResponse result = newsService.getNewsList(null, null, LocalDate.now(), 0, 20);
 
