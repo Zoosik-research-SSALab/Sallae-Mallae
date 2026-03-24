@@ -2,7 +2,9 @@ package com.sallaemallae.backend.global.exception;
 
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.infra.kis.KisApiException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -18,16 +20,22 @@ public class GlobalExceptionHandler {
 
   // 비즈니스 예외 (도메인별 상태코드 그대로 반환 - 401, 403, 404, 409 포함)
   @ExceptionHandler(BusinessException.class)
-  public ResponseEntity<ApiResponse<?>> handleBusinessException(BusinessException e) {
+  public ResponseEntity<?> handleBusinessException(BusinessException e, HttpServletRequest request) {
     ErrorCode errorCode = e.getErrorCode();
+    if (isSseRequest(request)) {
+      return ResponseEntity.status(errorCode.getStatus()).build();
+    }
     return ResponseEntity
         .status(errorCode.getStatus())
         .body(ApiResponse.fail(errorCode));
   }
 
   @ExceptionHandler(KisApiException.class)
-  public ResponseEntity<ApiResponse<?>> handleKisApiException(KisApiException e) {
+  public ResponseEntity<?> handleKisApiException(KisApiException e, HttpServletRequest request) {
     log.error("KIS API error. code={}, status={}, message={}", e.getCode(), e.getStatus(), e.getMessage(), e);
+    if (isSseRequest(request)) {
+      return ResponseEntity.status(e.getStatus()).build();
+    }
     return ResponseEntity
         .status(e.getStatus())
         .body(ApiResponse.fail(e));
@@ -79,10 +87,18 @@ public class GlobalExceptionHandler {
 
   // 500 - 그 외 예외
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<ApiResponse<?>> handleException(Exception e) {
+  public ResponseEntity<?> handleException(Exception e, HttpServletRequest request) {
     log.error("Unhandled exception: ", e);
+    if (isSseRequest(request)) {
+      return ResponseEntity.status(500).build();
+    }
     return ResponseEntity
         .status(500)
         .body(ApiResponse.fail(GlobalErrorCode.INTERNAL_SERVER_ERROR));
+  }
+
+  private boolean isSseRequest(HttpServletRequest request) {
+    String accept = request.getHeader("Accept");
+    return accept != null && accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE);
   }
 }
