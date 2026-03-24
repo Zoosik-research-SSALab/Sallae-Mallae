@@ -8,6 +8,7 @@ import TradeHistory from "./components/TradeHistory";
 import ReturnChart from "./components/ReturnChart";
 import BacktestResults from "./components/BacktestResults";
 import CommitteeDiscussion from "./components/CommitteeDiscussion";
+import { useStockOverviewQuery } from "@/app/stocks/[ticker]/hooks/useStockOverviewQuery";
 import { useStockReportQuery } from "./hooks/useStockReportQuery";
 import { useStockPerformanceQuery } from "./hooks/useStockPerformanceQuery";
 import { useStockTradesQuery } from "./hooks/useStockTradesQuery";
@@ -89,6 +90,13 @@ type Props = {
 
 export default function PortfolioStockDetailClient({ ticker }: Props) {
   const {
+    data: overviewData,
+    isLoading: overviewLoading,
+    isError: overviewError,
+    refetch: refetchOverview,
+  } = useStockOverviewQuery(ticker);
+
+  const {
     data: reportData,
     isLoading: reportLoading,
     isError: reportError,
@@ -109,10 +117,11 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
     refetch: refetchTrades,
   } = useStockTradesQuery(ticker);
 
-  const isLoading = reportLoading || performanceLoading || tradesLoading;
-  const isError = reportError || performanceError || tradesError;
+  const isLoading = overviewLoading || reportLoading || performanceLoading || tradesLoading;
+  const isError = overviewError || reportError || performanceError || tradesError;
 
   function handleRetry() {
+    refetchOverview();
     refetchReport();
     refetchPerformance();
     refetchTrades();
@@ -202,11 +211,9 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
     };
   }
 
-  // TODO: portfolioLabel should come from API (stock meta endpoint not yet available)
   const portfolioLabel = "의장 포트폴리오";
-
-  // TODO: name/description/isAiPortfolio should come from a stock meta API endpoint
-  const stockName = ticker;
+  const stockName = overviewData?.name ?? ticker;
+  const stockTicker = overviewData?.ticker ?? ticker;
   const stockDescription = "";
   const isAiPortfolio = true;
 
@@ -228,7 +235,7 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
             <div className="flex flex-col gap-10 w-full">
               {/* Stock info */}
               <StockInfoSection
-                ticker={ticker}
+                ticker={stockTicker}
                 name={stockName}
                 description={stockDescription}
                 isAiPortfolio={isAiPortfolio}
