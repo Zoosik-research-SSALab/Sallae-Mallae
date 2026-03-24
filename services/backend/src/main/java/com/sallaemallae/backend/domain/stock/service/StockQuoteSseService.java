@@ -63,8 +63,12 @@ public class StockQuoteSseService {
       stockNames.put(ticker, initialQuote.name());
       sseManager.sendToEmitter(emitter, initialQuote);
     } catch (Exception e) {
-      log.warn("Failed to send initial quote via SSE. ticker={}", ticker, e);
-      emitter.completeWithError(e);
+      log.warn("Failed to send initial quote via SSE. ticker={}, Will keep stream open for realtime data.", ticker, e);
+      try {
+        emitter.send(SseEmitter.event().name("error").data("initial quote unavailable"));
+      } catch (Exception sendErr) {
+        log.debug("Failed to send SSE error event. ticker={}", ticker);
+      }
     }
 
     return emitter;
