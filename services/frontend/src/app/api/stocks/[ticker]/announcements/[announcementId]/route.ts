@@ -12,10 +12,10 @@ type RouteContext = {
 };
 
 export async function GET(_: Request, context: RouteContext) {
-  const { ticker, announcementId } = await context.params;
+  const { ticker: stockId, announcementId } = await context.params;
   const parsedAnnouncementId = Number(announcementId);
 
-  if (!ticker || !Number.isFinite(parsedAnnouncementId)) {
+  if (!stockId || !Number.isFinite(parsedAnnouncementId)) {
     return NextResponse.json(
       {
         message: "Invalid announcement request",
@@ -24,7 +24,7 @@ export async function GET(_: Request, context: RouteContext) {
     );
   }
 
-  const announcement = getMockAnnouncementDetail(ticker, parsedAnnouncementId);
+  const announcement = getMockAnnouncementDetail(stockId, parsedAnnouncementId);
 
   if (!announcement) {
     return NextResponse.json(

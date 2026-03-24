@@ -21,12 +21,12 @@ function readPositiveInteger(value: string | null, fallback: number) {
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { ticker } = await context.params;
+  const { ticker: stockId } = await context.params;
 
-  if (!ticker) {
+  if (!stockId) {
     return NextResponse.json(
       {
-        message: "ticker is required",
+        message: "stockId is required",
       },
       { status: 400 },
     );
@@ -35,5 +35,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const limit = Math.max(1, readPositiveInteger(request.nextUrl.searchParams.get("limit"), 4));
   const offset = readPositiveInteger(request.nextUrl.searchParams.get("offset"), 0);
 
-  return NextResponse.json(snakelizeKeys(getMockAnnouncements(ticker, limit, offset)));
+  return NextResponse.json(snakelizeKeys(getMockAnnouncements(stockId, limit, offset)));
 }

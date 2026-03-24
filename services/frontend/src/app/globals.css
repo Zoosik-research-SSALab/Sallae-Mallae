@@ -259,6 +259,52 @@ pre {
   color: var(--color-neutral-900) !important;
 }
 
+@keyframes chart-skeleton-draw {
+  0% {
+    stroke-dashoffset: 1400;
+    opacity: 0.35;
+  }
+
+  40% {
+    opacity: 0.95;
+  }
+
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.9;
+  }
+}
+
+@keyframes chart-skeleton-glow {
+  0% {
+    transform: translateX(-220px);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 0.65;
+  }
+
+  100% {
+    transform: translateX(1220px);
+    opacity: 0;
+  }
+}
+
+.chart-skeleton-path {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: chart-skeleton-draw 1.8s ease-out infinite;
+}
+
+.chart-skeleton-glow {
+  animation: chart-skeleton-glow 2.1s ease-in-out infinite;
+}
+
+.chart-skeleton-fade {
+  animation: pulse 2s ease-in-out infinite;
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) .ai-report-link-text {
     color: var(--color-neutral-900) !important;
@@ -430,6 +476,17 @@ pre {
 }
 
 .signals-filter-modal-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;

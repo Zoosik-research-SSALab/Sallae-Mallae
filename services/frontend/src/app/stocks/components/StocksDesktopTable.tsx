@@ -6,7 +6,12 @@ import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import { formatPrice } from "@/shared/lib/stockFormatters";
 import type { StockItem, StockRankingMetric } from "../types/stocks";
-import { formatMetricValue, getMetricColumnLabel, getMetricValue, getRateClassName } from "../utils/stockMetrics";
+import {
+  formatMetricValue,
+  getMetricColumnLabel,
+  getMetricValue,
+  getRateClassName,
+} from "../utils/stockMetrics";
 import { rowLayoutTransition } from "../utils/rowLayoutTransition";
 import { formatStockSectorLabel } from "../utils/stockSectorLabels";
 import StockLogo from "./StockLogo";
@@ -43,7 +48,6 @@ export default function StocksDesktopTable({
 }: Props) {
   const metricColumnLabel = getMetricColumnLabel(activeMetric);
 
-  const newLocal = "typo-body-sm font-semibold text-[color:var(--color-text-secondary)]";
   return (
     <div className="hidden w-full flex-col gap-6 lg:flex">
       <div className="overflow-hidden rounded-xl bg-bg-primary">
@@ -53,7 +57,7 @@ export default function StocksDesktopTable({
         <div className="flex items-start justify-between gap-6 bg-bg-secondary px-4 py-4">
           <div className="flex flex-1 items-center gap-6">
             <div className="typo-body-sm min-w-6 font-semibold text-text-secondary">순위</div>
-            <div className={newLocal}>종목명</div>
+            <div className="typo-body-sm font-semibold text-text-secondary">종목명</div>
           </div>
 
           <div className="flex flex-1 items-center justify-between gap-4">
@@ -78,7 +82,7 @@ export default function StocksDesktopTable({
                 >
                   <div className="flex items-center justify-between gap-6">
                     <Link
-                      href={`/stocks/${item.ticker}`}
+                      href={`/stocks/${item.id}`}
                       className="flex min-w-0 flex-1 items-center justify-between gap-6 rounded-xl px-2 py-1 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-6">

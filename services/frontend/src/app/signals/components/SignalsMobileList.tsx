@@ -2,11 +2,12 @@
 
 import { FaArrowTrendDown, FaArrowTrendUp } from "react-icons/fa6";
 import { HiOutlineFilter } from "react-icons/hi";
+import { useRouter } from "next/navigation";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
-import { formatCategoryDisplayName } from "@/shared/lib/marketCategories";
 import { formatPrice, formatSignedRate, getRateTone } from "@/shared/lib/stockFormatters";
 import { cn } from "@/shared/utils/cn";
 import type { SignalItem, SignalQueryFilter } from "../types/signals";
+import { formatSignalCategory } from "../utils/signalFormatters";
 
 function getRateClassName(value: number) {
   const tone = getRateTone(value);
@@ -79,6 +80,8 @@ export default function SignalsMobileList({
   isFetchingNextPage,
   pageSize,
 }: Props) {
+  const router = useRouter();
+
   return (
     <div className="flex flex-col gap-6 lg:hidden">
       <button
@@ -109,7 +112,19 @@ export default function SignalsMobileList({
               const signalUi = getSignalClasses(item.signal);
 
               return (
-                <div key={item.stockId} className="border-b border-[color:var(--color-border-secondary)] px-4 py-3">
+                <div
+                  key={item.stockId}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(`/report/${item.stockId}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/report/${item.stockId}`);
+                    }
+                  }}
+                  className="cursor-pointer border-b border-[color:var(--color-border-secondary)] px-4 py-3 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-inset"
+                >
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
@@ -123,7 +138,7 @@ export default function SignalsMobileList({
                         <div className="min-w-0">
                           <div className="typo-body-md truncate font-bold text-[color:var(--color-text-primary)]">{item.name}</div>
                           <div className="typo-body-xs mt-0.5 truncate font-semibold text-[color:var(--color-text-tertiary)]">
-                            {item.ticker} · {formatCategoryDisplayName(item.category)}
+                            {formatSignalCategory(item.category, item.ticker)}
                           </div>
                         </div>
                       </div>
@@ -153,12 +168,13 @@ export default function SignalsMobileList({
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-center gap-1">
+                      <div
+                        className="flex flex-col items-center justify-center gap-2"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
                         <div className="typo-body-xs font-semibold text-[color:var(--color-text-secondary)]">관심추가</div>
                         <WatchlistHeartButton stockId={item.stockId} stockName={item.name} size="sm" inactiveIconStyle="outline" />
-                        <div className="typo-body-xs font-semibold text-[color:var(--color-text-secondary)]">
-                          {new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(item.createdAt))}
-                        </div>
                       </div>
                     </div>
                   </div>

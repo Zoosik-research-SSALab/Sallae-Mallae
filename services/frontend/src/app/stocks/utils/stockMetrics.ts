@@ -16,6 +16,10 @@ function formatCurrencyAmount(value: number | null) {
     return `${(value / 100_000_000).toFixed(value >= 1_000_000_000 ? 0 : 1)}억`;
   }
 
+  if (value >= 10_000) {
+    return `${numberFormatter.format(Math.round(value / 10_000))}만원`;
+  }
+
   return `${numberFormatter.format(Math.round(value))}원`;
 }
 

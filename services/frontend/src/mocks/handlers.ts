@@ -18,6 +18,11 @@ import {
   getMockPortfolioChairmanResponse,
   getMockPortfolioHallOfFameResponse,
 } from "@/app/portfolio/utils/mockPortfolioData";
+import {
+  getMockReportResponse,
+  getMockPerformanceResponse,
+  getMockTradesResponse,
+} from "@/app/portfolio/[ticker]/utils/mockApiData";
 import { getMockStocksResponse } from "@/app/stocks/utils/mockStocksData";
 import {
   getMockAnnouncementDetail,
@@ -99,9 +104,7 @@ const validStockPeriods = new Set<StockChartPeriod>([
   "1D",
   "1W",
   "1M",
-  "3M",
   "1Y",
-  "3Y",
 ]);
 const validFinancialTypes = new Set<StockFinancialType>(["YEARLY", "QUARTERLY"]);
 
@@ -323,6 +326,28 @@ export const handlers = [
         error: null,
       }),
     );
+  }),
+
+  // ── Report ─────────────────────────────────────────────────────────────────
+
+  http.get("/api/report/:stockId", ({ request }) => {
+    const searchParams = new URL(request.url).searchParams;
+    const offset = parsePositiveInteger(searchParams.get("offset"), 0);
+    const limit = Math.max(1, parsePositiveInteger(searchParams.get("limit"), 6));
+
+    return HttpResponse.json(snakelizeKeys(getMockReportResponse(offset, limit)));
+  }),
+
+  http.get("/api/report/:stockId/performance", () => {
+    return HttpResponse.json(snakelizeKeys(getMockPerformanceResponse()));
+  }),
+
+  http.get("/api/report/:stockId/performance/trades", ({ request }) => {
+    const searchParams = new URL(request.url).searchParams;
+    const offset = parsePositiveInteger(searchParams.get("offset"), 0);
+    const limit = Math.max(1, parsePositiveInteger(searchParams.get("limit"), 10));
+
+    return HttpResponse.json(snakelizeKeys(getMockTradesResponse(offset, limit)));
   }),
 
   // ── Watchlist ───────────────────────────────────────────────────────────────

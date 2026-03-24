@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMockPerformanceResponse } from "@/app/portfolio/[ticker]/utils/mockApiData";
-import { snakelizeKeys } from "@/shared/utils/case";
-import { shouldUseMock, getApiBaseUrl } from "../../utils";
+import { getApiBaseUrl } from "../../utils";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +8,6 @@ export async function GET(
   { params }: { params: Promise<{ stockId: string }> },
 ) {
   const { stockId } = await params;
-
-  if (shouldUseMock()) {
-    return NextResponse.json(
-      snakelizeKeys(getMockPerformanceResponse(stockId)),
-    );
-  }
 
   const upstreamUrl = `${getApiBaseUrl()}/api/report/${encodeURIComponent(stockId)}/performance`;
 
@@ -36,7 +28,8 @@ export async function GET(
       return new NextResponse(upstreamResponse.body, {
         status: upstreamResponse.status,
         headers: {
-          "content-type": upstreamResponse.headers.get("content-type") ?? "application/json",
+          "content-type":
+            upstreamResponse.headers.get("content-type") ?? "application/json",
         },
       });
     }
@@ -44,7 +37,10 @@ export async function GET(
     const body = (await upstreamResponse.json()) as { data?: unknown };
     return NextResponse.json(body.data ?? body);
   } catch (error) {
-    console.error(`[report/${stockId}/performance] upstream fetch failed:`, error);
+    console.error(
+      `[report/${stockId}/performance] upstream fetch failed:`,
+      error,
+    );
     return NextResponse.json(
       { message: "Failed to fetch from upstream" },
       { status: 502 },

@@ -18,15 +18,21 @@ import {
   stockChartPeriods,
 } from "../utils/stockDetailFormatters";
 import StockPriceChart from "./StockPriceChart";
+import StockPriceChartSkeleton from "./StockPriceChartSkeleton";
+import StockSectionLoadingOverlay from "./common/StockSectionLoadingOverlay";
 
 type Props = {
   overview: StockDetailOverview;
   prices: StockPricePoint[];
   currentPrice: number;
   changeRate: number;
+  baseTime: string;
   chartPeriod: StockChartPeriod;
   onChartPeriodChange: (value: StockChartPeriod) => void;
   isChartLoading: boolean;
+  isChartFetchingMore: boolean;
+  chartHasMore: boolean;
+  onRequestChartMore: () => void;
 };
 
 export default function StockOverviewSection({
@@ -34,9 +40,13 @@ export default function StockOverviewSection({
   prices,
   currentPrice,
   changeRate,
+  baseTime,
   chartPeriod,
   onChartPeriodChange,
   isChartLoading,
+  isChartFetchingMore,
+  chartHasMore,
+  onRequestChartMore,
 }: Props) {
   const [chartMode, setChartMode] = useState<StockPriceChartMode>("line");
   const isPositive = changeRate > 0;
@@ -57,7 +67,7 @@ export default function StockOverviewSection({
               </span>
               <span className="hidden h-5 w-px bg-[color:var(--color-border-primary)] md:block" />
               <span className="text-xs font-medium leading-4 text-[color:var(--color-text-tertiary)] md:text-sm md:leading-5">
-                {formatBaseTime(overview.baseTime)} 마감 기준
+                {formatBaseTime(baseTime)} 마감 기준
               </span>
             </div>
 
@@ -106,7 +116,7 @@ export default function StockOverviewSection({
 
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1 overflow-x-auto">
+            <div className="scrollbar-hidden min-w-0 flex-1 overflow-x-auto">
               <div className="inline-flex min-w-max items-center gap-4 border-b border-[color:var(--color-border-primary)]">
                 {stockChartPeriods.map((item) => {
                   const isActive = item.value === chartPeriod;
@@ -134,18 +144,28 @@ export default function StockOverviewSection({
               <ToggleSwitch
                 enabled={isCandlestick}
                 onToggle={() => setChartMode((prev) => (prev === "candlestick" ? "line" : "candlestick"))}
-                aria-label="캔들 차트 표시 전환"
+                aria-label="캔들 차트 보기 전환"
               />
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[24px] bg-[color:var(--color-bg-primary)]">
-            {isChartLoading ? (
-              <div className="h-[320px] w-full animate-pulse bg-[color:var(--color-bg-secondary)] md:h-[340px] xl:h-[360px]" />
-            ) : (
-              <StockPriceChart prices={prices} period={chartPeriod} mode={chartMode} className="px-0" />
-            )}
-          </div>
+          <StockSectionLoadingOverlay active={isChartLoading} className="overflow-hidden rounded-[24px]">
+            <div className="overflow-hidden rounded-[24px] bg-[color:var(--color-bg-primary)]">
+              {isChartLoading ? (
+                <StockPriceChartSkeleton />
+              ) : (
+                <StockPriceChart
+                  prices={prices}
+                  period={chartPeriod}
+                  mode={chartMode}
+                  className="px-0"
+                  hasMore={chartHasMore}
+                  isFetchingMore={isChartFetchingMore}
+                  onRequestMore={onRequestChartMore}
+                />
+              )}
+            </div>
+          </StockSectionLoadingOverlay>
         </div>
       </div>
     </section>

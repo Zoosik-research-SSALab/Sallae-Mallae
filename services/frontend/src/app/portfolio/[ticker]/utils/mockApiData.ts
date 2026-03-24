@@ -10,7 +10,6 @@ import type {
 } from "../types/api";
 
 export function getMockReportResponse(
-  _stockId: string,
   offset = 0,
   limit = 6,
 ): ReportResponse {
@@ -65,9 +64,7 @@ export function getMockReportResponse(
   return { reports: allReports.slice(offset, offset + limit) };
 }
 
-export function getMockPerformanceResponse(
-  _stockId: string,
-): PerformanceResponse {
+export function getMockPerformanceResponse(): PerformanceResponse {
   return {
     cumulativeReturn: 124.5,
     winRate: 75.0,
@@ -100,7 +97,6 @@ export function getMockPerformanceResponse(
 }
 
 export function getMockTradesResponse(
-  _stockId: string,
   offset = 0,
   limit = 10,
 ): TradesResponse {

@@ -192,7 +192,7 @@ export function getNotificationActionHref(item: NotificationItem) {
   switch (item.notiType) {
     case "BUY":
     case "SELL":
-      return `/reports/${item.stockId}`;
+      return `/report/${item.stockId}`;
     case "SURGE_DOWN":
     case "SURGE_UP":
       return `/stocks/${item.stockId}`;

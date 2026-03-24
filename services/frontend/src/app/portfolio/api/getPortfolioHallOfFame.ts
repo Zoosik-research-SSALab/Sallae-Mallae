@@ -27,6 +27,7 @@ type HallHitRateItem = {
 
 type PortfolioHallOfFamePayload = {
   hitRateTop5?: HallHitRateItem[] | null;
+  cumulativeReturnTop10?: HallRankingItem[] | null;
   cumulativeReturnTop5?: HallRankingItem[] | null;
   maxSingleReturnTop5?: HallRankingItem[] | null;
   averageReturnTop5?: HallRankingItem[] | null;
@@ -89,7 +90,11 @@ function normalizePortfolioHallOfFame(value: unknown): PortfolioHallOfFameSectio
       id: "cumulative-return",
       title: "누적 수익률 TOP 5",
       tone: "danger",
-      items: normalizeValueItems(candidate.cumulativeReturnTop5, "%", "종목"),
+      items: normalizeValueItems(
+        candidate.cumulativeReturnTop10 ?? candidate.cumulativeReturnTop5,
+        "%",
+        "종목",
+      ),
     },
     {
       id: "best-single-trade",
@@ -109,9 +114,12 @@ function normalizePortfolioHallOfFame(value: unknown): PortfolioHallOfFameSectio
 }
 
 export async function getPortfolioHallOfFame() {
-  const payload = await authApiFetch<ApiResponse<PortfolioHallOfFamePayload>>("/api/portfolio/chairman/hall-of-fame", {
-    cache: "no-store",
-  });
+  const payload = await authApiFetch<ApiResponse<PortfolioHallOfFamePayload>>(
+    "/api/portfolio/chairman/hall-of-fame",
+    {
+      cache: "no-store",
+    },
+  );
 
   if (!payload.data) {
     throw new Error("명예의 전당 데이터를 불러오지 못했습니다.");

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMockStockOverview } from "@/app/stocks/utils/mockStockDetailData";
-import { snakelizeKeys } from "@/shared/utils/case";
-import { shouldUseMock, getApiBaseUrl } from "../../report/utils";
+import { getApiBaseUrl } from "../../report/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +17,6 @@ export async function GET(request: Request, context: RouteContext) {
       { message: "ticker is required" },
       { status: 400 },
     );
-  }
-
-  if (shouldUseMock()) {
-    return NextResponse.json(snakelizeKeys(getMockStockOverview(ticker)));
   }
 
   const upstreamUrl = `${getApiBaseUrl()}/api/stocks/${encodeURIComponent(ticker)}`;
