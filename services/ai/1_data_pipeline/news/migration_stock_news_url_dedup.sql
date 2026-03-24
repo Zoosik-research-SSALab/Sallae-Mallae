@@ -1,6 +1,6 @@
 -- =========================================================================
 -- stock_news URL 정규화 + 중복 제거 마이그레이션
--- 실행 방법: 단계별로 하나씩 실행하며 검증 결과 확인 후 다음 단계 진행
+-- 실행 방법: 반드시 같은 DB 세션에서 순차 실행 (세션 끊기면 url_normalize_map 재생성 필요)
 -- 예상 소요: 53만건 기준 5~10분
 -- =========================================================================
 
@@ -22,12 +22,14 @@ SELECT COUNT(*) AS total_news,
 FROM stock_news WHERE url IS NOT NULL;
 
 -- 정규화 후 예상 중복 제거 건수 미리 확인
--- (article_id + office_id만 남긴 URL 기준)
+-- (article_id + office_id만 추출 후 정렬 재조합 — url_normalizer.py와 동일)
 SELECT COUNT(*) AS total_news,
        COUNT(DISTINCT
          CASE
            WHEN url LIKE '%finance.naver.com/item/news_read.naver%'
-           THEN regexp_replace(url, '&(code|page|sm)=[^&]*', '', 'g')
+           THEN split_part(url, '?', 1) || '?' ||
+                'article_id=' || coalesce((regexp_match(url, 'article_id=([^&]*)'))[1], '') ||
+                '&office_id=' || coalesce((regexp_match(url, 'office_id=([^&]*)'))[1], '')
            ELSE url
          END
        ) AS distinct_normalized_url
@@ -39,12 +41,21 @@ FROM stock_news WHERE url IS NOT NULL;
 -- =========================================================================
 
 -- 각 기존 row에 대해 정규화 URL과 대표 id를 계산
-CREATE TEMP TABLE url_normalize_map AS
+-- 일반 테이블로 생성 (세션 끊겨도 유지됨, 마이그레이션 완료 후 수동 삭제)
+CREATE TABLE url_normalize_map AS
 WITH normalized AS (
   SELECT id, url,
     CASE
       WHEN url LIKE '%finance.naver.com/item/news_read.naver%'
-      THEN regexp_replace(url, '&(code|page|sm)=[^&]*', '', 'g')
+      THEN
+        -- url_normalizer.py와 동일한 정규화: article_id + office_id만 추출 후 정렬 재조합
+        split_part(url, '?', 1) || '?' ||
+        'article_id=' || coalesce(
+          (regexp_match(url, 'article_id=([^&]*)'))[1], ''
+        ) ||
+        '&office_id=' || coalesce(
+          (regexp_match(url, 'office_id=([^&]*)'))[1], ''
+        )
       ELSE url
     END AS normalized_url
   FROM stock_news
@@ -286,5 +297,6 @@ GROUP BY url HAVING COUNT(*) > 1;
 -- =========================================================================
 -- STEP 8: old 테이블은 당분간 유지 (필요 시 수동 삭제)
 -- =========================================================================
--- stock_news_old, stock_news_map_old, news_keyword_map_old 테이블이 남아있습니다.
+-- stock_news_old, stock_news_map_old, news_keyword_map_old, url_normalize_map 테이블이 남아있습니다.
 -- 서비스 정상 동작 충분히 확인 후 별도로 삭제하세요.
+-- DROP TABLE IF EXISTS url_normalize_map;
