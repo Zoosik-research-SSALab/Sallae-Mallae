@@ -336,19 +336,11 @@ export const handlers = [
     const offset = parsePositiveInteger(searchParams.get("offset"), 0);
     const limit = Math.max(1, parsePositiveInteger(searchParams.get("limit"), 6));
 
-    if (!stockId) {
-      return HttpResponse.json({ message: "stockId is required" }, { status: 400 });
-    }
-
     return HttpResponse.json(snakelizeKeys(getMockReportResponse(stockId, offset, limit)));
   }),
 
   http.get("/api/report/:stockId/performance", ({ params }) => {
     const { stockId } = params as { stockId: string };
-
-    if (!stockId) {
-      return HttpResponse.json({ message: "stockId is required" }, { status: 400 });
-    }
 
     return HttpResponse.json(snakelizeKeys(getMockPerformanceResponse(stockId)));
   }),
@@ -358,10 +350,6 @@ export const handlers = [
     const searchParams = new URL(request.url).searchParams;
     const offset = parsePositiveInteger(searchParams.get("offset"), 0);
     const limit = Math.max(1, parsePositiveInteger(searchParams.get("limit"), 10));
-
-    if (!stockId) {
-      return HttpResponse.json({ message: "stockId is required" }, { status: 400 });
-    }
 
     return HttpResponse.json(snakelizeKeys(getMockTradesResponse(stockId, offset, limit)));
   }),
