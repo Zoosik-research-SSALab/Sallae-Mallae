@@ -266,7 +266,11 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
             </div>
             <div className="flex flex-col gap-10">
               {/* Return chart */}
-              <ReturnChart />
+              <ReturnChart
+                chart={performanceData?.chart ?? []}
+                currentReturn={apiHolding?.currentReturn ?? 0}
+                buyDate={apiHolding?.buyDate ?? ""}
+              />
 
               {/* Backtest results */}
               {backtestResult ? (
