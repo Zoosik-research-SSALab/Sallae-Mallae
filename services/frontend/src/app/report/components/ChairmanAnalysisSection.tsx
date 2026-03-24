@@ -25,19 +25,19 @@ export default function ChairmanAnalysisSection({
 
           <div className="flex flex-1 flex-col gap-4">
             <div className="flex flex-col gap-0.5">
-              <h2 className="heading-reset text-2xl font-extrabold leading-7 text-[color:var(--color-text-base)]">
+              <h2 className="heading-reset typo-heading-md text-[color:var(--color-text-base)]">
                 의장 AI 최종 분석
               </h2>
-              <p className="text-base font-medium leading-6 text-[color:var(--color-text-tertiary)]">라운드 3 전원 일치결과</p>
+              <p className="typo-body-lg text-[color:var(--color-text-tertiary)]">라운드 3 전원 일치결과</p>
             </div>
 
             <div className="flex items-end gap-4">
-              <div className="text-5xl font-extrabold leading-[56px] text-[color:var(--color-text-warning)]">{verdict}</div>
-              <div className="rounded-md bg-[color:var(--color-bg-warning-subtle)] px-2.5 py-1 text-sm font-extrabold leading-5 text-[color:var(--color-text-secondary)]">
+              <div className="typo-heading-3xl text-[color:var(--color-text-warning)]">{verdict}</div>
+              <div className="typo-body-md rounded-md bg-[color:var(--color-bg-warning-subtle)] px-2.5 py-1 text-[color:var(--color-text-secondary)]">
                 신뢰도 {confidence}
               </div>
             </div>
-            <p className="max-w-[660px] text-base font-medium leading-6 text-[color:var(--color-text-base)]">{verdictQuote}</p>
+            <p className="typo-body-lg max-w-[660px] text-[color:var(--color-text-base)]">{verdictQuote}</p>
           </div>
         </div>
       </div>
