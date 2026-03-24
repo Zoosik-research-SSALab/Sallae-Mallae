@@ -13,8 +13,12 @@ public record SignalItemResponse(
     String ticker,
     @Schema(description = "종목명", example = "삼성전자")
     String name,
+    @Schema(description = "종목 카테고리", example = "반도체")
+    String category,
     @Schema(description = "현재가", example = "74300")
     Integer price,
+    @Schema(description = "시가총액", example = "439300000000000")
+    Long marketCap,
     @Schema(description = "등락률", example = "1.24")
     Float fluctuationRate,
     @Schema(description = "AI 매매신호", example = "BUY")
