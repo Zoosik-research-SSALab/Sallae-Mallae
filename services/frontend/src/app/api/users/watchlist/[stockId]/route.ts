@@ -4,10 +4,14 @@ import {
   removeMockWatchlist,
   toggleMockWatchlistNotification,
 } from "@/shared/lib/mockWatchlistStore";
-import { snakelizeKeys } from "@/shared/utils/case";
+import { camelizeKeys, snakelizeKeys } from "@/shared/utils/case";
 import { ensureMockUserAuthorized, proxyUsersApiRequest, shouldUseMockUsersApi } from "../../utils";
 
 export const dynamic = "force-dynamic";
+
+type PatchWatchlistNotificationBody = {
+  isNotiEnabled?: boolean;
+};
 
 type RouteContext = {
   params: Promise<{
@@ -112,5 +116,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  return NextResponse.json(snakelizeKeys(toggleMockWatchlistNotification(stockId)));
+  let body: PatchWatchlistNotificationBody = {};
+
+  try {
+    body = camelizeKeys<PatchWatchlistNotificationBody>(
+      (await request.json()) as unknown,
+    );
+  } catch {
+    body = {};
+  }
+
+  return NextResponse.json(
+    snakelizeKeys(
+      toggleMockWatchlistNotification(stockId, body.isNotiEnabled),
+    ),
+  );
 }

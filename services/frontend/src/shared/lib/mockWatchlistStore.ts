@@ -378,14 +378,21 @@ export function removeMockWatchlist(stockId: number): WatchlistToggleResponse {
   };
 }
 
-export function toggleMockWatchlistNotification(stockId: number): WatchlistNotificationResponse {
+export function toggleMockWatchlistNotification(
+  stockId: number,
+  isNotifiedEnabled?: boolean,
+): WatchlistNotificationResponse {
   const entry = watchlistStore.get(stockId);
 
   if (!entry) {
     throw new Error("Watchlist entry not found");
   }
 
-  const nextValue = !entry.isNotifiedEnabled;
+  const nextValue =
+    typeof isNotifiedEnabled === "boolean"
+      ? isNotifiedEnabled
+      : !entry.isNotifiedEnabled;
+
   watchlistStore.set(stockId, {
     isNotifiedEnabled: nextValue,
   });
