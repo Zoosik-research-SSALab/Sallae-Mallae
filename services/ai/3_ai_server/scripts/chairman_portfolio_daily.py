@@ -151,7 +151,8 @@ def main() -> int:
             )
             inserted_trades_total += summary.inserted_trades
 
-        assert summary is not None
+        if summary is None:
+            raise ValueError("포트폴리오 일일 반영 요약이 생성되지 않았습니다.")
         checkpoint["status"] = "succeeded"
         checkpoint["last_completed_date"] = report_date.isoformat()
         checkpoint["finished_at"] = now_iso()

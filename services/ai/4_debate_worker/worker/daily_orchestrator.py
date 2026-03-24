@@ -13,6 +13,16 @@ from worker.runner import DebateWorkerRunner, RunnerOptions
 
 
 KST = ZoneInfo("Asia/Seoul")
+FIXED_HOLIDAYS_MMDD: frozenset[str] = frozenset({
+    "01-01",
+    "03-01",
+    "05-05",
+    "06-06",
+    "08-15",
+    "10-03",
+    "10-09",
+    "12-25",
+})
 NEWS_PIPELINE_DONE = "NEWS_PIPELINE_DONE"
 DEBATE_PIPELINE_DONE = "DEBATE_PIPELINE_DONE"
 PORTFOLIO_PIPELINE_DONE = "PORTFOLIO_PIPELINE_DONE"
@@ -33,6 +43,7 @@ class DailyAutomationOptions:
     lease_seconds: int
     max_retry_attempts: int
     retry_backoff_seconds: int
+    stage_max_failures: int
     portfolio_script_path: str
     portfolio_name: str
     portfolio_model_version: str
@@ -82,8 +93,11 @@ class PortfolioScriptRunner:
         if completed.stderr:
             logger.warning("포트폴리오 일일 반영 stderr\n%s", completed.stderr.strip())
         if completed.returncode != 0:
+            stderr = completed.stderr.strip()
+            stdout = completed.stdout.strip()
+            details = stderr or stdout or "출력 없음"
             raise RuntimeError(
-                f"포트폴리오 일일 반영 실패 | returncode={completed.returncode}"
+                f"포트폴리오 일일 반영 실패 | returncode={completed.returncode} | details={details}"
             )
 
 
@@ -153,11 +167,25 @@ class DailyAutomationRunner:
                     )
                 )
                 if not self._is_debate_success(summary):
-                    self.signal_store.insert_failed(DEBATE_PIPELINE_DONE)
+                    failure_count = (
+                        self.signal_store.count_status_for_date(
+                            signal_type=DEBATE_PIPELINE_DONE,
+                            business_date=report_date,
+                            status="FAILED",
+                        )
+                        + 1
+                    )
+                    self.signal_store.insert_failed(
+                        DEBATE_PIPELINE_DONE,
+                        retry_count=failure_count,
+                        business_date=report_date,
+                    )
                     logger.warning(
-                        "토론 배치가 완전 성공은 아니지만 DONE 처리로 마무리합니다 | report_date=%s | "
+                        "토론 배치가 완전 성공하지 못했습니다 | report_date=%s | failure_count=%s/%s | "
                         "discovered=%s | succeeded=%s | duplicated=%s | retryable=%s | permanent=%s | skipped=%s",
                         replay_date,
+                        failure_count,
+                        options.stage_max_failures,
                         summary.discovered,
                         summary.succeeded,
                         summary.duplicated,
@@ -165,8 +193,19 @@ class DailyAutomationRunner:
                         summary.failed_permanent,
                         summary.skipped,
                     )
+                    if failure_count < options.stage_max_failures:
+                        logger.info(
+                            "토론 단계는 다음 실행에서 재시도합니다 | report_date=%s | remaining_attempts=%s",
+                            report_date,
+                            options.stage_max_failures - failure_count,
+                        )
+                        return
+                    logger.warning(
+                        "토론 단계 최대 실패 횟수 도달로 DONE 처리 후 다음 단계로 진행합니다 | report_date=%s",
+                        report_date,
+                    )
                     break
-            self.signal_store.insert_done(DEBATE_PIPELINE_DONE)
+            self.signal_store.insert_done(DEBATE_PIPELINE_DONE, business_date=report_date)
             logger.info("당일 토론 완료 신호 기록 | report_date=%s", report_date)
         else:
             logger.info("당일 토론 완료 신호 이미 존재 | report_date=%s", report_date)
@@ -186,14 +225,39 @@ class DailyAutomationRunner:
                 portfolio_initial_capital=options.portfolio_initial_capital,
             )
         except Exception as exc:
-            self.signal_store.insert_failed(PORTFOLIO_PIPELINE_DONE)
+            failure_count = (
+                self.signal_store.count_status_for_date(
+                    signal_type=PORTFOLIO_PIPELINE_DONE,
+                    business_date=report_date,
+                    status="FAILED",
+                )
+                + 1
+            )
+            self.signal_store.insert_failed(
+                PORTFOLIO_PIPELINE_DONE,
+                retry_count=failure_count,
+                business_date=report_date,
+            )
             logger.warning(
-                "포트폴리오 일일 반영이 실패했지만 DONE 처리로 마무리합니다 | report_date=%s | error=%s",
+                "포트폴리오 일일 반영 실패 | report_date=%s | failure_count=%s/%s | error=%s",
                 report_date,
+                failure_count,
+                options.stage_max_failures,
                 exc,
             )
+            if failure_count < options.stage_max_failures:
+                logger.info(
+                    "포트폴리오 단계는 다음 실행에서 재시도합니다 | report_date=%s | remaining_attempts=%s",
+                    report_date,
+                    options.stage_max_failures - failure_count,
+                )
+                return
+            logger.warning(
+                "포트폴리오 단계 최대 실패 횟수 도달로 DONE 처리합니다 | report_date=%s",
+                report_date,
+            )
 
-        self.signal_store.insert_done(PORTFOLIO_PIPELINE_DONE)
+        self.signal_store.insert_done(PORTFOLIO_PIPELINE_DONE, business_date=report_date)
         logger.info("당일 포트폴리오 완료 신호 기록 | report_date=%s", report_date)
 
     @staticmethod
@@ -215,6 +279,13 @@ class DailyAutomationRunner:
         replay_dates: list[date] = []
         cursor = start_date
         while cursor <= target_date:
-            replay_dates.append(cursor)
+            if self._is_trading_day(cursor):
+                replay_dates.append(cursor)
             cursor += timedelta(days=1)
-        return replay_dates
+        return replay_dates or [target_date]
+
+    @staticmethod
+    def _is_trading_day(candidate: date) -> bool:
+        if candidate.weekday() >= 5:
+            return False
+        return candidate.strftime("%m-%d") not in FIXED_HOLIDAYS_MMDD

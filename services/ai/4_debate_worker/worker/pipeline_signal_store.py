@@ -37,11 +37,30 @@ class PipelineSignalStore:
     ) -> PipelineSignalRecord | None:
         return self._fetch_latest(signal_type=signal_type, status=status, business_date=business_date)
 
-    def insert_done(self, signal_type: str) -> None:
-        self._insert_signal(signal_type=signal_type, status="DONE", retry_count=0)
-
-    def insert_failed(self, signal_type: str, retry_count: int = 0) -> None:
-        self._insert_signal(signal_type=signal_type, status="FAILED", retry_count=retry_count)
+    def count_status_for_date(self, *, signal_type: str, business_date: date, status: str) -> int:
+        window_start = datetime.combine(business_date, time.min, tzinfo=KST)
+        window_end = datetime.combine(business_date, time.max, tzinfo=KST)
+        with self.engine.connect() as conn:
+            return int(
+                conn.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM pipeline_signals
+                        WHERE signal_type = :signal_type
+                          AND status = :status
+                          AND created_at >= :window_start
+                          AND created_at <= :window_end
+                        """
+                    ),
+                    {
+                        "signal_type": signal_type,
+                        "status": status,
+                        "window_start": window_start,
+                        "window_end": window_end,
+                    },
+                ).scalar_one()
+            )
 
     def get_latest_portfolio_record_date(self, portfolio_name: str) -> date | None:
         with self.engine.connect() as conn:
@@ -111,20 +130,45 @@ class PipelineSignalStore:
             processed_at=row["processed_at"],
         )
 
-    def _insert_signal(self, *, signal_type: str, status: str, retry_count: int) -> None:
-        processed_at = datetime.now(tz=KST) if status in {"DONE", "FAILED"} else None
+    def _insert_signal(
+        self,
+        *,
+        signal_type: str,
+        status: str,
+        retry_count: int,
+        business_date: date | None = None,
+    ) -> None:
+        signal_time = self._signal_timestamp(business_date)
+        processed_at = signal_time if status in {"DONE", "FAILED"} else None
         with self.engine.begin() as conn:
             conn.execute(
                 text(
                     """
-                    INSERT INTO pipeline_signals (signal_type, status, retry_count, processed_at)
-                    VALUES (:signal_type, :status, :retry_count, :processed_at)
+                    INSERT INTO pipeline_signals (signal_type, status, retry_count, created_at, processed_at)
+                    VALUES (:signal_type, :status, :retry_count, :created_at, :processed_at)
                     """
                 ),
                 {
                     "signal_type": signal_type,
                     "status": status,
                     "retry_count": retry_count,
+                    "created_at": signal_time,
                     "processed_at": processed_at,
                 },
             )
+
+    def insert_done(self, signal_type: str, business_date: date | None = None) -> None:
+        self._insert_signal(signal_type=signal_type, status="DONE", retry_count=0, business_date=business_date)
+
+    def insert_failed(self, signal_type: str, retry_count: int = 0, business_date: date | None = None) -> None:
+        self._insert_signal(
+            signal_type=signal_type,
+            status="FAILED",
+            retry_count=retry_count,
+            business_date=business_date,
+        )
+
+    def _signal_timestamp(self, business_date: date | None) -> datetime:
+        if business_date is None:
+            return datetime.now(tz=KST)
+        return datetime.combine(business_date, time(hour=12), tzinfo=KST)

@@ -50,6 +50,7 @@ class Settings(BaseSettings):
 
     LOOP_INTERVAL_SECONDS: int = Field(default=300, ge=30)
     PIPELINE_POLL_INTERVAL_SECONDS: int = Field(default=300, ge=30)
+    PIPELINE_STAGE_MAX_FAILURES: int = Field(default=3, ge=1, le=20)
     MAX_RETRY_ATTEMPTS: int = Field(default=5, ge=1, le=20)
     RETRY_BACKOFF_SECONDS: int = Field(default=30, ge=5)
     JOB_LEASE_SECONDS: int = Field(default=900, ge=60)

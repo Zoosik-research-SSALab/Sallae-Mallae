@@ -63,6 +63,7 @@ def main() -> None:
         lease_seconds=settings.JOB_LEASE_SECONDS,
         max_retry_attempts=settings.MAX_RETRY_ATTEMPTS,
         retry_backoff_seconds=settings.RETRY_BACKOFF_SECONDS,
+        stage_max_failures=settings.PIPELINE_STAGE_MAX_FAILURES,
         portfolio_script_path=str(settings.portfolio_script_path),
         portfolio_name=settings.PORTFOLIO_NAME,
         portfolio_model_version=settings.PORTFOLIO_MODEL_VERSION,
