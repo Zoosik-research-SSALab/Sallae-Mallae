@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getMockReportResponse } from "@/app/portfolio/[ticker]/utils/mockApiData";
-import { snakelizeKeys } from "@/shared/utils/case";
-import { shouldUseMock, getApiBaseUrl } from "../utils";
+import { getApiBaseUrl } from "../utils";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +38,8 @@ export async function GET(
       return new NextResponse(upstreamResponse.body, {
         status: upstreamResponse.status,
         headers: {
-          "content-type": upstreamResponse.headers.get("content-type") ?? "application/json",
+          "content-type":
+            upstreamResponse.headers.get("content-type") ?? "application/json",
         },
       });
     }
