@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isMockAuthorized, shouldUseMockAuth } from "@/app/api/auth/mock";
+import { AUTH_REFRESH_COOKIE_NAME } from "@/app/api/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +11,29 @@ type TtsRequestBody = {
   speaker?: SpeakerId;
 };
 
+const MAX_TTS_TEXT_LENGTH = 1000;
+const VALID_SPEAKERS: readonly SpeakerId[] = ["chart", "news", "fund", "judge"];
+const VOICE_ID_BY_SPEAKER: Record<SpeakerId, string> = {
+  chart: "ELEVENLABS_VOICE_ID_CHART",
+  news: "ELEVENLABS_VOICE_ID_NEWS",
+  fund: "ELEVENLABS_VOICE_ID_FUND",
+  judge: "ELEVENLABS_VOICE_ID_JUDGE",
+};
+
 function readEnvValue(key: string) {
   return process.env[key]?.trim();
+}
+
+function isSpeakerId(value: unknown): value is SpeakerId {
+  return typeof value === "string" && VALID_SPEAKERS.includes(value as SpeakerId);
+}
+
+function isAuthorized(request: NextRequest) {
+  if (shouldUseMockAuth()) {
+    return isMockAuthorized(request);
+  }
+
+  return Boolean(request.headers.get("authorization")?.trim() || request.cookies.get(AUTH_REFRESH_COOKIE_NAME)?.value);
 }
 
 function getVoiceSettings(speaker: SpeakerId) {
@@ -33,11 +56,15 @@ function getVoiceSettings(speaker: SpeakerId) {
   };
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const apiKey = readEnvValue("ELEVENLABS_API_KEY");
 
   if (!apiKey) {
     return NextResponse.json({ message: "ELEVENLABS_API_KEY is not configured." }, { status: 500 });
+  }
+
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ code: "AUTH_001", message: "로그인이 필요합니다." }, { status: 401 });
   }
 
   const body = (await request.json()) as TtsRequestBody;
@@ -48,14 +75,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "text and speaker are required." }, { status: 400 });
   }
 
-  const voiceId =
-    speaker === "chart"
-      ? readEnvValue("ELEVENLABS_VOICE_ID_CHART")
-      : speaker === "news"
-        ? readEnvValue("ELEVENLABS_VOICE_ID_NEWS")
-        : speaker === "fund"
-          ? readEnvValue("ELEVENLABS_VOICE_ID_FUND")
-          : readEnvValue("ELEVENLABS_VOICE_ID_JUDGE");
+  if (!isSpeakerId(speaker)) {
+    return NextResponse.json(
+      { message: `speaker must be one of: ${VALID_SPEAKERS.join(", ")}.` },
+      { status: 400 },
+    );
+  }
+
+  if (text.length > MAX_TTS_TEXT_LENGTH) {
+    return NextResponse.json(
+      { message: `text must be at most ${MAX_TTS_TEXT_LENGTH} characters.` },
+      { status: 400 },
+    );
+  }
+
+  const voiceId = readEnvValue(VOICE_ID_BY_SPEAKER[speaker]);
 
   if (!voiceId) {
     return NextResponse.json({ message: `Voice ID for speaker "${speaker}" is not configured.` }, { status: 500 });
@@ -82,11 +116,17 @@ export async function POST(request: Request) {
   if (!elevenlabsResponse.ok) {
     const errorText = await elevenlabsResponse.text();
 
+    console.error("[report-tts] ElevenLabs TTS request failed", {
+      status: elevenlabsResponse.status,
+      speaker,
+      textLength: text.length,
+      errorText,
+    });
+
     return NextResponse.json(
       {
         message: "ElevenLabs TTS request failed.",
         status: elevenlabsResponse.status,
-        details: errorText,
       },
       { status: elevenlabsResponse.status },
     );
