@@ -10,4 +10,9 @@ public interface AiDailyPerformanceRepository extends JpaRepository<AiDailyPerfo
   List<AiDailyPerformance> findByPortfolioIdOrderByRecordDateAsc(Long portfolioId);
 
   Optional<AiDailyPerformance> findTopByPortfolioIdOrderByRecordDateDesc(Long portfolioId);
+
+  Optional<AiDailyPerformance> findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(
+      Long portfolioId,
+      java.time.LocalDate recordDate
+  );
 }

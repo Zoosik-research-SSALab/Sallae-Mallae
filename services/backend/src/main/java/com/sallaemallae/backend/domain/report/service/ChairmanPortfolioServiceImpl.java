@@ -57,10 +57,14 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_NOT_FOUND));
 
     int holdingCount = chairmanPortfolioQueryRepository.countHoldings(portfolio.getId());
+    Float yesterdayReturn = aiDailyPerformanceRepository
+        .findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(portfolio.getId(), LocalDate.now())
+        .map(AiDailyPerformance::getDailyReturn)
+        .orElse(null);
     Summary summary = new Summary(
         portfolio.getCumulativeReturn(),
         calculateHitRate(portfolio),
-        null,
+        yesterdayReturn,
         null,
         holdingCount
     );
