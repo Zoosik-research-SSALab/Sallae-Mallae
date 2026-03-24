@@ -13,7 +13,7 @@ export async function GET(
 
   if (shouldUseMock()) {
     return NextResponse.json(
-      snakelizeKeys(getMockPerformanceResponse(stockId)),
+      snakelizeKeys(getMockPerformanceResponse()),
     );
   }
 

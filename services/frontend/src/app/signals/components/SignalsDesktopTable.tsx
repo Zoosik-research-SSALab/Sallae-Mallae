@@ -1,10 +1,11 @@
 ﻿"use client";
 
+import { useRouter } from "next/navigation";
 import { FaArrowTrendDown, FaArrowTrendUp } from "react-icons/fa6";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import { formatPrice, formatSignedRate, getRateTone } from "@/shared/lib/stockFormatters";
 import type { SignalItem, SignalQueryFilter } from "../types/signals";
-import { formatSignalCategory, formatSignalCreatedAt } from "../utils/signalFormatters";
+import { formatSignalCategory } from "../utils/signalFormatters";
 
 function getRateClassName(value: number) {
   const tone = getRateTone(value);
@@ -79,6 +80,8 @@ export default function SignalsDesktopTable({
   isFetchingNextPage,
   pageSize,
 }: Props) {
+  const router = useRouter();
+
   return (
     <div className="hidden w-full lg:flex lg:flex-col">
       <div className="overflow-hidden rounded-xl bg-[color:var(--color-bg-primary)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
@@ -88,23 +91,37 @@ export default function SignalsDesktopTable({
           <TableTab label="매도 포착" isActive={activeFilter === "SELL"} onClick={() => onFilterChange("SELL")} />
         </div>
 
-        <div className="grid grid-cols-[minmax(0,240px)_112px_225px_96px_72px] items-start gap-4 bg-[color:var(--color-bg-secondary)] px-8 py-4">
-          <div className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">종목명 / 섹터</div>
-          <div className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">현재가 / 등락률</div>
-          <div className="typo-body-sm text-center font-semibold text-[color:var(--color-text-secondary)]">AI 매매신호 / 신뢰도</div>
-          <div className="typo-body-sm text-center font-semibold text-[color:var(--color-text-secondary)]">발생 시각</div>
-          <div className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">관심 추가</div>
+        <div className="flex items-start justify-between bg-[color:var(--color-bg-secondary)] px-8 py-4">
+          <div className="flex w-60 flex-col items-start justify-start">
+            <div className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">종목명 / 섹터</div>
+          </div>
+          <div className="flex w-28 flex-col items-end justify-start">
+            <div className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">현재가 / 등락률</div>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="flex w-28 flex-col items-center justify-start">
+              <div className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">AI 매매신호</div>
+            </div>
+            <div className="flex w-28 flex-col items-center justify-start">
+              <div className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">AI 신뢰도</div>
+            </div>
+          </div>
+          <div className="flex flex-col items-end justify-start">
+            <div className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">관심 추가</div>
+          </div>
         </div>
 
         <div className="flex flex-col">
           {isLoading ? (
             Array.from({ length: pageSize }).map((_, index) => (
-              <div key={`signals-desktop-skeleton-${index}`} className="grid grid-cols-[minmax(0,240px)_112px_225px_96px_72px] items-center gap-4 border-b border-[color:var(--color-border-secondary)] px-8 py-6">
-                <div className="h-12 rounded-lg bg-[color:var(--color-bg-secondary)]" />
-                <div className="h-12 rounded-lg bg-[color:var(--color-bg-secondary)]" />
-                <div className="h-12 rounded-lg bg-[color:var(--color-bg-secondary)]" />
-                <div className="h-12 rounded-lg bg-[color:var(--color-bg-secondary)]" />
-                <div className="h-12 rounded-lg bg-[color:var(--color-bg-secondary)]" />
+              <div key={`signals-desktop-skeleton-${index}`} className="flex items-center justify-between border-b border-[color:var(--color-border-secondary)] px-8 py-6">
+                <div className="h-12 w-60 rounded-lg bg-[color:var(--color-bg-secondary)]" />
+                <div className="h-12 w-28 rounded-lg bg-[color:var(--color-bg-secondary)]" />
+                <div className="flex items-center gap-1">
+                  <div className="h-12 w-28 rounded-lg bg-[color:var(--color-bg-secondary)]" />
+                  <div className="h-12 w-28 rounded-lg bg-[color:var(--color-bg-secondary)]" />
+                </div>
+                <div className="h-12 w-12 rounded-lg bg-[color:var(--color-bg-secondary)]" />
               </div>
             ))
           ) : items.length > 0 ? (
@@ -114,9 +131,18 @@ export default function SignalsDesktopTable({
               return (
                 <div
                   key={item.stockId}
-                  className="grid grid-cols-[minmax(0,240px)_112px_225px_96px_72px] items-center gap-4 border-b border-[color:var(--color-border-secondary)] px-8 py-6"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(`/report/${item.stockId}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/report/${item.stockId}`);
+                    }
+                  }}
+                  className="flex cursor-pointer items-center justify-between border-b border-[color:var(--color-border-secondary)] px-8 py-6 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-inset"
                 >
-                  <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex w-60 min-w-0 items-center gap-4">
                     <div
                       className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px]"
                       style={{ backgroundColor: signalUi.iconBg, outlineColor: signalUi.iconBorder }}
@@ -132,13 +158,13 @@ export default function SignalsDesktopTable({
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex w-28 flex-col items-end gap-1">
                     <div className="typo-body-md font-extrabold text-[color:var(--color-text-primary)]">{formatPrice(item.price)}</div>
                     <div className={`typo-body-sm font-semibold ${getRateClassName(item.fluctuationRate)}`}>{formatSignedRate(item.fluctuationRate)}</div>
                   </div>
 
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="flex min-w-[96px] justify-center">
+                  <div className="flex items-center justify-start gap-1">
+                    <div className="flex w-28 justify-center">
                       <span
                         className="inline-flex rounded px-2.5 py-1.5 text-xs font-semibold"
                         style={{
@@ -151,7 +177,7 @@ export default function SignalsDesktopTable({
                       </span>
                     </div>
 
-                    <div className="flex w-24 flex-col items-center gap-1">
+                    <div className="flex w-28 flex-col items-center gap-1">
                       <div className="typo-body-md font-extrabold text-[color:var(--color-text-primary)]">{item.confidence}%</div>
                       <div className="h-1 w-12 overflow-hidden rounded-full bg-[color:var(--color-bg-disabled)]">
                         <div className="h-full rounded-full" style={{ width: `${item.confidence}%`, backgroundColor: signalUi.barFill }} />
@@ -159,11 +185,7 @@ export default function SignalsDesktopTable({
                     </div>
                   </div>
 
-                  <div className="typo-body-sm text-center font-semibold text-[color:var(--color-text-secondary)]">
-                    {formatSignalCreatedAt(item.createdAt)}
-                  </div>
-
-                  <div className="flex justify-end">
+                  <div className="flex justify-end" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
                     <WatchlistHeartButton stockId={item.stockId} stockName={item.name} size="sm" inactiveIconStyle="outline" />
                   </div>
                 </div>

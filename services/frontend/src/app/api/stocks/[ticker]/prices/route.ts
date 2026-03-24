@@ -15,13 +15,13 @@ type RouteContext = {
 const validPeriods = new Set<StockChartPeriod>(["1MIN", "1D", "1W", "1M", "1Y"]);
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { ticker } = await context.params;
+  const { ticker: stockId } = await context.params;
   const period = request.nextUrl.searchParams.get("period");
 
-  if (!ticker) {
+  if (!stockId) {
     return NextResponse.json(
       {
-        message: "ticker is required",
+        message: "stockId is required",
       },
       { status: 400 },
     );
@@ -29,5 +29,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const safePeriod = validPeriods.has(period as StockChartPeriod) ? (period as StockChartPeriod) : "1D";
 
-  return createSseResponse(() => snakelizeKeys(getMockStockPrices(ticker, safePeriod)), 4000);
+  return createSseResponse(() => snakelizeKeys(getMockStockPrices(stockId, safePeriod)), 4000);
 }

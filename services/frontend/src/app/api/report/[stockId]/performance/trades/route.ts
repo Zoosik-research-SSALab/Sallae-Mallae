@@ -18,7 +18,7 @@ export async function GET(
     const limit = Number(searchParams.get("limit") ?? 10);
 
     return NextResponse.json(
-      snakelizeKeys(getMockTradesResponse(stockId, offset, limit)),
+      snakelizeKeys(getMockTradesResponse(offset, limit)),
     );
   }
 

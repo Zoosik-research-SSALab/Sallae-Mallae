@@ -32,7 +32,7 @@ function mergePrices(existing: StockPricePoint[], incoming: StockPricePoint[]) {
 }
 
 export function useStockPriceStream(
-  ticker: string,
+  stockId: string,
   period: StockChartPeriod,
   options: UseStockPriceStreamOptions = {},
 ): StockPriceStreamState {
@@ -46,7 +46,7 @@ export function useStockPriceStream(
   const isFetchingMoreRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || !ticker) {
+    if (!enabled || !stockId) {
       setData(initialPayload);
       setIsLoading(false);
       setIsFetchingMore(false);
@@ -81,7 +81,7 @@ export function useStockPriceStream(
         nextCursorRef.current = null;
         isFetchingMoreRef.current = false;
 
-        const page = await fetchStockPricePage(ticker, period);
+        const page = await fetchStockPricePage(stockId, period);
         applyPage(page.prices, page.hasMore, page.nextCursor);
       } catch {
         if (!disposed) {
@@ -96,7 +96,7 @@ export function useStockPriceStream(
     return () => {
       disposed = true;
     };
-  }, [enabled, period, ticker]);
+  }, [enabled, period, stockId]);
 
   const loadMore = useCallback(() => {
     if (!enabled || period === "1MIN" || isFetchingMoreRef.current || !hasMoreRef.current || !nextCursorRef.current) {
@@ -108,7 +108,7 @@ export function useStockPriceStream(
 
     void (async () => {
       try {
-        const page = await fetchStockPricePage(ticker, period, nextCursorRef.current);
+        const page = await fetchStockPricePage(stockId, period, nextCursorRef.current);
 
         setData((prev) => ({
           prices: mergePrices(page.prices, prev.prices),
@@ -123,7 +123,7 @@ export function useStockPriceStream(
         setIsFetchingMore(false);
       }
     })();
-  }, [enabled, period, ticker]);
+  }, [enabled, period, stockId]);
 
   return useMemo(
     () => ({

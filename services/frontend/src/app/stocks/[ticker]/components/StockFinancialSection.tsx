@@ -28,8 +28,8 @@ export default function StockFinancialSection({
   latestAnnouncement,
   isLoading,
 }: Props) {
-  const visibleFinancials =
-    type === "QUARTERLY" ? getVisibleFinancials(financials, type) : financials.slice(-2);
+  const selectableFinancialTypes = financialTypeOptions.filter((item) => item.value === "QUARTERLY");
+  const visibleFinancials = getVisibleFinancials(financials, type);
   const revenueUnit = getFinancialDisplayUnit(visibleFinancials.map((item) => item.revenue));
   const operatingProfitUnit = getFinancialDisplayUnit(
     visibleFinancials.map((item) => item.operatingProfit),
@@ -41,29 +41,31 @@ export default function StockFinancialSection({
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <h2 className="text-lg font-extrabold leading-6 text-[color:var(--color-text-primary)] md:text-2xl md:leading-7">
-              연간/분기 실적 분석
+              분기 실적 분석
             </h2>
 
-            <div className="flex items-center gap-4">
-              {financialTypeOptions.map((item) => {
-                const isActive = item.value === type;
+            {selectableFinancialTypes.length > 1 ? (
+              <div className="flex items-center gap-4">
+                {selectableFinancialTypes.map((item) => {
+                  const isActive = item.value === type;
 
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => onTypeChange(item.value)}
-                    className={`border-b pb-1 text-sm font-semibold transition-colors md:text-base ${
-                      isActive
-                        ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
-                        : "border-transparent text-[color:var(--color-text-secondary)]"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => onTypeChange(item.value)}
+                      className={`border-b pb-1 text-sm font-semibold transition-colors md:text-base ${
+                        isActive
+                          ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
+                          : "border-transparent text-[color:var(--color-text-secondary)]"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.92fr)] xl:items-start xl:gap-16">
@@ -93,7 +95,7 @@ export default function StockFinancialSection({
             <div className="flex flex-col gap-4">
               <div className="bg-[color:var(--color-bg-primary)]">
                 <div className="grid grid-cols-3 border-b border-[color:var(--color-border-base)] bg-[color:var(--color-bg-primary)] px-[1px] py-3.5 text-xs font-semibold text-[color:var(--color-text-primary)] md:text-sm">
-                  <span>{type === "YEARLY" ? "연간" : "분기"}</span>
+                  <span>{selectableFinancialTypes[0]?.label ?? "분기"}</span>
                   <span className="text-right">{`매출 (${revenueUnit})`}</span>
                   <span className="text-right">{`영업익 (${operatingProfitUnit})`}</span>
                 </div>

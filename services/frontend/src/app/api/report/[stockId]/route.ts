@@ -16,7 +16,7 @@ export async function GET(
 
   if (shouldUseMock()) {
     return NextResponse.json(
-      snakelizeKeys(getMockReportResponse(stockId, offset, limit)),
+      snakelizeKeys(getMockReportResponse(offset, limit)),
     );
   }
 

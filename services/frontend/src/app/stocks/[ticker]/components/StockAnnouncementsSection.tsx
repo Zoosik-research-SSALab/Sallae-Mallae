@@ -4,12 +4,12 @@ import { formatAnnouncementDate } from "../utils/stockDetailFormatters";
 import StockSectionLoadingOverlay from "./common/StockSectionLoadingOverlay";
 
 type Props = {
-  ticker: string;
+  stockId?: number;
   announcements: StockAnnouncementItem[];
   isLoading: boolean;
 };
 
-export default function StockAnnouncementsSection({ ticker, announcements, isLoading }: Props) {
+export default function StockAnnouncementsSection({ stockId, announcements, isLoading }: Props) {
   return (
     <section className="flex flex-col gap-6">
       <StockSectionLoadingOverlay active={isLoading}>
@@ -42,7 +42,7 @@ export default function StockAnnouncementsSection({ ticker, announcements, isLoa
         </div>
 
         <ProtectedLink
-          href={`/reports/${ticker}`}
+          href={stockId != null ? `/report/${stockId}` : "/reports"}
           className="ai-report-link-text mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[color:var(--color-bg-inverse-bolder)] px-4 py-4 text-sm font-semibold shadow-[0px_4px_8px_0px_rgba(0,0,0,0.16)] transition-opacity hover:opacity-90 md:text-base"
         >
           AI 분석 리포트 보기

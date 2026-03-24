@@ -88,7 +88,6 @@ export const STOCK_RANKING_TABS: Array<{
 }> = [
   { value: "TURNOVER", label: "거래대금" },
   { value: "VOLUME", label: "거래량" },
-  { value: "DIVIDEND", label: "배당" },
 ];
 
 function normalizeStockSectorKey(value: string) {

@@ -7,6 +7,21 @@ import { STOCK_PAGE_SIZE, STOCK_TOTAL_COUNT } from "../utils/stocksFilters";
 
 type BaseStocksQueryParams = Omit<StocksQueryParams, "offset" | "limit">;
 
+function dedupeStockItems(pages: StocksResponse[]) {
+  const seen = new Set<number>();
+
+  return pages.flatMap((page) =>
+    page.stocks.filter((stock) => {
+      if (seen.has(stock.id)) {
+        return false;
+      }
+
+      seen.add(stock.id);
+      return true;
+    }),
+  );
+}
+
 export function useStocksInfiniteQuery(params: BaseStocksQueryParams) {
   const normalizedParams = {
     ...params,
@@ -39,7 +54,7 @@ export function useStocksInfiniteQuery(params: BaseStocksQueryParams) {
 
   return {
     ...query,
-    items: pages.flatMap((page) => page.stocks),
+    items: dedupeStockItems(pages),
     pageSize: STOCK_PAGE_SIZE,
     errorMessage: query.error instanceof Error ? query.error.message : null,
   };
