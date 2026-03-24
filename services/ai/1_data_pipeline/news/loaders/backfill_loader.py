@@ -39,6 +39,7 @@ import pandas as pd
 from config import OUTPUT_DIR
 from db import get_session
 from models import Keyword, NewsKeywordMap, Stock, StockNews, StockNewsMap
+from utils.url_normalizer import normalize_news_url
 
 logger = logging.getLogger(__name__)
 
@@ -131,16 +132,17 @@ def bulk_load_backfill(csv_path: str) -> dict[str, int]:
                         if stock:
                             stock_id_cache[code] = stock[0]
 
-                # 이 청크의 URL로만 중복 검사
-                urls_in_chunk = df["article_url"].dropna().unique().tolist() if "article_url" in df.columns else []
+                # 이 청크의 URL로만 중복 검사 (정규화된 URL 기준)
+                raw_urls = df["article_url"].dropna().unique().tolist() if "article_url" in df.columns else []
+                norm_urls = [normalize_news_url(u) for u in raw_urls]
                 existing_urls: set[str] = set()
-                for i in range(0, len(urls_in_chunk), 500):
-                    batch = urls_in_chunk[i:i + 500]
+                for i in range(0, len(norm_urls), 500):
+                    batch = [u for u in norm_urls[i:i + 500] if u]
                     rows = session.query(StockNews.url).filter(StockNews.url.in_(batch)).all()
                     existing_urls.update(r[0] for r in rows)
 
                 for _, row in df.iterrows():
-                    url = row.get("article_url", "")
+                    url = normalize_news_url(row.get("article_url", ""))
                     code = str(row.get("code", "")).zfill(6) if row.get("code") else None
                     stock_id = stock_id_cache.get(code) if code else None
 

@@ -44,6 +44,7 @@ from crawlers.naver_finance import (
     parse_news_list,
     set_semaphore_limit,
 )
+from utils.url_normalizer import normalize_news_url
 
 logger = logging.getLogger(__name__)
 
@@ -225,11 +226,12 @@ def save_to_db(df: pd.DataFrame) -> int:
             for s in session.query(Stock).filter(Stock.ticker.in_(codes)).all():
                 stock_cache[s.ticker] = s
 
-            # URL 배치 조회: 기존 URL set (N+1 방지)
-            urls = df["article_url"].dropna().unique().tolist()
+            # URL 배치 조회: 정규화된 URL 기준 (N+1 방지)
+            raw_urls = df["article_url"].dropna().unique().tolist()
+            norm_urls = [normalize_news_url(u) for u in raw_urls]
             existing_url_map = {}
-            for batch_start in range(0, len(urls), 1000):
-                batch = urls[batch_start:batch_start + 1000]
+            for batch_start in range(0, len(norm_urls), 1000):
+                batch = [u for u in norm_urls[batch_start:batch_start + 1000] if u]
                 for row in session.query(StockNews.id, StockNews.url).filter(StockNews.url.in_(batch)).all():
                     existing_url_map[row.url] = row.id
 
@@ -238,9 +240,9 @@ def save_to_db(df: pd.DataFrame) -> int:
                 if not stock:
                     continue
 
-                url = row.get("article_url", "")
+                url = normalize_news_url(row.get("article_url", ""))
 
-                # URL 중복 체크 (캐시 활용)
+                # URL 중복 체크 (정규화된 URL 기준)
                 if url in existing_url_map:
                     news_id = existing_url_map[url]
                     exists_map = (
@@ -252,7 +254,7 @@ def save_to_db(df: pd.DataFrame) -> int:
                         session.add(StockNewsMap(stock_id=stock.id, news_id=news_id))
                     continue
 
-                # 새 뉴스 저장
+                # 새 뉴스 저장 (정규화된 URL로 저장)
                 news = StockNews(
                     title=row["title"],
                     snippet=row.get("body", ""),
