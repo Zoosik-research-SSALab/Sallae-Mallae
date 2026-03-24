@@ -5,6 +5,8 @@ import java.util.List;
 
 @Schema(description = "관심종목 뉴스 응답")
 public record WatchlistNewsResponse(
+    @Schema(description = "전체 기사 수")
+    long totalCount,
     @Schema(description = "관심종목 뉴스 목록")
     List<WatchlistNewsItemResponse> news) {
 }

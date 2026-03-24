@@ -17,7 +17,10 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import lombok.SneakyThrows;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -82,11 +85,16 @@ public class WatchlistController {
     return ApiResponse.success(userService.toggleWatchlistAlert(getAuthenticatedUserId(), stockId, request));
   }
 
-  @Operation(summary = "관심종목 뉴스 조회", description = "관심종목에 등록된 종목들의 최신 뉴스를 조회합니다.")
+  @Operation(summary = "관심종목 뉴스 조회", description = "관심종목에 등록된 종목들의 뉴스를 키워드/기간 필터와 페이지네이션으로 조회합니다.")
   @GetMapping("/news")
   public ApiResponse<WatchlistNewsResponse> getWatchlistNews(
-      @Parameter(description = "종목당 뉴스 개수 (기본값: 3)") @RequestParam(defaultValue = "3") int limit) {
-    return ApiResponse.success(watchlistService.getWatchlistNews(getAuthenticatedUserId(), limit));
+      @Parameter(description = "검색 키워드") @RequestParam(required = false) String keyword,
+      @Parameter(description = "시작일 (전체 기간이면 생략)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+      @Parameter(description = "종료일 (기본값: 오늘)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+      @Parameter(description = "페이지 오프셋") @RequestParam(defaultValue = "0") int offset,
+      @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "6") int limit) {
+    LocalDate resolvedEndDate = (endDate != null) ? endDate : LocalDate.now(ZoneId.of("Asia/Seoul"));
+    return ApiResponse.success(watchlistService.getWatchlistNews(getAuthenticatedUserId(), keyword, startDate, resolvedEndDate, offset, limit));
   }
 
   private Long getAuthenticatedUserId() {
