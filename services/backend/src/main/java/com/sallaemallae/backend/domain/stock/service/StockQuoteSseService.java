@@ -60,7 +60,9 @@ public class StockQuoteSseService {
 
     try {
       StockQuoteResponse initialQuote = stockMarketQueryService.getQuote(ticker, market);
-      stockNames.put(ticker, initialQuote.name());
+      if (initialQuote.name() != null) {
+        stockNames.put(ticker, initialQuote.name());
+      }
       sseManager.sendToEmitter(emitter, initialQuote);
     } catch (Exception e) {
       log.warn("Failed to send initial quote via SSE. ticker={}, Will keep stream open for realtime data.", ticker, e);
