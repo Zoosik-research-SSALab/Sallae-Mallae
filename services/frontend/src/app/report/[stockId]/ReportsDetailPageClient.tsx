@@ -83,6 +83,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
               benchmarkTime={benchmarkTime}
               companyName={companyName}
               priceText={priceText}
+              changeRate={changeRate}
               changeText={changeText}
             />
           ) : (
