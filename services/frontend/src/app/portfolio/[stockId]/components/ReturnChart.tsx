@@ -1,6 +1,6 @@
 "use client";
 
-import { PerformanceChartPoint } from "../types/api";
+import type { PerformanceChartPoint } from "../types/api";
 
 type Props = {
   chart: PerformanceChartPoint[];
@@ -97,7 +97,7 @@ export default function ReturnChart({ chart, currentReturn, buyDate }: Props) {
       </div>
 
       {/* Chart container */}
-      <div className="rounded-xl border border-border-primary bg-white dark:bg-transparent overflow-hidden">
+      <div className="rounded-xl border border-border-primary bg-[color:var(--color-bg-primary)] overflow-hidden">
         {isEmpty ? (
           <div className="flex items-center justify-center h-40">
             <p className="typo-body-sm text-text-tertiary">
@@ -161,7 +161,7 @@ export default function ReturnChart({ chart, currentReturn, buyDate }: Props) {
                   cy={lastPoint.y}
                   r="5"
                   fill="var(--color-text-danger)"
-                  stroke="white"
+                  stroke="var(--color-bg-primary)"
                   strokeWidth="2"
                 />
 
