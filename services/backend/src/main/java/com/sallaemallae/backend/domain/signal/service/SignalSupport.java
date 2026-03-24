@@ -36,18 +36,20 @@ final class SignalSupport {
 
   record SignalQuery(
       SignalFilter filter,
+      MarketCapFilter marketCapFilter,
       SignalSort sort,
       int offset,
       int limit
   ) {
 
-    static SignalQuery of(String filter, String sort, int offset, int limit) {
+    static SignalQuery of(String filter, String marketCap, String sort, int offset, int limit) {
       if (offset < 0 || limit < 1 || limit > MAX_LIMIT) {
         throw new BusinessException(SignalErrorCode.SIGNAL_INPUT_INVALID);
       }
 
       return new SignalQuery(
           SignalFilter.from(filter),
+          MarketCapFilter.from(marketCap),
           SignalSort.from(sort),
           offset,
           limit
@@ -73,6 +75,42 @@ final class SignalSupport {
 
     boolean matches(String signal) {
       return this == ALL || name().equals(signal);
+    }
+  }
+
+  enum MarketCapFilter {
+    ALL,
+    SMALL,
+    MID,
+    LARGE;
+
+    private static final long ONE_TRILLION = 1_000_000_000_000L;
+    private static final long TEN_TRILLION = 10_000_000_000_000L;
+
+    static MarketCapFilter from(String value) {
+      if (value == null || value.isBlank()) {
+        return ALL;
+      }
+      try {
+        return MarketCapFilter.valueOf(value.trim().toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException exception) {
+        throw new BusinessException(SignalErrorCode.SIGNAL_INPUT_INVALID);
+      }
+    }
+
+    boolean matches(Long marketCap) {
+      if (this == ALL) {
+        return true;
+      }
+      if (marketCap == null) {
+        return false;
+      }
+      return switch (this) {
+        case SMALL -> marketCap < ONE_TRILLION;
+        case MID -> marketCap >= ONE_TRILLION && marketCap < TEN_TRILLION;
+        case LARGE -> marketCap >= TEN_TRILLION;
+        case ALL -> true;
+      };
     }
   }
 

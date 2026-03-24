@@ -37,7 +37,7 @@ class SignalServiceImplTest {
         new SignalQueryRepository.SignalCandidateRow(3L, "000660", "SK하이닉스", "반도체", 162500, 118300000000000L, 0.42f, "BUY", 0.85f, now.minusMinutes(2))
     ));
 
-    SignalListResponse response = signalService.getSignals("BUY", "UP", 0, 10);
+    SignalListResponse response = signalService.getSignals("BUY", null, "UP", 0, 10);
 
     assertThat(response.buyCount()).isEqualTo(2);
     assertThat(response.sellCount()).isEqualTo(1);
@@ -52,7 +52,36 @@ class SignalServiceImplTest {
   @Test
   @DisplayName("잘못된 정렬 값이 오면 BusinessException을 던진다")
   void getSignals_throwsExceptionWhenSortIsInvalid() {
-    assertThatThrownBy(() -> signalService.getSignals("ALL", "UNKNOWN", 0, 6))
+    assertThatThrownBy(() -> signalService.getSignals("ALL", null, "UNKNOWN", 0, 6))
+        .isInstanceOfSatisfying(BusinessException.class, exception ->
+            assertThat(exception.getErrorCode()).isEqualTo(SignalErrorCode.SIGNAL_INPUT_INVALID)
+        );
+  }
+
+  @Test
+  @DisplayName("시가총액 필터가 오면 small, mid, large 기준으로 결과를 필터링한다")
+  void getSignals_filtersByMarketCapClass() {
+    OffsetDateTime now = OffsetDateTime.of(2026, 3, 24, 10, 0, 0, 0, ZoneOffset.UTC);
+    given(signalQueryRepository.findLatestSignalCandidates()).willReturn(List.of(
+        new SignalQueryRepository.SignalCandidateRow(1L, "111111", "스몰", "테스트", 1000, 900_000_000_000L, 1.0f, "BUY", 0.9f, now),
+        new SignalQueryRepository.SignalCandidateRow(2L, "222222", "미드", "테스트", 1000, 3_000_000_000_000L, 2.0f, "BUY", 0.8f, now.minusMinutes(1)),
+        new SignalQueryRepository.SignalCandidateRow(3L, "333333", "라지", "테스트", 1000, 15_000_000_000_000L, 3.0f, "SELL", 0.7f, now.minusMinutes(2)),
+        new SignalQueryRepository.SignalCandidateRow(4L, "444444", "미정", "테스트", 1000, null, 4.0f, "BUY", 0.6f, now.minusMinutes(3))
+    ));
+
+    SignalListResponse smallResponse = signalService.getSignals("ALL", "small", "LATEST", 0, 10);
+    SignalListResponse midResponse = signalService.getSignals("ALL", "mid", "LATEST", 0, 10);
+    SignalListResponse largeResponse = signalService.getSignals("ALL", "large", "LATEST", 0, 10);
+
+    assertThat(smallResponse.signals()).extracting("ticker").containsExactly("111111");
+    assertThat(midResponse.signals()).extracting("ticker").containsExactly("222222");
+    assertThat(largeResponse.signals()).extracting("ticker").containsExactly("333333");
+  }
+
+  @Test
+  @DisplayName("잘못된 시가총액 필터 값이 오면 BusinessException을 던진다")
+  void getSignals_throwsExceptionWhenMarketCapIsInvalid() {
+    assertThatThrownBy(() -> signalService.getSignals("ALL", "mega", "LATEST", 0, 6))
         .isInstanceOfSatisfying(BusinessException.class, exception ->
             assertThat(exception.getErrorCode()).isEqualTo(SignalErrorCode.SIGNAL_INPUT_INVALID)
         );
