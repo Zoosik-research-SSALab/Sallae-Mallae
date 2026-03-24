@@ -16,5 +16,7 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
 
   Optional<Stock> findByIdAndIsActiveTrue(Long id);
 
+  boolean existsByIdAndIsActiveTrue(Long id);
+
   List<Stock> findAllByTickerInAndIsActiveTrue(Collection<String> tickers);
 }

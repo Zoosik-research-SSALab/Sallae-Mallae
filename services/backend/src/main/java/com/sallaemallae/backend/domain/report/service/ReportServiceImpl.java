@@ -16,8 +16,10 @@ import com.sallaemallae.backend.domain.report.dto.ReportHistoryItemResponse;
 import com.sallaemallae.backend.domain.report.entity.AiDebateReport;
 import com.sallaemallae.backend.domain.report.exception.ReportErrorCode;
 import com.sallaemallae.backend.domain.report.repository.AiDebateReportRepository;
+import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
+import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.signal.entity.AiPortfolio;
 import com.sallaemallae.backend.domain.signal.entity.AiPortfolioHolding;
 import com.sallaemallae.backend.domain.signal.entity.AiTradingHistory;
@@ -28,11 +30,13 @@ import com.sallaemallae.backend.global.exception.BusinessException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -48,10 +52,14 @@ public class ReportServiceImpl implements ReportService {
   private final AiPortfolioHoldingRepository aiPortfolioHoldingRepository;
   private final AiTradingHistoryRepository aiTradingHistoryRepository;
   private final StockPriceDailyRepository stockPriceDailyRepository;
+  private final StockRepository stockRepository;
+
+  private static final LocalDate PERFORMANCE_CHART_START_DATE = LocalDate.of(2025, 1, 1);
 
   // REPORT-001: 종목별 의장 분석 + 토론 기록 이력 조회 (페이지네이션)
   @Override
   public List<ReportHistoryItemResponse> getReportHistory(Long stockId, int offset, int limit) {
+    validateActiveStock(stockId);
     int normalizedOffset = Math.max(offset, 0);
     int normalizedLimit = normalizeLimit(limit, 30, 365);
     List<AiDebateReport> reports = aiDebateReportRepository.findByStockIdOrderByReportDateDescCreatedAtDesc(
@@ -72,6 +80,7 @@ public class ReportServiceImpl implements ReportService {
   // REPORT-003: 종목별 의장 모의투자 성과 및 보유 정보 조회
   @Override
   public PerformanceResponse getPerformance(Long stockId) {
+    validateActiveStock(stockId);
     AiPortfolio portfolio = getLatestPortfolio();
     Optional<AiPortfolioHolding> holding = aiPortfolioHoldingRepository.findByPortfolioIdAndStockId(
         portfolio.getId(),
@@ -85,6 +94,7 @@ public class ReportServiceImpl implements ReportService {
 
     Map<java.time.LocalDate, String> tradeMarkers = buildTradeMarkers(trades);
     List<ChartPoint> chart = priceHistory.stream()
+        .filter(price -> price.getTradeDate() != null && !price.getTradeDate().isBefore(PERFORMANCE_CHART_START_DATE))
         .map(price -> new ChartPoint(
             price.getTradeDate(),
             price.getClosePrice(),
@@ -104,6 +114,7 @@ public class ReportServiceImpl implements ReportService {
   // REPORT-004: 종목별 AI 매매 내역 조회 (페이지네이션)
   @Override
   public PerformanceTradesResponse getPerformanceTrades(Long stockId, int offset, int limit) {
+    validateActiveStock(stockId);
     AiPortfolio portfolio = getLatestPortfolio();
     int normalizedOffset = Math.max(offset, 0);
     int normalizedLimit = normalizeLimit(limit, 30, 100);
@@ -148,18 +159,23 @@ public class ReportServiceImpl implements ReportService {
     Map<Integer, Map<String, String>> opinionByRoundAndAgent = parseDebateOpinions(report.getDebateFullLog());
 
     List<Round> rounds = new ArrayList<>();
-    summaryByRoundAndAgent.entrySet().stream()
-        .sorted(Map.Entry.comparingByKey())
-        .forEach(entry -> {
-          Integer roundNo = entry.getKey();
-          Map<String, String> summaries = entry.getValue();
+    LinkedHashSet<Integer> roundNumbers = new LinkedHashSet<>(summaryByRoundAndAgent.keySet());
+    roundNumbers.addAll(opinionByRoundAndAgent.keySet());
+
+    roundNumbers.stream()
+        .sorted()
+        .forEach(roundNo -> {
+          Map<String, String> summaries = summaryByRoundAndAgent.getOrDefault(roundNo, Map.of());
           Map<String, String> opinions = opinionByRoundAndAgent.getOrDefault(roundNo, Map.of());
 
-          List<Agent> agents = summaries.entrySet().stream()
-              .map(summaryEntry -> new Agent(
-                  summaryEntry.getKey(),
-                  opinions.get(summaryEntry.getKey()),
-                  summaryEntry.getValue()
+          LinkedHashSet<String> agentNames = new LinkedHashSet<>(summaries.keySet());
+          agentNames.addAll(opinions.keySet());
+
+          List<Agent> agents = agentNames.stream()
+              .map(agentName -> new Agent(
+                  agentName,
+                  opinions.get(agentName),
+                  firstNonBlank(summaries.get(agentName), opinions.get(agentName))
               ))
               .toList();
           rounds.add(new Round(roundNo, agents));
@@ -174,16 +190,46 @@ public class ReportServiceImpl implements ReportService {
   }
 
   private List<FinalStance> parseFinalStances(JsonNode finalStances) {
-    if (finalStances == null || !finalStances.isArray()) {
+    if (finalStances == null || finalStances.isNull()) {
+      return List.of();
+    }
+
+    if (finalStances.isObject()) {
+      List<FinalStance> result = new ArrayList<>();
+      finalStances.fields().forEachRemaining(entry -> {
+        JsonNode stance = entry.getValue();
+        String agentId = entry.getKey();
+        result.add(new FinalStance(
+            agentId,
+            stance.path("agent_name").asText(personaDisplayName(agentId)),
+            firstNonBlank(
+                stance.path("stance").asText(null),
+                stance.path("signal").asText(null)
+            )
+        ));
+      });
+      return result;
+    }
+
+    if (!finalStances.isArray()) {
       return List.of();
     }
 
     List<FinalStance> result = new ArrayList<>();
     for (JsonNode stance : finalStances) {
       result.add(new FinalStance(
-          stance.path("agent_id").asText(null),
-          stance.path("agent_name").asText(null),
-          stance.path("stance").asText(null)
+          firstNonBlank(
+              stance.path("agent_id").asText(null),
+              stance.path("persona").asText(null)
+          ),
+          firstNonBlank(
+              stance.path("agent_name").asText(null),
+              personaDisplayName(stance.path("persona").asText(null))
+          ),
+          firstNonBlank(
+              stance.path("stance").asText(null),
+              stance.path("signal").asText(null)
+          )
       ));
     }
     return result;
@@ -215,7 +261,15 @@ public class ReportServiceImpl implements ReportService {
   }
 
   private Map<Integer, Map<String, String>> parseDebateOpinions(JsonNode debateFullLog) {
-    if (debateFullLog == null || !debateFullLog.isArray()) {
+    if (debateFullLog == null || debateFullLog.isNull()) {
+      return Map.of();
+    }
+
+    if (debateFullLog.isObject()) {
+      return parseDebateOpinionsFromObject(debateFullLog);
+    }
+
+    if (!debateFullLog.isArray()) {
       return Map.of();
     }
 
@@ -246,6 +300,112 @@ public class ReportServiceImpl implements ReportService {
       result.put(round, merged);
     });
     return result;
+  }
+
+  private Map<Integer, Map<String, String>> parseDebateOpinionsFromObject(JsonNode debateFullLog) {
+    JsonNode roundsNode = debateFullLog.path("rounds");
+    if (!roundsNode.isArray()) {
+      return Map.of();
+    }
+
+    Map<Integer, Map<String, String>> result = new LinkedHashMap<>();
+    for (JsonNode roundNode : roundsNode) {
+      int round = roundNode.path("round").asInt();
+      JsonNode opinionsNode = roundNode.path("opinions");
+      if (!opinionsNode.isArray()) {
+        continue;
+      }
+
+      Map<String, String> opinions = new LinkedHashMap<>();
+      for (JsonNode opinionNode : opinionsNode) {
+        String persona = opinionNode.path("persona").asText(null);
+        if (persona == null || persona.isBlank()) {
+          continue;
+        }
+
+        opinions.put(
+            personaDisplayName(persona),
+            buildOpinionText(opinionNode)
+        );
+      }
+
+      result.put(round, opinions);
+    }
+    return result;
+  }
+
+  private String buildOpinionText(JsonNode opinionNode) {
+    String thesis = opinionNode.path("thesis").asText(null);
+    String evidence = joinJsonText(opinionNode.path("evidence"));
+    String risks = joinJsonText(opinionNode.path("risks"));
+    String actionPoints = joinJsonText(opinionNode.path("action_points"));
+
+    List<String> sections = new ArrayList<>();
+    addIfPresent(sections, thesis);
+    addIfPresent(sections, prefixIfPresent("근거: ", evidence));
+    addIfPresent(sections, prefixIfPresent("리스크: ", risks));
+    addIfPresent(sections, prefixIfPresent("실행: ", actionPoints));
+    return sections.isEmpty() ? null : String.join("\n", sections);
+  }
+
+  private void addIfPresent(List<String> sections, String text) {
+    if (text != null && !text.isBlank()) {
+      sections.add(text);
+    }
+  }
+
+  private String prefixIfPresent(String prefix, String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    return prefix + value;
+  }
+
+  private String joinJsonText(JsonNode node) {
+    if (node == null || node.isNull()) {
+      return null;
+    }
+    if (node.isTextual()) {
+      return node.asText();
+    }
+    if (!node.isArray()) {
+      return null;
+    }
+
+    List<String> values = new ArrayList<>();
+    for (JsonNode item : node) {
+      if (item != null && item.isTextual() && !item.asText().isBlank()) {
+        values.add(item.asText());
+      }
+    }
+    return values.isEmpty() ? null : String.join(" / ", values);
+  }
+
+  private String personaDisplayName(String persona) {
+    if (persona == null) {
+      return null;
+    }
+    return switch (persona) {
+      case "fundamental" -> "펀더멘탈 위원";
+      case "chart" -> "차트 위원";
+      case "news" -> "뉴스 위원";
+      default -> persona;
+    };
+  }
+
+  private String firstNonBlank(String... candidates) {
+    for (String candidate : candidates) {
+      if (candidate != null && !candidate.isBlank()) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private void validateActiveStock(Long stockId) {
+    if (!stockRepository.existsByIdAndIsActiveTrue(stockId)) {
+      throw new BusinessException(StockErrorCode.STOCK_NOT_FOUND);
+    }
   }
 
   private Map<java.time.LocalDate, String> buildTradeMarkers(List<AiTradingHistory> trades) {
