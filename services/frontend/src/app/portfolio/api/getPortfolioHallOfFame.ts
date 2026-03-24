@@ -82,13 +82,13 @@ function normalizePortfolioHallOfFame(value: unknown): PortfolioHallOfFameSectio
   const sections: PortfolioHallOfFameSection[] = [
     {
       id: "hit-rate",
-      title: "적중 확률 TOP 5",
+      title: "예측 적중률 TOP 5",
       tone: "info",
       items: normalizeHitRateItems(candidate.hitRateTop5),
     },
     {
       id: "cumulative-return",
-      title: "누적 수익률 TOP 10",
+      title: "누적 수익률 TOP 5",
       tone: "danger",
       items: normalizeValueItems(
         candidate.cumulativeReturnTop10 ?? candidate.cumulativeReturnTop5,

@@ -12,6 +12,7 @@ import { PORTFOLIO_HERO_METRICS } from "../utils/portfolioStaticContent";
 import { authApiFetch } from "@/shared/lib/authApiClient";
 
 const PORTFOLIO_TAB_FETCH_LIMIT = 50;
+const MAX_PORTFOLIO_TAB_FETCH_ATTEMPTS = 20;
 
 type PortfolioApiTab = "HOLDINGS" | "TODAY_TRADES" | "MONTHLY_RETURNS";
 
@@ -424,7 +425,7 @@ async function fetchAllPortfolioTabItems(tab: PortfolioApiTab): Promise<Portfoli
   let basePayload: PortfolioPayload | null = null;
   const items: unknown[] = [];
 
-  while (true) {
+  for (let attempt = 0; attempt < MAX_PORTFOLIO_TAB_FETCH_ATTEMPTS; attempt += 1) {
     const payload = await fetchPortfolioTabPage(tab, offset, PORTFOLIO_TAB_FETCH_LIMIT);
     basePayload ??= payload;
 

@@ -35,8 +35,6 @@ export type StockQuoteSnapshot = {
   changeRate: number | null;
 };
 
-const SEOUL_TIME_ZONE = "Asia/Seoul";
-
 const chartPeriodToCandleType: Record<StockChartPeriod, "MINUTE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"> = {
   "1MIN": "MINUTE",
   "1D": "DAILY",
@@ -58,22 +56,6 @@ function shouldUseMockApi() {
 
   const raw = process.env.NEXT_PUBLIC_API_MOCKING?.trim().toLowerCase();
   return raw !== "false" && raw !== "disabled";
-}
-
-function getSeoulDateKey(value: string | Date) {
-  const date = typeof value === "string" ? new Date(value) : value;
-
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: SEOUL_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function filterTodayMinutePrices(prices: StockPricePoint[]) {
-  const todayKey = getSeoulDateKey(new Date());
-  return prices.filter((price) => getSeoulDateKey(price.timestamp) === todayKey);
 }
 
 function sortAndDedupePrices(prices: Array<StockPricePoint | null>) {
@@ -110,11 +92,11 @@ function mapPricePoint(point: StockPriceApiPoint): StockPricePoint | null {
   };
 }
 
-function normalizePricePage(payload: StockPricesApiPayload, period: StockChartPeriod): StockPricePage {
+function normalizePricePage(payload: StockPricesApiPayload): StockPricePage {
   const prices = sortAndDedupePrices((payload.prices ?? []).map(mapPricePoint));
 
   return {
-    prices: period === "1MIN" ? filterTodayMinutePrices(prices) : prices,
+    prices,
     hasMore: Boolean(payload.hasMore),
     nextCursor: typeof payload.nextCursor === "string" ? payload.nextCursor : null,
   };
@@ -154,7 +136,7 @@ function getMockPricePage(ticker: string, period: StockChartPeriod): StockPriceP
   const payload = getMockStockPrices(ticker, period);
 
   return {
-    prices: period === "1MIN" ? filterTodayMinutePrices(payload.prices) : payload.prices,
+    prices: payload.prices,
     hasMore: false,
     nextCursor: null,
   };
@@ -190,7 +172,7 @@ export async function fetchStockPricePage(ticker: string, period: StockChartPeri
     cache: "no-store",
   });
 
-  return normalizePricePage(payload, period);
+  return normalizePricePage(payload);
 }
 
 export function subscribeStockQuoteStream(

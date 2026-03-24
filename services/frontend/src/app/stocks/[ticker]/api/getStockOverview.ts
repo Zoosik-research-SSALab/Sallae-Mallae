@@ -35,48 +35,26 @@ type StockBasicInfoApiPayload = {
   baseTime?: string | null;
 };
 
+function firstString(...values: unknown[]) {
+  return values.find((value): value is string => typeof value === "string") ?? "";
+}
+
+function firstNumber(...values: unknown[]) {
+  return values.find((value): value is number => typeof value === "number" && Number.isFinite(value)) ?? null;
+}
+
 function normalizeStockOverview(
   basicInfoPayload: StockBasicInfoApiPayload,
   overviewPayload: StockOverviewApiPayload,
 ): StockDetailOverview {
   return {
-    id:
-      typeof overviewPayload.stockId === "number"
-        ? overviewPayload.stockId
-        : typeof basicInfoPayload.id === "number"
-          ? basicInfoPayload.id
-          : 0,
-    ticker:
-      typeof basicInfoPayload.ticker === "string"
-        ? basicInfoPayload.ticker
-        : typeof overviewPayload.ticker === "string"
-          ? overviewPayload.ticker
-          : "",
-    name:
-      typeof basicInfoPayload.name === "string"
-        ? basicInfoPayload.name
-        : typeof overviewPayload.name === "string"
-          ? overviewPayload.name
-          : "",
-    marketType:
-      typeof basicInfoPayload.marketType === "string"
-        ? basicInfoPayload.marketType
-        : typeof overviewPayload.marketType === "string"
-          ? overviewPayload.marketType
-          : "",
-    gicsSector:
-      typeof basicInfoPayload.gicsSector === "string"
-        ? basicInfoPayload.gicsSector
-        : typeof overviewPayload.gicsSector === "string"
-          ? overviewPayload.gicsSector
-          : "",
-    category:
-      typeof basicInfoPayload.category === "string"
-        ? basicInfoPayload.category
-        : typeof overviewPayload.category === "string"
-          ? overviewPayload.category
-          : "",
-    baseTime: typeof basicInfoPayload.baseTime === "string" ? basicInfoPayload.baseTime : "",
+    id: firstNumber(overviewPayload.stockId, basicInfoPayload.id) ?? 0,
+    ticker: firstString(basicInfoPayload.ticker, overviewPayload.ticker),
+    name: firstString(basicInfoPayload.name, overviewPayload.name),
+    marketType: firstString(basicInfoPayload.marketType, overviewPayload.marketType),
+    gicsSector: firstString(basicInfoPayload.gicsSector, overviewPayload.gicsSector),
+    category: firstString(basicInfoPayload.category, overviewPayload.category),
+    baseTime: firstString(basicInfoPayload.baseTime),
     latestPrice: overviewPayload.latestPrice
       ? {
           tradeDate:

@@ -48,7 +48,7 @@ export default function PortfolioHero({ hero }: Props) {
           <div className="overflow-hidden md:hidden">
             <Image
               src="/images/horse.png"
-              alt="?섏옣 ?ы듃?대━??????쇰윭?ㅽ듃"
+              alt="의장 포트폴리오 대표 일러스트"
               width={496}
               height={744}
               priority
@@ -60,7 +60,7 @@ export default function PortfolioHero({ hero }: Props) {
         <div className="hidden overflow-hidden md:flex md:w-[208px] md:shrink-0 md:self-stretch md:items-end lg:w-[248px]">
           <Image
             src="/images/horse.png"
-            alt="?섏옣 ?ы듃?대━??????쇰윭?ㅽ듃"
+            alt="의장 포트폴리오 대표 일러스트"
             width={496}
             height={744}
             priority

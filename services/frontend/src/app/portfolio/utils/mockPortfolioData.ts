@@ -119,7 +119,7 @@ export function getMockPortfolioPage(): PortfolioPageData {
     hallOfFame: [
       {
         id: "hit-rate",
-        title: "적중 확률 TOP 5",
+        title: "예측 적중률 TOP 5",
         tone: "info",
         items: [
           { rank: 1, name: "삼성바이오로직스", value: 94.2, suffix: "%" },
@@ -131,7 +131,7 @@ export function getMockPortfolioPage(): PortfolioPageData {
       },
       {
         id: "cumulative-return",
-        title: "누적 수익률 TOP 10",
+        title: "누적 수익률 TOP 5",
         tone: "danger",
         items: [
           { rank: 1, name: "한미반도체", value: 425.1, suffix: "%" },
