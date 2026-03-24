@@ -19,16 +19,20 @@ public class SseManager {
 
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
-    /** SSE emitter를 해당 채널에 등록 */
+    /** SSE emitter를 해당 채널에 등록. 콜백은 호출자가 직접 등록할 것. */
     public void addEmitter(String channel, SseEmitter emitter) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.computeIfAbsent(
             channel, k -> new CopyOnWriteArrayList<>()
         );
         list.add(emitter);
+    }
 
-        emitter.onCompletion(() -> list.remove(emitter));
-        emitter.onTimeout(() -> list.remove(emitter));
-        emitter.onError(e -> list.remove(emitter));
+    /** SSE emitter를 해당 채널에서 제거 */
+    public void removeEmitter(String channel, SseEmitter emitter) {
+        CopyOnWriteArrayList<SseEmitter> list = emitters.get(channel);
+        if (list != null) {
+            list.remove(emitter);
+        }
     }
 
     /** 단일 emitter에 데이터 전송 (초기 데이터 전송용) */
