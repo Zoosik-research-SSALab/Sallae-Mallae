@@ -11,16 +11,16 @@ type RouteContext = {
 };
 
 export async function GET(_: Request, context: RouteContext) {
-  const { ticker } = await context.params;
+  const { ticker: stockId } = await context.params;
 
-  if (!ticker) {
+  if (!stockId) {
     return NextResponse.json(
       {
-        message: "ticker is required",
+        message: "stockId is required",
       },
       { status: 400 },
     );
   }
 
-  return NextResponse.json(snakelizeKeys(getMockStockKeywords(ticker)));
+  return NextResponse.json(snakelizeKeys(getMockStockKeywords(stockId)));
 }

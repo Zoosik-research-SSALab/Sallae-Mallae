@@ -12,7 +12,10 @@ type UseStockQuoteStreamOptions = {
 
 const initialData: StockQuoteSnapshot = {
   currentPrice: null,
+  previousClosePrice: null,
   changeRate: null,
+  tickPrice: null,
+  tickTimestamp: null,
 };
 
 export function useStockQuoteStream(ticker: string, options: UseStockQuoteStreamOptions = {}) {

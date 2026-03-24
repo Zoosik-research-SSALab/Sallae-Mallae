@@ -8,6 +8,16 @@ export async function GET(
   { params }: { params: Promise<{ stockId: string }> },
 ) {
   const { stockId } = await params;
+  const searchParams = request.nextUrl.searchParams;
+  const offset = Number(searchParams.get("offset") ?? 0);
+  const limit = Number(searchParams.get("limit") ?? 6);
+
+  if (shouldUseMock()) {
+    return NextResponse.json(
+      snakelizeKeys(getMockReportResponse(offset, limit)),
+    );
+  }
+
   const queryString = request.nextUrl.search;
   const upstreamUrl = `${getApiBaseUrl()}/api/report/${encodeURIComponent(stockId)}${queryString}`;
 

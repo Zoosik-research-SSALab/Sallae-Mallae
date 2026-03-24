@@ -26,6 +26,7 @@ type Props = {
   prices: StockPricePoint[];
   currentPrice: number;
   changeRate: number;
+  baseTime: string;
   chartPeriod: StockChartPeriod;
   onChartPeriodChange: (value: StockChartPeriod) => void;
   isChartLoading: boolean;
@@ -39,6 +40,7 @@ export default function StockOverviewSection({
   prices,
   currentPrice,
   changeRate,
+  baseTime,
   chartPeriod,
   onChartPeriodChange,
   isChartLoading,
@@ -65,7 +67,7 @@ export default function StockOverviewSection({
               </span>
               <span className="hidden h-5 w-px bg-[color:var(--color-border-primary)] md:block" />
               <span className="text-xs font-medium leading-4 text-[color:var(--color-text-tertiary)] md:text-sm md:leading-5">
-                {formatBaseTime(overview.baseTime)} 마감 기준
+                {formatBaseTime(baseTime)} 마감 기준
               </span>
             </div>
 
@@ -114,7 +116,7 @@ export default function StockOverviewSection({
 
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1 overflow-x-auto">
+            <div className="scrollbar-hidden min-w-0 flex-1 overflow-x-auto">
               <div className="inline-flex min-w-max items-center gap-4 border-b border-[color:var(--color-border-primary)]">
                 {stockChartPeriods.map((item) => {
                   const isActive = item.value === chartPeriod;

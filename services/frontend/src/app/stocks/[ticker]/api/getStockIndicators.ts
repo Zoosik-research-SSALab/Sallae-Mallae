@@ -3,9 +3,9 @@ import type { StockIndicators } from "@/app/stocks/types/stockDetail";
 import type { StockDetailApiEnvelope } from "./stockDetailApi";
 import { unwrapStockDetailResponse } from "./stockDetailApi";
 
-export async function getStockIndicators(ticker: string) {
+export async function getStockIndicators(stockId: string) {
   const payload = await apiFetch<StockIndicators | StockDetailApiEnvelope<StockIndicators>>(
-    `/api/stocks/${ticker}/indicators`,
+    `/api/stocks/${stockId}/indicators`,
     {
       cache: "no-store",
     },

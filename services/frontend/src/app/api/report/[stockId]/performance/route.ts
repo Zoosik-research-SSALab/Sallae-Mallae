@@ -9,6 +9,12 @@ export async function GET(
 ) {
   const { stockId } = await params;
 
+  if (shouldUseMock()) {
+    return NextResponse.json(
+      snakelizeKeys(getMockPerformanceResponse()),
+    );
+  }
+
   const upstreamUrl = `${getApiBaseUrl()}/api/report/${encodeURIComponent(stockId)}/performance`;
 
   const headers: HeadersInit = {};

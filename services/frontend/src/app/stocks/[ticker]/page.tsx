@@ -7,7 +7,7 @@ type PageProps = {
 };
 
 export default async function StockDetailPage({ params }: PageProps) {
-  const { ticker } = await params;
+  const { ticker: stockId } = await params;
 
-  return <StockDetailPageClient ticker={ticker} />;
+  return <StockDetailPageClient stockId={stockId} />;
 }

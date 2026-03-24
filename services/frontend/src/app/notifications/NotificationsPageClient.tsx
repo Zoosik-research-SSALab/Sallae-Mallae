@@ -268,7 +268,7 @@ export default function NotificationsPageClient() {
       switch (item.notiType) {
         case "BUY":
         case "SELL":
-          router.push(`/reports/${item.stockId}`);
+          router.push(`/report/${item.stockId}`);
           return;
         case "SURGE_DOWN":
         case "SURGE_UP":

@@ -3,11 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { getStockIndicators } from "../api/getStockIndicators";
 
-export function useStockIndicatorsQuery(ticker: string) {
+export function useStockIndicatorsQuery(stockId: string) {
   return useQuery({
-    queryKey: ["stock-detail", "indicators", ticker],
-    queryFn: () => getStockIndicators(ticker),
-    enabled: Boolean(ticker),
+    queryKey: ["stock-detail", "indicators", stockId],
+    queryFn: () => getStockIndicators(stockId),
+    enabled: Boolean(stockId),
     staleTime: 60_000,
   });
 }

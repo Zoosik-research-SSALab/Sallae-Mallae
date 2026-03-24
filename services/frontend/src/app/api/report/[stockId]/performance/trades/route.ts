@@ -10,6 +10,16 @@ export async function GET(
 ) {
   const { stockId } = await params;
 
+  if (shouldUseMock()) {
+    const searchParams = request.nextUrl.searchParams;
+    const offset = Number(searchParams.get("offset") ?? 0);
+    const limit = Number(searchParams.get("limit") ?? 10);
+
+    return NextResponse.json(
+      snakelizeKeys(getMockTradesResponse(offset, limit)),
+    );
+  }
+
   const queryString = request.nextUrl.search;
   const upstreamUrl = `${getApiBaseUrl()}/api/report/${encodeURIComponent(stockId)}/performance/trades${queryString}`;
 
