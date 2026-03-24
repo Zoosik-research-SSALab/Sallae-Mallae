@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getApiBaseUrl } from "../utils";
+import { getMockReportResponse } from "@/app/portfolio/[ticker]/utils/mockApiData";
+import { snakelizeKeys } from "@/shared/utils/case";
+import { getApiBaseUrl, shouldUseMockReportApi } from "../utils";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,7 @@ export async function GET(
   const offset = Number(searchParams.get("offset") ?? 0);
   const limit = Number(searchParams.get("limit") ?? 6);
 
-  if (shouldUseMock()) {
+  if (shouldUseMockReportApi()) {
     return NextResponse.json(
       snakelizeKeys(getMockReportResponse(offset, limit)),
     );

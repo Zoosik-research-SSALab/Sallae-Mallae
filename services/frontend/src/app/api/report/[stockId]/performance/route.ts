@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { getApiBaseUrl } from "../../utils";
+import { getMockPerformanceResponse } from "@/app/portfolio/[ticker]/utils/mockApiData";
+import { snakelizeKeys } from "@/shared/utils/case";
+import { getApiBaseUrl, shouldUseMockReportApi } from "../../utils";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +11,7 @@ export async function GET(
 ) {
   const { stockId } = await params;
 
-  if (shouldUseMock()) {
+  if (shouldUseMockReportApi()) {
     return NextResponse.json(
       snakelizeKeys(getMockPerformanceResponse()),
     );
