@@ -74,7 +74,7 @@ def _send_pipeline_signal(signal_type: str) -> None:
     """DB에 파이프라인 완료 신호를 기록하여 다른 스케줄러에게 알림."""
     with get_session() as session:
         try:
-            session.add(PipelineSignal(signal_type=signal_type, status="PENDING"))
+            session.add(PipelineSignal(signal_type=signal_type, status="DONE"))
             session.commit()
             logger.info("[신호] %s 전송 완료", signal_type)
         except Exception as e:
