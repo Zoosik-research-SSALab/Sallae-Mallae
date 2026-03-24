@@ -27,9 +27,11 @@ SELECT COUNT(*) AS total_news,
        COUNT(DISTINCT
          CASE
            WHEN url LIKE '%finance.naver.com/item/news_read.naver%'
+                AND (regexp_match(url, 'article_id=([^&]+)'))[1] IS NOT NULL
+                AND (regexp_match(url, 'office_id=([^&]+)'))[1] IS NOT NULL
            THEN split_part(url, '?', 1) || '?' ||
-                'article_id=' || coalesce((regexp_match(url, 'article_id=([^&]*)'))[1], '') ||
-                '&office_id=' || coalesce((regexp_match(url, 'office_id=([^&]*)'))[1], '')
+                'article_id=' || (regexp_match(url, 'article_id=([^&]+)'))[1] ||
+                '&office_id=' || (regexp_match(url, 'office_id=([^&]+)'))[1]
            ELSE url
          END
        ) AS distinct_normalized_url
@@ -47,15 +49,13 @@ WITH normalized AS (
   SELECT id, url,
     CASE
       WHEN url LIKE '%finance.naver.com/item/news_read.naver%'
+           AND (regexp_match(url, 'article_id=([^&]+)'))[1] IS NOT NULL
+           AND (regexp_match(url, 'office_id=([^&]+)'))[1] IS NOT NULL
       THEN
-        -- url_normalizer.py와 동일한 정규화: article_id + office_id만 추출 후 정렬 재조합
+        -- url_normalizer.py와 동일: article_id + office_id 둘 다 있을 때만 정규화, 없으면 원본 유지
         split_part(url, '?', 1) || '?' ||
-        'article_id=' || coalesce(
-          (regexp_match(url, 'article_id=([^&]*)'))[1], ''
-        ) ||
-        '&office_id=' || coalesce(
-          (regexp_match(url, 'office_id=([^&]*)'))[1], ''
-        )
+        'article_id=' || (regexp_match(url, 'article_id=([^&]+)'))[1] ||
+        '&office_id=' || (regexp_match(url, 'office_id=([^&]+)'))[1]
       ELSE url
     END AS normalized_url
   FROM stock_news
