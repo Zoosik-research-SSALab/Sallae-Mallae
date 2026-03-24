@@ -324,7 +324,7 @@ def post_signals(target_date: str, result_df: pd.DataFrame) -> bool:
         return True
     except requests.exceptions.HTTPError as e:
         log(f"시그널 업로드 실패: {e}")
-        log(f"응답 본문: {resp.content.decode('utf-8', errors='replace')}")
+        log(f"응답 본문: {e.response.content.decode('utf-8', errors='replace')}")
         return False
     except Exception as e:
         log(f"시그널 업로드 실패: {e}")
@@ -344,6 +344,10 @@ def post_portfolio(target_date: str, snapshot: dict) -> bool:
         data = resp.json()
         log(f"포트폴리오 업데이트 성공: {data.get('message', 'OK')}")
         return True
+    except requests.exceptions.HTTPError as e:
+        log(f"포트폴리오 업데이트 실패: {e}")
+        log(f"응답 본문: {e.response.content.decode('utf-8', errors='replace')}")
+        return False
     except Exception as e:
         log(f"포트폴리오 업데이트 실패: {e}")
         return False
