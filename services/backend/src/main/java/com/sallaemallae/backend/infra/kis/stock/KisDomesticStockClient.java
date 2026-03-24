@@ -217,11 +217,76 @@ public class KisDomesticStockClient {
     );
   }
 
+  /**
+   * 최신 30건 분봉 조회 (단일 호출).
+   */
   public KisMinuteCandleData getMinuteCandles(String marketCode, String ticker) {
+    return getMinuteCandlesFrom(marketCode, ticker, "153000");
+  }
+
+  /**
+   * 당일 전체 분봉 조회 (반복 호출, 최대 13회).
+   * FID_INPUT_HOUR_1을 30분씩 줄여가며 09:00까지 수집.
+   */
+  public KisMinuteCandleData getAllMinuteCandles(String marketCode, String ticker) {
+    String inputHour = "153000";
+    List<KisMinuteCandleItem> allCandles = new ArrayList<>();
+    KisMinuteCandleData lastData = null;
+
+    for (int i = 0; i < 14; i++) {
+      KisMinuteCandleData data = getMinuteCandlesFrom(marketCode, ticker, inputHour);
+      lastData = data;
+
+      List<KisMinuteCandleItem> candles = data.candles();
+      if (candles.isEmpty()) {
+        break;
+      }
+      allCandles.addAll(candles);
+
+      KisMinuteCandleItem oldest = candles.getLast();
+      int hour = oldest.timestamp().getHour();
+      int minute = oldest.timestamp().getMinute();
+      if (hour < 9 || (hour == 9 && minute == 0)) {
+        break;
+      }
+      inputHour = String.format("%02d%02d00", hour, minute);
+
+      try {
+        Thread.sleep(60);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        break;
+      }
+    }
+
+    // 중복 제거 (timestamp 기준)
+    LinkedHashSet<OffsetDateTime> seen = new LinkedHashSet<>();
+    List<KisMinuteCandleItem> deduplicated = new ArrayList<>();
+    for (KisMinuteCandleItem candle : allCandles) {
+      if (seen.add(candle.timestamp())) {
+        deduplicated.add(candle);
+      }
+    }
+
+    return new KisMinuteCandleData(
+        marketCode,
+        ticker,
+        lastData != null ? lastData.name() : null,
+        lastData != null ? lastData.currentPrice() : null,
+        lastData != null ? lastData.previousClosePrice() : null,
+        lastData != null ? lastData.changePrice() : null,
+        lastData != null ? lastData.changeRate() : null,
+        OffsetDateTime.now(ZONE_ID),
+        deduplicated,
+        "KIS"
+    );
+  }
+
+  private KisMinuteCandleData getMinuteCandlesFrom(String marketCode, String ticker, String hourInput) {
     String query = "FID_ETC_CLS_CODE="
         + "&FID_COND_MRKT_DIV_CODE=" + marketCode
         + "&FID_INPUT_ISCD=" + ticker
-        + "&FID_INPUT_HOUR_1="
+        + "&FID_INPUT_HOUR_1=" + hourInput
         + "&FID_PW_DATA_INCU_YN=N";
 
     JsonNode body = get(

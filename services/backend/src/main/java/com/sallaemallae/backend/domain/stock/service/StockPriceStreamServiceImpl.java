@@ -4,20 +4,19 @@ import com.sallaemallae.backend.domain.stock.dto.StockPricePointResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockPricesResponse;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
+import com.sallaemallae.backend.domain.stock.entity.StockPriceMinute;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceMonthly;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceWeekly;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceYearly;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
+import com.sallaemallae.backend.domain.stock.repository.StockPriceMinuteRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceMonthlyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceWeeklyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceYearlyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.global.exception.BusinessException;
-import com.sallaemallae.backend.infra.kis.KisApiException;
-import com.sallaemallae.backend.infra.kis.stock.CachedKisDomesticStockGateway;
-import com.sallaemallae.backend.infra.kis.stock.KisMinuteCandleData;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -37,26 +36,26 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
 
   private final StockRepository stockRepository;
+  private final StockPriceMinuteRepository stockPriceMinuteRepository;
   private final StockPriceDailyRepository stockPriceDailyRepository;
   private final StockPriceWeeklyRepository stockPriceWeeklyRepository;
   private final StockPriceMonthlyRepository stockPriceMonthlyRepository;
   private final StockPriceYearlyRepository stockPriceYearlyRepository;
-  private final CachedKisDomesticStockGateway cachedGateway;
 
   public StockPriceStreamServiceImpl(
       StockRepository stockRepository,
+      StockPriceMinuteRepository stockPriceMinuteRepository,
       StockPriceDailyRepository stockPriceDailyRepository,
       StockPriceWeeklyRepository stockPriceWeeklyRepository,
       StockPriceMonthlyRepository stockPriceMonthlyRepository,
-      StockPriceYearlyRepository stockPriceYearlyRepository,
-      CachedKisDomesticStockGateway cachedGateway
+      StockPriceYearlyRepository stockPriceYearlyRepository
   ) {
     this.stockRepository = stockRepository;
+    this.stockPriceMinuteRepository = stockPriceMinuteRepository;
     this.stockPriceDailyRepository = stockPriceDailyRepository;
     this.stockPriceWeeklyRepository = stockPriceWeeklyRepository;
     this.stockPriceMonthlyRepository = stockPriceMonthlyRepository;
     this.stockPriceYearlyRepository = stockPriceYearlyRepository;
-    this.cachedGateway = cachedGateway;
   }
 
   @Override
@@ -73,30 +72,14 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
     };
   }
 
-  // ===== 분봉 (KIS REST API) =====
+  // ===== 분봉 (DB 조회) =====
 
   private StockPricesResponse loadMinutePricesResponse(ResolvedStock stock) {
-    try {
-      KisMinuteCandleData data = cachedGateway.getMinuteCandles(
-          stock.marketCode(), stock.ticker()
-      ).value();
+    int pageSize = CandleType.MINUTE.pageSize;
+    List<StockPriceMinute> prices = stockPriceMinuteRepository.findByStockIdOrderByTradeTimestampDesc(
+        stock.stockId(), PageRequest.of(0, pageSize));
 
-      List<StockPricePointResponse> prices = data.candles().stream()
-          .map(candle -> new StockPricePointResponse(
-              candle.timestamp(),
-              candle.openPrice(),
-              candle.highPrice(),
-              candle.lowPrice(),
-              candle.closePrice(),
-              candle.volume()
-          ))
-          .toList();
-
-      return new StockPricesResponse("MINUTE", false, null, ascending(prices));
-    } catch (KisApiException e) {
-      log.warn("Failed to fetch KIS minute candles. ticker={}", stock.ticker(), e);
-      throw new BusinessException(StockErrorCode.STOCK_MARKET_DATA_UNAVAILABLE);
-    }
+    return new StockPricesResponse("MINUTE", false, null, mapMinutePrices(prices));
   }
 
   // ===== 일봉 (커서 페이지네이션) =====
@@ -188,6 +171,19 @@ public class StockPriceStreamServiceImpl implements StockPriceStreamService {
   }
 
   // ===== Mapper =====
+
+  private List<StockPricePointResponse> mapMinutePrices(List<StockPriceMinute> prices) {
+    return ascending(prices.stream()
+        .map(price -> new StockPricePointResponse(
+            price.getTradeTimestamp(),
+            price.getOpenPrice(),
+            price.getHighPrice(),
+            price.getLowPrice(),
+            price.getClosePrice(),
+            price.getVolume()
+        ))
+        .toList());
+  }
 
   private List<StockPricePointResponse> mapDailyPrices(List<StockPriceDaily> prices) {
     return ascending(prices.stream()
