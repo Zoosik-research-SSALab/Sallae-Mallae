@@ -2,9 +2,9 @@
 
 import { FaArrowTrendDown, FaArrowTrendUp } from "react-icons/fa6";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
-import { formatCategoryDisplayName } from "@/shared/lib/marketCategories";
 import { formatPrice, formatSignedRate, getRateTone } from "@/shared/lib/stockFormatters";
 import type { SignalItem, SignalQueryFilter } from "../types/signals";
+import { formatSignalCategory, formatSignalCreatedAt } from "../utils/signalFormatters";
 
 function getRateClassName(value: number) {
   const tone = getRateTone(value);
@@ -127,7 +127,7 @@ export default function SignalsDesktopTable({
                     <div className="min-w-0">
                       <div className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>
                       <div className="typo-body-xs mt-0.5 truncate font-semibold text-[color:var(--color-text-tertiary)]">
-                        {item.ticker} · {formatCategoryDisplayName(item.category)}
+                        {formatSignalCategory(item.category, item.ticker)}
                       </div>
                     </div>
                   </div>
@@ -160,7 +160,7 @@ export default function SignalsDesktopTable({
                   </div>
 
                   <div className="typo-body-sm text-center font-semibold text-[color:var(--color-text-secondary)]">
-                    {new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(item.createdAt))}
+                    {formatSignalCreatedAt(item.createdAt)}
                   </div>
 
                   <div className="flex justify-end">

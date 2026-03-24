@@ -6,7 +6,9 @@ import type { StockFinancialItem, StockFinancialType } from "@/app/stocks/types/
 import {
   formatFinancialLabel,
   formatFinancialQuarterLabel,
+  formatFinancialValue,
   formatFinancialYearMarker,
+  getFinancialDisplayUnit,
   getVisibleFinancials,
 } from "../utils/stockDetailFormatters";
 
@@ -28,6 +30,10 @@ export default function StockFinancialChart({ financials, type }: Props) {
     let disposed = false;
 
     const visibleFinancials = getVisibleFinancials(financials, type);
+    const revenueUnit = getFinancialDisplayUnit(visibleFinancials.map((item) => item.revenue));
+    const operatingProfitUnit = getFinancialDisplayUnit(
+      visibleFinancials.map((item) => item.operatingProfit),
+    );
     const isQuarterly = type === "QUARTERLY";
 
     const draw = async () => {
@@ -66,6 +72,24 @@ export default function StockFinancialChart({ financials, type }: Props) {
           textStyle: {
             color: textPrimary,
             fontFamily: "var(--font-family-base)",
+          },
+          formatter: (params: Array<{ axisValueLabel?: string; marker?: string; seriesName?: string; value?: number }>) => {
+            if (!Array.isArray(params) || params.length === 0) {
+              return "";
+            }
+
+            const [firstParam] = params;
+            const lines = [`<div>${firstParam.axisValueLabel ?? ""}</div>`];
+
+            params.forEach((param) => {
+              const unit = param.seriesName === "영업이익" ? operatingProfitUnit : revenueUnit;
+              const value = typeof param.value === "number" ? formatFinancialValue(param.value, unit) : "-";
+              lines.push(
+                `<div>${param.marker ?? ""}${param.seriesName ?? ""}: ${value}${unit}</div>`,
+              );
+            });
+
+            return lines.join("<br/>");
           },
         },
         xAxis: {

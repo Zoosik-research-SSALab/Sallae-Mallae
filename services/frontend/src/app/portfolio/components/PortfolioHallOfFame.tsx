@@ -59,7 +59,7 @@ export default function PortfolioHallOfFame({ sections }: Props) {
       <div className="flex flex-col gap-1">
         <h2 className="typo-heading-md text-[color:var(--color-text-primary)]">모의투자 명예의 전당</h2>
         <p className="typo-body-sm text-[color:var(--color-text-secondary)] md:typo-body-md">
-          과거 3년간의 모의투자 데이터를 기반으로 한 분야별 TOP 10 종목입니다.
+          과거 3년간의 모의투자 데이터를 기반으로 한 분야별 TOP 5 종목입니다.
         </p>
       </div>
 

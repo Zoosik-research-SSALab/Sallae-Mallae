@@ -86,7 +86,7 @@ export default function NotificationsPageClient() {
   const notificationCountQuery = useNotificationCountQuery(true);
 
   const notifications = notificationsQuery.data?.notifications ?? EMPTY_NOTIFICATIONS;
-  const hasMore = notifications.length >= visibleCount;
+  const hasMore = notificationsQuery.data?.hasMore ?? false;
   const unreadCount =
     notificationCountQuery.data ??
     notifications.reduce((count, item) => count + (item.isRead ? 0 : 1), 0);

@@ -4,18 +4,33 @@ import type {
   PortfolioTradeAction,
 } from "../types/portfolio";
 
-const currencyFormatter = new Intl.NumberFormat("ko-KR");
 const integerFormatter = new Intl.NumberFormat("ko-KR");
 
-export function formatCurrency(value: number) {
-  return `${currencyFormatter.format(value)}원`;
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
-export function formatInteger(value: number) {
+export function formatCurrency(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
+  return `${integerFormatter.format(value)}원`;
+}
+
+export function formatInteger(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   return integerFormatter.format(value);
 }
 
-export function formatSignedValue(value: number, decimals: number, suffix: string) {
+export function formatSignedValue(value: number | null | undefined, decimals: number, suffix: string) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
   const formatted = value.toFixed(decimals);
 
   if (value > 0) {
@@ -25,7 +40,11 @@ export function formatSignedValue(value: number, decimals: number, suffix: strin
   return `${formatted}${suffix}`;
 }
 
-export function getDeltaTextClassName(value: number) {
+export function getDeltaTextClassName(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "text-[color:var(--color-text-secondary)]";
+  }
+
   if (value > 0) {
     return "text-[color:var(--color-text-danger-bold)]";
   }
@@ -37,7 +56,11 @@ export function getDeltaTextClassName(value: number) {
   return "text-[color:var(--color-text-secondary)]";
 }
 
-export function getDeltaSurfaceClassName(value: number) {
+export function getDeltaSurfaceClassName(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "bg-[color:var(--color-bg-tertiary)]";
+  }
+
   if (value > 0) {
     return "bg-[color:var(--color-bg-danger-subtle)]";
   }
@@ -62,7 +85,7 @@ export function getSignalActionLabel(action: PortfolioSignalAction) {
     case "HOLD":
       return "보유 유지";
     case "WATCH":
-      return "관망/보류";
+      return "관망 보류";
   }
 }
 

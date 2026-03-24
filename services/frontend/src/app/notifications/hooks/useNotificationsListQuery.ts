@@ -15,8 +15,23 @@ export const notificationsQueryKeys = {
 export function useNotificationsListQuery(tab: NotificationTab, limit: number) {
   return useQuery({
     queryKey: notificationsQueryKeys.list(tab, limit),
-    queryFn: () => getNotifications({ tab, limit }),
-    placeholderData: (previousData) => previousData,
+    queryFn: () => getNotifications({ tab, limit, includeHasMore: true }),
+    placeholderData: (previousData, previousQuery) => {
+      const previousKey = previousQuery?.queryKey;
+
+      if (!Array.isArray(previousKey) || previousKey.length < 4) {
+        return undefined;
+      }
+
+      const previousTab = previousKey[2];
+      const previousLimit = previousKey[3];
+
+      if (previousTab !== tab || typeof previousLimit !== "number" || previousLimit > limit) {
+        return undefined;
+      }
+
+      return previousData;
+    },
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

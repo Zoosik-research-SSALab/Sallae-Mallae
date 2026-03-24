@@ -43,7 +43,6 @@ export default function StocksDesktopTable({
 }: Props) {
   const metricColumnLabel = getMetricColumnLabel(activeMetric);
 
-  const newLocal = "typo-body-sm font-semibold text-[color:var(--color-text-secondary)]";
   return (
     <div className="hidden w-full flex-col gap-6 lg:flex">
       <div className="overflow-hidden rounded-xl bg-bg-primary">
@@ -53,7 +52,7 @@ export default function StocksDesktopTable({
         <div className="flex items-start justify-between gap-6 bg-bg-secondary px-4 py-4">
           <div className="flex flex-1 items-center gap-6">
             <div className="typo-body-sm min-w-6 font-semibold text-text-secondary">순위</div>
-            <div className={newLocal}>종목명</div>
+            <div className="typo-body-sm font-semibold text-text-secondary">종목명</div>
           </div>
 
           <div className="flex flex-1 items-center justify-between gap-4">

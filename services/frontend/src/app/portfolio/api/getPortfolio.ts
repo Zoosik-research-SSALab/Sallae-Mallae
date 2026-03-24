@@ -11,6 +11,11 @@ import type {
 import { PORTFOLIO_HERO_METRICS } from "../utils/portfolioStaticContent";
 import { authApiFetch } from "@/shared/lib/authApiClient";
 
+const PORTFOLIO_TAB_FETCH_LIMIT = 50;
+const MAX_PORTFOLIO_TAB_FETCH_ATTEMPTS = 20;
+
+type PortfolioApiTab = "HOLDINGS" | "TODAY_TRADES" | "MONTHLY_RETURNS";
+
 type ApiResponse<T> = {
   success: boolean;
   data: T;
@@ -23,6 +28,12 @@ type PortfolioSummaryPayload = {
   yesterdayReturn?: number | null;
   alphaVsKospi?: number | null;
   holdingCount?: number | null;
+};
+
+type PortfolioPageInfoPayload = {
+  offset?: number | null;
+  limit?: number | null;
+  totalCount?: number | null;
 };
 
 type PortfolioPayload = {
@@ -58,21 +69,33 @@ type PortfolioPayload = {
     ticker?: string | null;
     name?: string | null;
     action?: string | null;
+    tradeType?: string | null;
     executedAt?: string | null;
+    tradeTime?: string | null;
     executedPrice?: number | null;
+    tradePrice?: number | null;
     currentPrice?: number | null;
     returnRate?: number | null;
   }> | null;
   monthlyReturns?: Array<{
     month?: string | null;
     portfolioReturnRate?: number | null;
+    monthlyReturn?: number | null;
     kospiReturnRate?: number | null;
+    kospiReturn?: number | null;
     excessReturnRate?: number | null;
+    alpha?: number | null;
   }> | null;
+  page?: PortfolioPageInfoPayload | null;
   hero?: {
     updatedAtLabel?: string | null;
     metrics?: unknown;
   } | null;
+};
+
+type PortfolioTabQueryResult = {
+  payload: PortfolioPayload | null;
+  items: unknown[];
 };
 
 const defaultPortfolioPageData: PortfolioPageData = {
@@ -146,7 +169,6 @@ function formatUpdatedAtLabel(value: unknown) {
   }
 
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) {
     return defaultPortfolioPageData.hero.updatedAtLabel;
   }
@@ -165,6 +187,32 @@ function formatUpdatedAtLabel(value: unknown) {
   }
 
   return `${targetParts.year}.${targetParts.month}.${targetParts.day} ${timeLabel} 업데이트 완료`;
+}
+
+function formatTradeTimeLabel(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const parts = formatSeoulDateParts(date);
+  return `${parts.hour}:${parts.minute}`;
+}
+
+function formatMonthLabel(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}$/.test(value)) {
+    return value.replace("-", ".");
+  }
+
+  return value;
 }
 
 function normalizeHeroMetricsFromLegacy(value: unknown): PortfolioHeroMetric[] {
@@ -198,7 +246,10 @@ function normalizeHeroMetricsFromLegacy(value: unknown): PortfolioHeroMetric[] {
   });
 }
 
-function normalizeHeroMetrics(summary: PortfolioSummaryPayload | null | undefined, legacyMetrics: unknown): PortfolioHeroMetric[] {
+function normalizeHeroMetrics(
+  summary: PortfolioSummaryPayload | null | undefined,
+  legacyMetrics: unknown,
+): PortfolioHeroMetric[] {
   if (!summary) {
     return normalizeHeroMetricsFromLegacy(legacyMetrics);
   }
@@ -248,34 +299,67 @@ function normalizeHoldings(value: PortfolioPayload["holdings"]): PortfolioHoldin
       stockId: readNumber(item.stockId),
       ticker: readString(item.ticker),
       name: readString(item.name),
-      buyPrice: readNumber(item.buyPrice),
-      currentPrice: readNumber(item.currentPrice),
+      buyPrice: readNumberOrNull(item.buyPrice),
+      currentPrice: readNumberOrNull(item.currentPrice),
       holdingDays: readNumberOrNull(item.holdingDays),
-      returnRate: readNumber(item.returnRate),
+      returnRate: readNumberOrNull(item.returnRate),
     }));
 }
 
-function normalizeTodayTrades(value: PortfolioPayload["todayTrades"]): PortfolioTodayTrade[] {
+function createCurrentPriceLookup(
+  holdings: PortfolioHolding[],
+  popularSignals: PortfolioPopularSignal[],
+) {
+  const priceByStockId = new Map<number, number | null>();
+
+  holdings.forEach((item) => {
+    priceByStockId.set(item.stockId, item.currentPrice);
+  });
+
+  popularSignals.forEach((item) => {
+    if (!priceByStockId.has(item.stockId)) {
+      priceByStockId.set(item.stockId, item.price);
+    }
+  });
+
+  return priceByStockId;
+}
+
+function normalizeTodayTrades(
+  value: PortfolioPayload["todayTrades"],
+  currentPriceByStockId: Map<number, number | null>,
+): PortfolioTodayTrade[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
     .filter((item) => item && typeof item === "object")
-    .map((item, index) => ({
-      id: readNumber(item.id, index + 1),
-      stockId: readNumber(item.stockId),
-      ticker: readString(item.ticker),
-      name: readString(item.name),
-      action: item.action === "SELL" ? "SELL" : "BUY",
-      executedAt: readString(item.executedAt),
-      executedPrice: readNumber(item.executedPrice),
-      currentPrice: readNumber(item.currentPrice),
-      returnRate: readNumber(item.returnRate),
-    }));
+    .map((item, index) => {
+      const stockId = readNumber(item.stockId);
+      const action = item.action ?? item.tradeType;
+      const currentPrice =
+        readNumberOrNull(item.currentPrice) ??
+        currentPriceByStockId.get(stockId) ??
+        null;
+
+      return {
+        id: readNumber(item.id, index + 1),
+        stockId,
+        ticker: readString(item.ticker),
+        name: readString(item.name),
+        action: action === "SELL" ? "SELL" : "BUY",
+        executedAt: formatTradeTimeLabel(item.executedAt ?? item.tradeTime),
+        executedPrice: readNumberOrNull(item.executedPrice ?? item.tradePrice),
+        currentPrice,
+        returnRate: readNumberOrNull(item.returnRate),
+      };
+    });
 }
 
-function normalizeMonthlyReturns(value: PortfolioPayload["monthlyReturns"]): PortfolioMonthlyReturn[] {
+function normalizeMonthlyReturns(
+  value: PortfolioPayload["monthlyReturns"],
+): PortfolioMonthlyReturn[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -283,19 +367,116 @@ function normalizeMonthlyReturns(value: PortfolioPayload["monthlyReturns"]): Por
   return value
     .filter((item) => item && typeof item === "object")
     .map((item) => ({
-      month: readString(item.month),
-      portfolioReturnRate: readNumber(item.portfolioReturnRate),
-      kospiReturnRate: readNumber(item.kospiReturnRate),
-      excessReturnRate: readNumber(item.excessReturnRate),
+      month: formatMonthLabel(item.month),
+      portfolioReturnRate: readNumberOrNull(
+        item.portfolioReturnRate ?? item.monthlyReturn,
+      ),
+      kospiReturnRate: readNumberOrNull(
+        item.kospiReturnRate ?? item.kospiReturn,
+      ),
+      excessReturnRate: readNumberOrNull(
+        item.excessReturnRate ?? item.alpha,
+      ),
     }));
 }
 
-function normalizePortfolioPageData(value: unknown): PortfolioPageData {
-  const candidate = typeof value === "object" && value !== null ? (value as PortfolioPayload) : {};
-  const summary = typeof candidate.summary === "object" && candidate.summary !== null ? candidate.summary : null;
+function getPortfolioTabItems(payload: PortfolioPayload, tab: PortfolioApiTab) {
+  switch (tab) {
+    case "HOLDINGS":
+      return Array.isArray(payload.holdings) ? payload.holdings : [];
+    case "TODAY_TRADES":
+      return Array.isArray(payload.todayTrades) ? payload.todayTrades : [];
+    case "MONTHLY_RETURNS":
+      return Array.isArray(payload.monthlyReturns) ? payload.monthlyReturns : [];
+  }
+}
+
+function readTotalCount(payload: PortfolioPayload) {
+  return readNumberOrNull(payload.page?.totalCount);
+}
+
+async function fetchPortfolioTabPage(
+  tab: PortfolioApiTab,
+  offset: number,
+  limit: number,
+) {
+  const search = new URLSearchParams({
+    tab,
+    offset: String(offset),
+    limit: String(limit),
+  });
+
+  const payload = await authApiFetch<ApiResponse<PortfolioPayload>>(
+    `/api/portfolio/chairman?${search.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!payload.data) {
+    throw new Error("포트폴리오 데이터를 불러오지 못했습니다.");
+  }
+
+  return payload.data;
+}
+
+async function fetchAllPortfolioTabItems(tab: PortfolioApiTab): Promise<PortfolioTabQueryResult> {
+  let offset = 0;
+  let basePayload: PortfolioPayload | null = null;
+  const items: unknown[] = [];
+
+  for (let attempt = 0; attempt < MAX_PORTFOLIO_TAB_FETCH_ATTEMPTS; attempt += 1) {
+    const payload = await fetchPortfolioTabPage(tab, offset, PORTFOLIO_TAB_FETCH_LIMIT);
+    basePayload ??= payload;
+
+    const pageItems = getPortfolioTabItems(payload, tab);
+    items.push(...pageItems);
+
+    const totalCount = readTotalCount(payload);
+    if (pageItems.length === 0) {
+      break;
+    }
+
+    if (totalCount !== null && items.length >= totalCount) {
+      break;
+    }
+
+    if (pageItems.length < PORTFOLIO_TAB_FETCH_LIMIT) {
+      break;
+    }
+
+    offset += pageItems.length;
+  }
+
+  return {
+    payload: basePayload,
+    items,
+  };
+}
+
+function normalizePortfolioPageData(
+  holdingsPayload: PortfolioPayload | null,
+  holdingsItems: unknown[],
+  todayTradeItems: unknown[],
+  monthlyReturnItems: unknown[],
+): PortfolioPageData {
+  const candidate = holdingsPayload ?? {};
+  const summary =
+    typeof candidate.summary === "object" && candidate.summary !== null
+      ? candidate.summary
+      : null;
   const signalSummary =
-    typeof candidate.signalSummary === "object" && candidate.signalSummary !== null ? candidate.signalSummary : null;
-  const hero = typeof candidate.hero === "object" && candidate.hero !== null ? candidate.hero : null;
+    typeof candidate.signalSummary === "object" && candidate.signalSummary !== null
+      ? candidate.signalSummary
+      : null;
+  const hero =
+    typeof candidate.hero === "object" && candidate.hero !== null
+      ? candidate.hero
+      : null;
+
+  const holdings = normalizeHoldings(holdingsItems as PortfolioPayload["holdings"]);
+  const popularSignals = normalizePopularSignals(candidate.popularSignals);
+  const currentPriceByStockId = createCurrentPriceLookup(holdings, popularSignals);
 
   return {
     hero: {
@@ -304,29 +485,49 @@ function normalizePortfolioPageData(value: unknown): PortfolioPageData {
         readString(hero?.updatedAtLabel, defaultPortfolioPageData.hero.updatedAtLabel),
       metrics: normalizeHeroMetrics(summary, hero?.metrics),
     },
-    holdings: normalizeHoldings(candidate.holdings),
-    todayTrades: normalizeTodayTrades(candidate.todayTrades),
-    monthlyReturns: normalizeMonthlyReturns(candidate.monthlyReturns),
+    holdings,
+    todayTrades: normalizeTodayTrades(
+      todayTradeItems as PortfolioPayload["todayTrades"],
+      currentPriceByStockId,
+    ),
+    monthlyReturns: normalizeMonthlyReturns(
+      monthlyReturnItems as PortfolioPayload["monthlyReturns"],
+    ),
     signalSummary: {
       baseUniverseLabel: defaultPortfolioPageData.signalSummary.baseUniverseLabel,
-      buyCount: readNumber(signalSummary?.buyCount, defaultPortfolioPageData.signalSummary.buyCount),
-      sellCount: readNumber(signalSummary?.sellCount, defaultPortfolioPageData.signalSummary.sellCount),
-      holdCount: readNumber(signalSummary?.holdCount, defaultPortfolioPageData.signalSummary.holdCount),
-      watchCount: readNumber(signalSummary?.watchCount, defaultPortfolioPageData.signalSummary.watchCount),
+      buyCount: readNumber(
+        signalSummary?.buyCount,
+        defaultPortfolioPageData.signalSummary.buyCount,
+      ),
+      sellCount: readNumber(
+        signalSummary?.sellCount,
+        defaultPortfolioPageData.signalSummary.sellCount,
+      ),
+      holdCount: readNumber(
+        signalSummary?.holdCount,
+        defaultPortfolioPageData.signalSummary.holdCount,
+      ),
+      watchCount: readNumber(
+        signalSummary?.watchCount,
+        defaultPortfolioPageData.signalSummary.watchCount,
+      ),
     },
-    popularSignals: normalizePopularSignals(candidate.popularSignals),
+    popularSignals,
     hallOfFame: defaultPortfolioPageData.hallOfFame,
   };
 }
 
 export async function getPortfolio() {
-  const payload = await authApiFetch<ApiResponse<PortfolioPayload>>("/api/portfolio/chairman", {
-    cache: "no-store",
-  });
+  const [holdingsResult, todayTradesResult, monthlyReturnsResult] = await Promise.all([
+    fetchAllPortfolioTabItems("HOLDINGS"),
+    fetchAllPortfolioTabItems("TODAY_TRADES"),
+    fetchAllPortfolioTabItems("MONTHLY_RETURNS"),
+  ]);
 
-  if (!payload.data) {
-    throw new Error("포트폴리오 데이터를 불러오지 못했습니다.");
-  }
-
-  return normalizePortfolioPageData(payload.data);
+  return normalizePortfolioPageData(
+    holdingsResult.payload,
+    holdingsResult.items,
+    todayTradesResult.items,
+    monthlyReturnsResult.items,
+  );
 }
