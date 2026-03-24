@@ -22,6 +22,25 @@ python main.py
 python main.py --once --report-date 2026-03-16 --source trading_history --portfolio-id 1
 ```
 
+일일 자동화 실행:
+
+```bash
+python daily_main.py
+```
+
+일일 자동화는 `pipeline_signals`를 읽어 아래 순서로 처리합니다.
+- `NEWS_PIPELINE_DONE` 확인
+- 포트폴리오 마지막 반영일 다음날부터 목표 날짜까지 토론 워커 순차 실행
+- 토론 완료 후 `DEBATE_PIPELINE_DONE` 기록
+- 포트폴리오 일일 반영 스크립트가 누락 날짜 포함 순차 반영
+- 포트폴리오 완료 후 `PORTFOLIO_PIPELINE_DONE` 기록
+
+한 번만 점검:
+
+```bash
+python daily_main.py --once --report-date 2026-03-24
+```
+
 자세한 내용은 `docs/personal_desktop_setup.md` 와 `docs/worker_operations.md` 를 참고합니다.
 
 GPU 서버 기간 백필:
