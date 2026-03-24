@@ -530,9 +530,7 @@ const periodConfig: Record<
   "1D": { points: 78, stepMs: 5 * 60_000, volatility: 0.42, drift: 0.14 },
   "1W": { points: 7, stepMs: 24 * 60 * 60_000, volatility: 0.85, drift: 0.24 },
   "1M": { points: 30, stepMs: 24 * 60 * 60_000, volatility: 1.2, drift: 0.4 },
-  "3M": { points: 13, stepMs: 7 * 24 * 60 * 60_000, volatility: 1.8, drift: 0.68 },
   "1Y": { points: 12, stepMs: 30 * 24 * 60 * 60_000, volatility: 2.6, drift: 0.9 },
-  "3Y": { points: 12, stepMs: 90 * 24 * 60 * 60_000, volatility: 4.2, drift: 1.35 },
 };
 
 function roundPrice(value: number) {

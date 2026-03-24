@@ -1,4 +1,4 @@
-export type StockChartPeriod = "1MIN" | "1D" | "1W" | "1M" | "3M" | "1Y" | "3Y";
+export type StockChartPeriod = "1MIN" | "1D" | "1W" | "1M" | "1Y";
 
 export type StockDetailOverview = {
   id: number;

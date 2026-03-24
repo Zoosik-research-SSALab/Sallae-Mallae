@@ -5,14 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import type { StockChartPeriod, StockPriceChartMode, StockPricePoint } from "@/app/stocks/types/stockDetail";
 import { cn } from "@/shared/utils/cn";
 import {
-  formatChartAxisLabel,
   formatChartTooltipLabel,
   formatVolume,
   formatWon,
   getChartPriceRange,
   getDisplayChartPrices,
   getInitialVisiblePointCount,
-  shouldShowChartLabel,
 } from "../utils/stockDetailFormatters";
 
 type Props = {
@@ -29,6 +27,38 @@ type ZoomWindow = {
   startValue: number;
   endValue: number;
 };
+
+type SeoulDateParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+};
+
+type AxisLabelState = {
+  labelsByValue: Map<string, string>;
+  visibleValues: Set<string>;
+};
+
+type ChartTheme = {
+  textPrimary: string;
+  textSecondary: string;
+  borderPrimary: string;
+  danger: string;
+  interactivePrimary: string;
+  bgPrimary: string;
+};
+
+const seoulDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 
 function toFiniteNumber(value: unknown) {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -80,14 +110,164 @@ function buildInitialZoomWindow(period: StockChartPeriod, total: number): ZoomWi
   };
 }
 
-function clampZoomWindow(zoomWindow: ZoomWindow, total: number): ZoomWindow {
+function getZoomWindowSpan(zoomWindow: ZoomWindow) {
+  return Math.max(1, zoomWindow.endValue - zoomWindow.startValue + 1);
+}
+
+function clampZoomWindow(zoomWindow: ZoomWindow, total: number, minimumSpan = 1): ZoomWindow {
   const maxIndex = Math.max(0, total - 1);
-  const startValue = Math.max(0, Math.min(zoomWindow.startValue, maxIndex));
-  const endValue = Math.max(startValue, Math.min(zoomWindow.endValue, maxIndex));
+  const minimumVisibleCount = Math.max(1, Math.min(minimumSpan, Math.max(1, total)));
+  let startValue = Math.max(0, Math.min(zoomWindow.startValue, maxIndex));
+  let endValue = Math.max(startValue, Math.min(zoomWindow.endValue, maxIndex));
+
+  if (endValue - startValue + 1 < minimumVisibleCount) {
+    endValue = Math.min(maxIndex, startValue + minimumVisibleCount - 1);
+
+    if (endValue - startValue + 1 < minimumVisibleCount) {
+      startValue = Math.max(0, endValue - minimumVisibleCount + 1);
+    }
+  }
 
   return {
     startValue,
     endValue,
+  };
+}
+
+function getCachedSeoulDateParts(cache: Map<string, SeoulDateParts | null>, timestamp: string) {
+  if (cache.has(timestamp)) {
+    return cache.get(timestamp) ?? null;
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    cache.set(timestamp, null);
+    return null;
+  }
+
+  const parts = seoulDateFormatter.formatToParts(date);
+  const readPart = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "00";
+
+  const value = {
+    year: Number(readPart("year")),
+    month: Number(readPart("month")),
+    day: Number(readPart("day")),
+    hour: Number(readPart("hour")),
+    minute: Number(readPart("minute")),
+  } satisfies SeoulDateParts;
+
+  cache.set(timestamp, value);
+  return value;
+}
+
+function formatAxisLabelText(parts: SeoulDateParts, period: StockChartPeriod, useYearOnly: boolean) {
+  if (period === "1MIN") {
+    return `${parts.hour.toString().padStart(2, "0")}:${parts.minute.toString().padStart(2, "0")}`;
+  }
+
+  if (useYearOnly) {
+    return `${parts.year}년`;
+  }
+
+  if (period === "1D" || period === "1W") {
+    return parts.month === 1 ? `${parts.year}년` : `${parts.month}월`;
+  }
+
+  if (period === "1M" || period === "1Y") {
+    return `${parts.year}년`;
+  }
+
+  return "";
+}
+
+function buildAxisLabelState(
+  timestamps: string[],
+  partsByIndex: Array<SeoulDateParts | null>,
+  period: StockChartPeriod,
+  zoomWindow: ZoomWindow,
+): AxisLabelState {
+  const total = partsByIndex.length;
+  const { startValue: visibleStart, endValue: visibleEnd } = clampZoomWindow(zoomWindow, total);
+  const distinctYears = new Set<number>();
+
+  for (let index = visibleStart; index <= visibleEnd; index += 1) {
+    const parts = partsByIndex[index];
+    if (parts) {
+      distinctYears.add(parts.year);
+    }
+  }
+
+  const useYearOnly = period !== "1MIN" && period !== "1Y" && distinctYears.size >= 4;
+  const labelsByValue = new Map<string, string>();
+  partsByIndex.forEach((parts, index) => {
+    labelsByValue.set(timestamps[index] ?? "", parts ? formatAxisLabelText(parts, period, useYearOnly) : "");
+  });
+  const visibleValues = new Set<string>();
+
+  if ((useYearOnly || period === "1M") && total > 0) {
+    let previousYear: number | null = null;
+
+    for (let index = visibleStart; index <= visibleEnd; index += 1) {
+      const parts = partsByIndex[index];
+      if (!parts) {
+        continue;
+      }
+
+      if (index === visibleStart || parts.year !== previousYear) {
+        visibleValues.add(timestamps[index] ?? "");
+      }
+
+      previousYear = parts.year;
+    }
+
+    return {
+      labelsByValue,
+      visibleValues,
+    };
+  }
+
+  const maxLabelCounts: Record<StockChartPeriod, number> = {
+    "1MIN": 6,
+    "1D": 7,
+    "1W": 8,
+    "1M": 7,
+    "1Y": 7,
+  };
+  const labelCount = Math.max(2, maxLabelCounts[period]);
+  const visibleTotal = visibleEnd - visibleStart + 1;
+
+  if (visibleTotal <= labelCount) {
+    for (let index = visibleStart; index <= visibleEnd; index += 1) {
+      visibleValues.add(timestamps[index] ?? "");
+    }
+
+    return {
+      labelsByValue,
+      visibleValues,
+    };
+  }
+
+  for (let step = 0; step < labelCount; step += 1) {
+    const distributedIndex = visibleStart + Math.round((step * (visibleTotal - 1)) / (labelCount - 1));
+    visibleValues.add(timestamps[distributedIndex] ?? "");
+  }
+
+  return {
+    labelsByValue,
+    visibleValues,
+  };
+}
+
+function readChartTheme(): ChartTheme {
+  const styles = getComputedStyle(document.documentElement);
+
+  return {
+    textPrimary: styles.getPropertyValue("--color-text-primary").trim(),
+    textSecondary: styles.getPropertyValue("--color-text-secondary").trim(),
+    borderPrimary: styles.getPropertyValue("--color-border-primary").trim(),
+    danger: styles.getPropertyValue("--color-text-danger-bold").trim(),
+    interactivePrimary: styles.getPropertyValue("--color-text-interactive-primary").trim(),
+    bgPrimary: styles.getPropertyValue("--color-bg-primary").trim(),
   };
 }
 
@@ -105,8 +285,8 @@ export default function StockPriceChart({
   const chartInstanceRef = useRef<EChartsType | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const zoomWindowRef = useRef<ZoomWindow | null>(null);
+  const minimumZoomSpanRef = useRef(1);
   const dataLengthRef = useRef(0);
-  const isApplyingZoomRef = useRef(false);
   const previousMetaRef = useRef<{
     length: number;
     firstTimestamp: string | null;
@@ -120,6 +300,14 @@ export default function StockPriceChart({
   const hasMoreRef = useRef(hasMore);
   const isFetchingMoreRef = useRef(isFetchingMore);
   const periodRef = useRef(period);
+  const axisDatePartsRef = useRef<Array<SeoulDateParts | null>>([]);
+  const axisLabelStateRef = useRef<AxisLabelState>({
+    labelsByValue: new Map<string, string>(),
+    visibleValues: new Set<string>(),
+  });
+  const datePartsCacheRef = useRef<Map<string, SeoulDateParts | null>>(new Map());
+  const chartThemeRef = useRef<ChartTheme | null>(null);
+  const timestampsRef = useRef<string[]>([]);
 
   requestMoreRef.current = onRequestMore;
   hasMoreRef.current = hasMore;
@@ -128,6 +316,12 @@ export default function StockPriceChart({
 
   useEffect(() => {
     zoomWindowRef.current = null;
+    minimumZoomSpanRef.current = 1;
+    axisDatePartsRef.current = [];
+    axisLabelStateRef.current = {
+      labelsByValue: new Map<string, string>(),
+      visibleValues: new Set<string>(),
+    };
     previousMetaRef.current = {
       length: 0,
       firstTimestamp: null,
@@ -151,6 +345,7 @@ export default function StockPriceChart({
       const chart = echarts.init(chartRef.current, undefined, {
         renderer: "canvas",
       });
+      chartThemeRef.current = readChartTheme();
 
       chart.on("datazoom", (...args: unknown[]) => {
         const event = (args[0] ?? {}) as {
@@ -173,61 +368,24 @@ export default function StockPriceChart({
           return;
         }
 
-        const previousZoomWindow =
-          zoomWindowRef.current ?? {
-            startValue: 0,
-            endValue: Math.max(0, dataLengthRef.current - 1),
-          };
-        const previousSpan = previousZoomWindow.endValue - previousZoomWindow.startValue;
-        const nextSpan = nextZoomWindow.endValue - nextZoomWindow.startValue;
-
-        if (isApplyingZoomRef.current) {
-          isApplyingZoomRef.current = false;
-          zoomWindowRef.current = nextZoomWindow;
-          return;
-        }
-
-        if (dataLengthRef.current > 0 && nextSpan !== previousSpan) {
-          const anchoredZoomWindow = clampZoomWindow(
-            {
-              startValue: dataLengthRef.current - (nextSpan + 1),
-              endValue: dataLengthRef.current - 1,
-            },
-            dataLengthRef.current,
-          );
-
-          if (
-            anchoredZoomWindow.startValue !== nextZoomWindow.startValue ||
-            anchoredZoomWindow.endValue !== nextZoomWindow.endValue
-          ) {
-            isApplyingZoomRef.current = true;
-            zoomWindowRef.current = anchoredZoomWindow;
-            chart.setOption(
-              {
-                dataZoom: [
-                  {
-                    startValue: anchoredZoomWindow.startValue,
-                    endValue: anchoredZoomWindow.endValue,
-                  },
-                  {
-                    startValue: anchoredZoomWindow.startValue,
-                    endValue: anchoredZoomWindow.endValue,
-                  },
-                ],
-              },
-              false,
-            );
-            return;
-          }
-        }
-
-        zoomWindowRef.current = nextZoomWindow;
+        const clampedZoomWindow = clampZoomWindow(
+          nextZoomWindow,
+          dataLengthRef.current,
+          minimumZoomSpanRef.current,
+        );
+        zoomWindowRef.current = clampedZoomWindow;
+        axisLabelStateRef.current = buildAxisLabelState(
+          timestampsRef.current,
+          axisDatePartsRef.current,
+          periodRef.current,
+          clampedZoomWindow,
+        );
 
         if (
           hasMoreRef.current &&
           !isFetchingMoreRef.current &&
           typeof requestMoreRef.current === "function" &&
-          nextZoomWindow.startValue <= getLoadMoreThreshold(periodRef.current)
+          clampedZoomWindow.startValue <= getLoadMoreThreshold(periodRef.current)
         ) {
           requestMoreRef.current();
         }
@@ -262,6 +420,8 @@ export default function StockPriceChart({
     const visiblePrices = getDisplayChartPrices(prices);
     dataLengthRef.current = visiblePrices.length;
     const timestamps = visiblePrices.map((item) => item.timestamp);
+    timestampsRef.current = timestamps;
+    const axisDateParts = timestamps.map((timestamp) => getCachedSeoulDateParts(datePartsCacheRef.current, timestamp));
     const closePrices = visiblePrices.map((item) => item.close);
     const candlePrices = visiblePrices.map((item) => [item.open, item.close, item.low, item.high]);
     const volumes = visiblePrices.map((item) => item.volume);
@@ -284,7 +444,12 @@ export default function StockPriceChart({
       lastTimestamp !== previousMeta.lastTimestamp &&
       previousMeta.firstTimestamp === firstTimestamp;
 
-    let zoomWindow = zoomWindowRef.current ?? buildInitialZoomWindow(period, visiblePrices.length);
+    const initialZoomWindow = buildInitialZoomWindow(period, visiblePrices.length);
+    if (zoomWindowRef.current === null) {
+      minimumZoomSpanRef.current = getZoomWindowSpan(initialZoomWindow);
+    }
+
+    let zoomWindow = zoomWindowRef.current ?? initialZoomWindow;
 
     if (prependedOlderPrices && addedCount > 0) {
       zoomWindow = {
@@ -302,21 +467,24 @@ export default function StockPriceChart({
       };
     }
 
-    zoomWindow = clampZoomWindow(zoomWindow, visiblePrices.length);
+    zoomWindow = clampZoomWindow(zoomWindow, visiblePrices.length, minimumZoomSpanRef.current);
     zoomWindowRef.current = zoomWindow;
+    axisDatePartsRef.current = axisDateParts;
+    axisLabelStateRef.current = buildAxisLabelState(timestamps, axisDateParts, period, zoomWindow);
     previousMetaRef.current = {
       length: visiblePrices.length,
       firstTimestamp,
       lastTimestamp,
     };
 
-    const styles = getComputedStyle(document.documentElement);
-    const textPrimary = styles.getPropertyValue("--color-text-primary").trim();
-    const textSecondary = styles.getPropertyValue("--color-text-secondary").trim();
-    const borderPrimary = styles.getPropertyValue("--color-border-primary").trim();
-    const danger = styles.getPropertyValue("--color-text-danger-bold").trim();
-    const interactivePrimary = styles.getPropertyValue("--color-text-interactive-primary").trim();
-    const bgPrimary = styles.getPropertyValue("--color-bg-primary").trim();
+    const chartTheme = chartThemeRef.current ?? readChartTheme();
+    const { textPrimary, textSecondary, borderPrimary, danger, interactivePrimary, bgPrimary } = chartTheme;
+
+    try {
+      chart.dispatchAction({ type: "hideTip" });
+    } catch {
+      // Ignore when tooltip component is not initialized yet.
+    }
 
     chart.setOption(
       {
@@ -393,6 +561,7 @@ export default function StockPriceChart({
             type: "inside",
             xAxisIndex: 0,
             filterMode: "filter",
+            minValueSpan: minimumZoomSpanRef.current,
             zoomOnMouseWheel: true,
             moveOnMouseWheel: true,
             moveOnMouseMove: true,
@@ -405,6 +574,7 @@ export default function StockPriceChart({
             show: false,
             xAxisIndex: 0,
             filterMode: "filter",
+            minValueSpan: minimumZoomSpanRef.current,
             startValue: zoomWindow.startValue,
             endValue: zoomWindow.endValue,
           },
@@ -423,9 +593,8 @@ export default function StockPriceChart({
             show: true,
             color: textSecondary,
             hideOverlap: true,
-            formatter: (value: string) => formatChartAxisLabel(value, period),
-            interval: (index: number) =>
-              shouldShowChartLabel(index, timestamps.length, period, timestamps, zoomWindowRef.current),
+            formatter: (value: string) => axisLabelStateRef.current.labelsByValue.get(value) ?? "",
+            interval: (_index: number, value: string) => axisLabelStateRef.current.visibleValues.has(value),
           },
           splitLine: {
             show: false,

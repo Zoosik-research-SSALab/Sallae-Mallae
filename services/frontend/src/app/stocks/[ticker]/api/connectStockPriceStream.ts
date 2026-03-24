@@ -1,7 +1,6 @@
 import type { StockChartPeriod, StockPricePoint } from "@/app/stocks/types/stockDetail";
 import { getMockStockPrices } from "@/app/stocks/utils/mockStockDetailData";
-import { apiFetch, connectSse, resolveApiUrl } from "@/shared/lib/apiClient";
-import { camelizeKeys } from "@/shared/utils/case";
+import { apiFetch, connectSse } from "@/shared/lib/apiClient";
 
 type StockPriceApiPoint = {
   timestamp?: string | null;
@@ -19,16 +18,31 @@ type StockPricesApiPayload = {
   prices?: StockPriceApiPoint[] | null;
 };
 
-type StockMinuteStreamHandlers = {
-  onSnapshot: (payload: { prices: StockPricePoint[] }) => void;
-  onPoint: (point: StockPricePoint) => void;
-  onError?: (error: Event) => void;
+type StockQuoteApiPayload = {
+  currentPrice?: number | null;
+  changeRate?: number | null;
+  fluctuationRate?: number | null;
 };
 
 export type StockPricePage = {
   prices: StockPricePoint[];
   hasMore: boolean;
   nextCursor: string | null;
+};
+
+export type StockQuoteSnapshot = {
+  currentPrice: number | null;
+  changeRate: number | null;
+};
+
+const SEOUL_TIME_ZONE = "Asia/Seoul";
+
+const chartPeriodToCandleType: Record<StockChartPeriod, "MINUTE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"> = {
+  "1MIN": "MINUTE",
+  "1D": "DAILY",
+  "1W": "WEEKLY",
+  "1M": "MONTHLY",
+  "1Y": "YEARLY",
 };
 
 function shouldUseMockApi() {
@@ -46,8 +60,32 @@ function shouldUseMockApi() {
   return raw !== "false" && raw !== "disabled";
 }
 
-export function isStockPriceMockApiEnabled() {
-  return shouldUseMockApi();
+function getSeoulDateKey(value: string | Date) {
+  const date = typeof value === "string" ? new Date(value) : value;
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: SEOUL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function filterTodayMinutePrices(prices: StockPricePoint[]) {
+  const todayKey = getSeoulDateKey(new Date());
+  return prices.filter((price) => getSeoulDateKey(price.timestamp) === todayKey);
+}
+
+function sortAndDedupePrices(prices: Array<StockPricePoint | null>) {
+  const priceMap = new Map<string, StockPricePoint>();
+
+  prices.forEach((price) => {
+    if (price) {
+      priceMap.set(price.timestamp, price);
+    }
+  });
+
+  return Array.from(priceMap.values()).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
 function mapPricePoint(point: StockPriceApiPoint): StockPricePoint | null {
@@ -72,38 +110,6 @@ function mapPricePoint(point: StockPriceApiPoint): StockPricePoint | null {
   };
 }
 
-function isStockPriceArrayPayload(value: unknown): value is StockPricesApiPayload {
-  return typeof value === "object" && value !== null && "prices" in value;
-}
-
-function sortAndDedupePrices(prices: Array<StockPricePoint | null>) {
-  const priceMap = new Map<string, StockPricePoint>();
-
-  prices.forEach((price) => {
-    if (price) {
-      priceMap.set(price.timestamp, price);
-    }
-  });
-
-  return Array.from(priceMap.values()).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-}
-
-function getSeoulDateKey(value: string | Date) {
-  const date = typeof value === "string" ? new Date(value) : value;
-
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function filterTodayMinutePrices(prices: StockPricePoint[]) {
-  const todayKey = getSeoulDateKey(new Date());
-  return prices.filter((price) => getSeoulDateKey(price.timestamp) === todayKey);
-}
-
 function normalizePricePage(payload: StockPricesApiPayload, period: StockChartPeriod): StockPricePage {
   const prices = sortAndDedupePrices((payload.prices ?? []).map(mapPricePoint));
 
@@ -114,80 +120,34 @@ function normalizePricePage(payload: StockPricesApiPayload, period: StockChartPe
   };
 }
 
-function parseSseEventBlock<TPayload>(eventBlock: string) {
-  const lines = eventBlock.split("\n");
-  const dataLines: string[] = [];
+function normalizeQuotePayload(payload: StockQuoteApiPayload): StockQuoteSnapshot {
+  const changeRate =
+    typeof payload.changeRate === "number"
+      ? payload.changeRate
+      : typeof payload.fluctuationRate === "number"
+        ? payload.fluctuationRate
+        : null;
 
-  for (const line of lines) {
-    if (!line || line.startsWith(":")) {
-      continue;
-    }
-
-    if (line.startsWith("data:")) {
-      dataLines.push(line.slice(5).trimStart());
-    }
-  }
-
-  const data = dataLines.join("\n");
-  if (!data) {
-    return null;
-  }
-
-  return camelizeKeys<TPayload>(JSON.parse(data) as unknown);
+  return {
+    currentPrice: typeof payload.currentPrice === "number" ? payload.currentPrice : null,
+    changeRate,
+  };
 }
 
-async function readFirstSseMessage<TPayload>(url: string) {
-  const response = await fetch(resolveApiUrl(url), {
-    method: "GET",
-    headers: {
-      Accept: "text/event-stream",
-    },
-    cache: "no-store",
-    credentials: "same-origin",
-  });
-
-  if (!response.ok || !response.body) {
-    throw new Error(`SSE request failed: ${response.status}`);
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
-      }
-
-      buffer = `${buffer}${decoder.decode(value, { stream: true })}`.replace(/\r\n/g, "\n");
-      const eventBlocks = buffer.split("\n\n");
-      buffer = eventBlocks.pop() ?? "";
-
-      for (const eventBlock of eventBlocks) {
-        const payload = parseSseEventBlock<TPayload>(eventBlock);
-
-        if (payload) {
-          await reader.cancel();
-          return payload;
-        }
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  throw new Error("차트 데이터를 불러오지 못했습니다.");
-}
-
-function getPriceStreamPath(stockId: number, period: StockChartPeriod) {
+function getPricePath(ticker: string, period: StockChartPeriod, cursor?: string | null) {
   const query = new URLSearchParams({
-    period,
+    candle_type: chartPeriodToCandleType[period],
   });
 
-  return `/api/stream/stocks/${stockId}/prices?${query.toString()}`;
+  if (cursor) {
+    query.set("cursor", cursor);
+  }
+
+  return `/api/stocks/${ticker}/prices?${query.toString()}`;
+}
+
+function getQuotePath(ticker: string) {
+  return `/api/stream/stocks/${ticker}/quote`;
 }
 
 function getMockPricePage(ticker: string, period: StockChartPeriod): StockPricePage {
@@ -200,44 +160,61 @@ function getMockPricePage(ticker: string, period: StockChartPeriod): StockPriceP
   };
 }
 
-export async function fetchStockPricePage(
-  ticker: string,
-  stockId: number | null | undefined,
-  period: StockChartPeriod,
-  cursor?: string | null,
-) {
+function getMockQuoteSnapshot(ticker: string): StockQuoteSnapshot {
+  const prices = getMockPricePage(ticker, "1MIN").prices;
+  const latest = prices.at(-1) ?? null;
+  const previous = prices.at(-2) ?? null;
+
+  if (!latest) {
+    return {
+      currentPrice: null,
+      changeRate: null,
+    };
+  }
+
+  const changeRate =
+    previous && previous.close > 0 ? ((latest.close - previous.close) / previous.close) * 100 : null;
+
+  return {
+    currentPrice: latest.close,
+    changeRate,
+  };
+}
+
+export async function fetchStockPricePage(ticker: string, period: StockChartPeriod, cursor?: string | null) {
   if (shouldUseMockApi()) {
     return getMockPricePage(ticker, period);
   }
 
-  if (!stockId) {
-    throw new Error("종목 정보를 불러오는 중입니다.");
-  }
-
-  const streamPath = getPriceStreamPath(stockId, period);
-  const payload = cursor
-    ? await apiFetch<StockPricesApiPayload>(`${streamPath}&cursor=${encodeURIComponent(cursor)}`, {
-        cache: "no-store",
-      })
-    : await readFirstSseMessage<StockPricesApiPayload>(streamPath);
-
-  if (!isStockPriceArrayPayload(payload)) {
-    throw new Error("차트 데이터를 불러오지 못했습니다.");
-  }
+  const payload = await apiFetch<StockPricesApiPayload>(getPricePath(ticker, period, cursor), {
+    cache: "no-store",
+  });
 
   return normalizePricePage(payload, period);
 }
 
-export function subscribeMinutePriceStream(
+export async function fetchStockQuote(ticker: string) {
+  if (shouldUseMockApi()) {
+    return getMockQuoteSnapshot(ticker);
+  }
+
+  const payload = await apiFetch<StockQuoteApiPayload>(`/api/stocks/${ticker}/quote`, {
+    cache: "no-store",
+  });
+
+  return normalizeQuotePayload(payload);
+}
+
+export function subscribeStockQuoteStream(
   ticker: string,
-  stockId: number | null | undefined,
-  handlers: StockMinuteStreamHandlers,
+  handlers: {
+    onMessage: (payload: StockQuoteSnapshot) => void;
+    onError?: (error: Event) => void;
+  },
 ) {
   if (shouldUseMockApi()) {
     const emitSnapshot = () => {
-      handlers.onSnapshot({
-        prices: getMockPricePage(ticker, "1MIN").prices,
-      });
+      handlers.onMessage(getMockQuoteSnapshot(ticker));
     };
 
     emitSnapshot();
@@ -248,22 +225,9 @@ export function subscribeMinutePriceStream(
     };
   }
 
-  if (!stockId) {
-    return () => {};
-  }
-
-  return connectSse<StockPricesApiPayload | StockPriceApiPoint>(getPriceStreamPath(stockId, "1MIN"), {
+  return connectSse<StockQuoteApiPayload>(getQuotePath(ticker), {
     onMessage(payload) {
-      if (isStockPriceArrayPayload(payload)) {
-        const page = normalizePricePage(payload, "1MIN");
-        handlers.onSnapshot({ prices: page.prices });
-        return;
-      }
-
-      const point = mapPricePoint(payload);
-      if (point && getSeoulDateKey(point.timestamp) === getSeoulDateKey(new Date())) {
-        handlers.onPoint(point);
-      }
+      handlers.onMessage(normalizeQuotePayload(payload));
     },
     onError: handlers.onError,
   });

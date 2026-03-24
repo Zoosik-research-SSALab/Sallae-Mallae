@@ -9,6 +9,7 @@ import { useStockIndicatorsQuery } from "./hooks/useStockIndicatorsQuery";
 import { useStockKeywordsQuery } from "./hooks/useStockKeywordsQuery";
 import { useStockOverviewQuery } from "./hooks/useStockOverviewQuery";
 import { useStockPriceStream } from "./hooks/useStockPriceStream";
+import { useStockQuoteStream } from "./hooks/useStockQuoteStream";
 import StockAnnouncementsSection from "./components/StockAnnouncementsSection";
 import StockDetailTopBar from "./components/StockDetailTopBar";
 import StockFinancialSection from "./components/StockFinancialSection";
@@ -30,30 +31,34 @@ export default function StockDetailPageClient({ ticker }: Props) {
   const financialsQuery = useStockFinancialsQuery(ticker, financialType);
   const keywordsQuery = useStockKeywordsQuery(ticker);
   const announcementsQuery = useStockAnnouncementsQuery(ticker, 4, 0);
-  const stockId = overviewQuery.data?.id;
-  const chartPriceStream = useStockPriceStream(ticker, stockId, chartPeriod);
-  const minutePriceStream = useStockPriceStream(ticker, stockId, "1MIN", {
-    enabled: chartPeriod !== "1MIN",
-  });
+  const chartPriceStream = useStockPriceStream(ticker, chartPeriod);
+  const quoteStream = useStockQuoteStream(ticker);
 
-  const livePriceStream = chartPeriod === "1MIN" ? chartPriceStream : minutePriceStream;
   const currentPrice = useMemo(() => {
-    const latestClose = getLatestClose(livePriceStream.data.prices);
+    if (typeof quoteStream.data.currentPrice === "number" && quoteStream.data.currentPrice > 0) {
+      return quoteStream.data.currentPrice;
+    }
+
+    const latestClose = getLatestClose(chartPriceStream.data.prices);
 
     if (latestClose > 0) {
       return latestClose;
     }
 
     return overviewQuery.data?.latestPrice?.closePrice ?? 0;
-  }, [livePriceStream.data.prices, overviewQuery.data?.latestPrice?.closePrice]);
+  }, [chartPriceStream.data.prices, overviewQuery.data?.latestPrice?.closePrice, quoteStream.data.currentPrice]);
 
   const changeRate = useMemo(() => {
-    if (livePriceStream.data.prices.length >= 2) {
-      return getChangeRate(livePriceStream.data.prices);
+    if (typeof quoteStream.data.changeRate === "number") {
+      return quoteStream.data.changeRate;
+    }
+
+    if (chartPeriod === "1MIN" && chartPriceStream.data.prices.length >= 2) {
+      return getChangeRate(chartPriceStream.data.prices);
     }
 
     return overviewQuery.data?.latestPrice?.fluctuationRate ?? 0;
-  }, [livePriceStream.data.prices, overviewQuery.data?.latestPrice?.fluctuationRate]);
+  }, [chartPeriod, chartPriceStream.data.prices, overviewQuery.data?.latestPrice?.fluctuationRate, quoteStream.data.changeRate]);
 
   const isOverviewPending = overviewQuery.isLoading || Boolean(overviewQuery.error) || !overviewQuery.data;
   const isChartPending = chartPriceStream.isLoading || (!chartPriceStream.data.prices.length && Boolean(chartPriceStream.error));
