@@ -43,6 +43,7 @@ import pandas as pd
 from config import AI_DB_URL, DATA_DIR, OUTPUT_DIR, TITLE_ONLY_NAMES
 from db import get_session
 from models import Base, Keyword, NewsKeywordMap, Stock, StockNews, StockNewsMap
+from utils.url_normalizer import normalize_news_url
 
 logger = logging.getLogger(__name__)
 
@@ -186,18 +187,19 @@ def bulk_load_to_db(df: pd.DataFrame) -> dict[str, int]:
                 if stock:
                     stock_cache[code] = stock
 
-            # 기존 URL 캐시 (중복 방지)
+            # 기존 URL 캐시 (정규화된 URL 기준 중복 방지)
             existing_urls = set()
-            urls_in_df = df["article_url"].dropna().unique().tolist() if "article_url" in df.columns else []
-            if urls_in_df:
+            raw_urls = df["article_url"].dropna().unique().tolist() if "article_url" in df.columns else []
+            norm_urls = [normalize_news_url(u) for u in raw_urls]
+            if norm_urls:
                 # 배치로 조회 (1000개씩)
-                for i in range(0, len(urls_in_df), 1000):
-                    batch = urls_in_df[i:i + 1000]
+                for i in range(0, len(norm_urls), 1000):
+                    batch = [u for u in norm_urls[i:i + 1000] if u]
                     rows = session.query(StockNews.url).filter(StockNews.url.in_(batch)).all()
                     existing_urls.update(r[0] for r in rows)
 
             for _, row in df.iterrows():
-                url = row.get("article_url", "")
+                url = normalize_news_url(row.get("article_url", ""))
                 code = str(row.get("code", "")).zfill(6) if row.get("code") else None
                 stock = stock_cache.get(code) if code else None
 
@@ -220,7 +222,7 @@ def bulk_load_to_db(df: pd.DataFrame) -> dict[str, int]:
                     stats["skipped"] += 1
                     continue
 
-                # 새 뉴스 삽입
+                # 새 뉴스 삽입 (정규화된 URL로 저장)
                 news = StockNews(
                     title=str(row.get("title", ""))[:255],
                     snippet=str(row.get("body", ""))[:500] if row.get("body") else None,
