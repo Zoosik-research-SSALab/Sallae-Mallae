@@ -381,7 +381,7 @@ class StockApiControllerTest {
   void streamQuote_isPublicAndStartsAsync() throws Exception {
     given(stockQuoteSseService.streamQuote(anyString(), anyString()))
         .willReturn(new org.springframework.web.servlet.mvc.method.annotation.SseEmitter());
-    mockMvc.perform(get("/api/stocks/{ticker}/quote", "005930"))
+    mockMvc.perform(get("/api/stream/stocks/{ticker}/quote", "005930"))
         .andExpect(status().isOk());
   }
 
