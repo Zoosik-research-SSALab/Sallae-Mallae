@@ -14,7 +14,7 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       SELECT sn FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
         AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
-        AND (:startDateTime IS NULL OR sn.publishedAt >= :startDateTime)
+        AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       ORDER BY sn.publishedAt DESC
       """)
@@ -28,7 +28,7 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       SELECT COUNT(sn) FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
         AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
-        AND (:startDateTime IS NULL OR sn.publishedAt >= :startDateTime)
+        AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       """)
   long countAllNews(
@@ -44,7 +44,7 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
                     JOIN NewsKeywordMap nkm ON nkm.id.newsId = sn3.id
                     JOIN Keyword k ON nkm.id.keywordId = k.id
                     WHERE sn3.url = sn.url AND k.name = :keyword)
-        AND (:startDateTime IS NULL OR sn.publishedAt >= :startDateTime)
+        AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       ORDER BY sn.publishedAt DESC
       """)
@@ -63,7 +63,7 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
                     JOIN NewsKeywordMap nkm ON nkm.id.newsId = sn3.id
                     JOIN Keyword k ON nkm.id.keywordId = k.id
                     WHERE sn3.url = sn.url AND k.name = :keyword)
-        AND (:startDateTime IS NULL OR sn.publishedAt >= :startDateTime)
+        AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       """)
   long countNewsByKeyword(
