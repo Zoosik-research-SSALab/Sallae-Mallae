@@ -172,6 +172,9 @@ type ConnectSseOptions<TPayload> = {
   useBaseUrl?: boolean;
   headers?: HeadersInit;
   credentials?: RequestCredentials;
+  reconnect?: boolean;
+  reconnectDelayMs?: number;
+  reconnectMaxDelayMs?: number;
 };
 
 function handleSseEvent<TPayload>(eventBlock: string, onMessage: (payload: TPayload) => void) {
@@ -204,46 +207,89 @@ function handleSseEvent<TPayload>(eventBlock: string, onMessage: (payload: TPayl
 export function connectSse<TPayload>(url: string, options: ConnectSseOptions<TPayload>) {
   const controller = new AbortController();
   const headers = new Headers(options.headers);
+  const shouldReconnect = options.reconnect ?? true;
+  const reconnectDelayMs = options.reconnectDelayMs ?? 6_000;
+  const reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? 30_000;
 
   if (!headers.has("Accept")) {
     headers.set("Accept", "text/event-stream");
   }
 
+  const waitForReconnect = (delayMs: number) =>
+    new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        cleanup();
+        resolve();
+      }, delayMs);
+
+      const cleanup = () => {
+        controller.signal.removeEventListener("abort", handleAbort);
+        window.clearTimeout(timer);
+      };
+
+      const handleAbort = () => {
+        cleanup();
+        reject(new DOMException("Aborted", "AbortError"));
+      };
+
+      controller.signal.addEventListener("abort", handleAbort, { once: true });
+    });
+
   void (async () => {
-    try {
-      const response = await fetch(resolveApiUrl(url, options.useBaseUrl), {
-        method: "GET",
-        headers,
-        cache: "no-store",
-        credentials: options.credentials ?? "same-origin",
-        signal: controller.signal,
-      });
+    let reconnectAttempt = 0;
 
-      if (!response.ok || !response.body) {
-        throw new Error(`SSE request failed: ${response.status}`);
-      }
+    while (!controller.signal.aborted) {
+      try {
+        const response = await fetch(resolveApiUrl(url, options.useBaseUrl), {
+          method: "GET",
+          headers,
+          cache: "no-store",
+          credentials: options.credentials ?? "same-origin",
+          signal: controller.signal,
+        });
 
-      options.onOpen?.();
+        if (!response.ok || !response.body) {
+          throw new Error(`SSE request failed: ${response.status}`);
+        }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+        options.onOpen?.();
+        reconnectAttempt = 0;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            throw new Error("SSE stream closed");
+          }
+
+          buffer = `${buffer}${decoder.decode(value, { stream: true })}`.replace(/\r\n/g, "\n");
+          const eventBlocks = buffer.split("\n\n");
+          buffer = eventBlocks.pop() ?? "";
+
+          eventBlocks.forEach((eventBlock) => handleSseEvent(eventBlock, options.onMessage));
+        }
+      } catch {
+        if (controller.signal.aborted) {
           break;
         }
 
-        buffer = `${buffer}${decoder.decode(value, { stream: true })}`.replace(/\r\n/g, "\n");
-        const eventBlocks = buffer.split("\n\n");
-        buffer = eventBlocks.pop() ?? "";
-
-        eventBlocks.forEach((eventBlock) => handleSseEvent(eventBlock, options.onMessage));
-      }
-    } catch {
-      if (!controller.signal.aborted) {
         options.onError?.(new Event("error"));
+
+        if (!shouldReconnect) {
+          break;
+        }
+
+        const delay = Math.min(reconnectDelayMs * (reconnectAttempt + 1), reconnectMaxDelayMs);
+        reconnectAttempt += 1;
+
+        try {
+          await waitForReconnect(delay);
+        } catch {
+          break;
+        }
       }
     }
   })();

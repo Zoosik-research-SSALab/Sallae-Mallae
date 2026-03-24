@@ -90,13 +90,13 @@ function normalizeStockOverview(
   };
 }
 
-export async function getStockOverview(ticker: string) {
+export async function getStockOverview(stockId: string) {
   const [basicInfoPayload, overviewPayload] = await Promise.all([
-    apiFetch<StockBasicInfoApiPayload | StockDetailApiEnvelope<StockBasicInfoApiPayload>>(`/api/stocks/${ticker}`, {
+    apiFetch<StockBasicInfoApiPayload | StockDetailApiEnvelope<StockBasicInfoApiPayload>>(`/api/stocks/${stockId}`, {
       cache: "no-store",
     }),
     apiFetch<StockOverviewApiPayload | StockDetailApiEnvelope<StockOverviewApiPayload>>(
-      `/api/stocks/${ticker}/overview`,
+      `/api/stocks/${stockId}/overview`,
       {
         cache: "no-store",
       },

@@ -3,13 +3,13 @@ import type { StockFinancialType, StockFinancialsPayload } from "@/app/stocks/ty
 import type { StockDetailApiEnvelope } from "./stockDetailApi";
 import { unwrapStockDetailResponse } from "./stockDetailApi";
 
-export async function getStockFinancials(ticker: string, type: StockFinancialType) {
+export async function getStockFinancials(stockId: string, type: StockFinancialType) {
   const query = new URLSearchParams({
     type,
   });
 
   const payload = await apiFetch<StockFinancialsPayload | StockDetailApiEnvelope<StockFinancialsPayload>>(
-    `/api/stocks/${ticker}/financials?${query.toString()}`,
+    `/api/stocks/${stockId}/financials?${query.toString()}`,
     {
       cache: "no-store",
     },

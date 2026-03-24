@@ -257,7 +257,7 @@ function normalizeHeroMetrics(
   const metricValueById = new Map<string, number | null>([
     ["cumulative-return", readNumberOrNull(summary.cumulativeReturn)],
     ["hit-rate", readNumberOrNull(summary.hitRate)],
-    ["alpha-vs-kospi", readNumberOrNull(summary.alphaVsKospi)],
+    ["yesterday_return", readNumberOrNull(summary.yesterdayReturn)],
     ["holding-count", readNumberOrNull(summary.holdingCount)],
   ]);
 

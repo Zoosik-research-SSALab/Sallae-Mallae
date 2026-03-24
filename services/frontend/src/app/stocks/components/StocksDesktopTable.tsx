@@ -6,7 +6,12 @@ import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import { formatPrice } from "@/shared/lib/stockFormatters";
 import type { StockItem, StockRankingMetric } from "../types/stocks";
-import { formatMetricValue, getMetricColumnLabel, getMetricValue, getRateClassName } from "../utils/stockMetrics";
+import {
+  formatMetricValue,
+  getMetricColumnLabel,
+  getMetricValue,
+  getRateClassName,
+} from "../utils/stockMetrics";
 import { rowLayoutTransition } from "../utils/rowLayoutTransition";
 import { formatStockSectorLabel } from "../utils/stockSectorLabels";
 import StockLogo from "./StockLogo";
@@ -77,7 +82,7 @@ export default function StocksDesktopTable({
                 >
                   <div className="flex items-center justify-between gap-6">
                     <Link
-                      href={`/stocks/${item.ticker}`}
+                      href={`/stocks/${item.id}`}
                       className="flex min-w-0 flex-1 items-center justify-between gap-6 rounded-xl px-2 py-1 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-6">

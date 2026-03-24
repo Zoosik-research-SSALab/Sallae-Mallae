@@ -60,7 +60,7 @@ export default function StocksMobileList({
                 >
                   <div className="flex items-center justify-between gap-4">
                     <Link
-                      href={`/stocks/${item.ticker}`}
+                      href={`/stocks/${item.id}`}
                       className="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-2 py-1 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
                     >
                       <div className="typo-body-md min-w-4 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>
@@ -71,7 +71,9 @@ export default function StocksMobileList({
                         <div className="min-w-0 flex-1">
                           <div className="typo-body-sm truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>
                           <div className="mt-1 flex items-center gap-1">
-                            <div className="typo-body-sm font-extrabold text-[color:var(--color-text-primary)]">{formatPrice(item.price)}</div>
+                            <div className="typo-body-sm font-extrabold text-[color:var(--color-text-primary)]">
+                              {formatPrice(item.price)}
+                            </div>
                             <ValueChangeRateText
                               value={item.fluctuationRate}
                               padding="x-none"

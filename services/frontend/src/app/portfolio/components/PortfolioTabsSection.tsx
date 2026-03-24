@@ -44,20 +44,18 @@ function HoldingRows({ items }: { items: PortfolioHolding[] }) {
       </div>
 
       {items.map((item) => (
-        <div
+        <Link
           key={`${item.ticker}-${item.stockId}`}
-          className="grid grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] items-center gap-4 rounded-2xl px-2 py-6 transition-colors hover:bg-[color:var(--color-bg-secondary)]"
+          href={`/portfolio/${item.stockId}`}
+          className="grid grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] items-center gap-4 rounded-2xl px-2 py-6 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg-primary)]"
         >
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] text-xs font-semibold text-[color:var(--color-text-base)]">
               {item.name.slice(0, 2)}
             </div>
-            <Link
-              href={`/stocks/${item.ticker}`}
-              className="min-w-0 truncate text-base font-semibold leading-6 text-[color:var(--color-text-primary)] hover:text-[color:var(--color-text-secondary)]"
-            >
+            <span className="min-w-0 truncate text-base font-semibold leading-6 text-[color:var(--color-text-primary)]">
               {item.name}
-            </Link>
+            </span>
           </div>
           <span className="text-right text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">{formatCurrency(item.buyPrice)}</span>
           <span className="text-right text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">{formatCurrency(item.currentPrice)}</span>
@@ -67,7 +65,7 @@ function HoldingRows({ items }: { items: PortfolioHolding[] }) {
           <span className={cn("text-right text-base font-semibold leading-6", getDeltaTextClassName(item.returnRate))}>
             {formatSignedValue(item.returnRate, 2, "%")}
           </span>
-        </div>
+        </Link>
       ))}
     </>
   );
@@ -92,7 +90,7 @@ function TradeRows({ items }: { items: PortfolioTodayTrade[] }) {
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <Link
-                href={`/stocks/${item.ticker}`}
+                href={`/stocks/${item.stockId}`}
                 className="truncate text-base font-semibold leading-6 text-[color:var(--color-text-primary)] hover:text-[color:var(--color-text-secondary)]"
               >
                 {item.name}
@@ -124,19 +122,20 @@ function TradeRows({ items }: { items: PortfolioTodayTrade[] }) {
 
 function MobileHoldingCards({ items }: { items: PortfolioHolding[] }) {
   return items.map((item) => (
-    <div key={`${item.ticker}-${item.stockId}`} className="border-b border-[color:var(--color-border-secondary)] px-2 py-6 last:border-b-0">
+    <Link
+      key={`${item.ticker}-${item.stockId}`}
+      href={`/portfolio/${item.stockId}`}
+      className="block border-b border-[color:var(--color-border-secondary)] px-2 py-6 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg-primary)] last:border-b-0"
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] text-[10px] font-semibold text-[color:var(--color-text-base)]">
             {item.name.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <Link
-              href={`/stocks/${item.ticker}`}
-              className="block truncate text-sm font-semibold leading-5 text-[color:var(--color-text-primary)] hover:text-[color:var(--color-text-secondary)]"
-            >
+            <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--color-text-primary)]">
               {item.name}
-            </Link>
+            </span>
             <p className="text-[10px] font-medium leading-4 text-[color:var(--color-text-secondary)]">
               {item.holdingDays == null ? "보유일수 정보 없음" : `${item.holdingDays}일째 보유중`}
             </p>
@@ -160,7 +159,7 @@ function MobileHoldingCards({ items }: { items: PortfolioHolding[] }) {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   ));
 }
 
@@ -171,7 +170,7 @@ function MobileTradeCards({ items }: { items: PortfolioTodayTrade[] }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <Link
-              href={`/stocks/${item.ticker}`}
+              href={`/stocks/${item.stockId}`}
               className="truncate text-sm font-semibold leading-5 text-[color:var(--color-text-primary)] hover:text-[color:var(--color-text-secondary)]"
             >
               {item.name}

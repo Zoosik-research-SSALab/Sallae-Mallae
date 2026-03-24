@@ -102,7 +102,7 @@ export default function PortfolioSidebar({ signalSummary, popularSignals, classN
             {popularSignals.map((item) => (
               <Link
                 key={`${item.ticker}-${item.rank}`}
-                href={`/stocks/${item.ticker}`}
+                href={`/report/${item.stockId}`}
                 className="flex items-center justify-between gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-[color:var(--color-bg-secondary)]"
               >
                 <div className="flex min-w-0 items-center gap-3">

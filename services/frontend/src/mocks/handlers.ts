@@ -330,28 +330,24 @@ export const handlers = [
 
   // ── Report ─────────────────────────────────────────────────────────────────
 
-  http.get("/api/report/:stockId", ({ request, params }) => {
-    const { stockId } = params as { stockId: string };
+  http.get("/api/report/:stockId", ({ request }) => {
     const searchParams = new URL(request.url).searchParams;
     const offset = parsePositiveInteger(searchParams.get("offset"), 0);
     const limit = Math.max(1, parsePositiveInteger(searchParams.get("limit"), 6));
 
-    return HttpResponse.json(snakelizeKeys(getMockReportResponse(stockId, offset, limit)));
+    return HttpResponse.json(snakelizeKeys(getMockReportResponse(offset, limit)));
   }),
 
-  http.get("/api/report/:stockId/performance", ({ params }) => {
-    const { stockId } = params as { stockId: string };
-
-    return HttpResponse.json(snakelizeKeys(getMockPerformanceResponse(stockId)));
+  http.get("/api/report/:stockId/performance", () => {
+    return HttpResponse.json(snakelizeKeys(getMockPerformanceResponse()));
   }),
 
-  http.get("/api/report/:stockId/performance/trades", ({ request, params }) => {
-    const { stockId } = params as { stockId: string };
+  http.get("/api/report/:stockId/performance/trades", ({ request }) => {
     const searchParams = new URL(request.url).searchParams;
     const offset = parsePositiveInteger(searchParams.get("offset"), 0);
     const limit = Math.max(1, parsePositiveInteger(searchParams.get("limit"), 10));
 
-    return HttpResponse.json(snakelizeKeys(getMockTradesResponse(stockId, offset, limit)));
+    return HttpResponse.json(snakelizeKeys(getMockTradesResponse(offset, limit)));
   }),
 
   // ── Watchlist ───────────────────────────────────────────────────────────────

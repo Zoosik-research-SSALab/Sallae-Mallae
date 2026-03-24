@@ -19,6 +19,10 @@ type StockPricesApiPayload = {
 };
 
 type StockQuoteApiPayload = {
+  timestamp?: string | null;
+  asOf?: string | null;
+  tradeTime?: string | null;
+  previousClosePrice?: number | null;
   currentPrice?: number | null;
   changeRate?: number | null;
   fluctuationRate?: number | null;
@@ -32,7 +36,10 @@ export type StockPricePage = {
 
 export type StockQuoteSnapshot = {
   currentPrice: number | null;
+  previousClosePrice: number | null;
   changeRate: number | null;
+  tickPrice: number | null;
+  tickTimestamp: string | null;
 };
 
 const chartPeriodToCandleType: Record<StockChartPeriod, "MINUTE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"> = {
@@ -109,14 +116,31 @@ function normalizeQuotePayload(payload: StockQuoteApiPayload): StockQuoteSnapsho
       : typeof payload.fluctuationRate === "number"
         ? payload.fluctuationRate
         : null;
+  const previousClosePrice =
+    typeof payload.previousClosePrice === "number" ? payload.previousClosePrice : null;
+  const tickPrice =
+    typeof payload.currentPrice === "number"
+      ? payload.currentPrice
+      : previousClosePrice;
+  const tickTimestamp =
+    typeof payload.timestamp === "string"
+      ? payload.timestamp
+      : typeof payload.asOf === "string"
+        ? payload.asOf
+        : typeof payload.tradeTime === "string"
+          ? payload.tradeTime
+          : new Date().toISOString();
 
   return {
-    currentPrice: typeof payload.currentPrice === "number" ? payload.currentPrice : null,
+    currentPrice: previousClosePrice ?? tickPrice,
+    previousClosePrice,
     changeRate,
+    tickPrice,
+    tickTimestamp,
   };
 }
 
-function getPricePath(ticker: string, period: StockChartPeriod, cursor?: string | null) {
+function getPricePath(stockId: string, period: StockChartPeriod, cursor?: string | null) {
   const query = new URLSearchParams({
     candle_type: chartPeriodToCandleType[period],
   });
@@ -125,7 +149,7 @@ function getPricePath(ticker: string, period: StockChartPeriod, cursor?: string 
     query.set("cursor", cursor);
   }
 
-  return `/api/stocks/${ticker}/prices?${query.toString()}`;
+  return `/api/stocks/${stockId}/prices?${query.toString()}`;
 }
 
 function getQuotePath(ticker: string) {
@@ -150,7 +174,10 @@ function getMockQuoteSnapshot(ticker: string): StockQuoteSnapshot {
   if (!latest) {
     return {
       currentPrice: null,
+      previousClosePrice: null,
       changeRate: null,
+      tickPrice: null,
+      tickTimestamp: null,
     };
   }
 
@@ -159,16 +186,19 @@ function getMockQuoteSnapshot(ticker: string): StockQuoteSnapshot {
 
   return {
     currentPrice: latest.close,
+    previousClosePrice: previous?.close ?? latest.close,
     changeRate,
+    tickPrice: latest.close,
+    tickTimestamp: latest.timestamp,
   };
 }
 
-export async function fetchStockPricePage(ticker: string, period: StockChartPeriod, cursor?: string | null) {
+export async function fetchStockPricePage(stockId: string, period: StockChartPeriod, cursor?: string | null) {
   if (shouldUseMockApi()) {
-    return getMockPricePage(ticker, period);
+    return getMockPricePage(stockId, period);
   }
 
-  const payload = await apiFetch<StockPricesApiPayload>(getPricePath(ticker, period, cursor), {
+  const payload = await apiFetch<StockPricesApiPayload>(getPricePath(stockId, period, cursor), {
     cache: "no-store",
   });
 

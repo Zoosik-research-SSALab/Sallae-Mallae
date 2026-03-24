@@ -8,6 +8,9 @@ type AuthSseOptions<TPayload> = {
   onError?: (error: Event) => void;
   onOpen?: () => void;
   useBaseUrl?: boolean;
+  reconnect?: boolean;
+  reconnectDelayMs?: number;
+  reconnectMaxDelayMs?: number;
 };
 
 export function authApiFetch<TResponse, TBody = unknown>(
