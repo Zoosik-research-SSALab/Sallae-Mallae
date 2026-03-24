@@ -170,6 +170,69 @@ class NewsServiceImplTest {
     assertThat(result.news()).isEmpty();
   }
 
+  @Test
+  @DisplayName("Redis 캐시 miss 시 DB fallback으로 totalCount 조회")
+  void getNewsList_noKeyword_cacheMiss_fallbackToDb() throws Exception {
+    List<StockNews> rows = List.of(
+        createStockNews(5L, "캐시미스뉴스", null, "YTN", null, NOW));
+
+    String todayKey = "news:total_count:" + LocalDate.now();
+    given(redisTemplate.opsForValue()).willReturn(valueOperations);
+    given(valueOperations.get(todayKey)).willReturn(null);
+    given(stockNewsRepository.findAllNews(isNull(), any(), any()))
+        .willReturn(rows);
+    given(stockNewsRepository.countAllNews(isNull(), any()))
+        .willReturn(100L);
+    given(stockNewsRepository.findStockNamesByNewsIds(List.of(5L)))
+        .willReturn(new ArrayList<>());
+
+    NewsListResponse result = newsService.getNewsList(null, null, LocalDate.now(), 0, 10);
+
+    assertThat(result.totalCount()).isEqualTo(100L);
+    verify(stockNewsRepository).countAllNews(isNull(), any());
+  }
+
+  @Test
+  @DisplayName("과거 endDate 요청 시 Redis 캐시 사용 안 하고 DB 조회")
+  void getNewsList_pastEndDate_noCache() throws Exception {
+    List<StockNews> rows = List.of(
+        createStockNews(6L, "과거뉴스", null, "MBN", null, NOW));
+
+    LocalDate pastEnd = LocalDate.of(2025, 3, 1);
+    given(stockNewsRepository.findAllNews(isNull(), any(), any()))
+        .willReturn(rows);
+    given(stockNewsRepository.countAllNews(isNull(), any()))
+        .willReturn(50L);
+    given(stockNewsRepository.findStockNamesByNewsIds(List.of(6L)))
+        .willReturn(new ArrayList<>());
+
+    NewsListResponse result = newsService.getNewsList(null, null, pastEnd, 0, 10);
+
+    assertThat(result.totalCount()).isEqualTo(50L);
+    verify(stockNewsRepository).countAllNews(isNull(), any());
+  }
+
+  @Test
+  @DisplayName("Redis 캐시에 잘못된 값이 있으면 DB fallback")
+  void getNewsList_invalidCacheValue_fallbackToDb() throws Exception {
+    List<StockNews> rows = List.of(
+        createStockNews(7L, "비정상캐시", null, "KBS", null, NOW));
+
+    String todayKey = "news:total_count:" + LocalDate.now();
+    given(redisTemplate.opsForValue()).willReturn(valueOperations);
+    given(valueOperations.get(todayKey)).willReturn("not_a_number");
+    given(stockNewsRepository.findAllNews(isNull(), any(), any()))
+        .willReturn(rows);
+    given(stockNewsRepository.countAllNews(isNull(), any()))
+        .willReturn(200L);
+    given(stockNewsRepository.findStockNamesByNewsIds(List.of(7L)))
+        .willReturn(new ArrayList<>());
+
+    NewsListResponse result = newsService.getNewsList(null, null, LocalDate.now(), 0, 10);
+
+    assertThat(result.totalCount()).isEqualTo(200L);
+  }
+
   // ── getNewsDetail ─────────────────────────────────────────────────────────
 
   @Test
