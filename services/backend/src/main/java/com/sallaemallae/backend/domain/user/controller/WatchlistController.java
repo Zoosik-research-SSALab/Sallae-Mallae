@@ -5,7 +5,7 @@ import com.sallaemallae.backend.domain.user.dto.request.WatchlistAlertToggleRequ
 import com.sallaemallae.backend.domain.user.dto.response.WatchlistAlertToggleResponse;
 import com.sallaemallae.backend.domain.user.dto.request.WatchlistCreateRequest;
 import com.sallaemallae.backend.domain.user.dto.response.WatchlistListResponse;
-import com.sallaemallae.backend.domain.news.dto.NewsListResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.dto.response.WatchlistRemoveResponse;
 import com.sallaemallae.backend.domain.user.dto.response.WatchlistStatusResponse;
 import com.sallaemallae.backend.domain.user.service.UserService;
@@ -87,7 +87,7 @@ public class WatchlistController {
 
   @Operation(summary = "관심종목 뉴스 조회", description = "관심종목에 등록된 종목들의 뉴스를 키워드/기간 필터와 페이지네이션으로 조회합니다.")
   @GetMapping("/news")
-  public ApiResponse<NewsListResponse> getWatchlistNews(
+  public ApiResponse<WatchlistNewsResponse> getWatchlistNews(
       @Parameter(description = "검색 키워드") @RequestParam(required = false) String keyword,
       @Parameter(description = "시작일 (전체 기간이면 생략)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
       @Parameter(description = "종료일 (기본값: 오늘)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,

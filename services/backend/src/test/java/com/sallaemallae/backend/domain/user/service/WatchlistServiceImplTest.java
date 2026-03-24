@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 
-import com.sallaemallae.backend.domain.news.dto.NewsListResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.news.entity.StockNews;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import java.lang.reflect.Field;
@@ -72,7 +72,7 @@ class WatchlistServiceImplTest {
     given(watchlistRepository.findStockNamesByNewsIds(List.of(20L)))
         .willReturn(stockRows);
 
-    NewsListResponse result = watchlistService.getWatchlistNews(1L, null, null, LocalDate.now(), 0, 10);
+    WatchlistNewsResponse result = watchlistService.getWatchlistNews(1L, null, null, LocalDate.now(), 0, 10);
 
     assertThat(result.totalCount()).isEqualTo(1L);
     assertThat(result.news()).hasSize(1);
@@ -95,7 +95,7 @@ class WatchlistServiceImplTest {
     given(watchlistRepository.findStockNamesByNewsIds(List.of(30L)))
         .willReturn(new ArrayList<>());
 
-    NewsListResponse result = watchlistService.getWatchlistNews(1L, "AI", null, LocalDate.now(), 0, 10);
+    WatchlistNewsResponse result = watchlistService.getWatchlistNews(1L, "AI", null, LocalDate.now(), 0, 10);
 
     assertThat(result.totalCount()).isEqualTo(1L);
     assertThat(result.news()).hasSize(1);
@@ -110,7 +110,7 @@ class WatchlistServiceImplTest {
     given(watchlistRepository.countWatchlistNews(eq(1L), isNull(), any()))
         .willReturn(0L);
 
-    NewsListResponse result = watchlistService.getWatchlistNews(1L, null, null, LocalDate.now(), 0, 10);
+    WatchlistNewsResponse result = watchlistService.getWatchlistNews(1L, null, null, LocalDate.now(), 0, 10);
 
     assertThat(result.totalCount()).isEqualTo(0L);
     assertThat(result.news()).isEmpty();
@@ -135,7 +135,7 @@ class WatchlistServiceImplTest {
     given(watchlistRepository.findStockNamesByNewsIds(List.of(1L, 2L)))
         .willReturn(stockRows);
 
-    NewsListResponse result = watchlistService.getWatchlistNews(1L, null, null, LocalDate.now(), 0, 10);
+    WatchlistNewsResponse result = watchlistService.getWatchlistNews(1L, null, null, LocalDate.now(), 0, 10);
 
     assertThat(result.news()).hasSize(2);
     assertThat(result.news().get(0).relatedStocks()).containsExactly("삼성전자");
@@ -157,7 +157,7 @@ class WatchlistServiceImplTest {
 
     LocalDate start = LocalDate.of(2025, 3, 1);
     LocalDate end = LocalDate.of(2025, 3, 6);
-    NewsListResponse result = watchlistService.getWatchlistNews(1L, null, start, end, 0, 10);
+    WatchlistNewsResponse result = watchlistService.getWatchlistNews(1L, null, start, end, 0, 10);
 
     assertThat(result.totalCount()).isEqualTo(1L);
     assertThat(result.news()).hasSize(1);

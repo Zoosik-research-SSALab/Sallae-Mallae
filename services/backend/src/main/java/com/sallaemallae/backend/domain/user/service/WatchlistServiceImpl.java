@@ -1,8 +1,8 @@
 package com.sallaemallae.backend.domain.user.service;
 
-import com.sallaemallae.backend.domain.news.dto.NewsListItemResponse;
-import com.sallaemallae.backend.domain.news.dto.NewsListResponse;
 import com.sallaemallae.backend.domain.news.entity.StockNews;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistNewsItemResponse;
+import com.sallaemallae.backend.domain.user.dto.response.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.util.OffsetBasedPageRequest;
 import java.time.LocalDate;
@@ -30,7 +30,7 @@ public class WatchlistServiceImpl implements WatchlistService {
 
   // 관심종목 뉴스 목록 조회 (키워드 필터, 기간 필터, 페이지네이션, 관련 종목명 포함)
   @Override
-  public NewsListResponse getWatchlistNews(Long userId, String keyword, LocalDate startDate, LocalDate endDate, int offset, int limit) {
+  public WatchlistNewsResponse getWatchlistNews(Long userId, String keyword, LocalDate startDate, LocalDate endDate, int offset, int limit) {
     OffsetBasedPageRequest pageable = new OffsetBasedPageRequest(offset, limit);
     boolean hasKeyword = keyword != null && !keyword.isBlank();
 
@@ -52,16 +52,18 @@ public class WatchlistServiceImpl implements WatchlistService {
     List<Long> newsIds = rows.stream().map(StockNews::getId).toList();
     Map<Long, List<String>> stockMap = buildStockNameMap(newsIds);
 
-    List<NewsListItemResponse> news = rows.stream()
-        .map(sn -> new NewsListItemResponse(
+    List<WatchlistNewsItemResponse> news = rows.stream()
+        .map(sn -> new WatchlistNewsItemResponse(
             sn.getId(),
             sn.getTitle(),
+            sn.getSnippet(),
+            sn.getUrl(),
             sn.getPublisher(),
             sn.getPublishedAt(),
             stockMap.getOrDefault(sn.getId(), List.of())))
         .toList();
 
-    return new NewsListResponse(totalCount, news);
+    return new WatchlistNewsResponse(totalCount, news);
   }
 
   @Override
