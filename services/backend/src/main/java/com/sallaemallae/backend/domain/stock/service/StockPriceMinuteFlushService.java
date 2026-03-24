@@ -14,7 +14,6 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -35,10 +34,7 @@ public class StockPriceMinuteFlushService {
   private final KisDomesticStockClient kisDomesticStockClient;
   private final KisProperties kisProperties;
 
-  private final AtomicBoolean initialLoadDone = new AtomicBoolean(false);
-
   @Scheduled(cron = "0 * 9-15 * * MON-FRI", zone = "Asia/Seoul")
-  @Transactional
   public void flushMinuteCandles() {
     log.info("Minute candle flush triggered. kisConfigured={}", kisProperties.isConfigured());
 
@@ -54,22 +50,19 @@ public class StockPriceMinuteFlushService {
 
     List<Stock> activeStocks = stockRepository.findAllByIsActiveTrueOrderByNameAsc();
     String marketCode = StockMarketConstants.DOMESTIC_MARKET_CODE;
-    boolean fullLoad = !initialLoadDone.get();
 
     int totalSaved = 0;
     int errors = 0;
 
     for (Stock stock : activeStocks) {
       try {
-        KisMinuteCandleData data;
-        if (fullLoad) {
-          data = kisDomesticStockClient.getAllMinuteCandles(marketCode, stock.getTicker());
-        } else {
-          data = kisDomesticStockClient.getMinuteCandles(marketCode, stock.getTicker());
-        }
-
+        KisMinuteCandleData data = kisDomesticStockClient.getMinuteCandles(marketCode, stock.getTicker());
         int saved = saveCandles(stock.getId(), data.candles());
         totalSaved += saved;
+
+        if (saved > 0) {
+          log.debug("Saved minute candles. ticker={}, saved={}", stock.getTicker(), saved);
+        }
 
         Thread.sleep(60);
       } catch (KisApiException e) {
@@ -85,14 +78,11 @@ public class StockPriceMinuteFlushService {
       }
     }
 
-    if (fullLoad) {
-      initialLoadDone.set(true);
-    }
-
-    log.info("Minute candle flush completed. fullLoad={}, saved={}, errors={}", fullLoad, totalSaved, errors);
+    log.info("Minute candle flush completed. saved={}, errors={}", totalSaved, errors);
   }
 
-  private int saveCandles(Long stockId, List<KisMinuteCandleItem> candles) {
+  @Transactional
+  public int saveCandles(Long stockId, List<KisMinuteCandleItem> candles) {
     OffsetDateTime now = OffsetDateTime.now(KST);
     int saved = 0;
 
