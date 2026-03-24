@@ -1,6 +1,7 @@
 package com.sallaemallae.backend.domain.stock.controller;
 
 import com.sallaemallae.backend.domain.stock.dto.StockBasicInfoResponse;
+import com.sallaemallae.backend.domain.stock.dto.StockPricesResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementDetailResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockAnnouncementsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockDataPipelinePreviewResponse;
@@ -10,12 +11,11 @@ import com.sallaemallae.backend.domain.stock.dto.StockKeywordsResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockListResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockOverviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockPeriodPriceResponse;
-import com.sallaemallae.backend.domain.stock.dto.StockQuoteResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinutePipelinePreviewResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockRealtimeMinuteSnapshotResponse;
 import com.sallaemallae.backend.domain.stock.dto.StockRealtimeSubscriptionResponse;
 import com.sallaemallae.backend.domain.stock.service.StockMarketQueryService;
-import com.sallaemallae.backend.domain.stock.service.StockQuoteSseService;
+import com.sallaemallae.backend.domain.stock.service.StockPriceStreamService;
 import com.sallaemallae.backend.domain.stock.service.StockRealtimeMinuteService;
 import com.sallaemallae.backend.domain.stock.service.StockService;
 import com.sallaemallae.backend.domain.stock.service.StockTopListService;
@@ -27,14 +27,14 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 
 @Tag(name = "Stock Detail", description = "Stock basic info and market data APIs")
 @SecurityRequirements
@@ -46,7 +46,7 @@ public class StockApiController {
   private final StockService stockService;
   private final StockTopListService stockTopListService;
   private final StockMarketQueryService stockMarketQueryService;
-  private final StockQuoteSseService stockQuoteSseService;
+  private final StockPriceStreamService stockPriceStreamService;
   private final StockRealtimeMinuteService stockRealtimeMinuteService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
 
@@ -164,18 +164,26 @@ public class StockApiController {
     return ApiResponse.success(stockService.getStockAnnouncement(stockId, announcementId));
   }
 
-  @Operation(summary = "Stream stock quote via SSE", description = "Realtime stock quote stream. Pushes StockQuoteResponse on every trade tick from KIS WebSocket.")
-  @GetMapping(value = "/{ticker}/quote", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-  public SseEmitter streamQuote(
+  @Operation(
+      summary = "Get stock chart prices with cursor pagination",
+      description = "Primary API for chart rendering. Returns candle data from DB with realtime merge. "
+          + "Allowed candleType: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY. "
+          + "Use cursor for pagination (oldest timestamp from previous response)."
+  )
+  @GetMapping("/{ticker}/prices")
+  public ResponseEntity<StockPricesResponse> getStockPrices(
       @Parameter(description = "Stock ticker", example = "005930")
       @PathVariable String ticker,
-      @Parameter(description = "Market code", example = "J")
-      @RequestParam(defaultValue = "J") String market
+      @Parameter(description = "Candle type: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY", example = "DAILY")
+      @RequestParam(defaultValue = "DAILY") String candleType,
+      @Parameter(description = "Cursor for pagination (oldest date from previous page)", example = "2024-01-01")
+      @RequestParam(required = false) String cursor
   ) {
-    return stockQuoteSseService.streamQuote(ticker, market);
+    Long stockId = stockService.resolveStockId(ticker);
+    return ResponseEntity.ok(stockPriceStreamService.getLatestPrices(stockId, candleType, cursor));
   }
 
-  @Operation(summary = "[Internal] Get period prices", description = "Returns KIS period price candles for the given ticker. Internal use for backfill pipeline — frontend should use /api/stream/stocks/{ticker}/prices instead.", tags = {"Stock Internal"})
+  @Operation(summary = "[Internal] Get period prices", description = "Returns KIS period price candles for the given ticker. Internal use for backfill pipeline — frontend should use /api/stocks/{ticker}/prices instead.", tags = {"Stock Internal"})
   @GetMapping("/{ticker}/period-prices")
   public ApiResponse<StockPeriodPriceResponse> getPeriodPrices(
       @Parameter(description = "Stock ticker", example = "005930")
