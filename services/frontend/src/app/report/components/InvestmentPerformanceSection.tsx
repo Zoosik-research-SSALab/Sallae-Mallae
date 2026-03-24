@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { InvestmentPerformanceResponse, TradeHistoryItem } from "../types/report";
+import { buildTradeSignalEvents } from "../utils/tradeSignals";
 import TradeHistoryModal from "./TradeHistoryModal";
 
 type ChartPeriodKey = "1M" | "3M" | "1Y";
@@ -259,24 +260,26 @@ function buildPerformanceChartData(
   const points = chartSeries.map((item, index) => {
     const x = chartLeft + (index / (chartSeries.length - 1)) * (chartRight - chartLeft);
     const y = chartTop + ((maxClose - item.close) / range) * (chartBottom - chartTop);
-    return { x, y, timestamp: item.timestamp, close: item.close, tradeType: item.tradeType };
+    return { x, y, timestamp: item.timestamp, close: item.close };
   });
 
-  const signalPointsFromPerformance = points
-    .map((point, index) => {
-      if (!point.tradeType) {
+  const pointByTimestamp = new Map(points.map((point) => [point.timestamp, point]));
+  const signalPoints = buildTradeSignalEvents(trades)
+    .map((tradeEvent, index) => {
+      const point = pointByTimestamp.get(tradeEvent.date);
+      if (!point) {
         return null;
       }
+
       return {
-        id: `${point.timestamp}-${point.tradeType}-${index}`,
-        label: point.tradeType === "BUY" ? "B" : "S",
-        tone: point.tradeType === "BUY" ? "buy" : "sell",
+        id: `${tradeEvent.id}-${index}`,
+        label: tradeEvent.signal === "매수" ? "B" : "S",
+        tone: tradeEvent.signal === "매수" ? "buy" : "sell",
         x: point.x,
         y: point.y,
       };
     })
     .filter((value): value is NonNullable<typeof value> => value !== null);
-  const signalPoints = signalPointsFromPerformance;
 
   const step = (chartBottom - chartTop) / 3;
   const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
@@ -286,8 +289,8 @@ function buildPerformanceChartData(
     areaPath: `${linePath} L ${points.at(-1)?.x ?? chartRight} ${chartBottom} L ${points[0]?.x ?? chartLeft} ${chartBottom} Z`,
     gridLines: Array.from({ length: 4 }, (_, index) => chartTop + step * index),
     signalPoints,
-    startLabel: formatMonthLabel(points[0]?.timestamp),
-    endLabel: formatMonthLabel(points.at(-1)?.timestamp),
+    startLabel: formatPeriodLabel(points[0]?.timestamp, selectedPeriod),
+    endLabel: formatPeriodLabel(points.at(-1)?.timestamp, selectedPeriod),
   };
 }
 
@@ -304,7 +307,6 @@ function buildChartSeries(performanceChart: InvestmentPerformanceResponse["chart
     return filteredChart.map((point) => ({
       timestamp: point.date,
       close: point.price,
-      tradeType: point.tradeType,
     }));
   }
 
@@ -356,7 +358,7 @@ function formatPercent(value: number | undefined, withSign = false) {
   return `${sign}${safeValue.toFixed(1)}%`;
 }
 
-function formatMonthLabel(value?: string) {
+function formatPeriodLabel(value: string | undefined, selectedPeriod: ChartPeriodKey) {
   if (!value) {
     return "";
   }
@@ -367,5 +369,9 @@ function formatMonthLabel(value?: string) {
     return value;
   }
 
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+  if (selectedPeriod === "1Y") {
+    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
 }
