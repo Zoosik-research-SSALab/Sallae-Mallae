@@ -17,8 +17,8 @@ public class SignalServiceImpl implements SignalService {
   private final SignalQueryRepository signalQueryRepository;
 
   @Override
-  public SignalListResponse getSignals(String filter, String sort, int offset, int limit) {
-    SignalSupport.SignalQuery query = SignalSupport.SignalQuery.of(filter, sort, offset, limit);
+  public SignalListResponse getSignals(String filter, String marketCap, String sort, int offset, int limit) {
+    SignalSupport.SignalQuery query = SignalSupport.SignalQuery.of(filter, marketCap, sort, offset, limit);
     List<SignalCandidateRow> candidates = signalQueryRepository.findLatestSignalCandidates();
 
     int buyCount = (int) candidates.stream()
@@ -30,6 +30,7 @@ public class SignalServiceImpl implements SignalService {
 
     List<SignalItemResponse> items = candidates.stream()
         .filter(candidate -> query.filter().matches(candidate.signal()))
+        .filter(candidate -> query.marketCapFilter().matches(candidate.marketCap()))
         .sorted(SignalSupport.comparator(query.sort()))
         .skip(query.offset())
         .limit(query.limit())

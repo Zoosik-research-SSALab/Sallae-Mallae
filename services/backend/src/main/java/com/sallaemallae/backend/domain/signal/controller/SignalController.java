@@ -25,6 +25,8 @@ public class SignalController {
   public ApiResponse<SignalListResponse> getSignals(
       @Parameter(description = "신호 필터", example = "ALL")
       @RequestParam(defaultValue = "ALL") String filter,
+      @Parameter(description = "시가총액 필터", example = "large")
+      @RequestParam(required = false, name = "market_cap") String marketCap,
       @Parameter(description = "정렬 기준", example = "LATEST")
       @RequestParam(defaultValue = "LATEST") String sort,
       @Parameter(description = "페이지 오프셋", example = "0")
@@ -32,6 +34,6 @@ public class SignalController {
       @Parameter(description = "페이지 크기", example = "6")
       @RequestParam(defaultValue = "6") int limit
   ) {
-    return ApiResponse.success(signalService.getSignals(filter, sort, offset, limit));
+    return ApiResponse.success(signalService.getSignals(filter, marketCap, sort, offset, limit));
   }
 }
