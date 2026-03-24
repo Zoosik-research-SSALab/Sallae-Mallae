@@ -7,32 +7,32 @@ import PortfolioStockDetailClient from "./PortfolioStockDetailClient";
 import ProtectedPage from "@/shared/components/ProtectedPage";
 
 type PageProps = {
-  params: Promise<{ ticker: string }>;
+  params: Promise<{ stockId: string }>;
 };
 
 export default async function PortfolioStockDetailPage({ params }: PageProps) {
-  const { ticker } = await params;
+  const { stockId } = await params;
   const queryClient = getQueryClient();
 
   await Promise.all([
     queryClient.prefetchQuery({
-      queryKey: ["portfolio-stock", "report", ticker, undefined, undefined],
-      queryFn: () => getStockReport(ticker),
+      queryKey: ["portfolio-stock", "report", stockId, undefined, undefined],
+      queryFn: () => getStockReport(stockId),
     }),
     queryClient.prefetchQuery({
-      queryKey: ["portfolio-stock", "performance", ticker],
-      queryFn: () => getStockPerformance(ticker),
+      queryKey: ["portfolio-stock", "performance", stockId],
+      queryFn: () => getStockPerformance(stockId),
     }),
     queryClient.prefetchQuery({
-      queryKey: ["portfolio-stock", "trades", ticker, undefined, undefined],
-      queryFn: () => getStockTrades(ticker),
+      queryKey: ["portfolio-stock", "trades", stockId, undefined, undefined],
+      queryFn: () => getStockTrades(stockId),
     }),
   ]);
 
   return (
     <ProtectedPage>
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <PortfolioStockDetailClient ticker={ticker} />
+        <PortfolioStockDetailClient stockId={stockId} />
       </HydrationBoundary>
     </ProtectedPage>
   );

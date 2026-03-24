@@ -8,7 +8,7 @@ import TradeHistory from "./components/TradeHistory";
 import ReturnChart from "./components/ReturnChart";
 import BacktestResults from "./components/BacktestResults";
 import CommitteeDiscussion from "./components/CommitteeDiscussion";
-import { useStockOverviewQuery } from "@/app/stocks/[ticker]/hooks/useStockOverviewQuery";
+import { useStockBasicInfoQuery } from "./hooks/useStockBasicInfoQuery";
 import { useStockReportQuery } from "./hooks/useStockReportQuery";
 import { useStockPerformanceQuery } from "./hooks/useStockPerformanceQuery";
 import { useStockTradesQuery } from "./hooks/useStockTradesQuery";
@@ -85,37 +85,37 @@ function calcBacktest(trades: TradeItem[]): {
 }
 
 type Props = {
-  ticker: string;
+  stockId: string;
 };
 
-export default function PortfolioStockDetailClient({ ticker }: Props) {
+export default function PortfolioStockDetailClient({ stockId }: Props) {
   const {
     data: overviewData,
     isLoading: overviewLoading,
     isError: overviewError,
     refetch: refetchOverview,
-  } = useStockOverviewQuery(ticker);
+  } = useStockBasicInfoQuery(stockId);
 
   const {
     data: reportData,
     isLoading: reportLoading,
     isError: reportError,
     refetch: refetchReport,
-  } = useStockReportQuery(ticker);
+  } = useStockReportQuery(stockId);
 
   const {
     data: performanceData,
     isLoading: performanceLoading,
     isError: performanceError,
     refetch: refetchPerformance,
-  } = useStockPerformanceQuery(ticker);
+  } = useStockPerformanceQuery(stockId);
 
   const {
     data: tradesData,
     isLoading: tradesLoading,
     isError: tradesError,
     refetch: refetchTrades,
-  } = useStockTradesQuery(ticker);
+  } = useStockTradesQuery(stockId);
 
   const isLoading = overviewLoading || reportLoading || performanceLoading || tradesLoading;
   const isError = overviewError || reportError || performanceError || tradesError;
@@ -212,8 +212,8 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
   }
 
   const portfolioLabel = "의장 포트폴리오";
-  const stockName = overviewData?.name ?? ticker;
-  const stockTicker = overviewData?.ticker ?? ticker;
+  const stockName = overviewData?.name ?? stockId;
+  const stockTicker = overviewData?.ticker ?? stockId;
   const stockDescription = "";
   const isAiPortfolio = true;
 
