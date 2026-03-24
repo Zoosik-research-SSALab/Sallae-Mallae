@@ -40,12 +40,15 @@ public class StockPriceMinuteFlushService {
   @Scheduled(cron = "0 * 9-15 * * MON-FRI", zone = "Asia/Seoul")
   @Transactional
   public void flushMinuteCandles() {
+    log.info("Minute candle flush triggered. kisConfigured={}", kisProperties.isConfigured());
+
     if (!kisProperties.isConfigured()) {
       return;
     }
 
     LocalTime now = LocalTime.now(KST);
     if (now.isBefore(MARKET_OPEN) || now.isAfter(MARKET_CLOSE)) {
+      log.info("Minute candle flush skipped. outside market hours. now={}", now);
       return;
     }
 
