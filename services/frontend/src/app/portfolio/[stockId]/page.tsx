@@ -1,8 +1,8 @@
+import { cookies } from "next/headers";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getQueryClient } from "@/shared/lib/getQueryClient";
-import { getStockReport } from "./api/getStockReport";
-import { getStockPerformance } from "./api/getStockPerformance";
-import { getStockTrades } from "./api/getStockTrades";
+import { AUTH_ACCESS_TOKEN_COOKIE_NAME } from "@/app/api/auth/utils";
+import { serverGetStockReport, serverGetStockPerformance, serverGetStockTrades } from "./api/serverFetch";
 import PortfolioStockDetailClient from "./PortfolioStockDetailClient";
 import ProtectedPage from "@/shared/components/ProtectedPage";
 
@@ -13,25 +13,31 @@ type PageProps = {
 export default async function PortfolioStockDetailPage({ params }: PageProps) {
   const { stockId } = await params;
   const queryClient = getQueryClient();
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get(AUTH_ACCESS_TOKEN_COOKIE_NAME)?.value;
 
-  await Promise.all([
+  await Promise.allSettled([
     queryClient.prefetchQuery({
       queryKey: ["portfolio-stock", "report", stockId, undefined, undefined],
-      queryFn: () => getStockReport(stockId),
+      queryFn: () => serverGetStockReport(stockId, accessToken),
     }),
     queryClient.prefetchQuery({
       queryKey: ["portfolio-stock", "performance", stockId],
-      queryFn: () => getStockPerformance(stockId),
+      queryFn: () => serverGetStockPerformance(stockId, accessToken),
     }),
     queryClient.prefetchQuery({
       queryKey: ["portfolio-stock", "trades", stockId, undefined, undefined],
-      queryFn: () => getStockTrades(stockId),
+      queryFn: () => serverGetStockTrades(stockId, accessToken),
     }),
   ]);
 
   return (
     <ProtectedPage>
-      <HydrationBoundary state={dehydrate(queryClient)}>
+      <HydrationBoundary
+        state={dehydrate(queryClient, {
+          shouldDehydrateQuery: (query) => query.state.status === "success",
+        })}
+      >
         <PortfolioStockDetailClient stockId={stockId} />
       </HydrationBoundary>
     </ProtectedPage>
