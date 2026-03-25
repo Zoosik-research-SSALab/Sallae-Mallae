@@ -266,15 +266,28 @@ public class KisWebSocketClient {
       Subscription subscription = findSubscription(ack.topic(), ack.ticker())
           .orElse(new Subscription(ack.topic(), StockMarketConstants.DOMESTIC_MARKET_CODE, ack.ticker()));
       touchSubscription(subscription);
-      if (normalizedAck.success()) {
+
+      boolean isUnsubscribeAck = ack.message() != null
+          && ack.message().toUpperCase().contains("UNSUBSCRIBE");
+
+      if (isUnsubscribeAck) {
+        // UNSUBSCRIBE ACK는 구독 캐시에 저장하지 않고, pending future도 완료하지 않음.
+        // unsubscribe 직후 재구독 시 같은 lookupKey의 새 subscription이 등록되어 있을 수 있으므로
+        // UNSUBSCRIBE ACK가 새 구독의 future를 가로채는 것을 방지.
+        acknowledgedSubscriptions.remove(subscription);
+      } else if (normalizedAck.success()) {
         acknowledgedSubscriptions.put(subscription, normalizedAck);
       } else {
         acknowledgedSubscriptions.remove(subscription);
       }
-      CompletableFuture<KisWebSocketSubscriptionAck> pending = pendingAcknowledgements.remove(subscription);
-      if (pending != null && !pending.isDone()) {
-        pending.complete(normalizedAck);
+
+      if (!isUnsubscribeAck) {
+        CompletableFuture<KisWebSocketSubscriptionAck> pending = pendingAcknowledgements.remove(subscription);
+        if (pending != null && !pending.isDone()) {
+          pending.complete(normalizedAck);
+        }
       }
+
       log.info(
           "KIS websocket subscription acknowledged. topic={}, market={}, ticker={}, success={}, message={}",
           normalizedAck.topic(),
