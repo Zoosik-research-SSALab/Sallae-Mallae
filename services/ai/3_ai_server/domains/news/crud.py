@@ -145,6 +145,7 @@ def get_news_by_keyword(
             StockNews.snippet,
             StockNews.url,
             StockNews.published_at,
+            StockNews.publisher,
         )
         .join(NewsKeywordMap, NewsKeywordMap.news_id == StockNews.id)
         .where(NewsKeywordMap.keyword_id.in_(keyword_ids))
@@ -173,6 +174,7 @@ def get_news_by_keyword(
             "snippet": r[2],
             "url": r[3],
             "published_at": r[4],
+            "publisher": r[5],
         }
         for r in rows
     ]
