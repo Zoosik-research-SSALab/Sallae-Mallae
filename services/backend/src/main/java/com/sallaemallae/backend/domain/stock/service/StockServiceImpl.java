@@ -201,8 +201,10 @@ public class StockServiceImpl implements StockService {
     // 3. JSONB 파싱 → DTO 변환
     StockKeywordsResponse response = parseKeywordData(data.getTopKeywords());
 
-    // 4. Redis 캐시 저장
-    stockKeywordsCacheRepository.save(stockId, response);
+    // 4. Redis 캐시 저장 (빈 응답은 캐시하지 않음 — 파싱 실패 시 stale 방지)
+    if (!response.keywords().isEmpty()) {
+      stockKeywordsCacheRepository.save(stockId, response);
+    }
 
     return response;
   }

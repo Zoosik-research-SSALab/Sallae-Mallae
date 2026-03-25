@@ -24,7 +24,7 @@ public class StockKeywordsCacheRepository {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    /** 캐시에서 종목 키워드 데이터 조회 */
+    /** 캐시에서 종목 키워드 데이터 조회 (Redis 장애 시 empty 반환 → DB fallback) */
     public Optional<StockKeywordsResponse> get(Long stockId) {
         try {
             String json = redisTemplate.opsForValue().get(KEY_PREFIX + stockId);
@@ -32,19 +32,19 @@ public class StockKeywordsCacheRepository {
                 return Optional.empty();
             }
             return Optional.of(objectMapper.readValue(json, StockKeywordsResponse.class));
-        } catch (JsonProcessingException e) {
-            log.error("Redis 캐시 역직렬화 실패: stockId={}", stockId, e);
+        } catch (Exception e) {
+            log.warn("Redis 캐시 조회 실패 (DB fallback): stockId={}", stockId, e);
             return Optional.empty();
         }
     }
 
-    /** 캐시에 종목 키워드 데이터 저장 */
+    /** 캐시에 종목 키워드 데이터 저장 (Redis 장애 시 무시) */
     public void save(Long stockId, StockKeywordsResponse data) {
         try {
             String json = objectMapper.writeValueAsString(data);
             redisTemplate.opsForValue().set(KEY_PREFIX + stockId, json, TTL);
-        } catch (JsonProcessingException e) {
-            log.error("Redis 캐시 직렬화 실패: stockId={}", stockId, e);
+        } catch (Exception e) {
+            log.warn("Redis 캐시 저장 실패 (무시): stockId={}", stockId, e);
         }
     }
 }

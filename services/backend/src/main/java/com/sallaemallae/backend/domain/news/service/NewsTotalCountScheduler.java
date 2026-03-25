@@ -36,9 +36,9 @@ public class NewsTotalCountScheduler {
   private static final ZoneId KST = ZoneId.of("Asia/Seoul");
   private static final LocalTime MARKET_CLOSE = LocalTime.of(15, 30);
 
-  /** 마지막으로 신호를 처리한 시각 (중복 처리 방지) */
+  /** 마지막으로 신호를 처리한 시각 (재기동 시 당일 신호를 놓치지 않도록 당일 00:00 초기화) */
   private final AtomicReference<OffsetDateTime> lastProcessedAt =
-      new AtomicReference<>(OffsetDateTime.now(KST));
+      new AtomicReference<>(LocalDate.now(KST).atStartOfDay(KST).toOffsetDateTime());
 
   /** 오늘 이미 갱신했는지 여부 */
   private final AtomicBoolean todayRefreshed = new AtomicBoolean(false);
