@@ -20,11 +20,7 @@ interface ReportsDetailPageClientProps {
 }
 
 export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageClientProps) {
-  const { reports: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReportsQuery(
-    stockId,
-    0,
-    6,
-  );
+  const { reports: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReportsQuery(stockId);
   const overviewQuery = useStockOverviewQuery(stockId);
   const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
   const priceStream = useStockPriceStream(stockId, "1Y");
@@ -53,9 +49,6 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
   const changeText = `${changeRate > 0 ? "+" : ""}${changeRate.toFixed(1)}%`;
   const signalLabel = formatSignalLabel(debateReport?.chairman.signal);
   const createdAt = formatDateTime(debateReport?.createdAt ?? "");
-  const confidence = debateReport ? `${debateReport.chairman.confidence}%` : "-";
-  const verdict = formatSignalLabel(debateReport?.chairman.signal);
-  const verdictQuote = debateReport ? `"${debateReport.chairman.summary}"` : "실제 리포트 데이터가 없습니다.";
   const isMetaLoading = overviewQuery.isLoading || quoteStream.isLoading;
   const metaError =
     overviewQuery.error instanceof Error
@@ -115,7 +108,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
         </section>
 
         {isChairmanReady ? (
-          <ChairmanAnalysisSection verdict={verdict} confidence={confidence} verdictQuote={verdictQuote} />
+          <ChairmanAnalysisSection report={debateReport} />
         ) : (
           <SectionSkeleton className="h-80 w-full max-w-none rounded-none" />
         )}
