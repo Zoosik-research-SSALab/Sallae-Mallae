@@ -60,7 +60,7 @@ export default function PerformanceMetrics({
               style={{ color: pnlColor }}
             >
               {sign}
-              {returnRate.toFixed(2)}%
+              {(returnRate ?? 0).toFixed(2)}%
             </p>
           </div>
 
