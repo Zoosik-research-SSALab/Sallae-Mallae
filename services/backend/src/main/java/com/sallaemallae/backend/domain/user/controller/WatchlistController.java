@@ -15,15 +15,11 @@ import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import lombok.SneakyThrows;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -43,17 +39,11 @@ public class WatchlistController {
   private final WatchlistService watchlistService;
   private final UserService userService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
-  private final ObjectMapper objectMapper;
 
-  @SneakyThrows
-  @Operation(summary = "관심종목 목록 조회 (SSE)", description = "로그인한 사용자의 관심종목 목록을 SSE로 조회합니다.")
-  @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-  public ResponseEntity<String> getWatchlist() {
-    WatchlistListResponse data = userService.getWatchlist(getAuthenticatedUserId());
-    String sseBody = "data: " + objectMapper.writeValueAsString(data) + "\n\n";
-    return ResponseEntity.ok()
-        .contentType(MediaType.TEXT_EVENT_STREAM)
-        .body(sseBody);
+  @Operation(summary = "관심종목 목록 조회", description = "로그인한 사용자의 관심종목 목록을 조회합니다.")
+  @GetMapping
+  public ApiResponse<WatchlistListResponse> getWatchlist() {
+    return ApiResponse.success(userService.getWatchlist(getAuthenticatedUserId()));
   }
 
   @Operation(summary = "관심종목 등록 여부 조회", description = "특정 종목이 관심종목에 등록되어 있는지 확인합니다.")
