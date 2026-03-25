@@ -1,7 +1,16 @@
 import { apiFetch } from "@/shared/lib/apiClient";
 import { getWatchlistNews } from "@/app/scraps/api/getWatchlistNews";
 import type { WatchlistNewsItem } from "@/app/scraps/types/scraps";
-import type { NewsDetail, NewsItem, NewsPayload, NewsQueryParams, NewsRelatedStock, NewsTrendingKeyword, NewsTrendingPayload } from "../types/news";
+import type {
+  NewsDetail,
+  NewsItem,
+  NewsPayload,
+  NewsQueryParams,
+  NewsRelatedStock,
+  NewsTrendingKeyword,
+  NewsTrendingPayload,
+  WatchlistNewsPagePayload,
+} from "../types/news";
 
 type NewsApiEnvelope<T> = {
   success: boolean;
@@ -182,12 +191,13 @@ export async function getTrendingNews() {
   } satisfies NewsTrendingPayload;
 }
 
-export async function getWatchlistNewsPage(params: Pick<NewsQueryParams, "offset" | "limit">) {
+export async function getWatchlistNewsPage(params: Pick<NewsQueryParams, "offset" | "limit" | "keyword" | "startDate" | "endDate">) {
   const payload = await getWatchlistNews(params);
 
   return {
+    totalCount: payload.totalCount,
     news: Array.isArray(payload.news) ? payload.news.map((item) => normalizeWatchlistNewsItem(item)) : [],
-  } satisfies NewsPayload;
+  } satisfies WatchlistNewsPagePayload;
 }
 
 export async function getNewsDetail(newsId: number) {

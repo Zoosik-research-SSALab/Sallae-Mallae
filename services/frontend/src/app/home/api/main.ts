@@ -7,6 +7,12 @@ import type {
   TopStocksPayload,
 } from "../types/main";
 
+type ApiResponse<T> = {
+  success: boolean;
+  data: T;
+  error: unknown | null;
+};
+
 export function subscribeTopStocks(handlers: { onMessage: (payload: TopStocksPayload) => void; onError?: (error: Event) => void }) {
   return connectSse<TopStocksPayload>("/api/stream/main/top-stocks", handlers);
 }
@@ -20,7 +26,15 @@ export function subscribeCategories(handlers: { onMessage: (payload: CategoriesP
 }
 
 export async function getMainNewSignals() {
-  return apiFetch<NewSignalsPayload>("/api/main/new-signals", { cache: "no-store" });
+  const payload = await apiFetch<ApiResponse<NewSignalsPayload> | NewSignalsPayload>("/api/main/new-signals", {
+    cache: "no-store",
+  });
+
+  if (typeof payload === "object" && payload !== null && "data" in payload) {
+    return payload.data;
+  }
+
+  return payload;
 }
 
 export async function getPopularSearches() {

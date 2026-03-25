@@ -27,6 +27,11 @@ export type NewsPayload = {
   news: NewsItem[];
 };
 
+export type WatchlistNewsPagePayload = {
+  totalCount: number;
+  news: NewsItem[];
+};
+
 export type NewsSearchPayload = {
   keywords: string[];
 };
@@ -35,12 +40,17 @@ export type NewsQueryParams = {
   offset: number;
   limit: number;
   keyword: string;
+  startDate?: string;
+  endDate?: string;
 };
 
 export type NewsTab = "LATEST" | "WATCHLIST";
-export type NewsSortOption = "LATEST" | "RELEVANCE" | "POPULAR";
 export type NewsPeriodOption = "WEEK" | "MONTH" | "QUARTER";
-export type NewsPeriodFilter = NewsPeriodOption | null;
+export type NewsDateRange = {
+  preset: NewsPeriodOption | null;
+  startDate: string | null;
+  endDate: string | null;
+};
 
 export type NewsTrendingKeyword = {
   rank: number;

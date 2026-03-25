@@ -1,5 +1,6 @@
-import type { NewsItem, NewsPeriodFilter, NewsSortOption, NewsTab, NewsTrendingKeyword } from "../types/news";
-import { getMockNewsSeeds, WATCHLIST_NEWS_STOCKS } from "./mockNewsData";
+import type { NewsItem, NewsTab, NewsTrendingKeyword } from "../types/news";
+import { WATCHLIST_NEWS_STOCKS } from "./mockNewsData";
+import { parseNewsDateInputValue } from "./newsDateUtils";
 import { normalizeNewsKeyword } from "./newsQueryUtils";
 
 const watchlistStockSet = new Set(WATCHLIST_NEWS_STOCKS);
@@ -95,39 +96,24 @@ export function filterNewsByTab(items: NewsItem[], tab: NewsTab) {
   return items.filter((item) => item.relatedStocks.some((stock) => watchlistStockSet.has(stock)));
 }
 
-export function filterNewsByPeriod(items: NewsItem[], period: NewsPeriodFilter) {
-  if (period === null) {
+export function filterNewsByDateRange(items: NewsItem[], startDate: string | null, endDate: string | null) {
+  const parsedStartDate = parseNewsDateInputValue(startDate);
+  const parsedEndDate = parseNewsDateInputValue(endDate);
+
+  if (!parsedStartDate && !parsedEndDate) {
     return items;
   }
 
-  const periodDays = period === "WEEK" ? 7 : period === "MONTH" ? 30 : 90;
-  const threshold = Date.now() - periodDays * 24 * 60 * 60 * 1000;
+  const startThreshold = parsedStartDate
+    ? new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), parsedStartDate.getDate(), 0, 0, 0, 0).getTime()
+    : Number.NEGATIVE_INFINITY;
+  const endThreshold = parsedEndDate
+    ? new Date(parsedEndDate.getFullYear(), parsedEndDate.getMonth(), parsedEndDate.getDate(), 23, 59, 59, 999).getTime()
+    : Number.POSITIVE_INFINITY;
 
   return items.filter((item) => {
     const publishedTimestamp = getPublishedTimestamp(item.publishedAt);
-    return publishedTimestamp === 0 || publishedTimestamp >= threshold;
-  });
-}
-
-export function sortNewsItems(items: NewsItem[], sort: NewsSortOption, keyword: string) {
-  const popularityMap =
-    sort === "POPULAR" ? new Map(getMockNewsSeeds().map((seed) => [seed.id, seed.views])) : new Map<number, number>();
-
-  return [...items].sort((left, right) => {
-    if (sort === "POPULAR") {
-      const rightViews = popularityMap.get(right.id) ?? right.id * 97;
-      const leftViews = popularityMap.get(left.id) ?? left.id * 97;
-      return rightViews - leftViews;
-    }
-
-    if (sort === "RELEVANCE") {
-      const relevanceDiff = getRelevanceScore(right, keyword) - getRelevanceScore(left, keyword);
-      if (relevanceDiff !== 0) {
-        return relevanceDiff;
-      }
-    }
-
-    return getPublishedTimestamp(right.publishedAt) - getPublishedTimestamp(left.publishedAt);
+    return publishedTimestamp === 0 || (publishedTimestamp >= startThreshold && publishedTimestamp <= endThreshold);
   });
 }
 

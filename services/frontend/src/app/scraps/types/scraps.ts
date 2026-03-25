@@ -30,6 +30,7 @@ export type WatchlistNewsItem = {
 };
 
 export type WatchlistNewsPayload = {
+  totalCount: number;
   news: WatchlistNewsItem[];
 };
 
