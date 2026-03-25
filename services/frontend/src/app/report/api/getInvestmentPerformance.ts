@@ -1,6 +1,15 @@
 import { apiFetch } from "@/shared/lib/apiClient";
 import type { InvestmentPerformanceResponse } from "../types/report";
 
+type ApiEnvelope<T> = {
+  success: boolean;
+  data: T | null;
+  error: {
+    code?: string;
+    message?: string;
+  } | null;
+};
+
 function isInvestmentPerformanceResponse(value: unknown): value is InvestmentPerformanceResponse {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
@@ -24,10 +33,17 @@ export async function getInvestmentPerformance(stockId: string): Promise<Investm
 
   console.info("[report/performance] request", { stockId, requestUrl });
 
-  const response = await apiFetch<InvestmentPerformanceResponse>(requestUrl, {
+  const payload = await apiFetch<ApiEnvelope<InvestmentPerformanceResponse>>(requestUrl, {
     cache: "no-store",
     withAuth: true,
   });
+
+  if (!payload.success || !payload.data) {
+    console.error("[report/performance] invalid envelope", payload);
+    throw new Error(payload.error?.message ?? "성과 응답이 비어 있습니다.");
+  }
+
+  const response = payload.data;
 
   if (!isInvestmentPerformanceResponse(response)) {
     console.error("[report/performance] unexpected payload", response);
