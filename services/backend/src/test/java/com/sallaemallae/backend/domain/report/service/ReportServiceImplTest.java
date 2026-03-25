@@ -9,6 +9,9 @@ import com.sallaemallae.backend.domain.report.dto.PerformanceResponse;
 import com.sallaemallae.backend.domain.report.dto.ReportHistoryItemResponse;
 import com.sallaemallae.backend.domain.report.entity.AiDebateReport;
 import com.sallaemallae.backend.domain.report.enumtype.AiSignal;
+import com.sallaemallae.backend.domain.signal.entity.AiPortfolioHolding;
+import com.sallaemallae.backend.domain.signal.entity.AiTradingHistory;
+import com.sallaemallae.backend.domain.signal.enumtype.TradeType;
 import com.sallaemallae.backend.domain.report.repository.AiDebateReportRepository;
 import com.sallaemallae.backend.domain.signal.entity.AiPortfolio;
 import com.sallaemallae.backend.domain.signal.repository.AiPortfolioHoldingRepository;
@@ -78,6 +81,52 @@ class ReportServiceImplTest {
 
     assertThat(response.chart()).extracting(PerformanceResponse.ChartPoint::date)
         .containsExactly(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 2));
+  }
+
+  @Test
+  @DisplayName("performance는 누적 수익률과 최근 1년 평균 수익률을 계산해 반환한다")
+  void getPerformance_returnsCumulativeAndAverageReturn1y() {
+    given(stockRepository.existsByIdAndIsActiveTrue(1L)).willReturn(true);
+
+    AiPortfolio portfolio = org.mockito.Mockito.mock(AiPortfolio.class);
+    given(portfolio.getId()).willReturn(10L);
+    given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
+
+    AiPortfolioHolding holding = org.mockito.Mockito.mock(AiPortfolioHolding.class);
+    given(holding.getInvestmentAmount()).willReturn(1_000_000L);
+    given(holding.getEvaluationProfit()).willReturn(80_000L);
+    given(holding.getReturnRate()).willReturn(8.0f);
+    given(holding.getBuyDate()).willReturn(OffsetDateTime.now().minusDays(20));
+    given(holding.getAvgBuyPrice()).willReturn(50_000);
+    given(holding.getCurrentPrice()).willReturn(54_000);
+    given(holding.getHoldingQuantity()).willReturn(10L);
+    given(aiPortfolioHoldingRepository.findByPortfolioIdAndStockId(10L, 1L)).willReturn(Optional.of(holding));
+
+    AiTradingHistory recentSell = org.mockito.Mockito.mock(AiTradingHistory.class);
+    given(recentSell.getTradeType()).willReturn(TradeType.SELL);
+    given(recentSell.getRealizedProfit()).willReturn(120_000L);
+    given(recentSell.getReturnRate()).willReturn(12.0f);
+    given(recentSell.getTradeTime()).willReturn(OffsetDateTime.now().minusMonths(2));
+
+    AiTradingHistory recentBuy = org.mockito.Mockito.mock(AiTradingHistory.class);
+    given(recentBuy.getTradeType()).willReturn(TradeType.BUY);
+    given(recentBuy.getTradeAmount()).willReturn(1_000_000L);
+    given(recentBuy.getTradeTime()).willReturn(OffsetDateTime.now().minusMonths(3));
+
+    AiTradingHistory oldSell = org.mockito.Mockito.mock(AiTradingHistory.class);
+    given(oldSell.getTradeType()).willReturn(TradeType.SELL);
+    given(oldSell.getRealizedProfit()).willReturn(50_000L);
+    given(oldSell.getReturnRate()).willReturn(20.0f);
+    given(oldSell.getTradeTime()).willReturn(OffsetDateTime.now().minusYears(2));
+
+    given(aiTradingHistoryRepository.findByPortfolioIdAndStockIdOrderByTradeTimeDesc(10L, 1L))
+        .willReturn(List.of(recentSell, recentBuy, oldSell));
+    given(stockPriceDailyRepository.findByStockIdOrderByTradeDateAsc(1L)).willReturn(List.of());
+
+    PerformanceResponse response = reportService.getPerformance(1L);
+
+    assertThat(response.cumulativeReturn()).isEqualTo(25.0f);
+    assertThat(response.averageReturn1y()).isEqualTo(12.0f);
   }
 
   @Test

@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Objects;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -102,13 +103,13 @@ public class ReportServiceImpl implements ReportService {
         ))
         .toList();
 
-    Float cumulativeReturn = holding.map(AiPortfolioHolding::getReturnRate)
-        .orElseGet(() -> latestTradeReturn(trades));
+    Float cumulativeReturn = calculateCumulativeStockReturn(holding.orElse(null), trades);
+    Float averageReturn1y = calculateAverageReturn1y(trades);
     Float recentReturn = latestTradeReturn(trades);
     float winRate = calculateWinRatePercent(trades);
     Holding holdingInfo = holding.map(value -> toHolding(value, trades, latestPrice(priceHistory))).orElse(null);
 
-    return new PerformanceResponse(cumulativeReturn, winRate, recentReturn, holdingInfo, chart);
+    return new PerformanceResponse(cumulativeReturn, averageReturn1y, winRate, recentReturn, holdingInfo, chart);
   }
 
   // REPORT-004: 종목별 AI 매매 내역 조회 (페이지네이션)
@@ -422,6 +423,55 @@ public class ReportServiceImpl implements ReportService {
         .filter(Objects::nonNull)
         .findFirst()
         .orElse(null);
+  }
+
+  private Float calculateCumulativeStockReturn(AiPortfolioHolding holding, List<AiTradingHistory> trades) {
+    long totalBuyAmount = trades.stream()
+        .filter(trade -> trade.getTradeType() != null && "BUY".equals(trade.getTradeType().name()))
+        .map(AiTradingHistory::getTradeAmount)
+        .filter(Objects::nonNull)
+        .mapToLong(Long::longValue)
+        .sum();
+
+    if (totalBuyAmount <= 0 && holding != null && holding.getInvestmentAmount() != null) {
+      totalBuyAmount = holding.getInvestmentAmount();
+    }
+
+    long realizedProfit = trades.stream()
+        .filter(trade -> trade.getTradeType() != null && "SELL".equals(trade.getTradeType().name()))
+        .map(AiTradingHistory::getRealizedProfit)
+        .filter(Objects::nonNull)
+        .mapToLong(Long::longValue)
+        .sum();
+    long unrealizedProfit = holding != null && holding.getEvaluationProfit() != null
+        ? holding.getEvaluationProfit()
+        : 0L;
+
+    if (totalBuyAmount <= 0) {
+      return holding != null ? holding.getReturnRate() : latestTradeReturn(trades);
+    }
+
+    return ((float) (realizedProfit + unrealizedProfit) * 100.0f) / totalBuyAmount;
+  }
+
+  private Float calculateAverageReturn1y(List<AiTradingHistory> trades) {
+    OffsetDateTime threshold = OffsetDateTime.now().minus(1, ChronoUnit.YEARS);
+    List<Float> realizedReturns = trades.stream()
+        .filter(trade -> trade.getTradeType() != null && "SELL".equals(trade.getTradeType().name()))
+        .filter(trade -> trade.getTradeTime() != null && !trade.getTradeTime().isBefore(threshold))
+        .map(AiTradingHistory::getReturnRate)
+        .filter(Objects::nonNull)
+        .toList();
+
+    if (realizedReturns.isEmpty()) {
+      return null;
+    }
+
+    float sum = 0f;
+    for (Float realizedReturn : realizedReturns) {
+      sum += realizedReturn;
+    }
+    return sum / realizedReturns.size();
   }
 
   private Integer latestPrice(List<StockPriceDaily> priceHistory) {
