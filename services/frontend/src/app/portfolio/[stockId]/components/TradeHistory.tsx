@@ -33,8 +33,8 @@ function StatusBadge({ status }: { status: TradeEntry["status"] }) {
   );
 }
 
-function formatPrice(n: number) {
-  return n.toLocaleString("ko-KR") + "원";
+function formatPrice(n: number | undefined | null) {
+  return (n ?? 0).toLocaleString("ko-KR") + "원";
 }
 
 export default function TradeHistory({ trades }: Props) {

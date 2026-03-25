@@ -83,7 +83,7 @@ export default function BacktestResults({
                 매수 단가
               </p>
               <p className="typo-body-lg font-semibold text-text-primary">
-                {bestTrade.buyPrice.toLocaleString()}원
+                {(bestTrade.buyPrice ?? 0).toLocaleString()}원
               </p>
             </div>
             <div
@@ -99,7 +99,7 @@ export default function BacktestResults({
                 매도 단가
               </p>
               <p className="typo-body-lg font-semibold text-text-primary">
-                {bestTrade.sellPrice.toLocaleString()}원
+                {(bestTrade.sellPrice ?? 0).toLocaleString()}원
               </p>
             </div>
           </div>
