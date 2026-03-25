@@ -21,6 +21,7 @@ from domains.debate.models import (
 def get_target_stocks(
     db: Session,
     report_date: date,
+    debate_version: str,
     market_type: str,
     stock_ids: tuple[int, ...] | None,
     limit: int | None,
@@ -56,11 +57,18 @@ def get_target_stocks(
         .where(NewsAgentStockData.report_date == report_date)
         .exists()
     )
+    debate_missing = ~(
+        select(AiDebateReport.id)
+        .where(AiDebateReport.stock_id == DebateStock.id)
+        .where(AiDebateReport.report_date == report_date)
+        .where(AiDebateReport.debate_version == debate_version)
+        .exists()
+    )
     stmt: Select[tuple[DebateStock]] = (
         select(DebateStock)
         .where(DebateStock.is_active.is_(True))
         .where(DebateStock.market_type == market_type)
-        .where(and_(news_exists, ensemble_exists, lgbm_exists, tft_exists, garch_exists))
+        .where(and_(news_exists, ensemble_exists, lgbm_exists, tft_exists, garch_exists, debate_missing))
         .order_by(DebateStock.ticker.asc())
     )
     if stock_ids:
@@ -75,6 +83,7 @@ def get_target_stocks(
 def get_target_stocks_by_trading_history(
     db: Session,
     report_date: date,
+    debate_version: str,
     market_type: str,
     portfolio_id: int | None,
     stock_ids: tuple[int, ...] | None,
@@ -110,13 +119,20 @@ def get_target_stocks_by_trading_history(
         .where(NewsAgentStockData.report_date == report_date)
         .exists()
     )
+    debate_missing = ~(
+        select(AiDebateReport.id)
+        .where(AiDebateReport.stock_id == DebateStock.id)
+        .where(AiDebateReport.report_date == report_date)
+        .where(AiDebateReport.debate_version == debate_version)
+        .exists()
+    )
     stmt: Select[tuple[DebateStock]] = (
         select(DebateStock)
         .join(AiTradingHistory, AiTradingHistory.stock_id == DebateStock.id)
         .where(DebateStock.is_active.is_(True))
         .where(DebateStock.market_type == market_type)
         .where(func.date(AiTradingHistory.trade_time) == report_date)
-        .where(and_(news_exists, ensemble_exists, lgbm_exists, tft_exists, garch_exists))
+        .where(and_(news_exists, ensemble_exists, lgbm_exists, tft_exists, garch_exists, debate_missing))
         .order_by(DebateStock.ticker.asc())
         .distinct()
     )

@@ -32,6 +32,7 @@ class DebateApiClient:
         self,
         *,
         report_date: date,
+        debate_version: str,
         source: str,
         market_type: str,
         portfolio_id: int | None,
@@ -40,6 +41,7 @@ class DebateApiClient:
     ) -> DebateTargetsResponse:
         query_params: list[tuple[str, Any]] = [
             ("report_date", report_date.isoformat()),
+            ("debate_version", debate_version),
             ("source", source),
             ("market_type", market_type),
         ]

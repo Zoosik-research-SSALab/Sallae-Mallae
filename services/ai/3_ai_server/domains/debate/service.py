@@ -30,6 +30,7 @@ def get_debate_targets(
     db: Session,
     *,
     report_date: date,
+    debate_version: str,
     market_type: str = "KOSPI",
     source: str = "trading_history",
     portfolio_id: int | None = None,
@@ -41,6 +42,7 @@ def get_debate_targets(
         stocks = crud.get_target_stocks_by_trading_history(
             db,
             report_date=report_date,
+            debate_version=debate_version,
             market_type=market_type,
             portfolio_id=portfolio_id,
             stock_ids=stock_ids,
@@ -50,6 +52,7 @@ def get_debate_targets(
         stocks = crud.get_target_stocks(
             db,
             report_date=report_date,
+            debate_version=debate_version,
             market_type=market_type,
             stock_ids=stock_ids,
             limit=limit,

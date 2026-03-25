@@ -24,7 +24,7 @@ class FakeApiClient:
     def __init__(self):
         self.post_calls = 0
 
-    def get_targets(self, *, report_date, source, market_type, portfolio_id, stock_ids, limit):
+    def get_targets(self, *, report_date, debate_version, source, market_type, portfolio_id, stock_ids, limit):
         return DebateTargetsResponse(
             report_date=report_date,
             source=source,

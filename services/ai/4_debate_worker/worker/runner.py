@@ -78,6 +78,7 @@ class DebateWorkerRunner:
 
         targets = self.api_client.get_targets(
             report_date=report_date,
+            debate_version=options.debate_version,
             source=options.source,
             market_type=options.market_type,
             portfolio_id=options.portfolio_id,
