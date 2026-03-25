@@ -7,7 +7,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,25 +38,16 @@ public class StockKeywordsCacheScheduler {
     private final AtomicReference<OffsetDateTime> lastProcessedAt =
         new AtomicReference<>(LocalDate.now(KST).atStartOfDay(KST).toOffsetDateTime());
 
-    /** 오늘 이미 캐시를 갱신했는지 여부 */
-    private final AtomicBoolean todayEvicted = new AtomicBoolean(false);
-
     /**
-     * 5분마다 실행되지만, 장마감 이후 + 아직 미처리 상태일 때만 실제 폴링한다.
-     * 신호 감지 후 캐시 삭제하면 다음 장마감까지 휴면.
+     * 5분마다 실행. 장마감 이후에만 폴링하며, 같은 날 재처리 신호도 반영한다.
+     * lastProcessedAt 이후 새 신호가 있을 때마다 캐시를 삭제한다.
      */
     @Scheduled(fixedRate = 300_000)
     public void evictKeywordsCache() {
         ZonedDateTime now = ZonedDateTime.now(KST);
 
-        // 장마감 전이면 todayEvicted 리셋 후 스킵
+        // 장마감 전이면 스킵
         if (now.toLocalTime().isBefore(MARKET_CLOSE)) {
-            todayEvicted.set(false);
-            return;
-        }
-
-        // 오늘 이미 처리했으면 스킵
-        if (todayEvicted.get()) {
             return;
         }
 
@@ -77,7 +67,5 @@ public class StockKeywordsCacheScheduler {
         }
 
         lastProcessedAt.set(now.toOffsetDateTime());
-        todayEvicted.set(true);
-        log.info("[키워드 캐시] 다음 장마감까지 휴면");
     }
 }

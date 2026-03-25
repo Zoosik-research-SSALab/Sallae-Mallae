@@ -7,7 +7,6 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,22 +39,16 @@ public class NewsTotalCountScheduler {
   private final AtomicReference<OffsetDateTime> lastProcessedAt =
       new AtomicReference<>(LocalDate.now(KST).atStartOfDay(KST).toOffsetDateTime());
 
-  /** 오늘 이미 갱신했는지 여부 */
-  private final AtomicBoolean todayRefreshed = new AtomicBoolean(false);
-
-  /** 5분마다 실행 — 장마감 이후 + 미처리 시에만 폴링 */
+  /**
+   * 5분마다 실행. 장마감 이후에만 폴링하며, 같은 날 재처리 신호도 반영한다.
+   * lastProcessedAt 이후 새 신호가 있을 때마다 기사 수를 갱신한다.
+   */
   @Scheduled(fixedRate = 300_000)
   public void refreshTotalCount() {
     ZonedDateTime now = ZonedDateTime.now(KST);
 
-    // 장마감 전이면 리셋 후 스킵
+    // 장마감 전이면 스킵
     if (now.toLocalTime().isBefore(MARKET_CLOSE)) {
-      todayRefreshed.set(false);
-      return;
-    }
-
-    // 오늘 이미 처리했으면 스킵
-    if (todayRefreshed.get()) {
       return;
     }
 
@@ -75,7 +68,5 @@ public class NewsTotalCountScheduler {
     log.info("[뉴스 카운트] NEWS_PIPELINE_DONE 감지 → Redis 갱신 완료: {} = {}", redisKey, totalCount);
 
     lastProcessedAt.set(nowOffset);
-    todayRefreshed.set(true);
-    log.info("[뉴스 카운트] 다음 장마감까지 휴면");
   }
 }
