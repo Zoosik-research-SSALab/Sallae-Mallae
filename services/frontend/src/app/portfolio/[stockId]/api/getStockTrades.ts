@@ -1,6 +1,8 @@
 import type { TradesResponse } from "../types/api";
 import { apiFetch } from "@/shared/lib/apiClient";
 
+type ApiEnvelope<T> = { success: boolean; data: T; error: unknown };
+
 export async function getStockTrades(
   stockId: string,
   offset?: number,
@@ -13,9 +15,15 @@ export async function getStockTrades(
   const query = params.toString();
   const url = `/api/report/${stockId}/performance/trades${query ? `?${query}` : ""}`;
 
-  return apiFetch<TradesResponse>(url, {
+  const response = await apiFetch<ApiEnvelope<TradesResponse> | TradesResponse>(url, {
     cache: "no-store",
     useBaseUrl: false,
     withAuth: true,
   });
+
+  if ("data" in response && "success" in response) {
+    return response.data;
+  }
+
+  return response;
 }
