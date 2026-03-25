@@ -51,11 +51,9 @@ public class StockQuoteSseService {
     SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
     String channel = CHANNEL_PREFIX + ticker;
 
-    acquireSseRef(market, ticker);
-    sseManager.addEmitter(channel, emitter);
-
-    // Spring SseEmitter는 timeout/error 시 onTimeout+onCompletion 두 번 콜백을 호출한다.
-    // 두 번째 cleanup이 새로운 emitter의 refCount를 잘못 건드리지 않도록 AtomicBoolean으로 1회만 실행.
+    // AtomicBoolean으로 cleanup 1회 실행 보장.
+    // Spring onTimeout+onCompletion 중복 호출, broadcast dead emitter 감지 등
+    // 여러 경로에서 cleanup이 트리거될 수 있으므로 반드시 필요.
     AtomicBoolean cleaned = new AtomicBoolean(false);
     Runnable cleanup = () -> {
       if (cleaned.compareAndSet(false, true)) {
@@ -63,6 +61,10 @@ public class StockQuoteSseService {
         releaseSseRef(market, ticker);
       }
     };
+
+    acquireSseRef(market, ticker);
+    sseManager.addEmitter(channel, emitter, cleanup);
+
     emitter.onCompletion(cleanup);
     emitter.onTimeout(cleanup);
     emitter.onError(error -> cleanup.run());
