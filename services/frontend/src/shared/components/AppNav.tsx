@@ -35,7 +35,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: "/", label: "ABOUT", icon: GoBook, highlightOnMatch: false },
+  { href: "/about", label: "ABOUT", icon: GoBook },
   { href: "/portfolio", label: "포트폴리오", icon: GoBriefcase, requiresAuth: true },
   { href: "/signals", label: "매매신호종합", icon: BiBarChartAlt2, requiresAuth: true },
   { href: "/stocks", label: "전체 종목", icon: GoListUnordered },
