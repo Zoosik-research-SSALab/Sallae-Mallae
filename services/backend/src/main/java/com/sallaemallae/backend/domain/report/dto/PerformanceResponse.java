@@ -9,8 +9,10 @@ import java.util.List;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record PerformanceResponse(
-    @Schema(description = "해당 종목의 현재 누적 수익률", example = "12.5")
+    @Schema(description = "해당 종목의 누적 수익률", example = "12.5")
     Float cumulativeReturn,
+    @Schema(description = "최근 1년간 평균 수익률(%)", example = "6.4", nullable = true)
+    Float averageReturn1y,
     @Schema(description = "AI 포트폴리오 승률(%)", example = "66.7")
     Float winRate,
     @Schema(description = "최근 수익률(%)", example = "1.2")
