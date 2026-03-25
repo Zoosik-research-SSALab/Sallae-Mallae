@@ -63,6 +63,9 @@ function normalizeWatchlistNewsItem(candidate: unknown): WatchlistNewsItem {
 type WatchlistNewsQueryParams = {
   offset?: number;
   limit?: number;
+  keyword?: string;
+  startDate?: string;
+  endDate?: string;
 };
 
 function createWatchlistNewsSearchParams(params?: WatchlistNewsQueryParams) {
@@ -78,6 +81,18 @@ function createWatchlistNewsSearchParams(params?: WatchlistNewsQueryParams) {
 
   if (typeof params.limit === "number") {
     searchParams.set("limit", String(params.limit));
+  }
+
+  if (typeof params.keyword === "string" && params.keyword.trim()) {
+    searchParams.set("keyword", params.keyword.trim());
+  }
+
+  if (typeof params.startDate === "string" && params.startDate) {
+    searchParams.set("startDate", params.startDate);
+  }
+
+  if (typeof params.endDate === "string" && params.endDate) {
+    searchParams.set("endDate", params.endDate);
   }
 
   const search = searchParams.toString();
@@ -102,6 +117,7 @@ export async function getWatchlistNews(params?: WatchlistNewsQueryParams) {
   }
 
   return {
+    totalCount: typeof newsPayload.totalCount === "number" ? newsPayload.totalCount : Array.isArray(newsPayload.news) ? newsPayload.news.length : 0,
     news: Array.isArray(newsPayload.news)
       ? newsPayload.news.map((item) => normalizeWatchlistNewsItem(item))
       : [],

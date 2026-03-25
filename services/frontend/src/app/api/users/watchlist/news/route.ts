@@ -26,10 +26,17 @@ export async function GET(request: NextRequest) {
 
   const offset = parsePositiveNumber(request.nextUrl.searchParams.get("offset"), 0);
   const limit = parsePositiveNumber(request.nextUrl.searchParams.get("limit"), 0, 1);
+  const keyword = request.nextUrl.searchParams.get("keyword")?.trim() ?? "";
+  const startDate = request.nextUrl.searchParams.get("startDate")?.trim() ?? "";
+  const endDate = request.nextUrl.searchParams.get("endDate")?.trim() ?? "";
 
   return NextResponse.json(snakelizeKeys(
-    limit > 0
-      ? getMockWatchlistNews({ offset, limit })
-      : getMockWatchlistNews(),
+    getMockWatchlistNews({
+      offset,
+      limit: limit > 0 ? limit : undefined,
+      keyword: keyword || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    }),
   ));
 }

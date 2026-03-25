@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const AUTH_DEVICE_COOKIE_NAME = "sallaemallae-device-id";
 export const AUTH_REFRESH_COOKIE_NAME = "refreshToken";
+export const AUTH_ACCESS_TOKEN_COOKIE_NAME = "sallaemallae-access-token";
 
 type DeviceIdState = {
   value: string;
@@ -156,6 +157,38 @@ export function appendSetCookieHeader(response: NextResponse, upstreamResponse: 
   return response;
 }
 
+export function applyAccessTokenCookie(response: NextResponse, payload: unknown) {
+  if (typeof payload !== "object" || payload === null) return response;
+
+  const record = payload as Record<string, unknown>;
+  const accessToken =
+    (record.access_token as string | undefined) ??
+    (record.accessToken as string | undefined) ??
+    ((record.data as Record<string, unknown> | undefined)?.access_token as string | undefined) ??
+    ((record.data as Record<string, unknown> | undefined)?.accessToken as string | undefined);
+
+  if (!accessToken || typeof accessToken !== "string") return response;
+
+  const expiresIn =
+    (record.expires_in as number | undefined) ??
+    (record.expiresIn as number | undefined) ??
+    ((record.data as Record<string, unknown> | undefined)?.expires_in as number | undefined) ??
+    ((record.data as Record<string, unknown> | undefined)?.expiresIn as number | undefined) ??
+    3600;
+
+  response.cookies.set({
+    name: AUTH_ACCESS_TOKEN_COOKIE_NAME,
+    value: accessToken,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: typeof expiresIn === "number" ? expiresIn : 3600,
+  });
+
+  return response;
+}
+
 export async function readJsonSafely<T>(request: NextRequest): Promise<T | null> {
   try {
     return (await request.json()) as T;
@@ -287,6 +320,13 @@ export async function proxyAuthRequest({
           );
 
     applyDeviceIdCookie(response, deviceIdState);
+
+    if (upstreamResponse.ok && upstreamPayload) {
+      applyAccessTokenCookie(response, upstreamPayload);
+    }
+
+    // appendSetCookieHeader must be LAST — response.cookies.set() above
+    // rebuilds the Set-Cookie header internally, so raw append must come after.
     appendSetCookieHeader(response, upstreamResponse);
 
     return response;

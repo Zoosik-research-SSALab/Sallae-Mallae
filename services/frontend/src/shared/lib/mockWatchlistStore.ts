@@ -38,20 +38,24 @@ type MockWatchlistSnapshotOptions = {
 export type MockWatchlistNewsItem = {
   id: number;
   title: string;
-  summary: string;
-  source: string;
+  snippet: string;
+  publisher: string;
   url?: string;
   publishedAt: string;
   relatedStocks: string[];
 };
 
 type MockWatchlistNewsPayload = {
+  totalCount: number;
   news: MockWatchlistNewsItem[];
 };
 
 type MockWatchlistNewsOptions = {
   offset?: number;
   limit?: number;
+  keyword?: string;
+  startDate?: string;
+  endDate?: string;
 };
 
 const watchlistCatalog = new Map<number, MockWatchlistSeed>([
@@ -434,21 +438,54 @@ export function getMockWatchlistNews(options: MockWatchlistNewsOptions = {}): Mo
   const watchedStockIds = new Set(watchlistStore.keys());
   const safeOffset = Math.max(0, options.offset ?? 0);
   const safeLimit = options.limit === undefined ? Number.POSITIVE_INFINITY : Math.max(1, options.limit);
+  const normalizedKeyword = options.keyword?.trim().toLowerCase() ?? "";
+  const parsedStartDate = options.startDate ? new Date(`${options.startDate}T00:00:00`) : null;
+  const parsedEndDate = options.endDate ? new Date(`${options.endDate}T23:59:59.999`) : null;
+
+  const filteredNews = watchlistNewsSeeds
+    .filter((item) => item.stockIds.some((stockId) => watchedStockIds.has(stockId)))
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      snippet: item.summary,
+      publisher: item.source,
+      url: item.url,
+      publishedAt: new Date(Date.now() - item.minutesAgo * 60_000).toISOString(),
+      relatedStocks: item.stockIds
+        .filter((stockId) => watchedStockIds.has(stockId))
+        .map((stockId) => resolveCatalogItem(stockId).name),
+    }))
+    .filter((item) => {
+      if (!normalizedKeyword) {
+        return true;
+      }
+
+      const haystack = [item.title, item.snippet, item.publisher, item.relatedStocks.join(" ")]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedKeyword);
+    })
+    .filter((item) => {
+      const publishedAtTimestamp = new Date(item.publishedAt).getTime();
+
+      if (Number.isNaN(publishedAtTimestamp)) {
+        return true;
+      }
+
+      if (parsedStartDate && publishedAtTimestamp < parsedStartDate.getTime()) {
+        return false;
+      }
+
+      if (parsedEndDate && publishedAtTimestamp > parsedEndDate.getTime()) {
+        return false;
+      }
+
+      return true;
+    });
 
   return {
-    news: watchlistNewsSeeds
-      .filter((item) => item.stockIds.some((stockId) => watchedStockIds.has(stockId)))
-      .map((item) => ({
-        id: item.id,
-        title: item.title,
-        summary: item.summary,
-        source: item.source,
-        url: item.url,
-        publishedAt: new Date(Date.now() - item.minutesAgo * 60_000).toISOString(),
-        relatedStocks: item.stockIds
-          .filter((stockId) => watchedStockIds.has(stockId))
-          .map((stockId) => resolveCatalogItem(stockId).name),
-      }))
-      .slice(safeOffset, safeOffset + safeLimit),
+    totalCount: filteredNews.length,
+    news: filteredNews.slice(safeOffset, safeOffset + safeLimit),
   };
 }

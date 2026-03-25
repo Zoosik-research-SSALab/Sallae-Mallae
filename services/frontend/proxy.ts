@@ -3,10 +3,20 @@ import { NextResponse, type NextRequest } from "next/server";
 const AUTH_REFRESH_COOKIE_NAME = "refreshToken";
 const MOCK_AUTH_COOKIE_NAME = "sallaemallae-mock-auth";
 
-const PROTECTED_PATH_PREFIXES = ["/portfolio", "/signals", "/reports", "/scraps", "/notifications", "/mypage", "/watchlist"];
+const PROTECTED_PATH_PREFIXES = [
+  "/portfolio",
+  "/signals",
+  "/reports",
+  "/scraps",
+  "/notifications",
+  "/mypage",
+  "/watchlist",
+];
 
 function isProtectedPath(pathname: string) {
-  return PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return PROTECTED_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
 
 export function proxy(request: NextRequest) {
@@ -16,8 +26,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const hasRefreshToken = Boolean(request.cookies.get(AUTH_REFRESH_COOKIE_NAME)?.value);
-  const hasMockAuthCookie = Boolean(request.cookies.get(MOCK_AUTH_COOKIE_NAME)?.value);
+  const hasRefreshToken = Boolean(
+    request.cookies.get(AUTH_REFRESH_COOKIE_NAME)?.value,
+  );
+  const hasMockAuthCookie = Boolean(
+    request.cookies.get(MOCK_AUTH_COOKIE_NAME)?.value,
+  );
 
   if (hasRefreshToken || hasMockAuthCookie) {
     return NextResponse.next();
@@ -30,5 +44,13 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/portfolio/:path*", "/signals/:path*", "/report/:path*", "/scraps/:path*", "/notifications/:path*", "/mypage/:path*", "/watchlist/:path*"],
+  matcher: [
+    "/portfolio/:path*",
+    "/signals/:path*",
+    "/report/:path*",
+    "/scraps/:path*",
+    "/notifications/:path*",
+    "/mypage/:path*",
+    "/watchlist/:path*",
+  ],
 };
