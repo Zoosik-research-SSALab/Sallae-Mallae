@@ -9,6 +9,7 @@ from core.logger import logger
 from domains.debate.router import router as debate_router
 from domains.finance.router import router as finance_router
 from domains.news.router import router as news_router
+from domains.pipeline.router import router as pipeline_router
 from domains.signal.router import router as signal_router
 from domains.stock.router import router as stock_router
 
@@ -31,6 +32,7 @@ register_exception_handlers(app)
 
 app.include_router(debate_router, prefix="/ai/debate", tags=["debate"])
 app.include_router(news_router, prefix="/ai/news", tags=["news"])
+app.include_router(pipeline_router, prefix="/ai/pipeline", tags=["pipeline"])
 app.include_router(signal_router, prefix="/ai/signal", tags=["signal"])
 app.include_router(stock_router, prefix="/ai/stock", tags=["stock"])
 app.include_router(finance_router, prefix="/ai/finance", tags=["finance"])
