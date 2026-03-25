@@ -10,7 +10,6 @@ export async function getStockPerformance(
     `/api/report/${stockId}/performance`,
     {
       cache: "no-store",
-      useBaseUrl: false,
       withAuth: true,
     },
   );
