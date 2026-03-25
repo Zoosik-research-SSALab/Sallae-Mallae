@@ -64,7 +64,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class StockServiceImpl implements StockService {
 
   private static final int FALLBACK_KEYWORD_LIMIT = 3;
-  private static final int FALLBACK_NEWS_LIMIT = 9;
+  private static final int FALLBACK_NEWS_PER_KEYWORD = 3;
   private static final String DIVIDEND_ANNOUNCEMENT_KEYWORD = "배당";
   private static final TypeReference<List<Map<String, Object>>> JSONB_LIST_TYPE = new TypeReference<>() {};
 
@@ -225,18 +225,18 @@ public class StockServiceImpl implements StockService {
   /** agent_data가 없을 때 원본 테이블에서 직접 조회하는 fallback */
   private StockKeywordsResponse fallbackLiveQuery(Long stockId) {
     List<KeywordSummaryProjection> keywordRows = keywordRepository.findTopKeywordsByStockId(stockId, FALLBACK_KEYWORD_LIMIT);
-    List<KeywordItem> keywords = keywordRows.stream()
-        .map(row -> new KeywordItem(row.getId(), row.getName()))
-        .toList();
 
-    List<Long> keywordIds = keywords.stream().map(KeywordItem::id).toList();
-    List<NewsItem> news = keywordIds.isEmpty() ? List.of() : stockNewsQueryRepository
-        .findLatestNewsByStockIdAndKeywordIds(stockId, keywordIds, FALLBACK_NEWS_LIMIT)
-        .stream()
-        .map(row -> new NewsItem(row.getId(), row.getTitle(), row.getPublisher(), row.getPublishedAt()))
-        .toList();
+    List<KeywordItem> keywords = new ArrayList<>();
+    for (KeywordSummaryProjection row : keywordRows) {
+      List<NewsItem> newsForKeyword = stockNewsQueryRepository
+          .findLatestNewsByStockIdAndKeywordIds(stockId, List.of(row.getId()), FALLBACK_NEWS_PER_KEYWORD)
+          .stream()
+          .map(n -> new NewsItem(n.getId(), n.getTitle(), n.getPublisher(), n.getPublishedAt()))
+          .toList();
+      keywords.add(new KeywordItem(row.getId(), row.getName(), newsForKeyword));
+    }
 
-    return new StockKeywordsResponse(keywords, news);
+    return new StockKeywordsResponse(keywords);
   }
 
   /** news_agent_stock_data.top_keywords JSONB → StockKeywordsResponse 변환 */
@@ -246,44 +246,44 @@ public class StockServiceImpl implements StockService {
       items = objectMapper.readValue(topKeywordsJson, JSONB_LIST_TYPE);
     } catch (Exception e) {
       log.warn("top_keywords JSONB 파싱 실패", e);
-      return new StockKeywordsResponse(List.of(), List.of());
+      return new StockKeywordsResponse(List.of());
     }
 
     List<KeywordItem> keywords = new ArrayList<>();
-    List<NewsItem> news = new ArrayList<>();
 
     for (Map<String, Object> item : items) {
       Number kwId = (Number) item.get("keyword_id");
       String kwName = (String) item.get("keyword");
-      keywords.add(new KeywordItem(kwId != null ? kwId.longValue() : null, kwName));
 
+      List<NewsItem> newsForKeyword = new ArrayList<>();
       @SuppressWarnings("unchecked")
       List<Map<String, Object>> newsItems = (List<Map<String, Object>>) item.get("news");
-      if (newsItems == null) {
-        continue;
-      }
-      for (Map<String, Object> n : newsItems) {
-        Number newsId = (Number) n.get("news_id");
-        String title = (String) n.get("title");
-        String publisher = (String) n.get("publisher");
-        String publishedAtStr = (String) n.get("published_at");
-        java.time.OffsetDateTime publishedAt = null;
-        if (publishedAtStr != null) {
-          try {
-            publishedAt = java.time.OffsetDateTime.parse(publishedAtStr);
-          } catch (Exception ignored) {
+      if (newsItems != null) {
+        for (Map<String, Object> n : newsItems) {
+          Number newsId = (Number) n.get("news_id");
+          String title = (String) n.get("title");
+          String publisher = (String) n.get("publisher");
+          String publishedAtStr = (String) n.get("published_at");
+          java.time.OffsetDateTime publishedAt = null;
+          if (publishedAtStr != null) {
+            try {
+              publishedAt = java.time.OffsetDateTime.parse(publishedAtStr);
+            } catch (Exception ignored) {
+            }
           }
+          newsForKeyword.add(new NewsItem(
+              newsId != null ? newsId.longValue() : null,
+              title,
+              publisher,
+              publishedAt
+          ));
         }
-        news.add(new NewsItem(
-            newsId != null ? newsId.longValue() : null,
-            title,
-            publisher,
-            publishedAt
-        ));
       }
+
+      keywords.add(new KeywordItem(kwId != null ? kwId.longValue() : null, kwName, newsForKeyword));
     }
 
-    return new StockKeywordsResponse(keywords, news);
+    return new StockKeywordsResponse(keywords);
   }
 
   @Override

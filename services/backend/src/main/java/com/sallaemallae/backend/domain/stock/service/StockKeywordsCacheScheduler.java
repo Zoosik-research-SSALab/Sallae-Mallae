@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
  *
  * 동작 방식:
  * - 장마감(15:30 KST) 이후부터 5분마다 DB 폴링 시작
- * - 신호 감지 → 캐시 삭제 → 다음 장마감까지 휴면
+ * - 신호 감지 → 캐시 삭제 → 같은 날 추가 신호도 반영
  * - 장마감 전에는 폴링하지 않음
  */
 @Slf4j

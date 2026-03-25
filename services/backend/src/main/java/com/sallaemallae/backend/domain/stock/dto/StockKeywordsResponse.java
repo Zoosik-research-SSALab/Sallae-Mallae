@@ -9,10 +9,8 @@ import java.util.List;
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 @Schema(description = "종목 키워드 및 관련 뉴스 응답")
 public record StockKeywordsResponse(
-    @Schema(description = "상위 키워드 목록")
-    List<KeywordItem> keywords,
-    @Schema(description = "관련 뉴스 목록")
-    List<NewsItem> news
+    @Schema(description = "상위 키워드 목록 (키워드별 관련 뉴스 포함)")
+    List<KeywordItem> keywords
 ) {
 
   @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -20,7 +18,9 @@ public record StockKeywordsResponse(
       @Schema(description = "키워드 ID", example = "1")
       Long id,
       @Schema(description = "키워드명", example = "HBM 공급망")
-      String name
+      String name,
+      @Schema(description = "키워드 관련 뉴스 목록")
+      List<NewsItem> news
   ) {
   }
 

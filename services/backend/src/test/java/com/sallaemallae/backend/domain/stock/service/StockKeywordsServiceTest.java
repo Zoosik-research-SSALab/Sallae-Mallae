@@ -78,8 +78,7 @@ class StockKeywordsServiceTest {
     given(stockRepository.findByIdAndIsActiveTrue(stockId)).willReturn(Optional.of(stock));
 
     StockKeywordsResponse cached = new StockKeywordsResponse(
-        java.util.List.of(new StockKeywordsResponse.KeywordItem(42L, "HBM")),
-        java.util.List.of()
+        java.util.List.of(new StockKeywordsResponse.KeywordItem(42L, "HBM", java.util.List.of()))
     );
     given(stockKeywordsCacheRepository.get(stockId)).willReturn(Optional.of(cached));
 
@@ -128,12 +127,11 @@ class StockKeywordsServiceTest {
     assertThat(result.keywords()).hasSize(2);
     assertThat(result.keywords().get(0).id()).isEqualTo(42L);
     assertThat(result.keywords().get(0).name()).isEqualTo("HBM 공급망");
+    assertThat(result.keywords().get(0).news()).hasSize(2);
+    assertThat(result.keywords().get(0).news().get(0).title()).isEqualTo("삼성전자 HBM 양산");
+    assertThat(result.keywords().get(0).news().get(0).publisher()).isEqualTo("한경");
     assertThat(result.keywords().get(1).name()).isEqualTo("실적");
-
-    assertThat(result.news()).hasSize(3);
-    assertThat(result.news().get(0).title()).isEqualTo("삼성전자 HBM 양산");
-    assertThat(result.news().get(0).publisher()).isEqualTo("한경");
-    assertThat(result.news().get(0).publishedAt()).isNotNull();
+    assertThat(result.keywords().get(1).news()).hasSize(1);
 
     verify(stockKeywordsCacheRepository).save(eq(stockId), any(StockKeywordsResponse.class));
   }
@@ -159,15 +157,15 @@ class StockKeywordsServiceTest {
     Mockito.lenient().when(newsProjection.getTitle()).thenReturn("반도체 뉴스");
     Mockito.lenient().when(newsProjection.getPublisher()).thenReturn("매경");
     Mockito.lenient().when(newsProjection.getPublishedAt()).thenReturn(java.time.OffsetDateTime.now());
-    given(stockNewsQueryRepository.findLatestNewsByStockIdAndKeywordIds(eq(stockId), any(), eq(9)))
+    given(stockNewsQueryRepository.findLatestNewsByStockIdAndKeywordIds(eq(stockId), any(), eq(3)))
         .willReturn(java.util.List.of(newsProjection));
 
     StockKeywordsResponse result = stockService.getStockKeywords(stockId);
 
     assertThat(result.keywords()).hasSize(1);
     assertThat(result.keywords().get(0).name()).isEqualTo("반도체");
-    assertThat(result.news()).hasSize(1);
-    assertThat(result.news().get(0).title()).isEqualTo("반도체 뉴스");
+    assertThat(result.keywords().get(0).news()).hasSize(1);
+    assertThat(result.keywords().get(0).news().get(0).title()).isEqualTo("반도체 뉴스");
     verify(keywordRepository).findTopKeywordsByStockId(stockId, 3);
   }
 
@@ -206,7 +204,6 @@ class StockKeywordsServiceTest {
     StockKeywordsResponse result = stockService.getStockKeywords(stockId);
 
     assertThat(result.keywords()).isEmpty();
-    assertThat(result.news()).isEmpty();
   }
 
   @Test
