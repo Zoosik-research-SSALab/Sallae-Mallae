@@ -302,7 +302,7 @@ def run_inference(target_date: str) -> pd.DataFrame:
     return result_df
 
 
-# ── Step 0.5: 파이프라인 시그널 API ──
+# ── 파이프라인 시그널 헬퍼 ──
 
 def post_pipeline_signal(signal_type: str = "ML_INFERENCE_DONE") -> int | None:
     """POST /ai/pipeline/signal → PENDING 시그널 생성, signal_id 반환."""
@@ -317,6 +317,10 @@ def post_pipeline_signal(signal_type: str = "ML_INFERENCE_DONE") -> int | None:
         signal_id = resp.json()["id"]
         log(f"파이프라인 시그널 생성: id={signal_id}, type={signal_type}")
         return signal_id
+    except requests.exceptions.HTTPError as e:
+        log(f"파이프라인 시그널 생성 실패: {e}")
+        log(f"응답 본문: {e.response.content.decode('utf-8', errors='replace')}")
+        return None
     except Exception as e:
         log(f"파이프라인 시그널 생성 실패 (추론은 계속 진행): {e}")
         return None
@@ -335,6 +339,9 @@ def patch_pipeline_signal(signal_id: int | None, status: str) -> None:
         )
         resp.raise_for_status()
         log(f"파이프라인 시그널 업데이트: id={signal_id}, status={status}")
+    except requests.exceptions.HTTPError as e:
+        log(f"파이프라인 시그널 업데이트 실패: {e}")
+        log(f"응답 본문: {e.response.content.decode('utf-8', errors='replace')}")
     except Exception as e:
         log(f"파이프라인 시그널 업데이트 실패 (id={signal_id}, status={status}): {e}")
 
