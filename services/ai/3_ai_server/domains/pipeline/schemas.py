@@ -13,8 +13,9 @@ class PipelineSignalCreateRequest(BaseModel):
     signal_type: str = Field(
         ...,
         max_length=50,
+        pattern=r"^(ML_INFERENCE_DONE|NEWS_PIPELINE_DONE|STOCK_DATA_DONE|LLM_DISCUSSION_DONE)$",
         examples=["ML_INFERENCE_DONE"],
-        description="시그널 종류 (예: ML_INFERENCE_DONE, NEWS_PIPELINE_DONE)",
+        description="시그널 종류 (ML_INFERENCE_DONE, NEWS_PIPELINE_DONE, STOCK_DATA_DONE, LLM_DISCUSSION_DONE)",
     )
 
 

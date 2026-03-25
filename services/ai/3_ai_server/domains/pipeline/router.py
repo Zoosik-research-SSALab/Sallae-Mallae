@@ -30,6 +30,7 @@ def create_pipeline_signal(
 ):
     """파이프라인 시그널을 PENDING 상태로 생성."""
     row = crud.create_signal(db, req.signal_type)
+    db.commit()
     logger.info("[PIPELINE] 시그널 생성: id=%d, type=%s", row["id"], req.signal_type)
     return PipelineSignalResponse(**row)
 
@@ -53,6 +54,7 @@ def update_pipeline_signal(
     if row is None:
         raise HTTPException(status_code=404, detail=f"시그널을 찾을 수 없습니다: id={signal_id}")
 
+    db.commit()
     logger.info("[PIPELINE] 시그널 업데이트: id=%d, status=%s", signal_id, req.status)
     return PipelineSignalResponse(**row)
 
