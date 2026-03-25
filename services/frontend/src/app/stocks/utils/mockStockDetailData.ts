@@ -149,7 +149,7 @@ const stockSeeds: StockSeed[] = [
     ],
   },
   {
-    id: 66,
+    id: 2,
     ticker: "000660",
     name: "SK하이닉스",
     marketType: "KOSPI",
