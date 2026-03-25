@@ -768,7 +768,8 @@ function getMockStockKeywordsLegacy(stockKey: string) {
   };
 }
 
-export function getMockStockKeywords(stockKey: string): StockKeywordsPayload {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getMockStockKeywordsLegacyPayload(stockKey: string) {
   const seed = resolveStockSeed(stockKey);
   const keywordSeeds = seed.keywords.slice(0, 3);
 
@@ -790,6 +791,30 @@ export function getMockStockKeywords(stockKey: string): StockKeywordsPayload {
         url: baseItem.url,
       };
     }),
+  };
+}
+
+export function getMockStockKeywords(stockKey: string): StockKeywordsPayload {
+  const seed = resolveStockSeed(stockKey);
+  const keywordSeeds = seed.keywords.slice(0, 3);
+
+  return {
+    keywords: keywordSeeds.map((name, keywordIndex) => ({
+      id: keywordIndex + 1,
+      name,
+      news: Array.from({ length: 3 }, (_, newsIndex) => {
+        const baseItem = seed.news[(keywordIndex + newsIndex) % seed.news.length];
+        const offsetMinutes = keywordIndex * 41 + newsIndex * 29;
+
+        return {
+          id: baseItem.id * 10 + keywordIndex * 3 + newsIndex,
+          title: `${baseItem.title} · ${name}`,
+          publisher: baseItem.publisher,
+          publishedAt: new Date(Date.now() - (baseItem.minutesAgo + offsetMinutes) * 60_000).toISOString(),
+          url: baseItem.url,
+        };
+      }),
+    })),
   };
 }
 

@@ -61,6 +61,7 @@ type PortfolioPayload = {
     buyPrice?: number | null;
     currentPrice?: number | null;
     holdingDays?: number | null;
+    holdingQuantity?: number | null;
     returnRate?: number | null;
   }> | null;
   todayTrades?: Array<{
@@ -75,16 +76,16 @@ type PortfolioPayload = {
     executedPrice?: number | null;
     tradePrice?: number | null;
     currentPrice?: number | null;
+    holdingQuantity?: number | null;
     returnRate?: number | null;
   }> | null;
   monthlyReturns?: Array<{
     month?: string | null;
     portfolioReturnRate?: number | null;
     monthlyReturn?: number | null;
-    kospiReturnRate?: number | null;
-    kospiReturn?: number | null;
-    excessReturnRate?: number | null;
-    alpha?: number | null;
+    realizedProfitAmount?: number | null;
+    buyCount?: number | null;
+    sellCount?: number | null;
   }> | null;
   page?: PortfolioPageInfoPayload | null;
   hero?: {
@@ -302,6 +303,7 @@ function normalizeHoldings(value: PortfolioPayload["holdings"]): PortfolioHoldin
       buyPrice: readNumberOrNull(item.buyPrice),
       currentPrice: readNumberOrNull(item.currentPrice),
       holdingDays: readNumberOrNull(item.holdingDays),
+      holdingQuantity: readNumberOrNull(item.holdingQuantity),
       returnRate: readNumberOrNull(item.returnRate),
     }));
 }
@@ -352,6 +354,7 @@ function normalizeTodayTrades(
         executedAt: formatTradeTimeLabel(item.executedAt ?? item.tradeTime),
         executedPrice: readNumberOrNull(item.executedPrice ?? item.tradePrice),
         currentPrice,
+        holdingQuantity: readNumberOrNull(item.holdingQuantity),
         returnRate: readNumberOrNull(item.returnRate),
       };
     });
@@ -371,12 +374,9 @@ function normalizeMonthlyReturns(
       portfolioReturnRate: readNumberOrNull(
         item.portfolioReturnRate ?? item.monthlyReturn,
       ),
-      kospiReturnRate: readNumberOrNull(
-        item.kospiReturnRate ?? item.kospiReturn,
-      ),
-      excessReturnRate: readNumberOrNull(
-        item.excessReturnRate ?? item.alpha,
-      ),
+      realizedProfitAmount: readNumberOrNull(item.realizedProfitAmount),
+      buyCount: readNumberOrNull(item.buyCount),
+      sellCount: readNumberOrNull(item.sellCount),
     }));
 }
 
