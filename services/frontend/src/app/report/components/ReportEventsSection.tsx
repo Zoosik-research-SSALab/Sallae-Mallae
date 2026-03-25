@@ -84,7 +84,7 @@ export default function ReportEventsSection({ companyName, prices, events, isLoa
                     <path
                       d={chartData.linePath}
                       fill="none"
-                      stroke="var(--color-text-danger-bold)"
+                      stroke="var(--color-text-danger)"
                       strokeWidth="4"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -112,7 +112,7 @@ export default function ReportEventsSection({ companyName, prices, events, isLoa
                             stroke={isActive ? "var(--color-text-primary)" : "var(--color-text-danger-bold)"}
                             strokeWidth={isActive ? 3 : 2}
                           />
-                          <circle cx={point.x} cy={point.y} r="2.5" fill="var(--color-text-danger-bold)" />
+                          <circle cx={point.x} cy={point.y} r="2.5" fill="var(--color-text-danger)" />
                           <g transform={`translate(${point.x}, ${labelY})`}>
                             <rect
                               x="-13"
@@ -140,8 +140,8 @@ export default function ReportEventsSection({ companyName, prices, events, isLoa
 
                     <defs>
                       <linearGradient id="report-events-area-fill" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-text-danger-bold)" />
-                        <stop offset="100%" stopColor="var(--color-text-danger-bold)" stopOpacity="0" />
+                        <stop offset="0%" stopColor="var(--color-text-danger)" />
+                        <stop offset="100%" stopColor="var(--color-text-danger)" stopOpacity="0" />
                       </linearGradient>
                     </defs>
                   </>
@@ -158,7 +158,7 @@ export default function ReportEventsSection({ companyName, prices, events, isLoa
               <span>{chartData.startLabel}</span>
               <div className="flex flex-col items-end gap-1 text-right">
                 <span className="text-sm font-bold leading-5 text-[color:var(--color-text-primary)]">{chartData.endPriceLabel}</span>
-                <span className={chartData.changeRate >= 0 ? "text-[color:var(--color-text-danger-bold)]" : "text-[color:var(--color-text-info)]"}>
+                <span className={chartData.changeRate >= 0 ? "text-[color:var(--color-text-danger)]" : "text-[color:var(--color-text-info)]"}>
                   {chartData.changeRate >= 0 ? "+" : ""}
                   {chartData.changeRate.toFixed(2)}%
                 </span>
@@ -215,7 +215,7 @@ function EventItemRow({
     event.tone === "info"
       ? "bg-[color:var(--color-bg-info-subtle)] text-[color:var(--color-text-info)]"
       : event.tone === "danger"
-        ? "bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger-bold)]"
+        ? "bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger)]"
         : "bg-[color:var(--color-bg-disabled)] text-[color:var(--color-text-primary)]";
 
   return (
