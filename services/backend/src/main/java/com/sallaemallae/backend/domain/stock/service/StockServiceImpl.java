@@ -32,7 +32,11 @@ import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockRequestNormalizer;
 import com.sallaemallae.backend.domain.stock.repository.StockKeywordDataRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockKeywordsCacheRepository;
+import com.sallaemallae.backend.domain.stock.repository.StockNewsQueryRepository;
+import com.sallaemallae.backend.domain.stock.repository.StockNewsQueryRepository.StockNewsSummaryProjection;
 import com.sallaemallae.backend.domain.stock.entity.StockKeywordData;
+import com.sallaemallae.backend.domain.news.repository.KeywordRepository;
+import com.sallaemallae.backend.domain.news.repository.KeywordRepository.KeywordSummaryProjection;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sallaemallae.backend.global.exception.BusinessException;
@@ -59,6 +63,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class StockServiceImpl implements StockService {
 
+  private static final int FALLBACK_KEYWORD_LIMIT = 3;
+  private static final int FALLBACK_NEWS_LIMIT = 9;
   private static final String DIVIDEND_ANNOUNCEMENT_KEYWORD = "배당";
   private static final TypeReference<List<Map<String, Object>>> JSONB_LIST_TYPE = new TypeReference<>() {};
 
@@ -69,6 +75,8 @@ public class StockServiceImpl implements StockService {
   private final StockDividendYieldSnapshotRepository stockDividendYieldSnapshotRepository;
   private final StockKeywordDataRepository stockKeywordDataRepository;
   private final StockKeywordsCacheRepository stockKeywordsCacheRepository;
+  private final KeywordRepository keywordRepository;
+  private final StockNewsQueryRepository stockNewsQueryRepository;
   private final ObjectMapper objectMapper;
 
   @Override
@@ -178,7 +186,7 @@ public class StockServiceImpl implements StockService {
     return new StockFinancialsResponse(financials);
   }
 
-  /** 종목별 키워드 상위 3개 + 키워드당 뉴스 3건 조회 (Redis 캐시 → DB fallback) */
+  /** 종목별 키워드 상위 3개 + 키워드당 뉴스 3건 조회 (Redis 캐시 → agent_data → live query fallback) */
   @Override
   public StockKeywordsResponse getStockKeywords(Long stockId) {
     getActiveStock(stockId);
@@ -189,24 +197,46 @@ public class StockServiceImpl implements StockService {
       return cached.get();
     }
 
-    // 2. DB에서 최신 데이터 조회
+    // 2. agent_data에서 최신 데이터 조회
     StockKeywordData data = stockKeywordDataRepository
         .findTopByStockIdOrderByReportDateDesc(stockId)
         .orElse(null);
 
-    if (data == null || data.getTopKeywords() == null) {
-      return new StockKeywordsResponse(List.of(), List.of());
+    StockKeywordsResponse response = null;
+
+    if (data != null && data.getTopKeywords() != null) {
+      // 3a. JSONB 파싱 → DTO 변환
+      response = parseKeywordData(data.getTopKeywords());
     }
 
-    // 3. JSONB 파싱 → DTO 변환
-    StockKeywordsResponse response = parseKeywordData(data.getTopKeywords());
+    // 3b. agent_data 없거나 파싱 실패 시 live query fallback
+    if (response == null || response.keywords().isEmpty()) {
+      response = fallbackLiveQuery(stockId);
+    }
 
-    // 4. Redis 캐시 저장 (빈 응답은 캐시하지 않음 — 파싱 실패 시 stale 방지)
+    // 4. Redis 캐시 저장 (빈 응답은 캐시하지 않음)
     if (!response.keywords().isEmpty()) {
       stockKeywordsCacheRepository.save(stockId, response);
     }
 
     return response;
+  }
+
+  /** agent_data가 없을 때 원본 테이블에서 직접 조회하는 fallback */
+  private StockKeywordsResponse fallbackLiveQuery(Long stockId) {
+    List<KeywordSummaryProjection> keywordRows = keywordRepository.findTopKeywordsByStockId(stockId, FALLBACK_KEYWORD_LIMIT);
+    List<KeywordItem> keywords = keywordRows.stream()
+        .map(row -> new KeywordItem(row.getId(), row.getName()))
+        .toList();
+
+    List<Long> keywordIds = keywords.stream().map(KeywordItem::id).toList();
+    List<NewsItem> news = keywordIds.isEmpty() ? List.of() : stockNewsQueryRepository
+        .findLatestNewsByStockIdAndKeywordIds(stockId, keywordIds, FALLBACK_NEWS_LIMIT)
+        .stream()
+        .map(row -> new NewsItem(row.getId(), row.getTitle(), row.getPublisher(), row.getPublishedAt()))
+        .toList();
+
+    return new StockKeywordsResponse(keywords, news);
   }
 
   /** news_agent_stock_data.top_keywords JSONB → StockKeywordsResponse 변환 */

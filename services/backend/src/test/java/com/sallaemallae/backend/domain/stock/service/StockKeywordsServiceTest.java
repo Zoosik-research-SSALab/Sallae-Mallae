@@ -37,6 +37,8 @@ class StockKeywordsServiceTest {
   @Mock private StockDividendYieldSnapshotRepository stockDividendYieldSnapshotRepository;
   @Mock private StockKeywordDataRepository stockKeywordDataRepository;
   @Mock private StockKeywordsCacheRepository stockKeywordsCacheRepository;
+  @Mock private com.sallaemallae.backend.domain.news.repository.KeywordRepository keywordRepository;
+  @Mock private com.sallaemallae.backend.domain.stock.repository.StockNewsQueryRepository stockNewsQueryRepository;
 
   private StockServiceImpl stockService;
 
@@ -50,6 +52,8 @@ class StockKeywordsServiceTest {
         stockDividendYieldSnapshotRepository,
         stockKeywordDataRepository,
         stockKeywordsCacheRepository,
+        keywordRepository,
+        stockNewsQueryRepository,
         new ObjectMapper()
     );
   }
@@ -135,14 +139,69 @@ class StockKeywordsServiceTest {
   }
 
   @Test
-  @DisplayName("DB에 데이터 없을 때 빈 응답 반환")
-  void getStockKeywords_noData() {
+  @DisplayName("agent_data 없을 때 live query fallback으로 조회")
+  void getStockKeywords_noAgentData_fallbackToLiveQuery() {
     Long stockId = 1L;
     Stock stock = createStock(stockId);
     given(stockRepository.findByIdAndIsActiveTrue(stockId)).willReturn(Optional.of(stock));
     given(stockKeywordsCacheRepository.get(stockId)).willReturn(Optional.empty());
     given(stockKeywordDataRepository.findTopByStockIdOrderByReportDateDesc(stockId))
         .willReturn(Optional.empty());
+
+    // fallback live query mock
+    var kwProjection = Mockito.mock(com.sallaemallae.backend.domain.news.repository.KeywordRepository.KeywordSummaryProjection.class);
+    Mockito.lenient().when(kwProjection.getId()).thenReturn(10L);
+    Mockito.lenient().when(kwProjection.getName()).thenReturn("반도체");
+    given(keywordRepository.findTopKeywordsByStockId(stockId, 3)).willReturn(java.util.List.of(kwProjection));
+
+    var newsProjection = Mockito.mock(com.sallaemallae.backend.domain.stock.repository.StockNewsQueryRepository.StockNewsSummaryProjection.class);
+    Mockito.lenient().when(newsProjection.getId()).thenReturn(501L);
+    Mockito.lenient().when(newsProjection.getTitle()).thenReturn("반도체 뉴스");
+    Mockito.lenient().when(newsProjection.getPublisher()).thenReturn("매경");
+    Mockito.lenient().when(newsProjection.getPublishedAt()).thenReturn(java.time.OffsetDateTime.now());
+    given(stockNewsQueryRepository.findLatestNewsByStockIdAndKeywordIds(eq(stockId), any(), eq(9)))
+        .willReturn(java.util.List.of(newsProjection));
+
+    StockKeywordsResponse result = stockService.getStockKeywords(stockId);
+
+    assertThat(result.keywords()).hasSize(1);
+    assertThat(result.keywords().get(0).name()).isEqualTo("반도체");
+    assertThat(result.news()).hasSize(1);
+    assertThat(result.news().get(0).title()).isEqualTo("반도체 뉴스");
+    verify(keywordRepository).findTopKeywordsByStockId(stockId, 3);
+  }
+
+  @Test
+  @DisplayName("agent_data JSONB 파싱 실패 시 live query fallback으로 조회")
+  void getStockKeywords_jsonParseFail_fallbackToLiveQuery() {
+    Long stockId = 1L;
+    Stock stock = createStock(stockId);
+    given(stockRepository.findByIdAndIsActiveTrue(stockId)).willReturn(Optional.of(stock));
+    given(stockKeywordsCacheRepository.get(stockId)).willReturn(Optional.empty());
+
+    StockKeywordData brokenData = createKeywordData("{invalid json!!}");
+    given(stockKeywordDataRepository.findTopByStockIdOrderByReportDateDesc(stockId))
+        .willReturn(Optional.of(brokenData));
+
+    // fallback
+    given(keywordRepository.findTopKeywordsByStockId(stockId, 3)).willReturn(java.util.List.of());
+
+    StockKeywordsResponse result = stockService.getStockKeywords(stockId);
+
+    assertThat(result.keywords()).isEmpty();
+    verify(keywordRepository).findTopKeywordsByStockId(stockId, 3);
+  }
+
+  @Test
+  @DisplayName("agent_data도 없고 live query도 빈 결과일 때 빈 응답 반환")
+  void getStockKeywords_noDataAtAll() {
+    Long stockId = 1L;
+    Stock stock = createStock(stockId);
+    given(stockRepository.findByIdAndIsActiveTrue(stockId)).willReturn(Optional.of(stock));
+    given(stockKeywordsCacheRepository.get(stockId)).willReturn(Optional.empty());
+    given(stockKeywordDataRepository.findTopByStockIdOrderByReportDateDesc(stockId))
+        .willReturn(Optional.empty());
+    given(keywordRepository.findTopKeywordsByStockId(stockId, 3)).willReturn(java.util.List.of());
 
     StockKeywordsResponse result = stockService.getStockKeywords(stockId);
 
