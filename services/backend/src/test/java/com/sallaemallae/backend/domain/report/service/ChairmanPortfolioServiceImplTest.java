@@ -49,7 +49,7 @@ class ChairmanPortfolioServiceImplTest {
     given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
         .willReturn(Optional.of(latestPerformance));
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(2);
-    given(chairmanPortfolioQueryRepository.findSignalSummary())
+    given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5))
         .willReturn(List.of(new ChairmanPortfolioQueryRepository.PopularSignalRow(1, 1L, "005930", "삼성전자", 74300, "BUY")));
@@ -96,7 +96,7 @@ class ChairmanPortfolioServiceImplTest {
     given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
         .willReturn(Optional.of(latestPerformance));
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(1);
-    given(chairmanPortfolioQueryRepository.findSignalSummary())
+    given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5)).willReturn(List.of());
     AiDailyPerformance februaryFirst = dailyPerformance(LocalDate.of(2026, 2, 27), 1.0f);
@@ -145,7 +145,7 @@ class ChairmanPortfolioServiceImplTest {
     given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
         .willReturn(Optional.of(yesterdayPerformance));
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(0);
-    given(chairmanPortfolioQueryRepository.findSignalSummary())
+    given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5)).willReturn(List.of());
     given(aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(1L)).willReturn(List.of());
@@ -168,7 +168,7 @@ class ChairmanPortfolioServiceImplTest {
     given(aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(1L)).willReturn(List.of());
     given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L)).willReturn(List.of());
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(1);
-    given(chairmanPortfolioQueryRepository.findSignalSummary())
+    given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5)).willReturn(List.of());
     given(chairmanPortfolioQueryRepository.countTodayTradeRows(1L)).willReturn(1);

@@ -71,7 +71,7 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         holdingCount
     );
 
-    SignalSummaryRow summaryRow = chairmanPortfolioQueryRepository.findSignalSummary();
+    SignalSummaryRow summaryRow = chairmanPortfolioQueryRepository.findSignalSummary(portfolio.getId());
     SignalSummary signalSummary = new SignalSummary(
         summaryRow.buyCount(),
         summaryRow.sellCount(),
