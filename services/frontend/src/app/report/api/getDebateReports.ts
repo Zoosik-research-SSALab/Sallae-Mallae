@@ -9,5 +9,6 @@ export async function getDebateReports(stockId: string, offset = 0, limit = 6): 
 
   return apiFetch<DebateReportsResponse>(`/api/report/${encodeURIComponent(stockId.trim())}?${query.toString()}`, {
     cache: "no-store",
+    withAuth: true,
   });
 }

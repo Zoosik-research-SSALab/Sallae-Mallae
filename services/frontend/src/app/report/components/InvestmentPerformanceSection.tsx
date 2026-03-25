@@ -5,8 +5,6 @@ import type { InvestmentPerformanceResponse, TradeHistoryItem } from "../types/r
 import { buildTradeSignalEvents } from "../utils/tradeSignals";
 import TradeHistoryModal from "./TradeHistoryModal";
 
-type ChartPeriodKey = "1M" | "3M" | "1Y";
-
 type SignalPoint = {
   id: string;
   label: "B" | "S";
@@ -16,6 +14,13 @@ type SignalPoint = {
   timestamp: string;
   price: number;
   valueLabel: "매수가" | "매도가";
+};
+
+type DateTick = {
+  id: string;
+  x: number;
+  label: string;
+  align: "left" | "center" | "right";
 };
 
 interface InvestmentPerformanceSectionProps {
@@ -33,8 +38,8 @@ export default function InvestmentPerformanceSection({
   isLoading = false,
   error = null,
 }: InvestmentPerformanceSectionProps) {
-  const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriodKey>("3M");
-  const chartData = useMemo(() => buildPerformanceChartData(performance, trades, selectedPeriod), [performance, trades, selectedPeriod]);
+  const signalEvents = useMemo(() => buildTradeSignalEvents(performance?.chart ?? []), [performance?.chart]);
+  const chartData = useMemo(() => buildPerformanceChartData(performance, signalEvents), [performance, signalEvents]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hoveredSignalId, setHoveredSignalId] = useState<string | null>(null);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
@@ -42,7 +47,7 @@ export default function InvestmentPerformanceSection({
   useEffect(() => {
     setHoveredSignalId(null);
     setSelectedSignalId(null);
-  }, [selectedPeriod, performance, trades]);
+  }, [performance, trades]);
 
   useEffect(() => {
     if (!isModalOpen) {
@@ -96,7 +101,7 @@ export default function InvestmentPerformanceSection({
           />
           <MetricCard
             label="평균 수익률"
-            value={formatPercent(performance?.recentReturn, true)}
+            value={formatPercent(performance?.averageReturn1y, true)}
             valueClassName="text-[color:var(--color-text-primary)]"
           />
           <MetricCard
@@ -107,32 +112,14 @@ export default function InvestmentPerformanceSection({
         </div>
 
         <div className="overflow-hidden rounded-xl bg-[color:var(--color-bg-primary)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-primary)]">
-          <div className="flex items-center justify-end border-b border-[color:var(--color-border-secondary)] px-6 py-4">
-            <div className="inline-flex rounded-lg bg-[color:var(--color-bg-secondary)] p-1">
-              {CHART_PERIOD_OPTIONS.map((option) => {
-                const isActive = option.value === selectedPeriod;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setSelectedPeriod(option.value)}
-                    className={`typo-body-md rounded-md px-4 py-2 font-semibold transition-colors ${
-                      isActive
-                        ? "bg-[color:var(--color-bg-primary)] text-[color:var(--color-text-primary)] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-                        : "text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div className="relative aspect-[1022/320] w-full min-h-[240px]">
             {chartData ? (
               <>
+                <div className="pointer-events-none absolute left-6 top-5 z-[1] flex flex-wrap items-center gap-4 rounded-full px-4 py-2 backdrop-blur-sm ">
+                  <LegendItem label="주가 흐름" color="var(--color-text-primary)" line />
+                  <LegendItem label="매수 신호" color="var(--color-text-danger)" marker="buy" />
+                  <LegendItem label="매도 신호" color="var(--color-text-interactive-primary)" marker="sell" />
+                </div>
                 <svg
                   viewBox="0 0 1022 320"
                   className="absolute inset-0 h-full w-full"
@@ -239,20 +226,26 @@ export default function InvestmentPerformanceSection({
             )}
           </div>
 
-          <div className="flex items-center justify-between border-t border-[color:var(--color-border-secondary)] px-6 py-4">
-            <div className="typo-body-md flex items-center gap-4 font-semibold">
-              <div className="flex items-center gap-2 text-[color:var(--color-text-secondary)]">
-                <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-text-danger)]" />
-                <span>매수</span>
-              </div>
-              <div className="flex items-center gap-2 text-[color:var(--color-text-secondary)]">
-                <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-text-info)]" />
-                <span>매도</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-6 text-right">
-              <div className="typo-body-md font-semibold text-[color:var(--color-text-tertiary)]">{chartData?.startLabel ?? ""}</div>
-              <div className="typo-body-md font-semibold text-[color:var(--color-text-tertiary)]">{chartData?.endLabel ?? ""}</div>
+          <div className="border-t border-[color:var(--color-border-secondary)] px-6 py-4">
+            <div className="relative h-10">
+              {chartData?.dateTicks.map((tick) => (
+                <div
+                  key={tick.id}
+                  className={`absolute top-0 ${
+                    tick.align === "left"
+                      ? "translate-x-0"
+                      : tick.align === "right"
+                        ? "-translate-x-full"
+                        : "-translate-x-1/2"
+                  }`}
+                  style={{ left: `${tick.x}%` }}
+                >
+                  <div className="mx-auto h-2 w-px bg-[color:var(--color-border-secondary)]" />
+                  <div className="typo-body-md mt-2 whitespace-nowrap font-semibold text-[color:var(--color-text-tertiary)]">
+                    {tick.label}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -261,7 +254,7 @@ export default function InvestmentPerformanceSection({
       <TradeHistoryModal
         open={isModalOpen}
         companyName={companyName}
-        trades={trades}
+        rows={signalEvents}
         isLoading={isLoading}
         error={error}
         onClose={() => setIsModalOpen(false)}
@@ -288,6 +281,39 @@ function MetricCard({
         <div className={`typo-heading-lg ${valueClassName}`}>{value}</div>
         {caption ? <div className="typo-body-md font-semibold text-[color:var(--color-text-tertiary)]">{caption}</div> : null}
       </div>
+    </div>
+  );
+}
+
+function LegendItem({
+  label,
+  color,
+  line = false,
+  marker,
+}: {
+  label: string;
+  color: string;
+  line?: boolean;
+  marker?: "buy" | "sell";
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {line ? (
+        <span className="block h-[3px] w-7 rounded-full" style={{ backgroundColor: color }} />
+      ) : marker ? (
+        <span className="relative flex h-4 w-4 items-center justify-center">
+          <span
+            className="block h-0 w-0 border-l-[8px] border-r-[8px]"
+            style={{
+              borderLeftColor: "transparent",
+              borderRightColor: "transparent",
+              borderTop: marker === "buy" ? "0" : `12px solid ${color}`,
+              borderBottom: marker === "buy" ? `12px solid ${color}` : "0",
+            }}
+          />
+        </span>
+      ) : null}
+      <span className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">{label}</span>
     </div>
   );
 }
@@ -331,10 +357,9 @@ function SignalTooltip({
 
 function buildPerformanceChartData(
   performance: InvestmentPerformanceResponse | null,
-  trades: TradeHistoryItem[],
-  selectedPeriod: ChartPeriodKey,
+  signalEvents: ReturnType<typeof buildTradeSignalEvents>,
 ) {
-  const chartSeries = buildChartSeries(performance?.chart, selectedPeriod);
+  const chartSeries = buildChartSeries(performance?.chart);
 
   if (chartSeries.length < 2) {
     return null;
@@ -352,31 +377,29 @@ function buildPerformanceChartData(
   const points = chartSeries.map((item, index) => {
     const x = chartLeft + (index / (chartSeries.length - 1)) * (chartRight - chartLeft);
     const y = chartTop + ((maxClose - item.close) / range) * (chartBottom - chartTop);
-    return { x, y, timestamp: item.timestamp, close: item.close };
+    return { x, y, timestamp: item.timestamp, close: item.close, tradeType: item.tradeType };
   });
 
-  const pointByTimestamp = new Map(points.map((point) => [point.timestamp, point]));
-  const signalPoints = buildTradeSignalEvents(trades)
-    .map((tradeEvent, index) => {
-      const point = pointByTimestamp.get(tradeEvent.date);
+  const pointByTimestamp = new Map(points.map((point) => [point.timestamp, point] as const));
+  const signalPoints = signalEvents
+    .map((event, index) => {
+      const point = pointByTimestamp.get(event.date);
       if (!point) {
         return null;
       }
 
-      const signalPoint: SignalPoint = {
-        id: `${tradeEvent.id}-${index}`,
-        label: tradeEvent.signal === "매수" ? "B" : "S",
-        tone: tradeEvent.signal === "매수" ? "buy" : "sell",
+      return {
+        id: `${event.id}-${index}`,
+        label: event.signal === "매수" ? "B" : "S",
+        tone: event.signal === "매수" ? "buy" : "sell",
         x: point.x,
         y: point.y,
-        timestamp: tradeEvent.date,
-        price: tradeEvent.price ?? point.close,
-        valueLabel: tradeEvent.signal === "매수" ? "매수가" : "매도가",
-      };
-
-      return signalPoint;
+        timestamp: event.date,
+        price: event.price ?? point.close,
+        valueLabel: event.signal === "매수" ? "매수가" : "매도가",
+      } satisfies SignalPoint;
     })
-    .filter((value): value is NonNullable<typeof value> => value !== null);
+    .filter((value): value is SignalPoint => value !== null);
 
   const step = (chartBottom - chartTop) / 3;
   const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
@@ -386,59 +409,20 @@ function buildPerformanceChartData(
     areaPath: `${linePath} L ${points.at(-1)?.x ?? chartRight} ${chartBottom} L ${points[0]?.x ?? chartLeft} ${chartBottom} Z`,
     gridLines: Array.from({ length: 4 }, (_, index) => chartTop + step * index),
     signalPoints,
-    startLabel: formatPeriodLabel(points[0]?.timestamp, selectedPeriod),
-    endLabel: formatPeriodLabel(points.at(-1)?.timestamp, selectedPeriod),
+    dateTicks: buildDateTicks(points.map((point) => point.timestamp)),
   };
 }
 
-const CHART_PERIOD_OPTIONS: Array<{ value: ChartPeriodKey; label: string }> = [
-  { value: "1M", label: "1개월" },
-  { value: "3M", label: "3개월" },
-  { value: "1Y", label: "1년" },
-];
-
-function buildChartSeries(performanceChart: InvestmentPerformanceResponse["chart"] | undefined, selectedPeriod: ChartPeriodKey) {
-  const filteredChart = filterPerformanceChartByPeriod(performanceChart ?? [], selectedPeriod);
-
-  if (filteredChart.length >= 2) {
-    return filteredChart.map((point) => ({
+function buildChartSeries(performanceChart: InvestmentPerformanceResponse["chart"] | undefined) {
+  if ((performanceChart?.length ?? 0) >= 2) {
+    return performanceChart!.map((point) => ({
       timestamp: point.date,
       close: point.price,
+      tradeType: point.tradeType,
     }));
   }
 
   return [];
-}
-
-function filterPerformanceChartByPeriod(chart: InvestmentPerformanceResponse["chart"], selectedPeriod: ChartPeriodKey) {
-  const cutoffTime = getCutoffTime(chart.map((item) => item.date), selectedPeriod);
-  if (cutoffTime === null) {
-    return chart;
-  }
-
-  return chart.filter((item) => {
-    const time = new Date(item.date).getTime();
-    return !Number.isNaN(time) && time >= cutoffTime;
-  });
-}
-
-function getCutoffTime(values: string[], selectedPeriod: ChartPeriodKey) {
-  if (selectedPeriod === "1Y") {
-    return null;
-  }
-
-  const latestTime = values.reduce((max, value) => {
-    const time = new Date(value).getTime();
-    return !Number.isNaN(time) && time > max ? time : max;
-  }, Number.NEGATIVE_INFINITY);
-
-  if (!Number.isFinite(latestTime)) {
-    return null;
-  }
-
-  const cutoffDate = new Date(latestTime);
-  cutoffDate.setMonth(cutoffDate.getMonth() - (selectedPeriod === "1M" ? 1 : 3));
-  return cutoffDate.getTime();
 }
 
 function buildHitCountCaption(trades: TradeHistoryItem[]) {
@@ -449,13 +433,38 @@ function buildHitCountCaption(trades: TradeHistoryItem[]) {
   return `${positiveTrades.length}/${totalTrades}회 수익실현`;
 }
 
-function formatPercent(value: number | undefined, withSign = false) {
+function formatPercent(value: number | null | undefined, withSign = false) {
   const safeValue = typeof value === "number" && Number.isFinite(value) ? value : 0;
   const sign = withSign && safeValue > 0 ? "+" : "";
   return `${sign}${safeValue.toFixed(1)}%`;
 }
 
-function formatPeriodLabel(value: string | undefined, selectedPeriod: ChartPeriodKey) {
+function buildDateTicks(values: string[]): DateTick[] {
+  if (values.length === 0) {
+    return [];
+  }
+
+  const desiredCount = Math.min(5, values.length);
+  const step = desiredCount === 1 ? 1 : (values.length - 1) / (desiredCount - 1);
+  const usedIndexes = new Set<number>();
+
+  return Array.from({ length: desiredCount }, (_, tickIndex) => {
+    const rawIndex = Math.round(step * tickIndex);
+    const index = Math.min(values.length - 1, Math.max(0, rawIndex));
+    usedIndexes.add(index);
+    return index;
+  })
+    .filter((index, indexPosition, source) => source.indexOf(index) === indexPosition)
+    .map((index, indexPosition, source) => ({
+      id: `${values[index]}-${index}`,
+      x: values.length === 1 ? 0 : (index / (values.length - 1)) * 100,
+      label: formatAxisDate(values[index]),
+      align:
+        indexPosition === 0 ? "left" : indexPosition === source.length - 1 ? "right" : "center",
+    }));
+}
+
+function formatAxisDate(value: string | undefined) {
   if (!value) {
     return "";
   }
@@ -466,11 +475,7 @@ function formatPeriodLabel(value: string | undefined, selectedPeriod: ChartPerio
     return value;
   }
 
-  if (selectedPeriod === "1Y") {
-    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}`;
-  }
-
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
+  return `${String(date.getFullYear()).slice(-2)}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function formatTooltipDate(value: string) {

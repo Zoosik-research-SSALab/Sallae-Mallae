@@ -28,7 +28,7 @@ function createDebateReport(seed: DebateSeed): DebateReport {
 
 const debateSeeds: DebateSeed[] = [
   {
-    stockId: "005930",
+    stockId: "8",
     companyName: "삼성전자",
     date: "2026-03-18",
     createdAt: "2026-03-18T10:30:00",
@@ -116,7 +116,7 @@ const debateSeeds: DebateSeed[] = [
     ],
   },
   {
-    stockId: "000660",
+    stockId: "2",
     companyName: "SK하이닉스",
     date: "2026-03-18",
     createdAt: "2026-03-18T11:05:00",
@@ -198,7 +198,7 @@ const debateSeeds: DebateSeed[] = [
     ],
   },
   {
-    stockId: "035420",
+    stockId: "102",
     companyName: "NAVER",
     date: "2026-03-18",
     createdAt: "2026-03-18T13:20:00",
@@ -432,7 +432,7 @@ const debateSeeds: DebateSeed[] = [
     ],
   },
   {
-    stockId: "035720",
+    stockId: "201",
     companyName: "카카오",
     date: "2026-03-18",
     createdAt: "2026-03-18T15:20:00",
@@ -529,7 +529,7 @@ export function hasMockDebateReports(stockId: string) {
 
 export function getMockDebateReportsResponse(stockId: string): DebateReportsResponse {
   return {
-    reports: mockDebateReportsByStockId[stockId] ?? mockDebateReportsByStockId["005930"],
+    reports: mockDebateReportsByStockId[stockId] ?? mockDebateReportsByStockId["1"],
   };
 }
 

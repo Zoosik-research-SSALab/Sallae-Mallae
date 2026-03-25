@@ -48,9 +48,10 @@ export interface ChairmanDebateAgent {
 }
 
 export interface InvestmentPerformanceResponse {
-  cumulativeReturn: number;
+  cumulativeReturn: number | null;
   winRate: number;
-  recentReturn: number;
+  averageReturn1y: number | null;
+  recentReturn: number | null;
   holding: {
     buyDate: string;
     buyPrice: number;
@@ -60,14 +61,14 @@ export interface InvestmentPerformanceResponse {
     evaluationProfit: number;
     currentReturn: number;
     holdingDays: number;
-  };
+  } | null;
   chart: InvestmentPerformanceChartPoint[];
 }
 
 export interface InvestmentPerformanceChartPoint {
   date: string;
   price: number;
-  tradeType?: "BUY" | "SELL";
+  tradeType: "BUY" | "SELL" | null;
 }
 
 export interface TradeHistoryQuery {

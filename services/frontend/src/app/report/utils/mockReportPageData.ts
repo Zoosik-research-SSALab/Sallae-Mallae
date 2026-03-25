@@ -13,7 +13,7 @@ function createChairmanReport(report: ChairmanAnalysisReport): ChairmanAnalysisR
 }
 
 const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisReport[]> = {
-  "005930": [
+  "1": [
     createChairmanReport({
       date: "2026-03-19",
       chairman: {
@@ -182,10 +182,10 @@ const mockChairmanAnalysisReportsByStockId: Record<string, ChairmanAnalysisRepor
   ],
 };
 
-const fallbackChairmanReports = mockChairmanAnalysisReportsByStockId["005930"];
+const fallbackChairmanReports = mockChairmanAnalysisReportsByStockId["1"];
 
 const mockTradeHistoryByStockId: Record<string, TradeHistoryResponse> = {
-  "005930": {
+  "1": {
     trades: [
       { status: "HOLDING", buyDate: "2026-02-10", buyPrice: 68200, currentPrice: 74300, holdingDays: 38, returnRate: 8.94 },
       { status: "CLOSED", buyDate: "2026-01-14", sellDate: "2026-02-03", buyPrice: 65500, sellPrice: 68900, holdingDays: 20, returnRate: 5.19 },
@@ -199,7 +199,7 @@ const mockTradeHistoryByStockId: Record<string, TradeHistoryResponse> = {
       { status: "CLOSED", buyDate: "2025-05-13", sellDate: "2025-06-03", buyPrice: 54100, sellPrice: 56600, holdingDays: 21, returnRate: 4.62 },
     ],
   },
-  "000660": {
+  "2": {
     trades: [
       { status: "HOLDING", buyDate: "2026-02-12", buyPrice: 189500, currentPrice: 213500, holdingDays: 40, returnRate: 12.66 },
       { status: "CLOSED", buyDate: "2026-01-16", sellDate: "2026-02-05", buyPrice: 176000, sellPrice: 188500, holdingDays: 20, returnRate: 7.10 },
@@ -216,12 +216,13 @@ const mockTradeHistoryByStockId: Record<string, TradeHistoryResponse> = {
 };
 
 const mockInvestmentPerformanceByStockId: Record<string, InvestmentPerformanceResponse> = {
-  "005930": {
+  "1": {
     cumulativeReturn: 38.7,
     winRate: 85.2,
+    averageReturn1y: 10.2,
     recentReturn: 12.4,
     holding: {
-      buyDate: "2026-02-10",
+      buyDate: "2026-02-10T09:00:00+09:00",
       buyPrice: 68200,
       currentPrice: 74300,
       holdingQuantity: 14,
@@ -231,40 +232,59 @@ const mockInvestmentPerformanceByStockId: Record<string, InvestmentPerformanceRe
       holdingDays: 38,
     },
     chart: [
-      { date: "2025-05-13", price: 54100 },
-      { date: "2025-06-03", price: 56600 },
-      { date: "2025-06-11", price: 55200 },
-      { date: "2025-07-01", price: 58800 },
-      { date: "2025-07-09", price: 56300 },
-      { date: "2025-07-29", price: 57900 },
-      { date: "2025-08-06", price: 57100 },
-      { date: "2025-08-28", price: 59800 },
-      { date: "2025-09-11", price: 58400 },
-      { date: "2025-10-01", price: 60300 },
-      { date: "2025-10-15", price: 60100 },
-      { date: "2025-11-04", price: 64500 },
-      { date: "2025-11-20", price: 61200 },
-      { date: "2025-12-05", price: 64100 },
-      { date: "2025-12-18", price: 63100 },
-      { date: "2026-01-07", price: 66700 },
-      { date: "2026-01-14", price: 65500 },
-      { date: "2026-02-03", price: 68900 },
+      { date: "2025-03-26", price: 52800, tradeType: null },
+      { date: "2025-04-04", price: 53400, tradeType: null },
+      { date: "2025-04-11", price: 52900, tradeType: null },
+      { date: "2025-04-18", price: 53800, tradeType: null },
+      { date: "2025-04-25", price: 54600, tradeType: null },
+      { date: "2025-05-02", price: 53700, tradeType: null },
+      { date: "2025-05-13", price: 54100, tradeType: null },
+      { date: "2025-05-22", price: 54900, tradeType: null },
+      { date: "2025-06-03", price: 56600, tradeType: null },
+      { date: "2025-06-11", price: 55200, tradeType: null },
+      { date: "2025-06-20", price: 55900, tradeType: null },
+      { date: "2025-07-01", price: 58800, tradeType: null },
+      { date: "2025-07-09", price: 56300, tradeType: null },
+      { date: "2025-07-18", price: 57100, tradeType: null },
+      { date: "2025-07-29", price: 57900, tradeType: null },
+      { date: "2025-08-06", price: 57100, tradeType: null },
+      { date: "2025-08-18", price: 58400, tradeType: null },
+      { date: "2025-08-28", price: 59800, tradeType: null },
+      { date: "2025-09-02", price: 59000, tradeType: null },
+      { date: "2025-09-11", price: 58400, tradeType: null },
+      { date: "2025-09-19", price: 59300, tradeType: null },
+      { date: "2025-10-01", price: 60300, tradeType: null },
+      { date: "2025-10-15", price: 60100, tradeType: null },
+      { date: "2025-10-24", price: 62200, tradeType: null },
+      { date: "2025-11-04", price: 64500, tradeType: "SELL" },
+      { date: "2025-11-12", price: 62800, tradeType: null },
+      { date: "2025-11-20", price: 61200, tradeType: "BUY" },
+      { date: "2025-11-27", price: 62400, tradeType: null },
+      { date: "2025-12-05", price: 64100, tradeType: "SELL" },
+      { date: "2025-12-12", price: 63600, tradeType: null },
+      { date: "2025-12-18", price: 63100, tradeType: "BUY" },
+      { date: "2025-12-26", price: 64900, tradeType: null },
+      { date: "2026-01-07", price: 66700, tradeType: "SELL" },
+      { date: "2026-01-14", price: 65500, tradeType: "BUY" },
+      { date: "2026-01-22", price: 66100, tradeType: null },
+      { date: "2026-02-03", price: 68900, tradeType: "SELL" },
       { date: "2026-02-10", price: 68200, tradeType: "BUY" },
-      { date: "2026-02-14", price: 69100 },
-      { date: "2026-02-18", price: 70500 },
-      { date: "2026-02-24", price: 69800 },
-      { date: "2026-02-28", price: 71600 },
-      { date: "2026-03-05", price: 72400 },
-      { date: "2026-03-11", price: 73800 },
-      { date: "2026-03-19", price: 74300 },
+      { date: "2026-02-14", price: 69100, tradeType: null },
+      { date: "2026-02-18", price: 70500, tradeType: null },
+      { date: "2026-02-24", price: 69800, tradeType: null },
+      { date: "2026-02-28", price: 71600, tradeType: null },
+      { date: "2026-03-05", price: 72400, tradeType: null },
+      { date: "2026-03-11", price: 73800, tradeType: null },
+      { date: "2026-03-19", price: 74300, tradeType: null },
     ],
   },
-  "000660": {
+  "2": {
     cumulativeReturn: 42.3,
     winRate: 77.8,
+    averageReturn1y: 11.4,
     recentReturn: 14.6,
     holding: {
-      buyDate: "2026-02-12",
+      buyDate: "2026-02-12T09:00:00+09:00",
       buyPrice: 189500,
       currentPrice: 213500,
       holdingQuantity: 5,
@@ -274,42 +294,60 @@ const mockInvestmentPerformanceByStockId: Record<string, InvestmentPerformanceRe
       holdingDays: 40,
     },
     chart: [
-      { date: "2025-05-19", price: 128000 },
-      { date: "2025-06-05", price: 134500 },
-      { date: "2025-06-16", price: 132500 },
-      { date: "2025-07-03", price: 138500 },
-      { date: "2025-07-14", price: 137000 },
-      { date: "2025-07-31", price: 145500 },
-      { date: "2025-08-11", price: 141500 },
-      { date: "2025-08-28", price: 149000 },
-      { date: "2025-09-15", price: 148000 },
-      { date: "2025-10-02", price: 144500 },
-      { date: "2025-10-20", price: 154500 },
-      { date: "2025-11-06", price: 163800 },
-      { date: "2025-11-24", price: 162000 },
-      { date: "2025-12-11", price: 171500 },
-      { date: "2025-12-19", price: 169500 },
-      { date: "2026-01-09", price: 180000 },
-      { date: "2026-01-16", price: 176000 },
-      { date: "2026-02-05", price: 188500 },
+      { date: "2025-03-26", price: 121500, tradeType: null },
+      { date: "2025-04-03", price: 123800, tradeType: null },
+      { date: "2025-04-11", price: 122400, tradeType: null },
+      { date: "2025-04-21", price: 125900, tradeType: null },
+      { date: "2025-05-02", price: 126800, tradeType: null },
+      { date: "2025-05-12", price: 127500, tradeType: null },
+      { date: "2025-05-19", price: 128000, tradeType: null },
+      { date: "2025-05-27", price: 130500, tradeType: null },
+      { date: "2025-06-05", price: 134500, tradeType: null },
+      { date: "2025-06-16", price: 132500, tradeType: null },
+      { date: "2025-06-24", price: 135200, tradeType: null },
+      { date: "2025-07-03", price: 138500, tradeType: null },
+      { date: "2025-07-14", price: 137000, tradeType: null },
+      { date: "2025-07-22", price: 140800, tradeType: null },
+      { date: "2025-07-31", price: 145500, tradeType: null },
+      { date: "2025-08-11", price: 141500, tradeType: null },
+      { date: "2025-08-19", price: 144200, tradeType: null },
+      { date: "2025-08-28", price: 149000, tradeType: null },
+      { date: "2025-09-05", price: 150500, tradeType: null },
+      { date: "2025-09-15", price: 148000, tradeType: null },
+      { date: "2025-09-24", price: 146800, tradeType: null },
+      { date: "2025-10-02", price: 144500, tradeType: null },
+      { date: "2025-10-10", price: 149800, tradeType: null },
+      { date: "2025-10-20", price: 154500, tradeType: "BUY" },
+      { date: "2025-10-28", price: 159000, tradeType: null },
+      { date: "2025-11-06", price: 163800, tradeType: "SELL" },
+      { date: "2025-11-14", price: 161500, tradeType: null },
+      { date: "2025-11-24", price: 162000, tradeType: "BUY" },
+      { date: "2025-12-02", price: 166400, tradeType: null },
+      { date: "2025-12-11", price: 171500, tradeType: "SELL" },
+      { date: "2025-12-19", price: 169500, tradeType: "BUY" },
+      { date: "2025-12-29", price: 175200, tradeType: null },
+      { date: "2026-01-09", price: 180000, tradeType: "SELL" },
+      { date: "2026-01-16", price: 176000, tradeType: "BUY" },
+      { date: "2026-01-27", price: 182500, tradeType: null },
+      { date: "2026-02-05", price: 188500, tradeType: "SELL" },
       { date: "2026-02-12", price: 189500, tradeType: "BUY" },
-      { date: "2026-02-17", price: 193000 },
-      { date: "2026-02-24", price: 197500 },
-      { date: "2026-02-28", price: 195800 },
-      { date: "2026-03-05", price: 201200 },
-      { date: "2026-03-10", price: 206500 },
-      { date: "2026-03-17", price: 210800 },
-      { date: "2026-03-23", price: 213500 },
+      { date: "2026-02-17", price: 193000, tradeType: null },
+      { date: "2026-02-24", price: 197500, tradeType: null },
+      { date: "2026-02-28", price: 195800, tradeType: null },
+      { date: "2026-03-05", price: 201200, tradeType: null },
+      { date: "2026-03-10", price: 206500, tradeType: null },
+      { date: "2026-03-17", price: 210800, tradeType: null },
+      { date: "2026-03-23", price: 213500, tradeType: null },
     ],
   },
 };
 
-const fallbackInvestmentPerformance = mockInvestmentPerformanceByStockId["005930"];
+const fallbackInvestmentPerformance = mockInvestmentPerformanceByStockId["1"];
 
-const fallbackTradeHistory = mockTradeHistoryByStockId["005930"];
+const fallbackTradeHistory = mockTradeHistoryByStockId["1"];
 
 const mockReportPagePresentationByStockId: Record<string, ReportPagePresentationSeed> = {
-  "005930": {
+  "1": {
     market: "KOSPI 50",
     price: 74300,
     changeRate: 1.2,
@@ -341,7 +379,7 @@ const mockReportPagePresentationByStockId: Record<string, ReportPagePresentation
       },
     ],
   },
-  "000660": {
+  "2": {
     market: "KOSPI 200",
     price: 213500,
     changeRate: 1.8,
@@ -375,7 +413,7 @@ const mockReportPagePresentationByStockId: Record<string, ReportPagePresentation
   },
 };
 
-const fallbackPresentationSeed = mockReportPagePresentationByStockId["005930"];
+const fallbackPresentationSeed = mockReportPagePresentationByStockId["1"];
 
 export function getMockChairmanAnalysisReports(stockId: string, query: ChairmanAnalysisReportsQuery = {}): ChairmanAnalysisReportsResponse {
   const reports = mockChairmanAnalysisReportsByStockId[stockId] ?? fallbackChairmanReports;

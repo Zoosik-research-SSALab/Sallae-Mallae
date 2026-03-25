@@ -1,4 +1,4 @@
-import type { TradeHistoryItem } from "../types/report";
+import type { InvestmentPerformanceChartPoint } from "../types/report";
 
 export type TradeSignalEvent = {
   id: string;
@@ -8,30 +8,28 @@ export type TradeSignalEvent = {
   returnRate?: number;
 };
 
-export function buildTradeSignalEvents(trades: TradeHistoryItem[]) {
-  return trades
-    .flatMap((trade, index) => {
-      const events: TradeSignalEvent[] = [
-        {
-          id: `${trade.buyDate}-buy-${index}`,
-          date: trade.buyDate,
-          signal: "매수",
-          price: trade.buyPrice,
-          returnRate: trade.status === "HOLDING" ? trade.returnRate : undefined,
-        },
-      ];
+export function buildTradeSignalEvents(chart: InvestmentPerformanceChartPoint[]) {
+  return chart
+    .flatMap((point, index) => {
+      const tradeType = normalizeTradeType(point.tradeType);
 
-      if (trade.sellDate) {
-        events.push({
-          id: `${trade.sellDate}-sell-${index}`,
-          date: trade.sellDate,
-          signal: "매도",
-          price: trade.sellPrice,
-          returnRate: trade.returnRate,
-        });
+      if (!tradeType) {
+        return [];
       }
 
-      return events;
+      const event: TradeSignalEvent = {
+        id: `${point.date}-${tradeType.toLowerCase()}-${index}`,
+        date: point.date,
+        signal: tradeType === "BUY" ? "매수" : "매도",
+        price: point.price,
+      };
+
+      return [event];
     })
     .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+}
+
+function normalizeTradeType(value?: string | null) {
+  const normalized = value?.trim().toUpperCase();
+  return normalized === "BUY" || normalized === "SELL" ? normalized : null;
 }

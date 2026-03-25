@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useStockQuoteStream } from "@/app/stocks/[ticker]/hooks/useStockQuoteStream";
 import { useStockAnnouncementsQuery } from "@/app/stocks/[ticker]/hooks/useStockAnnouncementsQuery";
 import { useStockOverviewQuery } from "@/app/stocks/[ticker]/hooks/useStockOverviewQuery";
 import { useStockPriceStream } from "@/app/stocks/[ticker]/hooks/useStockPriceStream";
@@ -32,6 +33,11 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
 
   const debateReport = debateReports[0] ?? null;
   const companyName = overviewQuery.data?.name ?? "";
+  const ticker = overviewQuery.data?.ticker ?? stockId;
+  const quoteTicker = overviewQuery.data?.ticker ?? "";
+  const quoteStream = useStockQuoteStream(quoteTicker, {
+    enabled: Boolean(quoteTicker),
+  });
   const prices = priceStream.data.prices;
   const performance = investmentPerformanceQuery.data ?? null;
   const trades = tradeHistoryQuery.data?.trades ?? [];
@@ -39,13 +45,9 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
     () => mapAnnouncementsToEvents(announcementsQuery.data?.announcements ?? []),
     [announcementsQuery.data?.announcements],
   );
-  const latestPrice = prices.at(-1)?.close;
-  const previousPrice = prices.at(-2)?.close ?? latestPrice;
-  const changeRate =
-    typeof latestPrice === "number" && typeof previousPrice === "number" && previousPrice !== 0
-      ? ((latestPrice - previousPrice) / previousPrice) * 100
-      : 0;
-  const benchmarkTime = formatBenchmarkTime(prices.at(-1)?.timestamp ?? overviewQuery.data?.baseTime ?? "");
+  const latestPrice = typeof quoteStream.data.currentPrice === "number" ? quoteStream.data.currentPrice : undefined;
+  const changeRate = typeof quoteStream.data.changeRate === "number" ? quoteStream.data.changeRate : 0;
+  const benchmarkTime = formatBenchmarkTime(quoteStream.data.tickTimestamp ?? overviewQuery.data?.baseTime ?? "");
   const market = overviewQuery.data?.marketType ?? "";
   const priceText = typeof latestPrice === "number" ? `${Math.round(latestPrice).toLocaleString("ko-KR")}원` : "";
   const changeText = `${changeRate > 0 ? "+" : ""}${changeRate.toFixed(1)}%`;
@@ -54,14 +56,17 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
   const confidence = debateReport ? `${debateReport.chairman.confidence}%` : "-";
   const verdict = formatSignalLabel(debateReport?.chairman.signal);
   const verdictQuote = debateReport ? `"${debateReport.chairman.summary}"` : "실제 리포트 데이터가 없습니다.";
-  const isMetaLoading = overviewQuery.isLoading || priceStream.isLoading;
-  const metaError = overviewQuery.error instanceof Error ? overviewQuery.error.message : priceStream.error;
+  const isMetaLoading = overviewQuery.isLoading || quoteStream.isLoading;
+  const metaError =
+    overviewQuery.error instanceof Error
+      ? overviewQuery.error.message
+      : quoteStream.error ?? priceStream.error;
   const debateErrorMessage = debateError instanceof Error ? debateError.message : null;
   const eventsError = announcementsQuery.error instanceof Error ? announcementsQuery.error.message : null;
   const tradeHistoryError = tradeHistoryQuery.error instanceof Error ? tradeHistoryQuery.error.message : null;
   const performanceError = investmentPerformanceQuery.error instanceof Error ? investmentPerformanceQuery.error.message : null;
-  const isHeroReady = Boolean(overviewQuery.data && prices.length > 1 && typeof latestPrice === "number");
-  const isPerformanceReady = Boolean((performance?.chart.length ?? 0) > 1) && !investmentPerformanceQuery.isLoading;
+  const isHeroReady = Boolean(overviewQuery.data && typeof latestPrice === "number");
+  const isPerformanceReady = Boolean((performance?.chart?.length ?? 0) > 1) && !investmentPerformanceQuery.isLoading;
   const isDebateReady = !isDebateLoading;
   const isChairmanReady = !isDebateLoading;
   const isEventsReady = prices.length > 1 && !announcementsQuery.isLoading;
@@ -79,7 +84,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
           {isHeroReady ? (
             <ReportHeroSection
               market={market}
-              stockId={stockId}
+              ticker={ticker}
               benchmarkTime={benchmarkTime}
               companyName={companyName}
               priceText={priceText}

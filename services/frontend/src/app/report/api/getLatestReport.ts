@@ -14,8 +14,8 @@ type ApiResponse<T> = {
   message: string | null;
 };
 
-export async function getLatestReport(symbol: string): Promise<LatestReport> {
-  const payload = await apiFetch<ApiResponse<LatestReport>>(`/api/report/${symbol}/latest`, {
+export async function getLatestReport(stockId: string): Promise<LatestReport> {
+  const payload = await apiFetch<ApiResponse<LatestReport>>(`/api/report/${stockId}/latest`, {
     cache: "no-store",
   });
 

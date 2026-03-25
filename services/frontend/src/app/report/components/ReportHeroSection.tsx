@@ -2,7 +2,7 @@
 
 interface ReportHeroSectionProps {
   market: string;
-  stockId: string;
+  ticker: string;
   benchmarkTime: string;
   companyName: string;
   priceText: string;
@@ -12,7 +12,7 @@ interface ReportHeroSectionProps {
 
 export default function ReportHeroSection({
   market,
-  stockId,
+  ticker,
   benchmarkTime,
   companyName,
   priceText,
@@ -34,7 +34,7 @@ export default function ReportHeroSection({
           <div className="rounded-md bg-[color:var(--color-bg-tertiary)] px-2.5 py-1">
             <span className="text-sm font-semibold text-[color:var(--color-text-secondary)]">{market}</span>
           </div>
-          <span className="text-sm font-semibold text-[color:var(--color-text-tertiary)]">{stockId}</span>
+          <span className="text-sm font-semibold text-[color:var(--color-text-tertiary)]">{ticker}</span>
           <span className="h-5 w-px bg-[color:var(--color-border-primary)]" />
           <span className="text-sm font-medium text-[color:var(--color-text-tertiary)]">{benchmarkTime}</span>
         </div>

@@ -1,12 +1,11 @@
 "use client";
 
-import type { TradeHistoryItem } from "../types/report";
-import { buildTradeSignalEvents } from "../utils/tradeSignals";
+import type { TradeSignalEvent } from "../utils/tradeSignals";
 
 interface TradeHistoryModalProps {
   open: boolean;
   companyName: string;
-  trades: TradeHistoryItem[];
+  rows: TradeSignalEvent[];
   isLoading: boolean;
   error: string | null;
   onClose: () => void;
@@ -15,7 +14,7 @@ interface TradeHistoryModalProps {
 export default function TradeHistoryModal({
   open,
   companyName,
-  trades,
+  rows,
   isLoading,
   error,
   onClose,
@@ -23,8 +22,6 @@ export default function TradeHistoryModal({
   if (!open) {
     return null;
   }
-
-  const rows = buildTradeSignalEvents(trades);
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-6">
