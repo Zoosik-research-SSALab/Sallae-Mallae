@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -53,10 +54,14 @@ public class StockQuoteSseService {
     acquireSseRef(market, ticker);
     sseManager.addEmitter(channel, emitter);
 
-    // addEmitter 이후에 콜백 등록 (SseEmitter는 마지막 콜백만 유효)
+    // Spring SseEmitter는 timeout/error 시 onTimeout+onCompletion 두 번 콜백을 호출한다.
+    // 두 번째 cleanup이 새로운 emitter의 refCount를 잘못 건드리지 않도록 AtomicBoolean으로 1회만 실행.
+    AtomicBoolean cleaned = new AtomicBoolean(false);
     Runnable cleanup = () -> {
-      sseManager.removeEmitter(channel, emitter);
-      releaseSseRef(market, ticker);
+      if (cleaned.compareAndSet(false, true)) {
+        sseManager.removeEmitter(channel, emitter);
+        releaseSseRef(market, ticker);
+      }
     };
     emitter.onCompletion(cleanup);
     emitter.onTimeout(cleanup);
