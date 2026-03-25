@@ -302,6 +302,50 @@ def run_inference(target_date: str) -> pd.DataFrame:
     return result_df
 
 
+# ── 파이프라인 시그널 헬퍼 ──
+
+def post_pipeline_signal(signal_type: str = "ML_INFERENCE_DONE") -> int | None:
+    """POST /ai/pipeline/signal → PENDING 시그널 생성, signal_id 반환."""
+    try:
+        resp = requests.post(
+            f"{API_BASE_URL}/ai/pipeline/signal",
+            json={"signal_type": signal_type},
+            headers={"X-API-Key": API_KEY},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        signal_id = resp.json()["id"]
+        log(f"파이프라인 시그널 생성: id={signal_id}, type={signal_type}")
+        return signal_id
+    except requests.exceptions.HTTPError as e:
+        log(f"파이프라인 시그널 생성 실패: {e}")
+        log(f"응답 본문: {e.response.content.decode('utf-8', errors='replace')}")
+        return None
+    except Exception as e:
+        log(f"파이프라인 시그널 생성 실패 (추론은 계속 진행): {e}")
+        return None
+
+
+def patch_pipeline_signal(signal_id: int | None, status: str) -> None:
+    """PATCH /ai/pipeline/signal/{id} → 상태 전이 (PROCESSING/DONE/FAILED)."""
+    if signal_id is None:
+        return
+    try:
+        resp = requests.patch(
+            f"{API_BASE_URL}/ai/pipeline/signal/{signal_id}",
+            json={"status": status},
+            headers={"X-API-Key": API_KEY},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        log(f"파이프라인 시그널 업데이트: id={signal_id}, status={status}")
+    except requests.exceptions.HTTPError as e:
+        log(f"파이프라인 시그널 업데이트 실패: {e}")
+        log(f"응답 본문: {e.response.content.decode('utf-8', errors='replace')}")
+    except Exception as e:
+        log(f"파이프라인 시그널 업데이트 실패 (id={signal_id}, status={status}): {e}")
+
+
 # ── Step 4: API 전송 ──
 
 def post_signals(target_date: str, result_df: pd.DataFrame) -> bool:
@@ -621,29 +665,45 @@ def main():
         log("데이터 파이프라인 미완료 — 추론 중단")
         return
 
-    # 2. 피처 생성
-    log("피처 생성 중...")
-    build_features()
+    # 1. 파이프라인 시그널 생성 (PENDING)
+    signal_id = post_pipeline_signal("ML_INFERENCE_DONE")
 
-    # 3. 추론
-    log(f"{latest_date} 추론 시작...")
-    signals_df = run_inference(latest_date)
-    if signals_df.empty:
-        log("추론 결과 없음. 종료.")
-        return
+    try:
+        # 2. PROCESSING 전환
+        patch_pipeline_signal(signal_id, "PROCESSING")
 
-    # 4. 시그널 전송
-    post_signals(latest_date, signals_df)
+        # 3. 피처 생성
+        log("피처 생성 중...")
+        build_features()
 
-    # 5. 포트폴리오 시뮬레이션
-    snapshot = run_portfolio_simulation(latest_date, signals_df)
+        # 4. 추론
+        log(f"{latest_date} 추론 시작...")
+        signals_df = run_inference(latest_date)
+        if signals_df.empty:
+            log("추론 결과 없음. 종료.")
+            patch_pipeline_signal(signal_id, "FAILED")
+            return
 
-    # 6. 포트폴리오 전송
-    post_portfolio(latest_date, snapshot)
+        # 5. 시그널 전송
+        post_signals(latest_date, signals_df)
 
-    log("=" * 60)
-    log("파이프라인 완료")
-    log("=" * 60)
+        # 6. 포트폴리오 시뮬레이션
+        snapshot = run_portfolio_simulation(latest_date, signals_df)
+
+        # 7. 포트폴리오 전송
+        post_portfolio(latest_date, snapshot)
+
+        # 8. 완료 시그널 (DONE)
+        patch_pipeline_signal(signal_id, "DONE")
+
+        log("=" * 60)
+        log("파이프라인 완료")
+        log("=" * 60)
+
+    except Exception as e:
+        log(f"파이프라인 실패: {e}")
+        patch_pipeline_signal(signal_id, "FAILED")
+        raise
 
 
 if __name__ == "__main__":
