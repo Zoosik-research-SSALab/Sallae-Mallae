@@ -36,21 +36,13 @@ public class ChairmanPortfolioQueryRepository {
         SELECT s.id AS stock_id,
                s.ticker,
                s.name,
-               buy_entry.trade_price_rate AS buy_price,
-               price.close_price AS current_price,
-               buy_entry.trade_time AS buy_time,
+               h.avg_buy_price AS buy_price,
+               COALESCE(h.current_price, price.close_price) AS current_price,
+               h.buy_date AS buy_time,
+               h.holding_quantity,
                h.return_rate
         FROM ai_portfolio_holdings h
         JOIN stocks s ON s.id = h.stock_id
-        LEFT JOIN LATERAL (
-            SELECT trade_price_rate, trade_time
-            FROM ai_trading_history
-            WHERE portfolio_id = :portfolioId
-              AND stock_id = h.stock_id
-              AND trade_type = 'BUY'
-            ORDER BY trade_time DESC, id DESC
-            LIMIT 1
-        ) buy_entry ON true
         LEFT JOIN LATERAL (
             SELECT close_price
             FROM stock_prices_daily
@@ -79,6 +71,7 @@ public class ChairmanPortfolioQueryRepository {
           toFloat(row.get("buy_price")),
           toInteger(row.get("current_price")),
           toOffsetDateTime(row.get("buy_time")),
+          toLong(row.get("holding_quantity")),
           toFloat(row.get("return_rate"))
       ));
     }
@@ -116,10 +109,23 @@ public class ChairmanPortfolioQueryRepository {
                h.trade_type,
                h.trade_time,
                h.trade_price_rate,
+               price.close_price AS current_price,
+               COALESCE(holding.holding_quantity, h.holding_quantity_after) AS holding_quantity,
                h.return_rate
         FROM ai_trading_history h
         JOIN stocks s ON s.id = h.stock_id
         JOIN latest_trade_day d ON DATE(h.trade_time) = d.trade_day
+        LEFT JOIN ai_portfolio_holdings holding
+               ON holding.portfolio_id = h.portfolio_id
+              AND holding.stock_id = h.stock_id
+        LEFT JOIN LATERAL (
+            SELECT close_price
+            FROM stock_prices_daily
+            WHERE stock_id = h.stock_id
+              AND trade_date <= CURRENT_DATE
+            ORDER BY trade_date DESC, id DESC
+            LIMIT 1
+        ) price ON true
         WHERE h.portfolio_id = :portfolioId
         ORDER BY h.trade_time DESC, h.id DESC
         LIMIT :limit OFFSET :offset
@@ -140,7 +146,37 @@ public class ChairmanPortfolioQueryRepository {
           row.get("trade_type", String.class),
           toOffsetDateTime(row.get("trade_time")),
           toFloat(row.get("trade_price_rate")),
+          toInteger(row.get("current_price")),
+          toLong(row.get("holding_quantity")),
           toFloat(row.get("return_rate"))
+      ));
+    }
+    return items;
+  }
+
+  public List<MonthlyTradeMetricRow> findMonthlyTradeMetricRows(Long portfolioId) {
+    String sql = """
+        SELECT TO_CHAR(DATE_TRUNC('month', h.trade_time), 'YYYY-MM') AS month,
+               COALESCE(SUM(CASE WHEN h.trade_type = 'SELL' THEN h.realized_profit ELSE 0 END), 0) AS realized_profit_amount,
+               COALESCE(SUM(CASE WHEN h.trade_type = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
+               COALESCE(SUM(CASE WHEN h.trade_type = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count
+        FROM ai_trading_history h
+        WHERE h.portfolio_id = :portfolioId
+        GROUP BY DATE_TRUNC('month', h.trade_time)
+        ORDER BY month DESC
+        """;
+
+    List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
+        .setParameter("portfolioId", portfolioId)
+        .getResultList();
+
+    List<MonthlyTradeMetricRow> items = new ArrayList<>();
+    for (Tuple row : rows) {
+      items.add(new MonthlyTradeMetricRow(
+          row.get("month", String.class),
+          toLong(row.get("realized_profit_amount")),
+          toInteger(row.get("buy_count")),
+          toInteger(row.get("sell_count"))
       ));
     }
     return items;
@@ -351,6 +387,7 @@ public class ChairmanPortfolioQueryRepository {
       Float buyPrice,
       Integer currentPrice,
       OffsetDateTime buyTime,
+      Long holdingQuantity,
       Float returnRate
   ) {
     public Integer holdingDays(LocalDate currentDate) {
@@ -368,7 +405,17 @@ public class ChairmanPortfolioQueryRepository {
       String tradeType,
       OffsetDateTime tradeTime,
       Float tradePrice,
+      Integer currentPrice,
+      Long holdingQuantity,
       Float returnRate
+  ) {
+  }
+
+  public record MonthlyTradeMetricRow(
+      String month,
+      Long realizedProfitAmount,
+      Integer buyCount,
+      Integer sellCount
   ) {
   }
 
