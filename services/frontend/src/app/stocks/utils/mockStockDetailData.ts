@@ -530,9 +530,7 @@ const periodConfig: Record<
   "1D": { points: 78, stepMs: 5 * 60_000, volatility: 0.42, drift: 0.14 },
   "1W": { points: 7, stepMs: 24 * 60 * 60_000, volatility: 0.85, drift: 0.24 },
   "1M": { points: 30, stepMs: 24 * 60 * 60_000, volatility: 1.2, drift: 0.4 },
-  "3M": { points: 13, stepMs: 7 * 24 * 60 * 60_000, volatility: 1.8, drift: 0.68 },
   "1Y": { points: 12, stepMs: 30 * 24 * 60 * 60_000, volatility: 2.6, drift: 0.9 },
-  "3Y": { points: 12, stepMs: 90 * 24 * 60 * 60_000, volatility: 4.2, drift: 1.35 },
 };
 
 function roundPrice(value: number) {
@@ -677,6 +675,7 @@ function buildLiveAdjustment(seedId: number, index: number, period: StockChartPe
 
 export function getMockStockOverview(stockKey: string): StockDetailOverview {
   const seed = resolveStockSeed(stockKey);
+  const latestClosePrice = roundPrice(seed.basePrice * 1.01);
 
   return {
     id: seed.id,
@@ -686,6 +685,19 @@ export function getMockStockOverview(stockKey: string): StockDetailOverview {
     gicsSector: seed.gicsSector,
     category: seed.category,
     baseTime: getBaseTime(),
+    latestPrice: {
+      tradeDate: getBaseTime(),
+      closePrice: latestClosePrice,
+      fluctuationRate: 1.01,
+    },
+    priceRange52w: {
+      highPrice: roundPrice(seed.basePrice * 1.22),
+      highDate: "2026-01-15",
+      lowPrice: roundPrice(seed.basePrice * 0.81),
+      lowDate: "2025-08-19",
+      distanceFromHighRate: -17.2,
+      distanceFromLowRate: 24.7,
+    },
   };
 }
 
@@ -761,23 +773,23 @@ export function getMockStockKeywords(stockKey: string): StockKeywordsPayload {
   const keywordSeeds = seed.keywords.slice(0, 3);
 
   return {
-    totalNewsCount: keywordSeeds.length * 3,
     keywords: keywordSeeds.map((name, keywordIndex) => ({
       id: keywordIndex + 1,
       name,
-      news: Array.from({ length: 3 }, (_, newsIndex) => {
-        const baseItem = seed.news[(keywordIndex + newsIndex) % seed.news.length];
-        const offsetMinutes = keywordIndex * 54 + newsIndex * 29;
-
-        return {
-          id: baseItem.id * 10 + keywordIndex * 3 + newsIndex,
-          title: `${baseItem.title} · ${name}`,
-          publisher: baseItem.publisher,
-          publishedAt: new Date(Date.now() - (baseItem.minutesAgo + offsetMinutes) * 60_000).toISOString(),
-          url: baseItem.url,
-        };
-      }),
     })),
+    news: Array.from({ length: keywordSeeds.length * 3 }, (_, index) => {
+      const baseItem = seed.news[index % seed.news.length];
+      const keyword = keywordSeeds[index % keywordSeeds.length];
+      const offsetMinutes = index * 29;
+
+      return {
+        id: baseItem.id * 10 + index,
+        title: `${baseItem.title} · ${keyword}`,
+        publisher: baseItem.publisher,
+        publishedAt: new Date(Date.now() - (baseItem.minutesAgo + offsetMinutes) * 60_000).toISOString(),
+        url: baseItem.url,
+      };
+    }),
   };
 }
 

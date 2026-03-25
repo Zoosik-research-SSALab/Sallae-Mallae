@@ -42,8 +42,16 @@ function formatSignedRate(value: number) {
   return "0.00%";
 }
 
-function formatSearchedAt(value: string) {
+function formatSearchedAt(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
   const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
 
   return new Intl.DateTimeFormat("ko-KR", {
     month: "numeric",
@@ -105,23 +113,19 @@ export default function SearchModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<SearchResultTab>("stocks");
   const trimmedValue = value.trim();
+  const normalizedRecentSearches = Array.isArray(recentSearches) ? recentSearches : [];
+  const normalizedStockResults = Array.isArray(searchResults?.stocks) ? searchResults.stocks : [];
+  const normalizedNewsResults = Array.isArray(searchResults?.news) ? searchResults.news : [];
   const isShowingResults = Boolean(trimmedValue);
-  const hasRecentSearches = recentSearches.length > 0;
-  const hasStockResults = searchResults.stocks.length > 0;
-  const hasNewsResults = searchResults.news.length > 0;
-
-  useEffect(() => {
-    if (!isShowingResults) return;
-
-    if (activeTab === "stocks" && !hasStockResults && hasNewsResults) {
-      setActiveTab("news");
-      return;
-    }
-
-    if (activeTab === "news" && !hasNewsResults && hasStockResults) {
-      setActiveTab("stocks");
-    }
-  }, [activeTab, hasNewsResults, hasStockResults, isShowingResults]);
+  const hasRecentSearches = normalizedRecentSearches.length > 0;
+  const hasStockResults = normalizedStockResults.length > 0;
+  const hasNewsResults = normalizedNewsResults.length > 0;
+  const visibleTab =
+    isShowingResults && activeTab === "stocks" && !hasStockResults && hasNewsResults
+      ? "news"
+      : isShowingResults && activeTab === "news" && !hasNewsResults && hasStockResults
+        ? "stocks"
+        : activeTab;
 
   useEffect(() => {
     if (!open) {
@@ -278,7 +282,7 @@ export default function SearchModal({
                         onClick={() => setActiveTab("stocks")}
                         className={cn(
                           "typo-body-md border-b pb-3 font-semibold transition-colors",
-                          activeTab === "stocks"
+                          visibleTab === "stocks"
                             ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
                             : "border-transparent text-[color:var(--color-text-tertiary)]",
                         )}
@@ -290,7 +294,7 @@ export default function SearchModal({
                         onClick={() => setActiveTab("news")}
                         className={cn(
                           "typo-body-md border-b pb-3 font-semibold transition-colors",
-                          activeTab === "news"
+                          visibleTab === "news"
                             ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
                             : "border-transparent text-[color:var(--color-text-tertiary)]",
                         )}
@@ -303,11 +307,11 @@ export default function SearchModal({
                   {isSearching ? <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">검색 중...</p> : null}
                 </section>
 
-                {!isSearching && activeTab === "stocks" ? (
+                {!isSearching && visibleTab === "stocks" ? (
                   <section className="flex flex-col gap-4">
                     {hasStockResults ? (
                       <div className="flex flex-col gap-2 px-2">
-                        {searchResults.stocks.map((stock) => (
+                        {normalizedStockResults.map((stock) => (
                           <button
                             key={stock.id}
                             type="button"
@@ -342,11 +346,11 @@ export default function SearchModal({
                   </section>
                 ) : null}
 
-                {!isSearching && activeTab === "news" ? (
+                {!isSearching && visibleTab === "news" ? (
                   <section className="flex flex-col gap-4">
                     {hasNewsResults ? (
                       <div className="flex flex-col gap-2 px-2">
-                        {searchResults.news.map((news) => (
+                        {normalizedNewsResults.map((news) => (
                           <button
                             key={news.id}
                             type="button"
@@ -385,7 +389,7 @@ export default function SearchModal({
 
                 {hasRecentSearches ? (
                   <div className="flex flex-col gap-2">
-                    {recentSearches.map((item) => (
+                    {normalizedRecentSearches.map((item) => (
                       <div
                         key={`${item.keyword}-${item.searchedAt}`}
                         className="flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[color:var(--color-bg-secondary)]"

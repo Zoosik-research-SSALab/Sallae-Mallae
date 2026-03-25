@@ -7,20 +7,34 @@ import type {
   TopStocksPayload,
 } from "../types/main";
 
+type ApiResponse<T> = {
+  success: boolean;
+  data: T;
+  error: unknown | null;
+};
+
 export function subscribeTopStocks(handlers: { onMessage: (payload: TopStocksPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<TopStocksPayload>("/api/stream/main/test/top-stocks", handlers);
+  return connectSse<TopStocksPayload>("/api/stream/main/top-stocks", handlers);
 }
 
 export function subscribeMarketIndex(handlers: { onMessage: (payload: MarketIndexPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<MarketIndexPayload>("/api/stream/main/test/market-index", handlers);
+  return connectSse<MarketIndexPayload>("/api/stream/main/market-index", handlers);
 }
 
 export function subscribeCategories(handlers: { onMessage: (payload: CategoriesPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<CategoriesPayload>("/api/stream/main/test/categories", handlers);
+  return connectSse<CategoriesPayload>("/api/stream/main/categories", handlers);
 }
 
 export async function getMainNewSignals() {
-  return apiFetch<NewSignalsPayload>("/api/main/new-signals", { cache: "no-store" });
+  const payload = await apiFetch<ApiResponse<NewSignalsPayload> | NewSignalsPayload>("/api/main/new-signals", {
+    cache: "no-store",
+  });
+
+  if (typeof payload === "object" && payload !== null && "data" in payload) {
+    return payload.data;
+  }
+
+  return payload;
 }
 
 export async function getPopularSearches() {

@@ -1,14 +1,13 @@
-"use client";
+import LoginPageClient from "./LoginPageClient";
 
-import { useRouter } from "next/navigation";
-import { LoginCard } from "./components/LoginCard";
+type Props = {
+  searchParams: Promise<{
+    redirect?: string;
+  }>;
+};
 
-export default function LoginPage() {
-  const router = useRouter();
+export default async function LoginPage({ searchParams }: Props) {
+  const { redirect } = await searchParams;
 
-  return (
-    <main className="flex min-h-[calc(100vh-72px)] items-center justify-center bg-[color:var(--color-bg-secondary)] px-4 py-10">
-      <LoginCard showCloseButton onClose={() => router.push("/")} onAuthenticated={() => router.replace("/")} />
-    </main>
-  );
+  return <LoginPageClient redirect={redirect || "/"} />;
 }

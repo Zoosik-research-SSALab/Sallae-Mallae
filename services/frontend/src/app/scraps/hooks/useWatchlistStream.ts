@@ -19,5 +19,8 @@ export function useWatchlistStream(page: number, limit: number) {
     [limit, page],
   );
 
-  return useSseState(subscribe, initialWatchlistStreamPayload);
+  return useSseState(subscribe, initialWatchlistStreamPayload, {
+    resetOnSubscribeChange: true,
+    subscriptionKey: `${page}:${limit}`,
+  });
 }

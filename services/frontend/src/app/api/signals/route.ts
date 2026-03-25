@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isMockAuthorized } from "@/app/api/auth/mock";
 import type { SignalMarketCapSize, SignalQueryFilter, SignalQuerySort, SignalSectorName, SignalsQueryParams } from "@/app/signals/types/signals";
 import { getSignalsMock } from "@/app/signals/utils/mockSignalsData";
 import { snakelizeKeys } from "@/shared/utils/case";
@@ -26,6 +27,16 @@ function parseCategories(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
+  if (!isMockAuthorized(request)) {
+    return NextResponse.json(
+      {
+        code: "AUTH_001",
+        message: "로그인이 필요합니다.",
+      },
+      { status: 401 },
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const filter = searchParams.get("filter");
   const sort = searchParams.get("sort");

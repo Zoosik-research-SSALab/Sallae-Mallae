@@ -12,6 +12,5 @@ export function useNotificationCountQuery(enabled = true) {
     enabled,
     staleTime: 60 * 1000,
     refetchInterval: enabled ? 60 * 1000 : false,
-    refetchOnMount: false,
   });
 }

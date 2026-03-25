@@ -1,6 +1,7 @@
 # Progress Log
 
 ## Current Focus
+- [x] (2026-03-12) Portfolio page rebuild: responsive `/portfolio` page, local mock `/api/portfolio`, portfolio API handoff doc, and header nav update
 - [x] (2026-03-12) Stock detail page rebuild: responsive `/stocks/[ticker]` with ECharts price chart, mock detail APIs, and watchlist notification toggle
 - [x] (2026-03-10) Stocks page rebuild: responsive all-stocks board with token-based ranking UI, mock `/api/stocks`, and layout reordering animation
 - [x] (2026-03-11) Watchlist page rebuild: responsive `/scraps` dashboard with SSE feed, news panel, and shared watchlist reuse
@@ -23,6 +24,40 @@
 - [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
 
 ## Changes
+### (2026-03-12) Portfolio page rebuild
+- Scope:
+  - Replaced the placeholder `portfolio` route with a responsive portfolio dashboard based on the provided desktop/mobile direction
+  - Added local mock routes for `/api/portfolio` and typo-compatible `/api/portfoilo`
+  - Updated the shared header navigation to expose the new portfolio page and fixed broken header text encoding while touching the file
+  - Added a backend handoff document for the portfolio API payload
+- Files:
+  - ~ PROGRESS.md
+  - + PORTFOLIO_API.md
+  - ~ src/styles/theme.css
+  - ~ src/shared/components/AppNav.tsx
+  - ~ src/app/portfolio/page.tsx
+  - + src/app/portfolio/PortfolioPageClient.tsx
+  - + src/app/portfolio/api/getPortfolio.ts
+  - + src/app/portfolio/hooks/usePortfolioQuery.ts
+  - + src/app/portfolio/types/portfolio.ts
+  - + src/app/portfolio/utils/{mockPortfolioData,portfolioFormatters}.ts
+  - + src/app/portfolio/components/{PortfolioHero,PortfolioTabsSection,PortfolioSidebar,PortfolioHallOfFame}.tsx
+  - + src/app/api/{portfolio,portfoilo}/route.ts
+  - - src/app/portfolio/api/getChairmanPortfolio.ts
+  - - src/app/portfolio/hooks/useChairmanPortfolio.ts
+  - - src/app/portfolio/components/{HoldingsList,PerformanceList,PortfolioSummaryCard}.tsx
+- Decisions:
+  - Used one composite portfolio payload so the page can render immediately without coordinating multiple new backend endpoints.
+  - Forced the page client to call the local route with `useBaseUrl: false` because the backend endpoint does not exist yet and env-based base URL switching would otherwise bypass the frontend mock.
+  - Kept desktop as a two-column content/sidebar layout, while tablet/mobile stack the sidebar cards under the main board and switch holdings to a “더보기” interaction.
+- Notes / Issues:
+  - `public/images/horse.png` was used as the hero visual asset.
+  - `/api/portfoilo` exists only as a temporary alias for request compatibility; `/api/portfolio` is the intended contract path.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] Replace the local mock route with the real backend portfolio API once the service is available.
+  - [ ] If the backend prefers separate endpoints for holdings/trades/sidebar, split the current composite contract after the first integration pass.
+
 ### (2026-03-12) Stock detail page rebuild
 - Scope:
   - Replaced the placeholder `stocks/[ticker]` screen with a responsive stock detail page using shared layout/header rules and route-local query hooks

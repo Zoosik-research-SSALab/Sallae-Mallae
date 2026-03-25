@@ -1,18 +1,234 @@
-import { connectSse } from "@/shared/lib/apiClient";
-import type { StockChartPeriod, StockPricesPayload } from "@/app/stocks/types/stockDetail";
+import type { StockChartPeriod, StockPricePoint } from "@/app/stocks/types/stockDetail";
+import { getMockStockPrices } from "@/app/stocks/utils/mockStockDetailData";
+import { apiFetch, connectSse } from "@/shared/lib/apiClient";
 
-type StockPriceStreamHandlers = {
-  onMessage: (payload: StockPricesPayload) => void;
-  onError?: (error: Event) => void;
+type StockPriceApiPoint = {
+  timestamp?: string | null;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  close?: number | null;
+  volume?: number | null;
 };
 
-export function connectStockPriceStream(ticker: string, period: StockChartPeriod, handlers: StockPriceStreamHandlers) {
-  const query = new URLSearchParams({
-    period,
+type StockPricesApiPayload = {
+  candleType?: string | null;
+  hasMore?: boolean | null;
+  nextCursor?: string | null;
+  prices?: StockPriceApiPoint[] | null;
+};
+
+type StockQuoteApiPayload = {
+  timestamp?: string | null;
+  asOf?: string | null;
+  tradeTime?: string | null;
+  previousClosePrice?: number | null;
+  currentPrice?: number | null;
+  changeRate?: number | null;
+  fluctuationRate?: number | null;
+};
+
+export type StockPricePage = {
+  prices: StockPricePoint[];
+  hasMore: boolean;
+  nextCursor: string | null;
+};
+
+export type StockQuoteSnapshot = {
+  currentPrice: number | null;
+  previousClosePrice: number | null;
+  changeRate: number | null;
+  tickPrice: number | null;
+  tickTimestamp: string | null;
+};
+
+const chartPeriodToCandleType: Record<StockChartPeriod, "MINUTE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"> = {
+  "1MIN": "MINUTE",
+  "1D": "DAILY",
+  "1W": "WEEKLY",
+  "1M": "MONTHLY",
+  "1Y": "YEARLY",
+};
+
+function shouldUseMockApi() {
+  const explicit = process.env.NEXT_PUBLIC_USE_API_MOCK?.trim().toLowerCase();
+
+  if (explicit === "true") {
+    return true;
+  }
+
+  if (explicit === "false") {
+    return false;
+  }
+
+  const raw = process.env.NEXT_PUBLIC_API_MOCKING?.trim().toLowerCase();
+  return raw !== "false" && raw !== "disabled";
+}
+
+function sortAndDedupePrices(prices: Array<StockPricePoint | null>) {
+  const priceMap = new Map<string, StockPricePoint>();
+
+  prices.forEach((price) => {
+    if (price) {
+      priceMap.set(price.timestamp, price);
+    }
   });
 
-  return connectSse<StockPricesPayload>(`/api/stocks/${ticker}/prices?${query.toString()}`, {
-    ...handlers,
-    useBaseUrl: false,
+  return Array.from(priceMap.values()).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+function mapPricePoint(point: StockPriceApiPoint): StockPricePoint | null {
+  if (
+    typeof point.timestamp !== "string" ||
+    typeof point.open !== "number" ||
+    typeof point.high !== "number" ||
+    typeof point.low !== "number" ||
+    typeof point.close !== "number" ||
+    typeof point.volume !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    timestamp: point.timestamp,
+    open: point.open,
+    high: point.high,
+    low: point.low,
+    close: point.close,
+    volume: point.volume,
+  };
+}
+
+function normalizePricePage(payload: StockPricesApiPayload): StockPricePage {
+  const prices = sortAndDedupePrices((payload.prices ?? []).map(mapPricePoint));
+
+  return {
+    prices,
+    hasMore: Boolean(payload.hasMore),
+    nextCursor: typeof payload.nextCursor === "string" ? payload.nextCursor : null,
+  };
+}
+
+function normalizeQuotePayload(payload: StockQuoteApiPayload): StockQuoteSnapshot {
+  const changeRate =
+    typeof payload.changeRate === "number"
+      ? payload.changeRate
+      : typeof payload.fluctuationRate === "number"
+        ? payload.fluctuationRate
+        : null;
+  const previousClosePrice =
+    typeof payload.previousClosePrice === "number" ? payload.previousClosePrice : null;
+  const tickPrice =
+    typeof payload.currentPrice === "number"
+      ? payload.currentPrice
+      : previousClosePrice;
+  const tickTimestamp =
+    typeof payload.timestamp === "string"
+      ? payload.timestamp
+      : typeof payload.asOf === "string"
+        ? payload.asOf
+        : typeof payload.tradeTime === "string"
+          ? payload.tradeTime
+          : new Date().toISOString();
+
+  return {
+    currentPrice: previousClosePrice ?? tickPrice,
+    previousClosePrice,
+    changeRate,
+    tickPrice,
+    tickTimestamp,
+  };
+}
+
+function getPricePath(stockId: string, period: StockChartPeriod, cursor?: string | null) {
+  const query = new URLSearchParams({
+    candle_type: chartPeriodToCandleType[period],
+  });
+
+  if (cursor) {
+    query.set("cursor", cursor);
+  }
+
+  return `/api/stocks/${stockId}/prices?${query.toString()}`;
+}
+
+function getQuotePath(ticker: string) {
+  return `/api/stream/stocks/${ticker}/quote`;
+}
+
+function getMockPricePage(ticker: string, period: StockChartPeriod): StockPricePage {
+  const payload = getMockStockPrices(ticker, period);
+
+  return {
+    prices: payload.prices,
+    hasMore: false,
+    nextCursor: null,
+  };
+}
+
+function getMockQuoteSnapshot(ticker: string): StockQuoteSnapshot {
+  const prices = getMockPricePage(ticker, "1MIN").prices;
+  const latest = prices.at(-1) ?? null;
+  const previous = prices.at(-2) ?? null;
+
+  if (!latest) {
+    return {
+      currentPrice: null,
+      previousClosePrice: null,
+      changeRate: null,
+      tickPrice: null,
+      tickTimestamp: null,
+    };
+  }
+
+  const changeRate =
+    previous && previous.close > 0 ? ((latest.close - previous.close) / previous.close) * 100 : null;
+
+  return {
+    currentPrice: latest.close,
+    previousClosePrice: previous?.close ?? latest.close,
+    changeRate,
+    tickPrice: latest.close,
+    tickTimestamp: latest.timestamp,
+  };
+}
+
+export async function fetchStockPricePage(stockId: string, period: StockChartPeriod, cursor?: string | null) {
+  if (shouldUseMockApi()) {
+    return getMockPricePage(stockId, period);
+  }
+
+  const payload = await apiFetch<StockPricesApiPayload>(getPricePath(stockId, period, cursor), {
+    cache: "no-store",
+  });
+
+  return normalizePricePage(payload);
+}
+
+export function subscribeStockQuoteStream(
+  ticker: string,
+  handlers: {
+    onMessage: (payload: StockQuoteSnapshot) => void;
+    onError?: (error: Event) => void;
+  },
+) {
+  if (shouldUseMockApi()) {
+    const emitSnapshot = () => {
+      handlers.onMessage(getMockQuoteSnapshot(ticker));
+    };
+
+    emitSnapshot();
+    const timer = window.setInterval(emitSnapshot, 4_000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }
+
+  return connectSse<StockQuoteApiPayload>(getQuotePath(ticker), {
+    onMessage(payload) {
+      handlers.onMessage(normalizeQuotePayload(payload));
+    },
+    onError: handlers.onError,
   });
 }

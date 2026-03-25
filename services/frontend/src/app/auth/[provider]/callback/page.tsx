@@ -1,0 +1,19 @@
+import { notFound } from "next/navigation";
+import AuthCallbackClient from "@/app/auth/callback/[provider]/components/AuthCallbackClient";
+import { isAuthProvider } from "@/shared/lib/auth";
+
+type Props = {
+  params: Promise<{
+    provider: string;
+  }>;
+};
+
+export default async function ProviderAuthCallbackPage({ params }: Props) {
+  const { provider } = await params;
+
+  if (!isAuthProvider(provider)) {
+    notFound();
+  }
+
+  return <AuthCallbackClient provider={provider} />;
+}

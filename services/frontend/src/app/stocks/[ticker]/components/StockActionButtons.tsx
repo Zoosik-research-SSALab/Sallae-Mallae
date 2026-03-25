@@ -3,9 +3,9 @@
 import { HiOutlineBell } from "react-icons/hi";
 import { IoMdNotifications } from "react-icons/io";
 import { IoHeart, IoHeartOutline } from "react-icons/io5";
-import { useWatchlist } from "@/shared/hooks/useWatchlist";
-import { useWatchlistNotification } from "@/shared/hooks/useWatchlistNotification";
+import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import { cn } from "@/shared/utils/cn";
+import { useStockWatchlistControls } from "../hooks/useStockWatchlistControls";
 
 type Props = {
   stockId?: number;
@@ -17,15 +17,31 @@ function ActionButtonSkeleton() {
 }
 
 function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stockName: string }) {
-  const { isWatched, isPending: isWatchlistPending, toggle: toggleWatchlist } = useWatchlist(stockId);
+  const requireAuthAction = useRequireAuthAction();
   const {
-    isWatched: isWatchlistReady,
+    isLoading,
+    isWatched,
     isNotifiedEnabled,
-    isPending: isNotificationPending,
-    toggle: toggleNotification,
-  } = useWatchlistNotification(stockId);
+    isWatchlistPending,
+    isNotificationPending,
+    toggleWatchlist,
+    toggleNotification,
+  } = useStockWatchlistControls(stockId);
+
+  if (isLoading) {
+    return (
+      <div className="flex shrink-0 items-center gap-3">
+        <ActionButtonSkeleton />
+        <ActionButtonSkeleton />
+      </div>
+    );
+  }
 
   const handleWatchlistClick = async () => {
+    if (!requireAuthAction()) {
+      return;
+    }
+
     try {
       await toggleWatchlist();
     } catch (error) {
@@ -35,7 +51,11 @@ function StockActionButtonsReady({ stockId, stockName }: { stockId: number; stoc
   };
 
   const handleNotificationClick = async () => {
-    if (!isWatchlistReady) {
+    if (!requireAuthAction()) {
+      return;
+    }
+
+    if (!isWatched) {
       window.alert("관심종목에 추가한 뒤 알림을 설정할 수 있습니다.");
       return;
     }

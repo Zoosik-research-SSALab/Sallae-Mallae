@@ -2,11 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const AUTH_DEVICE_COOKIE_NAME = "sallaemallae-device-id";
 export const AUTH_REFRESH_COOKIE_NAME = "refreshToken";
+export const AUTH_ACCESS_TOKEN_COOKIE_NAME = "sallaemallae-access-token";
 
 type DeviceIdState = {
   value: string;
   isNew: boolean;
 };
+
+function shouldLogProxyDebug() {
+  return process.env.NODE_ENV !== "production";
+}
+
+function createAuthorizationPreview(authorization: string | null) {
+  if (!authorization) {
+    return null;
+  }
+
+  if (authorization.length <= 20) {
+    return authorization;
+  }
+
+  return `${authorization.slice(0, 12)}...${authorization.slice(-6)}`;
+}
+
+function logAuthProxyDebug(label: string, payload: Record<string, unknown>) {
+  if (!shouldLogProxyDebug()) {
+    return;
+  }
+
+  console.info(`[auth-proxy:${label}]`, payload);
+}
 
 function isJsonContentType(contentType: string | null) {
   return typeof contentType === "string" && contentType.includes("application/json");
@@ -14,6 +39,10 @@ function isJsonContentType(contentType: string | null) {
 
 function normalizeBaseUrl(value: string) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+function normalizeOrigin(value: string) {
+  return normalizeBaseUrl(value.trim());
 }
 
 function joinBaseUrl(baseUrl: string, path: string) {
@@ -36,6 +65,35 @@ export function getAuthApiBaseUrl() {
   return normalizeBaseUrl(configured);
 }
 
+export function getPublicAppOrigin(request: NextRequest) {
+  const explicitOrigin =
+    process.env.APP_ORIGIN?.trim() ||
+    process.env.NEXT_PUBLIC_APP_ORIGIN?.trim();
+
+  if (explicitOrigin) {
+    return normalizeOrigin(explicitOrigin);
+  }
+
+  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
+  const hostHeader = request.headers.get("host")?.trim();
+  const protocolHeader = request.headers.get("x-forwarded-proto")?.trim();
+
+  const host = forwardedHost || hostHeader;
+  const protocol = protocolHeader || request.nextUrl.protocol.replace(/:$/, "") || "http";
+
+  if (host) {
+    const normalizedHost = process.env.NODE_ENV === "development" ? host.replace(/^0\.0\.0\.0(?=[:/]|$)/, "localhost") : host;
+    return `${protocol}://${normalizedHost}`;
+  }
+
+  const fallbackUrl = new URL(request.url);
+  if (process.env.NODE_ENV === "development" && fallbackUrl.hostname === "0.0.0.0") {
+    fallbackUrl.hostname = "localhost";
+  }
+
+  return normalizeOrigin(fallbackUrl.origin);
+}
+
 export function resolveAuthApiUrl(path: string) {
   return joinBaseUrl(getAuthApiBaseUrl(), path);
 }
@@ -49,7 +107,15 @@ export function resolveAuthRedirectUrl(redirect: string) {
 }
 
 export function getOrCreateDeviceId(request: NextRequest): DeviceIdState {
+  const headerDeviceId = request.headers.get("x-device-id")?.trim();
   const existingDeviceId = request.cookies.get(AUTH_DEVICE_COOKIE_NAME)?.value;
+
+  if (headerDeviceId) {
+    return {
+      value: headerDeviceId,
+      isNew: existingDeviceId !== headerDeviceId,
+    };
+  }
 
   if (existingDeviceId) {
     return {
@@ -87,6 +153,38 @@ export function appendSetCookieHeader(response: NextResponse, upstreamResponse: 
   if (setCookie) {
     response.headers.append("set-cookie", setCookie);
   }
+
+  return response;
+}
+
+export function applyAccessTokenCookie(response: NextResponse, payload: unknown) {
+  if (typeof payload !== "object" || payload === null) return response;
+
+  const record = payload as Record<string, unknown>;
+  const accessToken =
+    (record.access_token as string | undefined) ??
+    (record.accessToken as string | undefined) ??
+    ((record.data as Record<string, unknown> | undefined)?.access_token as string | undefined) ??
+    ((record.data as Record<string, unknown> | undefined)?.accessToken as string | undefined);
+
+  if (!accessToken || typeof accessToken !== "string") return response;
+
+  const expiresIn =
+    (record.expires_in as number | undefined) ??
+    (record.expiresIn as number | undefined) ??
+    ((record.data as Record<string, unknown> | undefined)?.expires_in as number | undefined) ??
+    ((record.data as Record<string, unknown> | undefined)?.expiresIn as number | undefined) ??
+    3600;
+
+  response.cookies.set({
+    name: AUTH_ACCESS_TOKEN_COOKIE_NAME,
+    value: accessToken,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: typeof expiresIn === "number" ? expiresIn : 3600,
+  });
 
   return response;
 }
@@ -129,7 +227,7 @@ export function createErrorResponse(message: string, status = 500, deviceIdState
 type ProxyAuthRequestOptions = {
   request: NextRequest;
   path: string;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "DELETE";
   body?: unknown;
   includeDeviceId?: boolean;
   forwardAuthorization?: boolean;
@@ -144,9 +242,12 @@ export async function proxyAuthRequest({
   forwardAuthorization = false,
 }: ProxyAuthRequestOptions) {
   const deviceIdState = getOrCreateDeviceId(request);
+  const targetUrl = resolveAuthApiUrl(path);
 
   try {
     const headers = new Headers();
+    const authorization = request.headers.get("authorization");
+    const cookie = request.headers.get("cookie");
 
     if (includeDeviceId) {
       headers.set("X-Device-Id", deviceIdState.value);
@@ -157,22 +258,41 @@ export async function proxyAuthRequest({
     }
 
     if (forwardAuthorization) {
-      const authorization = request.headers.get("authorization");
       if (authorization) {
         headers.set("Authorization", authorization);
       }
     }
 
-    const cookie = request.headers.get("cookie");
     if (cookie) {
       headers.set("Cookie", cookie);
     }
 
-    const upstreamResponse = await fetch(resolveAuthApiUrl(path), {
+    logAuthProxyDebug("request", {
+      method,
+      path,
+      targetUrl,
+      includeDeviceId,
+      forwardedDeviceId: headers.get("X-Device-Id"),
+      hasAuthorization: Boolean(authorization),
+      authorizationPreview: createAuthorizationPreview(authorization),
+      hasRefreshTokenCookie: Boolean(request.cookies.get(AUTH_REFRESH_COOKIE_NAME)?.value),
+      hasDeviceIdCookie: Boolean(request.cookies.get(AUTH_DEVICE_COOKIE_NAME)?.value),
+    });
+
+    const upstreamResponse = await fetch(targetUrl, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: "no-store",
+    });
+
+    logAuthProxyDebug("response", {
+      method,
+      path,
+      targetUrl,
+      status: upstreamResponse.status,
+      ok: upstreamResponse.ok,
+      hasSetCookie: Boolean(upstreamResponse.headers.get("set-cookie")),
     });
 
     if (upstreamResponse.status === 204) {
@@ -200,6 +320,13 @@ export async function proxyAuthRequest({
           );
 
     applyDeviceIdCookie(response, deviceIdState);
+
+    if (upstreamResponse.ok && upstreamPayload) {
+      applyAccessTokenCookie(response, upstreamPayload);
+    }
+
+    // appendSetCookieHeader must be LAST — response.cookies.set() above
+    // rebuilds the Set-Cookie header internally, so raw append must come after.
     appendSetCookieHeader(response, upstreamResponse);
 
     return response;

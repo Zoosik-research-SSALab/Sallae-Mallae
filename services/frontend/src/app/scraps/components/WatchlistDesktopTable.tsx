@@ -70,7 +70,7 @@ export default function WatchlistDesktopTable({
                   <WatchlistStockAvatar name={item.name} />
                   <div className="min-w-0">
                     <Link
-                      href={`/stocks/${item.ticker}`}
+                      href={`/stocks/${item.stockId}`}
                       className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     >
                       {item.name}

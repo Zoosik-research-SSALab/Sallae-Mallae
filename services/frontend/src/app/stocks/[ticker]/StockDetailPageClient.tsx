@@ -2,97 +2,258 @@
 
 import { useMemo, useState } from "react";
 import type { StockChartPeriod, StockFinancialType } from "@/app/stocks/types/stockDetail";
-import Badge from "@/shared/ui/Badge";
-import { getChangeRate, getLatestClose } from "./utils/stockDetailFormatters";
+import type { StockQuoteSnapshot } from "./api/connectStockPriceStream";
 import { useStockAnnouncementsQuery } from "./hooks/useStockAnnouncementsQuery";
 import { useStockFinancialsQuery } from "./hooks/useStockFinancialsQuery";
 import { useStockIndicatorsQuery } from "./hooks/useStockIndicatorsQuery";
 import { useStockKeywordsQuery } from "./hooks/useStockKeywordsQuery";
 import { useStockOverviewQuery } from "./hooks/useStockOverviewQuery";
 import { useStockPriceStream } from "./hooks/useStockPriceStream";
+import { useStockQuoteStream } from "./hooks/useStockQuoteStream";
 import StockAnnouncementsSection from "./components/StockAnnouncementsSection";
 import StockDetailTopBar from "./components/StockDetailTopBar";
 import StockFinancialSection from "./components/StockFinancialSection";
 import StockIndicatorsSection from "./components/StockIndicatorsSection";
 import StockKeywordsNewsSection from "./components/StockKeywordsNewsSection";
 import StockOverviewSection from "./components/StockOverviewSection";
+import StockSectionLoadingOverlay from "./components/common/StockSectionLoadingOverlay";
 
 type Props = {
-  ticker: string;
+  stockId: string;
 };
 
-export default function StockDetailPageClient({ ticker }: Props) {
+const SEOUL_TIME_ZONE = "Asia/Seoul";
+
+function getSeoulMinuteParts(value: string | Date) {
+  const date = typeof value === "string" ? new Date(value) : value;
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SEOUL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const readPart = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "00";
+
+  return {
+    year: readPart("year"),
+    month: readPart("month"),
+    day: readPart("day"),
+    hour: readPart("hour"),
+    minute: readPart("minute"),
+  };
+}
+
+function getSeoulMinuteKey(value: string | Date) {
+  const parts = getSeoulMinuteParts(value);
+
+  if (!parts) {
+    return null;
+  }
+
+  return `${parts.year}-${parts.month}-${parts.day}-${parts.hour}-${parts.minute}`;
+}
+
+function toSeoulMinuteTimestamp(value: string | Date) {
+  const parts = getSeoulMinuteParts(value);
+
+  if (!parts) {
+    return null;
+  }
+
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:00+09:00`;
+}
+
+function mergeMinutePricesWithQuoteTick(
+  prices: Array<{
+    timestamp: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }>,
+  quote: StockQuoteSnapshot,
+) {
+  if (typeof quote.tickPrice !== "number" || typeof quote.tickTimestamp !== "string") {
+    return prices;
+  }
+
+  const tickMinuteKey = getSeoulMinuteKey(quote.tickTimestamp);
+  const tickMinuteTimestamp = toSeoulMinuteTimestamp(quote.tickTimestamp);
+
+  if (!tickMinuteKey || !tickMinuteTimestamp) {
+    return prices;
+  }
+
+  if (prices.length === 0) {
+    return [
+      {
+        timestamp: tickMinuteTimestamp,
+        open: quote.tickPrice,
+        high: quote.tickPrice,
+        low: quote.tickPrice,
+        close: quote.tickPrice,
+        volume: 0,
+      },
+    ];
+  }
+
+  const lastPrice = prices.at(-1);
+  if (!lastPrice) {
+    return prices;
+  }
+
+  const lastMinuteKey = getSeoulMinuteKey(lastPrice.timestamp);
+  if (!lastMinuteKey) {
+    return prices;
+  }
+
+  if (tickMinuteKey < lastMinuteKey) {
+    return prices;
+  }
+
+  if (tickMinuteKey === lastMinuteKey) {
+    return [
+      ...prices.slice(0, -1),
+      {
+        ...lastPrice,
+        high: Math.max(lastPrice.high, quote.tickPrice),
+        low: Math.min(lastPrice.low, quote.tickPrice),
+        close: quote.tickPrice,
+      },
+    ];
+  }
+
+  return [
+    ...prices,
+    {
+      timestamp: tickMinuteTimestamp,
+      open: quote.tickPrice,
+      high: quote.tickPrice,
+      low: quote.tickPrice,
+      close: quote.tickPrice,
+      volume: 0,
+    },
+  ];
+}
+
+export default function StockDetailPageClient({ stockId }: Props) {
   const [chartPeriod, setChartPeriod] = useState<StockChartPeriod>("1MIN");
-  const [financialType, setFinancialType] = useState<StockFinancialType>("YEARLY");
+  const [financialType, setFinancialType] = useState<StockFinancialType>("QUARTERLY");
 
-  const overviewQuery = useStockOverviewQuery(ticker);
-  const indicatorsQuery = useStockIndicatorsQuery(ticker);
-  const financialsQuery = useStockFinancialsQuery(ticker, financialType);
-  const keywordsQuery = useStockKeywordsQuery(ticker);
-  const announcementsQuery = useStockAnnouncementsQuery(ticker, 4, 0);
-  const priceStream = useStockPriceStream(ticker, chartPeriod);
+  const overviewQuery = useStockOverviewQuery(stockId);
+  const indicatorsQuery = useStockIndicatorsQuery(stockId);
+  const financialsQuery = useStockFinancialsQuery(stockId, financialType);
+  const keywordsQuery = useStockKeywordsQuery(stockId);
+  const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
+  const chartPriceStream = useStockPriceStream(stockId, chartPeriod);
+  const quoteTicker = overviewQuery.data?.ticker ?? "";
+  const quoteStream = useStockQuoteStream(quoteTicker, {
+    enabled: Boolean(quoteTicker),
+  });
 
-  const currentPrice = useMemo(() => getLatestClose(priceStream.data.prices), [priceStream.data.prices]);
-  const changeRate = useMemo(() => getChangeRate(priceStream.data.prices), [priceStream.data.prices]);
-  const errorMessage =
-    (overviewQuery.error instanceof Error && overviewQuery.error.message) ||
-    (indicatorsQuery.error instanceof Error && indicatorsQuery.error.message) ||
-    (financialsQuery.error instanceof Error && financialsQuery.error.message) ||
-    (keywordsQuery.error instanceof Error && keywordsQuery.error.message) ||
-    (announcementsQuery.error instanceof Error && announcementsQuery.error.message) ||
-    (priceStream.error ? "차트 데이터를 불러오지 못했습니다." : null);
+  const currentPrice = useMemo(() => {
+    if (typeof quoteStream.data.tickPrice === "number") {
+      return quoteStream.data.tickPrice;
+    }
+
+    if (typeof quoteStream.data.currentPrice === "number") {
+      return quoteStream.data.currentPrice;
+    }
+
+    return overviewQuery.data?.latestPrice?.closePrice ?? 0;
+  }, [overviewQuery.data?.latestPrice?.closePrice, quoteStream.data.currentPrice, quoteStream.data.tickPrice]);
+
+  const changeRate = useMemo(() => {
+    if (typeof quoteStream.data.changeRate === "number") {
+      return quoteStream.data.changeRate;
+    }
+
+    return overviewQuery.data?.latestPrice?.fluctuationRate ?? 0;
+  }, [overviewQuery.data?.latestPrice?.fluctuationRate, quoteStream.data.changeRate]);
+
+  const chartPrices = useMemo(() => {
+    if (chartPeriod !== "1MIN") {
+      return chartPriceStream.data.prices;
+    }
+
+    return mergeMinutePricesWithQuoteTick(chartPriceStream.data.prices, quoteStream.data);
+  }, [chartPeriod, chartPriceStream.data.prices, quoteStream.data]);
+
+  const displayBaseTime = quoteStream.data.tickTimestamp ?? overviewQuery.data?.baseTime ?? "";
+
+  const isOverviewPending = overviewQuery.isLoading || Boolean(overviewQuery.error) || !overviewQuery.data;
+  const isChartPending = chartPriceStream.isLoading || (!chartPriceStream.data.prices.length && Boolean(chartPriceStream.error));
+  const isIndicatorsPending = indicatorsQuery.isLoading || Boolean(indicatorsQuery.error);
+  const isFinancialsPending = financialsQuery.isLoading || Boolean(financialsQuery.error);
+  const isKeywordsPending = keywordsQuery.isLoading || Boolean(keywordsQuery.error);
+  const isAnnouncementsPending = announcementsQuery.isLoading || Boolean(announcementsQuery.error);
 
   return (
     <main className="flex w-full justify-center bg-[color:var(--color-bg-primary)] pb-16">
       <div className="flex w-full flex-col items-center">
-        <StockDetailTopBar stockId={overviewQuery.data?.id} stockName={overviewQuery.data?.name ?? ticker} />
+        <StockDetailTopBar stockId={overviewQuery.data?.id} stockName={overviewQuery.data?.name ?? stockId} />
 
         <div className="mx-auto flex w-full flex-col gap-12 px-4 py-6 md:px-6 md:py-8 xl:w-[88%] xl:max-w-[1152px] xl:px-0 xl:py-10">
-          {errorMessage ? <Badge tone="danger">{errorMessage}</Badge> : null}
-
-          {overviewQuery.isLoading || !overviewQuery.data ? (
-            <div className="space-y-6">
-              <div className="h-12 w-48 animate-pulse rounded bg-[color:var(--color-bg-secondary)]" />
-              <div className="h-[360px] animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)]" />
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="h-40 animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)]" />
-                ))}
+          {isOverviewPending ? (
+            <StockSectionLoadingOverlay active className="rounded-[24px]">
+              <div className="space-y-6">
+                <div className="h-12 w-48 animate-pulse rounded bg-[color:var(--color-bg-secondary)]" />
+                <div className="h-[360px] animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)]" />
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="h-40 animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)]" />
+                  ))}
+                </div>
               </div>
-            </div>
+            </StockSectionLoadingOverlay>
           ) : (
             <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start xl:gap-20">
               <section className="min-w-0">
                 <StockOverviewSection
                   overview={overviewQuery.data}
-                  prices={priceStream.data.prices}
+                  prices={chartPrices}
                   currentPrice={currentPrice}
                   changeRate={changeRate}
+                  baseTime={displayBaseTime}
                   chartPeriod={chartPeriod}
                   onChartPeriodChange={setChartPeriod}
-                  isChartLoading={priceStream.isLoading}
+                  isChartLoading={isChartPending}
+                  isChartFetchingMore={chartPriceStream.isFetchingMore}
+                  chartHasMore={chartPriceStream.hasMore}
+                  onRequestChartMore={chartPriceStream.loadMore}
                 />
 
-                <StockIndicatorsSection indicators={indicatorsQuery.data} isLoading={indicatorsQuery.isLoading} />
+                <StockIndicatorsSection indicators={indicatorsQuery.data} isLoading={isIndicatorsPending} />
 
                 <StockFinancialSection
                   type={financialType}
                   onTypeChange={setFinancialType}
                   financials={financialsQuery.data?.financials ?? []}
                   latestAnnouncement={announcementsQuery.data?.announcements[0]}
-                  isLoading={financialsQuery.isLoading}
+                  isLoading={isFinancialsPending}
                 />
               </section>
 
               <aside className="flex min-w-0 flex-col gap-12 xl:pt-2">
                 <StockKeywordsNewsSection
                   keywords={keywordsQuery.data?.keywords ?? []}
-                  isLoading={keywordsQuery.isLoading}
+                  news={keywordsQuery.data?.news ?? []}
+                  isLoading={isKeywordsPending}
                 />
                 <StockAnnouncementsSection
-                  ticker={overviewQuery.data.ticker}
+                  stockId={overviewQuery.data.id}
                   announcements={announcementsQuery.data?.announcements ?? []}
-                  isLoading={announcementsQuery.isLoading}
+                  isLoading={isAnnouncementsPending}
                 />
               </aside>
             </div>

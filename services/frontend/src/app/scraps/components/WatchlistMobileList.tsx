@@ -51,7 +51,7 @@ export default function WatchlistMobileList({
 
                   <div className="min-w-0 flex-1">
                     <Link
-                      href={`/stocks/${item.ticker}`}
+                      href={`/stocks/${item.stockId}`}
                       className="typo-body-sm truncate font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                     >
                       {item.name}

@@ -11,7 +11,7 @@ export type SearchNewsItem = {
   id: number;
   title: string;
   publisher: string;
-  publishedAt: string;
+  publishedAt: string | null;
 };
 
 export type SearchAutocompleteResponse = {
