@@ -84,6 +84,7 @@ public class SecurityConfig {
             // Main - 메인 페이지 (인증 불필요)
             .requestMatchers("/api/main/**").permitAll()
             .requestMatchers("/api/signals").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/search").permitAll()
 
             .requestMatchers("/api/stocks/**").permitAll()
             // SSE 스트림 엔드포인트 (인증 불필요)
