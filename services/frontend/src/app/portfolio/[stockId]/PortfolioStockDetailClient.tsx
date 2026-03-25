@@ -8,6 +8,7 @@ import TradeHistory from "./components/TradeHistory";
 import ReturnChart from "./components/ReturnChart";
 import BacktestResults from "./components/BacktestResults";
 import CommitteeDiscussion from "./components/CommitteeDiscussion";
+import { useStockBasicInfoQuery } from "./hooks/useStockBasicInfoQuery";
 import { useStockReportQuery } from "./hooks/useStockReportQuery";
 import { useStockPerformanceQuery } from "./hooks/useStockPerformanceQuery";
 import { useStockTradesQuery } from "./hooks/useStockTradesQuery";
@@ -74,8 +75,8 @@ function calcBacktest(trades: TradeItem[]): {
   const totalReturn = soldTrades.reduce((sum, t) => sum + t.returnRate, 0);
 
   const stats: BacktestStats = {
-    threeYearReturn: Number(totalReturn.toFixed(2)),
-    threeYearTradeCount: soldTrades.length,
+    oneYearReturn: Number(totalReturn.toFixed(2)),
+    oneYearTradeCount: soldTrades.length,
     allTimeTradeCount: trades.length,
     allTimeSince: "",
   };
@@ -84,35 +85,43 @@ function calcBacktest(trades: TradeItem[]): {
 }
 
 type Props = {
-  ticker: string;
+  stockId: string;
 };
 
-export default function PortfolioStockDetailClient({ ticker }: Props) {
+export default function PortfolioStockDetailClient({ stockId }: Props) {
+  const {
+    data: overviewData,
+    isLoading: overviewLoading,
+    isError: overviewError,
+    refetch: refetchOverview,
+  } = useStockBasicInfoQuery(stockId);
+
   const {
     data: reportData,
     isLoading: reportLoading,
     isError: reportError,
     refetch: refetchReport,
-  } = useStockReportQuery(ticker);
+  } = useStockReportQuery(stockId);
 
   const {
     data: performanceData,
     isLoading: performanceLoading,
     isError: performanceError,
     refetch: refetchPerformance,
-  } = useStockPerformanceQuery(ticker);
+  } = useStockPerformanceQuery(stockId);
 
   const {
     data: tradesData,
     isLoading: tradesLoading,
     isError: tradesError,
     refetch: refetchTrades,
-  } = useStockTradesQuery(ticker);
+  } = useStockTradesQuery(stockId);
 
-  const isLoading = reportLoading || performanceLoading || tradesLoading;
-  const isError = reportError || performanceError || tradesError;
+  const isLoading = overviewLoading || reportLoading || performanceLoading || tradesLoading;
+  const isError = overviewError || reportError || performanceError || tradesError;
 
   function handleRetry() {
+    refetchOverview();
     refetchReport();
     refetchPerformance();
     refetchTrades();
@@ -202,11 +211,9 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
     };
   }
 
-  // TODO: portfolioLabel should come from API (stock meta endpoint not yet available)
   const portfolioLabel = "의장 포트폴리오";
-
-  // TODO: name/description/isAiPortfolio should come from a stock meta API endpoint
-  const stockName = ticker;
+  const stockName = overviewData?.name ?? stockId;
+  const stockTicker = overviewData?.ticker ?? stockId;
   const stockDescription = "";
   const isAiPortfolio = true;
 
@@ -228,7 +235,7 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
             <div className="flex flex-col gap-10 w-full">
               {/* Stock info */}
               <StockInfoSection
-                ticker={ticker}
+                ticker={stockTicker}
                 name={stockName}
                 description={stockDescription}
                 isAiPortfolio={isAiPortfolio}
@@ -259,7 +266,11 @@ export default function PortfolioStockDetailClient({ ticker }: Props) {
             </div>
             <div className="flex flex-col gap-10">
               {/* Return chart */}
-              <ReturnChart />
+              <ReturnChart
+                chart={performanceData?.chart ?? []}
+                currentReturn={apiHolding?.currentReturn ?? 0}
+                buyDate={apiHolding?.buyDate ?? ""}
+              />
 
               {/* Backtest results */}
               {backtestResult ? (
