@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { LuSearch, LuSlidersHorizontal } from "react-icons/lu";
 import Button from "@/shared/ui/Button";
 import Pagination from "@/shared/ui/Pagination";
@@ -96,6 +96,20 @@ export default function NewsPageClient() {
     },
     [activeNewsQuery.data, pageOffsetInBatch],
   );
+
+  useEffect(() => {
+    if (currentPage <= totalPages) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCurrentPage(totalPages);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [currentPage, totalPages]);
 
   const openFilterModal = () => {
     setDraftDateRange(dateRange.startDate || dateRange.endDate ? dateRange : createTodayNewsDateRange());
