@@ -71,12 +71,14 @@ def build_stock_agent_data(
             stock_id=stock_id,
         )
         top_keywords.append({
+            "keyword_id": kw["keyword_id"],
             "keyword": kw["name"],
             "mention_count": kw["count"],
             "news": [
                 {
                     "news_id": n["news_id"],
                     "title": n["title"],
+                    "publisher": n["publisher"],
                     "snippet": n["snippet"],
                     "url": n["url"],
                     "published_at": n["published_at"].isoformat() if n["published_at"] else None,
