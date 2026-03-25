@@ -30,10 +30,11 @@ import com.sallaemallae.backend.domain.stock.repository.StockFinancialRepository
 import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.support.StockRequestNormalizer;
-import com.sallaemallae.backend.domain.news.repository.KeywordRepository;
-import com.sallaemallae.backend.domain.news.repository.KeywordRepository.KeywordSummaryProjection;
-import com.sallaemallae.backend.domain.stock.repository.StockNewsQueryRepository;
-import com.sallaemallae.backend.domain.stock.repository.StockNewsQueryRepository.StockNewsSummaryProjection;
+import com.sallaemallae.backend.domain.stock.repository.StockKeywordDataRepository;
+import com.sallaemallae.backend.domain.stock.repository.StockKeywordsCacheRepository;
+import com.sallaemallae.backend.domain.stock.entity.StockKeywordData;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -45,27 +46,30 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class StockServiceImpl implements StockService {
 
-  private static final int TOP_KEYWORD_LIMIT = 3;
-  private static final int KEYWORD_NEWS_LIMIT = 9;
   private static final String DIVIDEND_ANNOUNCEMENT_KEYWORD = "배당";
+  private static final TypeReference<List<Map<String, Object>>> JSONB_LIST_TYPE = new TypeReference<>() {};
 
   private final StockRepository stockRepository;
   private final StockPriceDailyRepository stockPriceDailyRepository;
   private final StockFinancialRepository stockFinancialRepository;
   private final StockAnnouncementRepository stockAnnouncementRepository;
   private final StockDividendYieldSnapshotRepository stockDividendYieldSnapshotRepository;
-  private final KeywordRepository keywordRepository;
-  private final StockNewsQueryRepository stockNewsQueryRepository;
+  private final StockKeywordDataRepository stockKeywordDataRepository;
+  private final StockKeywordsCacheRepository stockKeywordsCacheRepository;
+  private final ObjectMapper objectMapper;
 
   @Override
   public Long resolveStockId(String ticker) {
@@ -174,20 +178,78 @@ public class StockServiceImpl implements StockService {
     return new StockFinancialsResponse(financials);
   }
 
+  /** 종목별 키워드 상위 3개 + 키워드당 뉴스 3건 조회 (Redis 캐시 → DB fallback) */
   @Override
   public StockKeywordsResponse getStockKeywords(Long stockId) {
     getActiveStock(stockId);
-    List<KeywordSummaryProjection> keywordRows = keywordRepository.findTopKeywordsByStockId(stockId, TOP_KEYWORD_LIMIT);
-    List<KeywordItem> keywords = keywordRows.stream()
-        .map(row -> new KeywordItem(row.getId(), row.getName()))
-        .toList();
 
-    List<Long> keywordIds = keywords.stream().map(KeywordItem::id).toList();
-    List<NewsItem> news = keywordIds.isEmpty() ? List.of() : stockNewsQueryRepository
-        .findLatestNewsByStockIdAndKeywordIds(stockId, keywordIds, KEYWORD_NEWS_LIMIT)
-        .stream()
-        .map(this::toNewsItem)
-        .toList();
+    // 1. Redis 캐시 히트 시 즉시 반환
+    var cached = stockKeywordsCacheRepository.get(stockId);
+    if (cached.isPresent()) {
+      return cached.get();
+    }
+
+    // 2. DB에서 최신 데이터 조회
+    StockKeywordData data = stockKeywordDataRepository
+        .findTopByStockIdOrderByReportDateDesc(stockId)
+        .orElse(null);
+
+    if (data == null || data.getTopKeywords() == null) {
+      return new StockKeywordsResponse(List.of(), List.of());
+    }
+
+    // 3. JSONB 파싱 → DTO 변환
+    StockKeywordsResponse response = parseKeywordData(data.getTopKeywords());
+
+    // 4. Redis 캐시 저장
+    stockKeywordsCacheRepository.save(stockId, response);
+
+    return response;
+  }
+
+  /** news_agent_stock_data.top_keywords JSONB → StockKeywordsResponse 변환 */
+  private StockKeywordsResponse parseKeywordData(String topKeywordsJson) {
+    List<Map<String, Object>> items;
+    try {
+      items = objectMapper.readValue(topKeywordsJson, JSONB_LIST_TYPE);
+    } catch (Exception e) {
+      log.warn("top_keywords JSONB 파싱 실패", e);
+      return new StockKeywordsResponse(List.of(), List.of());
+    }
+
+    List<KeywordItem> keywords = new ArrayList<>();
+    List<NewsItem> news = new ArrayList<>();
+
+    for (Map<String, Object> item : items) {
+      Number kwId = (Number) item.get("keyword_id");
+      String kwName = (String) item.get("keyword");
+      keywords.add(new KeywordItem(kwId != null ? kwId.longValue() : null, kwName));
+
+      @SuppressWarnings("unchecked")
+      List<Map<String, Object>> newsItems = (List<Map<String, Object>>) item.get("news");
+      if (newsItems == null) {
+        continue;
+      }
+      for (Map<String, Object> n : newsItems) {
+        Number newsId = (Number) n.get("news_id");
+        String title = (String) n.get("title");
+        String publisher = (String) n.get("publisher");
+        String publishedAtStr = (String) n.get("published_at");
+        java.time.OffsetDateTime publishedAt = null;
+        if (publishedAtStr != null) {
+          try {
+            publishedAt = java.time.OffsetDateTime.parse(publishedAtStr);
+          } catch (Exception ignored) {
+          }
+        }
+        news.add(new NewsItem(
+            newsId != null ? newsId.longValue() : null,
+            title,
+            publisher,
+            publishedAt
+        ));
+      }
+    }
 
     return new StockKeywordsResponse(keywords, news);
   }
@@ -411,12 +473,4 @@ public class StockServiceImpl implements StockService {
     );
   }
 
-  private NewsItem toNewsItem(StockNewsSummaryProjection row) {
-    return new NewsItem(
-        row.getId(),
-        row.getTitle(),
-        row.getPublisher(),
-        row.getPublishedAt()
-    );
-  }
 }
