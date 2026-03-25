@@ -1,16 +1,7 @@
 import { apiFetch } from "@/shared/lib/apiClient";
 import { getWatchlistNews } from "@/app/scraps/api/getWatchlistNews";
 import type { WatchlistNewsItem } from "@/app/scraps/types/scraps";
-import type {
-  NewsDetail,
-  NewsItem,
-  NewsPayload,
-  NewsQueryParams,
-  NewsRelatedStock,
-  NewsTrendingKeyword,
-  NewsTrendingPayload,
-  WatchlistNewsPagePayload,
-} from "../types/news";
+import type { NewsDetail, NewsItem, NewsPayload, NewsQueryParams, NewsRelatedStock, NewsTrendingKeyword, NewsTrendingPayload } from "../types/news";
 
 type NewsApiEnvelope<T> = {
   success: boolean;
@@ -29,6 +20,14 @@ function createNewsSearchParams(params: NewsQueryParams) {
 
   if (params.keyword) {
     searchParams.set("keyword", params.keyword);
+  }
+
+  if (params.startDate) {
+    searchParams.set("startDate", params.startDate);
+  }
+
+  if (params.endDate) {
+    searchParams.set("endDate", params.endDate);
   }
 
   return searchParams.toString();
@@ -172,6 +171,7 @@ export async function getNews(params: NewsQueryParams) {
   const unwrapped = unwrapNewsApiResponse(payload, "뉴스 응답이 올바르지 않습니다.");
 
   return {
+    totalCount: typeof unwrapped.totalCount === "number" ? unwrapped.totalCount : Array.isArray(unwrapped.news) ? unwrapped.news.length : 0,
     news: Array.isArray(unwrapped.news) ? unwrapped.news.map((item) => normalizeNewsItem(item)) : [],
   } satisfies NewsPayload;
 }
@@ -197,7 +197,7 @@ export async function getWatchlistNewsPage(params: Pick<NewsQueryParams, "offset
   return {
     totalCount: payload.totalCount,
     news: Array.isArray(payload.news) ? payload.news.map((item) => normalizeWatchlistNewsItem(item)) : [],
-  } satisfies WatchlistNewsPagePayload;
+  } satisfies NewsPayload;
 }
 
 export async function getNewsDetail(newsId: number) {

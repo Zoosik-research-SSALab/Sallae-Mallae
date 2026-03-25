@@ -12,9 +12,9 @@ import { useNewsQuery } from "../hooks/useNewsQuery";
 import { useNewsTrendingQuery } from "../hooks/useNewsTrendingQuery";
 import { useNewsWatchlistQuery } from "../hooks/useNewsWatchlistQuery";
 import type { NewsDateRange, NewsTab } from "../types/news";
-import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/newsConstants";
+import { NEWS_PAGE_SIZE } from "../utils/newsConstants";
 import { createEmptyNewsDateRange, createTodayNewsDateRange } from "../utils/newsDateUtils";
-import { buildRankedNewsKeywords, filterNewsByDateRange } from "../utils/newsFormatters";
+import { buildRankedNewsKeywords } from "../utils/newsFormatters";
 
 const NEWS_PAGES_PER_BATCH = 4;
 const NEWS_BATCH_LIMIT = NEWS_PAGE_SIZE * NEWS_PAGES_PER_BATCH;
@@ -54,27 +54,22 @@ export default function NewsPageClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null);
-
-  const requestedPageEnd = currentPage + NEWS_PAGES_PER_BATCH - 1;
-  const requestedBatchCount = Math.max(1, Math.ceil(requestedPageEnd / NEWS_PAGES_PER_BATCH));
-  const requestedLimit = requestedBatchCount * NEWS_BATCH_LIMIT;
-  const hasDateRangeFilter = Boolean(dateRange.startDate || dateRange.endDate);
-  const needsWideClientFiltering = activeTab === "LATEST" && hasDateRangeFilter;
-  const effectiveLimit = needsWideClientFiltering
-    ? Math.max(NEWS_FETCH_LIMIT, requestedLimit)
-    : requestedLimit;
+  const batchStartPage = Math.floor((currentPage - 1) / NEWS_PAGES_PER_BATCH) * NEWS_PAGES_PER_BATCH + 1;
+  const offset = (batchStartPage - 1) * NEWS_PAGE_SIZE;
 
   const latestNewsQuery = useNewsQuery({
-    offset: 0,
-    limit: effectiveLimit,
+    offset,
+    limit: NEWS_BATCH_LIMIT,
     keyword: deferredKeyword,
+    startDate: dateRange.startDate ?? undefined,
+    endDate: dateRange.endDate ?? undefined,
   }, {
     enabled: activeTab === "LATEST",
   });
   const watchlistNewsQuery = useNewsWatchlistQuery(
     {
-      offset: 0,
-      limit: effectiveLimit,
+      offset,
+      limit: NEWS_BATCH_LIMIT,
       keyword: deferredKeyword,
       startDate: dateRange.startDate ?? undefined,
       endDate: dateRange.endDate ?? undefined,
@@ -86,27 +81,24 @@ export default function NewsPageClient() {
   const trendingKeywordsQuery = useNewsTrendingQuery();
 
   const activeNewsQuery = activeTab === "WATCHLIST" ? watchlistNewsQuery : latestNewsQuery;
-  const queriedNews = useMemo(() => activeNewsQuery.data?.news ?? [], [activeNewsQuery.data]);
-  const watchlistTotalCount = watchlistNewsQuery.data?.totalCount ?? 0;
-  const filteredNews = useMemo(
-    () => activeTab === "LATEST"
-      ? filterNewsByDateRange(queriedNews, dateRange.startDate, dateRange.endDate)
-      : queriedNews,
-    [activeTab, queriedNews, dateRange.endDate, dateRange.startDate],
-  );
   const rankedKeywords = trendingKeywordsQuery.data?.trending ?? buildRankedNewsKeywords(latestNewsQuery.data?.news ?? []);
-  const totalKnownCount = activeTab === "WATCHLIST"
-    ? watchlistTotalCount
-    : filteredNews.length;
-  const totalKnownPages = Math.max(1, Math.ceil(totalKnownCount / NEWS_PAGE_SIZE));
-  const totalPages = activeTab === "WATCHLIST"
-    ? totalKnownPages
-    : Math.max(1, Math.min(totalKnownPages, requestedPageEnd));
+  const totalCount = activeNewsQuery.data?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / NEWS_PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pagedNews = filteredNews.slice((safeCurrentPage - 1) * NEWS_PAGE_SIZE, safeCurrentPage * NEWS_PAGE_SIZE);
+  const pageOffsetInBatch = Math.max(0, safeCurrentPage - batchStartPage);
+  const pagedItems = useMemo(
+    () => {
+      const currentItems = activeNewsQuery.data?.news ?? [];
+      return currentItems.slice(
+        pageOffsetInBatch * NEWS_PAGE_SIZE,
+        (pageOffsetInBatch + 1) * NEWS_PAGE_SIZE,
+      );
+    },
+    [activeNewsQuery.data, pageOffsetInBatch],
+  );
 
   const openFilterModal = () => {
-    setDraftDateRange(hasDateRangeFilter ? dateRange : createTodayNewsDateRange());
+    setDraftDateRange(dateRange.startDate || dateRange.endDate ? dateRange : createTodayNewsDateRange());
     setIsFilterOpen(true);
   };
 
@@ -216,8 +208,8 @@ export default function NewsPageClient() {
               {!activeNewsQuery.isLoading && !activeNewsQuery.error ? (
                 <>
                   <div className="flex flex-col">
-                    {pagedNews.length > 0 ? (
-                      pagedNews.map((item) => (
+                    {pagedItems.length > 0 ? (
+                      pagedItems.map((item) => (
                         <NewsArticleCard
                           key={item.id}
                           item={item}

@@ -24,10 +24,6 @@ export type NewsDetail = {
 };
 
 export type NewsPayload = {
-  news: NewsItem[];
-};
-
-export type WatchlistNewsPagePayload = {
   totalCount: number;
   news: NewsItem[];
 };

@@ -309,6 +309,8 @@ export const handlers = [
       offset: parseNewsNumberParam(searchParams.get("offset"), 0),
       limit: parseNewsNumberParam(searchParams.get("limit"), NEWS_PAGE_SIZE, 1),
       keyword: searchParams.get("keyword")?.trim() ?? "",
+      startDate: searchParams.get("startDate")?.trim() ?? undefined,
+      endDate: searchParams.get("endDate")?.trim() ?? undefined,
     };
 
     return HttpResponse.json(snakelizeKeys(getMockNewsResponse(params)));

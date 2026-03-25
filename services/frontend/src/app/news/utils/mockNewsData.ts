@@ -140,8 +140,20 @@ const NEWS_SEARCH_KEYWORDS = [
   "삼성바이오로직스", "한미반도체", "밸류업", "금리 인하", "AI 랠리", "2차전지", "조선", "방산",
 ];
 
+function parseDateBoundary(value: string | undefined, boundary: "start" | "end") {
+  if (!value) {
+    return null;
+  }
+
+  const suffix = boundary === "start" ? "T00:00:00.000" : "T23:59:59.999";
+  const parsed = new Date(`${value}${suffix}`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function getMockNewsResponse(params: NewsQueryParams): NewsPayload {
   const normalizedKeyword = normalizeNewsKeyword(params.keyword);
+  const parsedStartDate = parseDateBoundary(params.startDate, "start");
+  const parsedEndDate = parseDateBoundary(params.endDate, "end");
 
   const filteredNews = getMockNewsSeeds()
     .filter((item) => {
@@ -149,12 +161,26 @@ export function getMockNewsResponse(params: NewsQueryParams): NewsPayload {
       const haystack = [item.title, item.publisher, ...item.relatedStocks].join(" ").toLowerCase();
       return haystack.includes(normalizedKeyword);
     })
+    .filter((item) => {
+      const publishedTimestamp = item.publishedAt ? new Date(item.publishedAt).getTime() : 0;
+
+      if (parsedStartDate && publishedTimestamp < parsedStartDate.getTime()) {
+        return false;
+      }
+
+      if (parsedEndDate && publishedTimestamp > parsedEndDate.getTime()) {
+        return false;
+      }
+
+      return true;
+    })
     .sort(
       (left, right) =>
         new Date(right.publishedAt ?? 0).getTime() - new Date(left.publishedAt ?? 0).getTime(),
     );
 
   return {
+    totalCount: filteredNews.length,
     news: filteredNews
       .slice(params.offset, params.offset + params.limit)
       .map(({ id, title, publisher, publishedAt, relatedStocks, url }) => ({
