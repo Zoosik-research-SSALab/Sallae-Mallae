@@ -16,6 +16,7 @@ import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryR
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HoldingRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HallOfFameHitRateRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HallOfFameReturnRow;
+import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.PopularSignalRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.SignalSummaryRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.TodayTradeRow;
@@ -57,13 +58,14 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_NOT_FOUND));
 
     int holdingCount = chairmanPortfolioQueryRepository.countHoldings(portfolio.getId());
+    List<MonthlyReturnItem> allMonthlyReturns = buildMonthlyReturns(portfolio.getId());
     Float yesterdayReturn = aiDailyPerformanceRepository
         .findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(portfolio.getId(), LocalDate.now())
         .map(AiDailyPerformance::getDailyReturn)
         .orElse(null);
     Summary summary = new Summary(
         portfolio.getCumulativeReturn(),
-        calculateHitRate(portfolio),
+        calculateAverageMonthlyReturn(allMonthlyReturns),
         yesterdayReturn,
         null,
         holdingCount
@@ -103,9 +105,8 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
             .toList();
       }
       case MONTHLY_RETURNS -> {
-        List<MonthlyReturnItem> monthlyItems = buildMonthlyReturns(portfolio.getId());
-        totalCount = monthlyItems.size();
-        monthlyReturns = monthlyItems.stream()
+        totalCount = allMonthlyReturns.size();
+        monthlyReturns = allMonthlyReturns.stream()
             .skip(query.offset())
             .limit(query.limit())
             .toList();
@@ -157,11 +158,17 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
     );
   }
 
-  private float calculateHitRate(AiPortfolio portfolio) {
-    if (portfolio.getTotalTrades() == 0) {
+  private float calculateAverageMonthlyReturn(List<MonthlyReturnItem> monthlyReturns) {
+    if (monthlyReturns.isEmpty()) {
       return 0f;
     }
-    return (float) portfolio.getWinningTrades() * 100 / portfolio.getTotalTrades();
+    float sum = 0f;
+    for (MonthlyReturnItem item : monthlyReturns) {
+      if (item.monthlyReturn() != null) {
+        sum += item.monthlyReturn();
+      }
+    }
+    return sum / monthlyReturns.size();
   }
 
   private PopularSignalItem toPopularSignalItem(PopularSignalRow row) {
@@ -183,6 +190,7 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.buyPrice(),
         row.currentPrice(),
         row.holdingDays(LocalDate.now()),
+        row.holdingQuantity(),
         row.returnRate()
     );
   }
@@ -195,6 +203,8 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.tradeType(),
         row.tradeTime(),
         row.tradePrice(),
+        row.currentPrice(),
+        row.holdingQuantity(),
         row.returnRate()
     );
   }
@@ -232,15 +242,24 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
       MonthlyAccumulator accumulator = accumulators.computeIfAbsent(yearMonth, ignored -> new MonthlyAccumulator());
       accumulator.accumulate(performance.getDailyReturn());
     }
+    Map<String, MonthlyTradeMetricRow> tradeMetricsByMonth = new LinkedHashMap<>();
+    for (MonthlyTradeMetricRow row : chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(portfolioId)) {
+      tradeMetricsByMonth.put(row.month(), row);
+    }
 
     List<MonthlyReturnItem> items = new ArrayList<>();
-    accumulators.forEach((yearMonth, accumulator) ->
-        items.add(new MonthlyReturnItem(
-            yearMonth.toString(),
-            accumulator.monthlyReturn(),
-            null,
-            null
-        )));
+    accumulators.forEach((yearMonth, accumulator) -> {
+      MonthlyTradeMetricRow metrics = tradeMetricsByMonth.get(yearMonth.toString());
+      items.add(new MonthlyReturnItem(
+          yearMonth.toString(),
+          accumulator.monthlyReturn(),
+          metrics != null ? metrics.realizedProfitAmount() : 0L,
+          metrics != null ? metrics.buyCount() : 0,
+          metrics != null ? metrics.sellCount() : 0,
+          null,
+          null
+      ));
+    });
 
     items.sort(Comparator.comparing(MonthlyReturnItem::month).reversed());
     return items;
