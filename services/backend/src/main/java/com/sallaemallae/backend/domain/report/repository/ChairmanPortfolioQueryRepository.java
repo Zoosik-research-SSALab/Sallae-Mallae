@@ -182,22 +182,34 @@ public class ChairmanPortfolioQueryRepository {
     return items;
   }
 
-  public SignalSummaryRow findSignalSummary() {
+  public SignalSummaryRow findSignalSummary(Long portfolioId) {
     String sql = """
         WITH latest_report_date AS (
             SELECT MAX(report_date) AS report_date
             FROM ai_debate_reports
             WHERE report_date <= CURRENT_DATE
+        ),
+        latest_reports AS (
+            SELECT DISTINCT ON (r.stock_id)
+                   r.stock_id,
+                   r.chairman_signal
+            FROM ai_debate_reports r
+            JOIN latest_report_date d ON r.report_date = d.report_date
+            ORDER BY r.stock_id, r.created_at DESC, r.id DESC
         )
         SELECT COALESCE(SUM(CASE WHEN r.chairman_signal = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
                COALESCE(SUM(CASE WHEN r.chairman_signal = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count,
-               COALESCE(SUM(CASE WHEN r.chairman_signal = 'HOLD' THEN 1 ELSE 0 END), 0) AS hold_count,
-               COALESCE(SUM(CASE WHEN r.chairman_signal = 'STAY' THEN 1 ELSE 0 END), 0) AS watch_count
-        FROM ai_debate_reports r
-        JOIN latest_report_date d ON r.report_date = d.report_date
+               COALESCE(SUM(CASE WHEN r.chairman_signal = 'HOLD' AND h.stock_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS hold_count,
+               COALESCE(SUM(CASE WHEN (r.chairman_signal = 'HOLD' AND h.stock_id IS NULL) OR r.chairman_signal = 'STAY' THEN 1 ELSE 0 END), 0) AS watch_count
+        FROM latest_reports r
+        LEFT JOIN ai_portfolio_holdings h
+               ON h.portfolio_id = :portfolioId
+              AND h.stock_id = r.stock_id
         """;
 
-    Tuple row = (Tuple) entityManager.createNativeQuery(sql, Tuple.class).getSingleResult();
+    Tuple row = (Tuple) entityManager.createNativeQuery(sql, Tuple.class)
+        .setParameter("portfolioId", portfolioId)
+        .getSingleResult();
     return new SignalSummaryRow(
         toInteger(row.get("buy_count")),
         toInteger(row.get("sell_count")),
