@@ -1,7 +1,5 @@
-import Link from "next/link";
 import type { NewsItem } from "../types/news";
 import { formatNewsRelativeTime } from "../utils/newsFormatters";
-import { getNewsStockTicker } from "../utils/newsConstants";
 
 type Props = {
   item: NewsItem;
@@ -35,14 +33,12 @@ export default function NewsArticleCard({ item, onSelect }: Props) {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
           {item.relatedStocks.slice(0, 3).map((stock) => (
-            <Link
+            <span
               key={`${item.id}-${stock}`}
-              href={`/stocks/${getNewsStockTicker(stock) ?? stock}`}
-              onClick={(event) => event.stopPropagation()}
-              className="typo-news-tag inline-flex rounded-md bg-[color:var(--color-bg-info-subtle)] px-2 py-1 text-[color:var(--color-text-info)] transition-opacity hover:opacity-80"
+              className="typo-news-tag inline-flex rounded-md bg-[color:var(--color-bg-info-subtle)] px-2 py-1 text-[color:var(--color-text-info)]"
             >
               {stock}
-            </Link>
+            </span>
           ))}
         </div>
 

@@ -309,6 +309,8 @@ export const handlers = [
       offset: parseNewsNumberParam(searchParams.get("offset"), 0),
       limit: parseNewsNumberParam(searchParams.get("limit"), NEWS_PAGE_SIZE, 1),
       keyword: searchParams.get("keyword")?.trim() ?? "",
+      startDate: searchParams.get("startDate")?.trim() ?? undefined,
+      endDate: searchParams.get("endDate")?.trim() ?? undefined,
     };
 
     return HttpResponse.json(snakelizeKeys(getMockNewsResponse(params)));
@@ -429,8 +431,21 @@ export const handlers = [
     return HttpResponse.json(snakelizeKeys(toggleMockWatchlistNotification(stockId)));
   }),
 
-  http.get("/api/users/watchlist/news", () => {
-    return HttpResponse.json(snakelizeKeys(getMockWatchlistNews()));
+  http.get("/api/users/watchlist/news", ({ request }) => {
+    const searchParams = new URL(request.url).searchParams;
+    const offset = parsePositiveInteger(searchParams.get("offset"), 0);
+    const limit = parsePositiveIntegerMin1(searchParams.get("limit"), 6);
+    const keyword = searchParams.get("keyword")?.trim() ?? "";
+    const startDate = searchParams.get("startDate")?.trim() ?? "";
+    const endDate = searchParams.get("endDate")?.trim() ?? "";
+
+    return HttpResponse.json(snakelizeKeys(getMockWatchlistNews({
+      offset,
+      limit,
+      keyword: keyword || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    })));
   }),
 
   // ── Auth (mock responses only — no cookie handling in MSW) ─────────────────

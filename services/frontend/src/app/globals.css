@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-datepicker/dist/react-datepicker.css";
 
 @theme inline {
   /* color: text */
@@ -490,6 +491,102 @@ pre {
   display: none;
   width: 0;
   height: 0;
+}
+
+.news-datepicker-popper {
+  z-index: 90 !important;
+}
+
+.news-datepicker {
+  overflow: hidden;
+  border: 1px solid var(--color-border-secondary) !important;
+  border-radius: 20px !important;
+  background: var(--color-bg-primary) !important;
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.34) !important;
+  font-family: var(--font-family-base) !important;
+}
+
+.news-datepicker .react-datepicker__triangle {
+  display: none;
+}
+
+.news-datepicker .react-datepicker__header {
+  padding-top: 0 !important;
+  border-bottom: 1px solid var(--color-border-secondary) !important;
+  background: linear-gradient(180deg, var(--color-bg-secondary) 0%, var(--color-bg-primary) 100%) !important;
+}
+
+.news-datepicker .react-datepicker__current-month,
+.news-datepicker .react-datepicker-time__header,
+.news-datepicker .react-datepicker-year-header {
+  color: var(--color-text-primary) !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+}
+
+.news-datepicker .react-datepicker__navigation-icon::before {
+  border-color: var(--color-text-secondary) !important;
+}
+
+.news-datepicker .react-datepicker__month-container {
+  padding: 0 0.75rem 0.9rem !important;
+}
+
+.news-datepicker .react-datepicker__day-names {
+  display: flex !important;
+  justify-content: space-between !important;
+  margin-top: 0.25rem !important;
+}
+
+.news-datepicker .react-datepicker__week {
+  display: flex !important;
+  justify-content: space-between !important;
+}
+
+.news-datepicker .react-datepicker__day-name,
+.news-datepicker .react-datepicker__day,
+.news-datepicker .react-datepicker__time-name {
+  color: var(--color-text-secondary) !important;
+  width: 2.4rem !important;
+  line-height: 2.4rem !important;
+  margin: 0.08rem !important;
+}
+
+.news-datepicker .react-datepicker__day:hover,
+.news-datepicker .react-datepicker__month-text:hover,
+.news-datepicker .react-datepicker__quarter-text:hover,
+.news-datepicker .react-datepicker__year-text:hover {
+  border-radius: 9999px !important;
+  background: var(--color-bg-tertiary) !important;
+}
+
+.news-datepicker .react-datepicker__day--keyboard-selected,
+.news-datepicker .react-datepicker__month-text--keyboard-selected,
+.news-datepicker .react-datepicker__quarter-text--keyboard-selected,
+.news-datepicker .react-datepicker__year-text--keyboard-selected {
+  border-radius: 9999px !important;
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.news-datepicker .react-datepicker__day--selected,
+.news-datepicker .react-datepicker__month-text--selected,
+.news-datepicker .react-datepicker__quarter-text--selected,
+.news-datepicker .react-datepicker__year-text--selected {
+  border-radius: 9999px !important;
+  background: var(--color-bg-inverse-bolder) !important;
+  color: var(--color-text-base) !important;
+}
+
+.news-datepicker .react-datepicker__day--today {
+  font-weight: 700 !important;
+  color: var(--color-text-primary) !important;
+}
+
+.news-datepicker .react-datepicker__day-name {
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  color: var(--color-text-tertiary) !important;
 }
 
 @keyframes value-change-flash {
