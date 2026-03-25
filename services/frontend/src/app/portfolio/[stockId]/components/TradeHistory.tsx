@@ -33,8 +33,8 @@ function StatusBadge({ status }: { status: TradeEntry["status"] }) {
   );
 }
 
-function formatPrice(n: number) {
-  return n.toLocaleString("ko-KR") + "원";
+function formatPrice(n: number | undefined | null) {
+  return (n ?? 0).toLocaleString("ko-KR") + "원";
 }
 
 export default function TradeHistory({ trades }: Props) {
@@ -98,7 +98,7 @@ export default function TradeHistory({ trades }: Props) {
                   style={{ color: returnColor }}
                 >
                   {sign}
-                  {trade.returnRate.toFixed(2)}%
+                  {(trade.returnRate ?? 0).toFixed(2)}%
                 </p>
                 <p className="typo-body-md font-medium text-text-secondary tracking-[0.32px]">
                   {trade.durationLabel}
@@ -183,7 +183,7 @@ export default function TradeHistory({ trades }: Props) {
                     style={{ color: returnColor }}
                   >
                     {sign}
-                    {trade.returnRate.toFixed(2)}%
+                    {(trade.returnRate ?? 0).toFixed(2)}%
                   </span>
                 </div>
               </div>
