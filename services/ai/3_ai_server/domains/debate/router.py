@@ -16,6 +16,7 @@ router = APIRouter(dependencies=[Depends(verify_internal_api_key)])
 @router.get("/targets", response_model=DebateTargetsResponse)
 def debate_targets(
     report_date: date,
+    debate_version: str = Query(default="debate-v1", min_length=1, max_length=20),
     market_type: str = Query(default="KOSPI", min_length=1, max_length=20),
     source: str = Query(default="trading_history", min_length=1, max_length=30),
     portfolio_id: int | None = Query(default=None, ge=1),
@@ -27,6 +28,7 @@ def debate_targets(
     return get_debate_targets(
         db,
         report_date=report_date,
+        debate_version=debate_version,
         market_type=market_type,
         source=source,
         portfolio_id=portfolio_id,
