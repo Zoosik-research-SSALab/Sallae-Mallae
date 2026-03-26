@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+type Props = {
+  amount: string;
+  onAmountChange: (value: string) => void;
+};
 
-export default function InvestmentCalculator() {
-  const [amount, setAmount] = useState("1000");
-
+export default function InvestmentCalculator({ amount, onAmountChange }: Props) {
   return (
     <div className="flex items-center justify-between rounded-xl bg-bg-tertiary px-6 py-4">
       <div className="flex flex-1 flex-col gap-1">
@@ -21,7 +22,7 @@ export default function InvestmentCalculator() {
           type="text"
           inputMode="numeric"
           value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
+          onChange={(e) => onAmountChange(e.target.value.replace(/[^0-9]/g, ""))}
           className="flex-1 min-w-0 text-right typo-body-lg font-semibold text-text-primary bg-transparent outline-none"
         />
         <span className="shrink-0 typo-body-lg font-semibold text-text-secondary">
