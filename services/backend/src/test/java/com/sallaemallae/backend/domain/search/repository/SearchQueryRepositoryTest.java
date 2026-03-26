@@ -38,9 +38,11 @@ class SearchQueryRepositoryTest {
   }
 
   @Test
-  @DisplayName("초성 검색어는 종목명의 초성 부분수열과 매칭된다")
-  void matchesInitialConsonant_matchesSubsequence() {
+  @DisplayName("초성 검색어는 종목명의 초성 prefix와 매칭된다")
+  void matchesInitialConsonant_matchesPrefix() {
     assertThat(SearchQueryRepository.matchesInitialConsonant("삼성전자", "ㅅㅈ"))
+        .isFalse();
+    assertThat(SearchQueryRepository.matchesInitialConsonant("삼성전자", "ㅅㅅ"))
         .isTrue();
     assertThat(SearchQueryRepository.matchesInitialConsonant("삼성전자", "ㅈㅅ"))
         .isFalse();
@@ -61,7 +63,8 @@ class SearchQueryRepositoryTest {
 
     assertThat(SearchQueryRepository.matchesStock(item, "삼성")).isTrue();
     assertThat(SearchQueryRepository.matchesStock(item, "0059")).isTrue();
-    assertThat(SearchQueryRepository.matchesStock(item, "ㅅㅈ")).isTrue();
+    assertThat(SearchQueryRepository.matchesStock(item, "ㅅㅅ")).isTrue();
+    assertThat(SearchQueryRepository.matchesStock(item, "ㅅㅈ")).isFalse();
     assertThat(SearchQueryRepository.matchesStock(item, "반도체")).isFalse();
   }
 }

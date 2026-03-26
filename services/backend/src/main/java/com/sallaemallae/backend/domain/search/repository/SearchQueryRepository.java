@@ -63,35 +63,25 @@ public class SearchQueryRepository {
   }
 
   public List<SearchNewsItemResponse> searchNews(String keyword) {
-    String contains = buildContainsPattern(keyword);
-    String startsWith = buildStartsWithPattern(keyword);
-
     @SuppressWarnings("unchecked")
     List<Object[]> rows = entityManager.createNativeQuery("""
-        WITH matched_news AS (
-            SELECT n.id,
-                   n.title,
-                   n.publisher,
-                   n.url,
-                   n.published_at,
-                   CASE
-                       WHEN n.title ILIKE :startsWith ESCAPE '\\' THEN 0
-                       ELSE 1
-                       END AS match_priority
-            FROM stock_news n
-            WHERE n.published_at IS NOT NULL
-              AND n.title ILIKE :contains ESCAPE '\\'
-        )
-        SELECT mn.id,
-               mn.title,
-               mn.publisher,
-               mn.url,
-               mn.published_at
-        FROM matched_news mn
-        ORDER BY mn.match_priority, mn.published_at DESC, mn.id DESC
+        SELECT n.id,
+               n.title,
+               n.publisher,
+               n.url,
+               n.published_at
+        FROM stock_news n
+        WHERE n.published_at IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM news_keyword_map nkm
+                     JOIN keywords k ON k.id = nkm.keyword_id
+            WHERE nkm.news_id = n.id
+              AND k.name = :keyword
+          )
+        ORDER BY n.published_at DESC, n.id DESC
         """)
-        .setParameter("contains", contains)
-        .setParameter("startsWith", startsWith)
+        .setParameter("keyword", keyword)
         .setMaxResults(NEWS_SEARCH_LIMIT)
         .getResultList();
 
@@ -172,8 +162,11 @@ public class SearchQueryRepository {
   }
 
   static boolean matchesInitialConsonant(String stockName, String keyword) {
+    if (keyword == null || keyword.isBlank()) {
+      return false;
+    }
     String initials = extractInitialConsonants(stockName);
-    return isSubsequence(initials, keyword);
+    return initials.startsWith(keyword);
   }
 
   static String extractInitialConsonants(String text) {
@@ -187,19 +180,6 @@ public class SearchQueryRepository {
       }
     }
     return builder.toString();
-  }
-
-  static boolean isSubsequence(String text, String query) {
-    if (query == null || query.isBlank()) {
-      return false;
-    }
-    int queryIndex = 0;
-    for (int i = 0; i < text.length() && queryIndex < query.length(); i++) {
-      if (text.charAt(i) == query.charAt(queryIndex)) {
-        queryIndex++;
-      }
-    }
-    return queryIndex == query.length();
   }
 
   private static boolean startsWithIgnoreCase(String text, String keyword) {
