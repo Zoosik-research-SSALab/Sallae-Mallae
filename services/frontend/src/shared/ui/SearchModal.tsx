@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { memo, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { GoArrowUpRight, GoChevronRight, GoSearch, GoX } from "react-icons/go";
 import { formatStockSectorLabel } from "@/app/stocks/utils/stockSectorLabels";
@@ -38,6 +38,13 @@ const TAB_ITEMS: Array<{ value: SearchResultTab; label: string }> = [
   { value: "stocks", label: "종목" },
   { value: "news", label: "뉴스" },
 ];
+
+const EMPTY_STOCK_RESULTS: SearchStockItem[] = [];
+const EMPTY_NEWS_RESULTS: SearchNewsItem[] = [];
+const EMPTY_RECENT_SEARCHES: RecentSearchItem[] = [];
+const RESULT_ROW_VISIBILITY_CLASS = "[content-visibility:auto] [contain-intrinsic-size:88px] [contain:layout_paint]";
+const COMPACT_NEWS_ROW_VISIBILITY_CLASS = "[content-visibility:auto] [contain-intrinsic-size:92px] [contain:layout_paint]";
+const RECENT_ROW_VISIBILITY_CLASS = "[content-visibility:auto] [contain-intrinsic-size:60px] [contain:layout_paint]";
 
 function formatPrice(value: number) {
   return `${value.toLocaleString("ko-KR")}원`;
@@ -78,34 +85,49 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function renderHighlightedText(text: string, keyword: string) {
+function getHighlightedSegments(text: string, keyword: string) {
   const trimmedKeyword = keyword.trim();
   if (!trimmedKeyword) {
-    return text;
+    return [{ value: text, isMatch: false }];
   }
 
   const pattern = new RegExp(`(${escapeRegExp(trimmedKeyword)})`, "gi");
   const segments = text.split(pattern);
 
   if (segments.length === 1) {
-    return text;
+    return [{ value: text, isMatch: false }];
   }
 
-  return segments.map((segment, index) => {
-    const isMatch = segment.toLowerCase() === trimmedKeyword.toLowerCase();
-
-    return (
-      <span
-        key={`${segment}-${index}`}
-        className={isMatch ? "text-[color:var(--color-text-interactive-primary)]" : undefined}
-      >
-        {segment}
-      </span>
-    );
-  });
+  return segments.map((segment) => ({
+    value: segment,
+    isMatch: segment.toLowerCase() === trimmedKeyword.toLowerCase(),
+  }));
 }
 
-function StockResultRow({
+const HighlightedText = memo(function HighlightedText({
+  text,
+  keyword,
+}: {
+  text: string;
+  keyword: string;
+}) {
+  const segments = useMemo(() => getHighlightedSegments(text, keyword), [keyword, text]);
+
+  return (
+    <>
+      {segments.map((segment, index) => (
+        <span
+          key={`${segment.value}-${index}`}
+          className={segment.isMatch ? "text-[color:var(--color-text-interactive-primary)]" : undefined}
+        >
+          {segment.value}
+        </span>
+      ))}
+    </>
+  );
+});
+
+const StockResultRow = memo(function StockResultRow({
   stock,
   keyword,
   onClick,
@@ -118,7 +140,10 @@ function StockResultRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-4 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]"
+      className={cn(
+        "flex w-full items-center justify-between gap-4 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]",
+        RESULT_ROW_VISIBILITY_CLASS,
+      )}
     >
       <div className="flex min-w-0 items-center gap-4">
         <div className="typo-body-xs flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] font-semibold text-[color:var(--color-text-base)]">
@@ -126,7 +151,7 @@ function StockResultRow({
         </div>
         <div className="min-w-0">
           <div className="typo-body-md truncate font-extrabold text-[color:var(--color-text-primary)]">
-            {renderHighlightedText(stock.name, keyword)}
+            <HighlightedText text={stock.name} keyword={keyword} />
           </div>
           <div className="typo-body-sm mt-0.5 truncate font-medium text-[color:var(--color-text-secondary)]">
             {stock.ticker} <span className="typo-body-xs mx-1">|</span> {formatStockSectorLabel(stock.gicsSector)}
@@ -153,9 +178,9 @@ function StockResultRow({
       </div>
     </button>
   );
-}
+});
 
-function NewsResultRow({
+const NewsResultRow = memo(function NewsResultRow({
   news,
   keyword,
   onClick,
@@ -171,11 +196,14 @@ function NewsResultRow({
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center justify-between gap-4 rounded-3xl bg-[color:var(--color-bg-secondary)] px-5 py-4 text-left transition-colors hover:bg-[color:var(--color-bg-tertiary)]"
+        className={cn(
+          "flex w-full items-center justify-between gap-4 rounded-3xl bg-[color:var(--color-bg-secondary)] px-5 py-4 text-left transition-colors hover:bg-[color:var(--color-bg-tertiary)]",
+          COMPACT_NEWS_ROW_VISIBILITY_CLASS,
+        )}
       >
         <div className="min-w-0">
           <div className="typo-body-md line-clamp-2 font-bold text-[color:var(--color-text-primary)]">
-            {renderHighlightedText(news.title, keyword)}
+            <HighlightedText text={news.title} keyword={keyword} />
           </div>
           <div className="typo-body-sm mt-1 text-[color:var(--color-text-secondary)]">
             {formatSearchedAt(news.publishedAt)} · {news.publisher}
@@ -192,17 +220,60 @@ function NewsResultRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full flex-col items-start gap-1 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]"
+      className={cn(
+        "flex w-full flex-col items-start gap-1 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]",
+        RESULT_ROW_VISIBILITY_CLASS,
+      )}
     >
       <div className="typo-body-md line-clamp-2 font-semibold text-[color:var(--color-text-primary)]">
-        {renderHighlightedText(news.title, keyword)}
+        <HighlightedText text={news.title} keyword={keyword} />
       </div>
       <div className="typo-body-sm text-[color:var(--color-text-secondary)]">
         {news.publisher} · {formatSearchedAt(news.publishedAt)}
       </div>
     </button>
   );
-}
+});
+
+const RecentSearchRow = memo(function RecentSearchRow({
+  item,
+  onClick,
+  onRemove,
+}: {
+  item: RecentSearchItem;
+  onClick?: (item: RecentSearchItem) => void;
+  onRemove?: (keyword: string) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[color:var(--color-bg-secondary)]",
+        RECENT_ROW_VISIBILITY_CLASS,
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onClick?.(item)}
+        className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left"
+      >
+        <span className="typo-body-sm truncate font-medium text-[color:var(--color-text-primary)]">
+          {item.keyword}
+        </span>
+        <span className="typo-body-xs shrink-0 text-[color:var(--color-text-tertiary)]">
+          {formatSearchedAt(item.searchedAt)}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onRemove?.(item.keyword)}
+        aria-label={`${item.keyword} 최근 검색어 제거`}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[color:var(--color-border-disabled)] transition-colors hover:bg-[color:var(--color-bg-secondary)] hover:text-[color:var(--color-text-primary)]"
+      >
+        <GoX className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+});
 
 export default function SearchModal({
   open,
@@ -225,9 +296,10 @@ export default function SearchModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const trimmedValue = value.trim();
-  const normalizedRecentSearches = Array.isArray(recentSearches) ? recentSearches : [];
-  const normalizedStockResults = Array.isArray(searchResults?.stocks) ? searchResults.stocks : [];
-  const normalizedNewsResults = Array.isArray(searchResults?.news) ? searchResults.news : [];
+  const deferredKeyword = useDeferredValue(trimmedValue);
+  const normalizedRecentSearches = Array.isArray(recentSearches) ? recentSearches : EMPTY_RECENT_SEARCHES;
+  const normalizedStockResults = Array.isArray(searchResults?.stocks) ? searchResults.stocks : EMPTY_STOCK_RESULTS;
+  const normalizedNewsResults = Array.isArray(searchResults?.news) ? searchResults.news : EMPTY_NEWS_RESULTS;
   const isShowingResults = Boolean(trimmedValue);
   const hasRecentSearches = normalizedRecentSearches.length > 0;
   const hasStockResults = normalizedStockResults.length > 0;
@@ -395,7 +467,10 @@ export default function SearchModal({
           </button>
         </form>
 
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-[color:var(--color-bg-primary)]">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto overscroll-contain bg-[color:var(--color-bg-primary)] [contain:layout_paint]"
+        >
           <div className="flex flex-col gap-8 p-6">
             {isShowingResults ? (
               <>
@@ -456,7 +531,7 @@ export default function SearchModal({
                               <StockResultRow
                                 key={stock.id}
                                 stock={stock}
-                                keyword={trimmedValue}
+                                keyword={deferredKeyword}
                                 onClick={() => onStockSelect?.(stock)}
                               />
                             ))}
@@ -485,7 +560,7 @@ export default function SearchModal({
                               <NewsResultRow
                                 key={news.id}
                                 news={news}
-                                keyword={trimmedValue}
+                                keyword={deferredKeyword}
                                 onClick={() => onNewsSelect?.(news)}
                                 compact
                               />
@@ -509,7 +584,7 @@ export default function SearchModal({
                           <StockResultRow
                             key={stock.id}
                             stock={stock}
-                            keyword={trimmedValue}
+                            keyword={deferredKeyword}
                             onClick={() => onStockSelect?.(stock)}
                           />
                         ))}
@@ -530,7 +605,7 @@ export default function SearchModal({
                           <NewsResultRow
                             key={news.id}
                             news={news}
-                            keyword={trimmedValue}
+                            keyword={deferredKeyword}
                             onClick={() => onNewsSelect?.(news)}
                           />
                         ))}
@@ -561,31 +636,12 @@ export default function SearchModal({
                 {hasRecentSearches ? (
                   <div className="flex flex-col gap-2">
                     {normalizedRecentSearches.map((item) => (
-                      <div
+                      <RecentSearchRow
                         key={`${item.keyword}-${item.searchedAt}`}
-                        className="flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[color:var(--color-bg-secondary)]"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => onRecentSearchClick?.(item)}
-                          className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left"
-                        >
-                          <span className="typo-body-sm truncate font-medium text-[color:var(--color-text-primary)]">
-                            {item.keyword}
-                          </span>
-                          <span className="typo-body-xs shrink-0 text-[color:var(--color-text-tertiary)]">
-                            {formatSearchedAt(item.searchedAt)}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRecentSearchRemove?.(item.keyword)}
-                          aria-label={`${item.keyword} 최근 검색어 제거`}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[color:var(--color-border-disabled)] transition-colors hover:bg-[color:var(--color-bg-secondary)] hover:text-[color:var(--color-text-primary)]"
-                        >
-                          <GoX className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                        item={item}
+                        onClick={onRecentSearchClick}
+                        onRemove={onRecentSearchRemove}
+                      />
                     ))}
                   </div>
                 ) : (
