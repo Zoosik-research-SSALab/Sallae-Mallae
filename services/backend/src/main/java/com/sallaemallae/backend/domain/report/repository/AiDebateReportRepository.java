@@ -40,6 +40,7 @@ public interface AiDebateReportRepository extends JpaRepository<AiDebateReport, 
       SELECT DISTINCT ON (stock_id) *
       FROM ai_debate_reports
       WHERE report_date < :reportDate
+        AND report_date >= :reportDate - INTERVAL '7 days'
       ORDER BY stock_id, report_date DESC, created_at DESC
       """, nativeQuery = true)
   List<AiDebateReport> findPreviousLatestByReportDate(@Param("reportDate") LocalDate reportDate);

@@ -10,6 +10,7 @@ import com.sallaemallae.backend.domain.stock.service.StockQuoteCacheService;
 import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
 import com.sallaemallae.backend.infra.kis.stock.KisQuoteData;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Component;
 public class SurgePlungeAlertScheduler {
 
   private static final double THRESHOLD_RATE = 0.05; // ±5%
+  private static final long COOLDOWN_MILLIS = 60 * 60 * 1000L; // 1시간
   private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
   private final StockQuoteCacheService stockQuoteCacheService;
@@ -36,6 +38,8 @@ public class SurgePlungeAlertScheduler {
 
   // 종목별 마지막 알림 기준 가격 (서버 재시작 시 전일종가 폴백)
   private final ConcurrentHashMap<Long, Integer> lastAlertPriceMap = new ConcurrentHashMap<>();
+  // 종목별 마지막 알림 시각 (쿨다운용)
+  private final ConcurrentHashMap<Long, Long> lastAlertTimeMap = new ConcurrentHashMap<>();
 
   @Scheduled(fixedRate = 30_000, initialDelay = 30_000)
   public void checkSurgePlunge() {
@@ -65,7 +69,7 @@ public class SurgePlungeAlertScheduler {
 
       double changeRate = (double) (currentPrice - basePrice) / basePrice;
 
-      if (Math.abs(changeRate) >= THRESHOLD_RATE) {
+      if (Math.abs(changeRate) >= THRESHOLD_RATE && !isInCooldown(stock.getId())) {
         String direction = changeRate > 0 ? "급등" : "급락";
         String changePercent = String.format("%+.1f%%", changeRate * 100);
 
@@ -79,6 +83,7 @@ public class SurgePlungeAlertScheduler {
         );
 
         lastAlertPriceMap.put(stock.getId(), currentPrice);
+        lastAlertTimeMap.put(stock.getId(), Instant.now().toEpochMilli());
         log.info("급등락 알림: stock={}, change={}", stock.getTicker(), changePercent);
       }
     }
@@ -88,7 +93,13 @@ public class SurgePlungeAlertScheduler {
   @Scheduled(cron = "0 0 9 * * MON-FRI", zone = "Asia/Seoul")
   public void resetDailyAlertPrices() {
     lastAlertPriceMap.clear();
+    lastAlertTimeMap.clear();
     log.info("급등락 알림 기준가격 초기화");
+  }
+
+  private boolean isInCooldown(Long stockId) {
+    Long lastTime = lastAlertTimeMap.get(stockId);
+    return lastTime != null && (Instant.now().toEpochMilli() - lastTime) < COOLDOWN_MILLIS;
   }
 
   private int getBasePrice(Stock stock, KisQuoteData quote) {
