@@ -9,6 +9,7 @@ import type {
   SearchAutocompleteResponse,
   SearchNewsItem,
   SearchStockItem,
+  TrendingSearchStockItem,
 } from "@/shared/types/search";
 import Input from "@/shared/ui/Input";
 import { cn } from "@/shared/utils/cn";
@@ -19,6 +20,9 @@ type Props = {
   recentSearches?: RecentSearchItem[];
   searchResults?: SearchAutocompleteResponse;
   isSearching?: boolean;
+  trendingStocks?: TrendingSearchStockItem[];
+  trendingStocksUpdatedAt?: string | null;
+  isTrendingStocksLoading?: boolean;
   placeholder?: string;
   className?: string;
   onClose: () => void;
@@ -29,6 +33,7 @@ type Props = {
   onRecentSearchesClear?: () => void;
   onStockSelect?: (stock: SearchStockItem) => void;
   onNewsSelect?: (news: SearchNewsItem) => void;
+  onTrendingStockSelect?: (stock: TrendingSearchStockItem) => void;
 };
 
 type SearchResultTab = "all" | "stocks" | "news";
@@ -42,9 +47,11 @@ const TAB_ITEMS: Array<{ value: SearchResultTab; label: string }> = [
 const EMPTY_STOCK_RESULTS: SearchStockItem[] = [];
 const EMPTY_NEWS_RESULTS: SearchNewsItem[] = [];
 const EMPTY_RECENT_SEARCHES: RecentSearchItem[] = [];
+const EMPTY_TRENDING_STOCKS: TrendingSearchStockItem[] = [];
 const RESULT_ROW_VISIBILITY_CLASS = "[content-visibility:auto] [contain-intrinsic-size:88px] [contain:layout_paint]";
 const COMPACT_NEWS_ROW_VISIBILITY_CLASS = "[content-visibility:auto] [contain-intrinsic-size:92px] [contain:layout_paint]";
 const RECENT_ROW_VISIBILITY_CLASS = "[content-visibility:auto] [contain-intrinsic-size:60px] [contain:layout_paint]";
+const TRENDING_ROW_VISIBILITY_CLASS = "[content-visibility:auto] [contain-intrinsic-size:56px] [contain:layout_paint]";
 
 function formatPrice(value: number) {
   return `${value.toLocaleString("ko-KR")}원`;
@@ -79,6 +86,24 @@ function formatSearchedAt(value: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatTrendingUpdatedAt(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return `오늘 ${new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date)} 기준`;
 }
 
 function escapeRegExp(value: string) {
@@ -141,7 +166,7 @@ const StockResultRow = memo(function StockResultRow({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between gap-4 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]",
+        "flex w-full items-center justify-between gap-4 rounded-2xl p-2 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]",
         RESULT_ROW_VISIBILITY_CLASS,
       )}
     >
@@ -206,10 +231,10 @@ const NewsResultRow = memo(function NewsResultRow({
             <HighlightedText text={news.title} keyword={keyword} />
           </div>
           <div className="typo-body-sm mt-1 text-[color:var(--color-text-secondary)]">
-            {formatSearchedAt(news.publishedAt)} · {news.publisher}
+            {news.publisher} · {formatSearchedAt(news.publishedAt)}
           </div>
         </div>
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--color-bg-tertiary)] text-[color:var(--color-text-secondary)]">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-[color:var(--color-text-secondary)]">
           <GoArrowUpRight className="h-4 w-4" />
         </span>
       </button>
@@ -275,12 +300,59 @@ const RecentSearchRow = memo(function RecentSearchRow({
   );
 });
 
+const TrendingStockRow = memo(function TrendingStockRow({
+  stock,
+  onClick,
+}: {
+  stock: TrendingSearchStockItem;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center justify-between gap-4 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]",
+        TRENDING_ROW_VISIBILITY_CLASS,
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="typo-body-md w-4 shrink-0 font-extrabold text-[color:var(--color-text-info)]">
+          {stock.rank}
+        </span>
+        <div className="typo-body-xs flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] font-semibold text-[color:var(--color-text-base)]">
+          로고
+        </div>
+        <span className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)]">
+          {stock.name}
+        </span>
+      </div>
+
+      <span
+        className={cn(
+          "typo-body-md shrink-0 font-semibold",
+          stock.fluctuationRate > 0
+            ? "text-[color:var(--color-text-danger)]"
+            : stock.fluctuationRate < 0
+              ? "text-[color:var(--color-text-info)]"
+              : "text-[color:var(--color-text-secondary)]",
+        )}
+      >
+        {formatSignedRate(stock.fluctuationRate)}
+      </span>
+    </button>
+  );
+});
+
 export default function SearchModal({
   open,
   value,
   recentSearches = [],
   searchResults = { stocks: [], news: [] },
   isSearching = false,
+  trendingStocks = [],
+  trendingStocksUpdatedAt = null,
+  isTrendingStocksLoading = false,
   placeholder = "종목명 또는 코드 검색",
   className,
   onClose,
@@ -291,6 +363,7 @@ export default function SearchModal({
   onRecentSearchesClear,
   onStockSelect,
   onNewsSelect,
+  onTrendingStockSelect,
 }: Props) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -300,13 +373,16 @@ export default function SearchModal({
   const normalizedRecentSearches = Array.isArray(recentSearches) ? recentSearches : EMPTY_RECENT_SEARCHES;
   const normalizedStockResults = Array.isArray(searchResults?.stocks) ? searchResults.stocks : EMPTY_STOCK_RESULTS;
   const normalizedNewsResults = Array.isArray(searchResults?.news) ? searchResults.news : EMPTY_NEWS_RESULTS;
+  const normalizedTrendingStocks = Array.isArray(trendingStocks) ? trendingStocks : EMPTY_TRENDING_STOCKS;
   const isShowingResults = Boolean(trimmedValue);
   const hasRecentSearches = normalizedRecentSearches.length > 0;
   const hasStockResults = normalizedStockResults.length > 0;
   const hasNewsResults = normalizedNewsResults.length > 0;
+  const hasTrendingStocks = normalizedTrendingStocks.length > 0;
   const hasAnyResults = hasStockResults || hasNewsResults;
   const stockPreview = normalizedStockResults.slice(0, 5);
   const newsPreview = normalizedNewsResults.slice(0, 3);
+  const trendingPreview = normalizedTrendingStocks.slice(0, 5);
   const showStockMore = normalizedStockResults.length > stockPreview.length;
   const showNewsMore = normalizedNewsResults.length > newsPreview.length;
 
@@ -346,9 +422,7 @@ export default function SearchModal({
             '[tabindex]:not([tabindex="-1"])',
           ].join(","),
         ),
-      ).filter((element) => {
-        return !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true";
-      });
+      ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
     };
 
     getFocusableElements()[0]?.focus();
@@ -471,7 +545,7 @@ export default function SearchModal({
           ref={scrollContainerRef}
           className="flex-1 overflow-y-auto overscroll-contain bg-[color:var(--color-bg-primary)] [contain:layout_paint]"
         >
-          <div className="flex flex-col gap-8 p-6">
+          <div className="flex flex-col gap-4 p-4">
             {isShowingResults ? (
               <>
                 <section className="flex flex-col gap-4">
@@ -503,7 +577,7 @@ export default function SearchModal({
                   </div>
 
                   {isSearching ? (
-                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">검색 중...</p>
+                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">검색 중입니다.</p>
                   ) : null}
                 </section>
 
@@ -579,7 +653,7 @@ export default function SearchModal({
                 {!isSearching && visibleTab === "stocks" ? (
                   hasStockResults ? (
                     <section className="flex flex-col gap-4">
-                      <div className="flex flex-col gap-2 px-2">
+                      <div className="flex flex-col gap-2">
                         {normalizedStockResults.map((stock) => (
                           <StockResultRow
                             key={stock.id}
@@ -600,7 +674,7 @@ export default function SearchModal({
                 {!isSearching && visibleTab === "news" ? (
                   hasNewsResults ? (
                     <section className="flex flex-col gap-4">
-                      <div className="flex flex-col gap-2 px-2">
+                      <div className="flex flex-col gap-2">
                         {normalizedNewsResults.map((news) => (
                           <NewsResultRow
                             key={news.id}
@@ -619,37 +693,70 @@ export default function SearchModal({
                 ) : null}
               </>
             ) : (
-              <section className="flex flex-col gap-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="typo-body-md font-semibold text-[color:var(--color-text-secondary)]">최근 검색어</h2>
-                  {hasRecentSearches ? (
-                    <button
-                      type="button"
-                      onClick={onRecentSearchesClear}
-                      className="typo-body-sm font-medium text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-primary)]"
-                    >
-                      검색 기록 전체 삭제
-                    </button>
-                  ) : null}
-                </div>
-
-                {hasRecentSearches ? (
-                  <div className="flex flex-col gap-2">
-                    {normalizedRecentSearches.map((item) => (
-                      <RecentSearchRow
-                        key={`${item.keyword}-${item.searchedAt}`}
-                        item={item}
-                        onClick={onRecentSearchClick}
-                        onRemove={onRecentSearchRemove}
-                      />
-                    ))}
+              <div className="flex flex-col gap-8">
+                <section className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="typo-body-md font-semibold text-[color:var(--color-text-secondary)]">최근 검색어</h2>
+                    {hasRecentSearches ? (
+                      <button
+                        type="button"
+                        onClick={onRecentSearchesClear}
+                        className="typo-body-sm font-medium text-[color:var(--color-text-tertiary)] transition-colors hover:text-[color:var(--color-text-primary)]"
+                      >
+                        검색 기록 전체 삭제
+                      </button>
+                    ) : null}
                   </div>
-                ) : (
-                  <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
-                    최근 검색어가 없습니다.
-                  </p>
-                )}
-              </section>
+
+                  {hasRecentSearches ? (
+                    <div className="flex flex-col gap-2">
+                      {normalizedRecentSearches.map((item) => (
+                        <RecentSearchRow
+                          key={`${item.keyword}-${item.searchedAt}`}
+                          item={item}
+                          onClick={onRecentSearchClick}
+                          onRemove={onRecentSearchRemove}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+                      최근 검색어가 없습니다.
+                    </p>
+                  )}
+                </section>
+
+                <section className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="typo-body-md font-semibold text-[color:var(--color-text-secondary)]">인기 검색</h2>
+                    {trendingStocksUpdatedAt ? (
+                      <span className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+                        {formatTrendingUpdatedAt(trendingStocksUpdatedAt)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {hasTrendingStocks ? (
+                    <div className="flex flex-col gap-1">
+                      {trendingPreview.map((stock) => (
+                        <TrendingStockRow
+                          key={`${stock.stockId}-${stock.rank}`}
+                          stock={stock}
+                          onClick={() => onTrendingStockSelect?.(stock)}
+                        />
+                      ))}
+                    </div>
+                  ) : isTrendingStocksLoading ? (
+                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+                      인기 검색을 불러오는 중입니다.
+                    </p>
+                  ) : (
+                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+                      인기 검색이 없습니다.
+                    </p>
+                  )}
+                </section>
+              </div>
             )}
           </div>
         </div>

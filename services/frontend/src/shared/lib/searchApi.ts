@@ -1,9 +1,10 @@
-import { apiFetch } from "@/shared/lib/apiClient";
+import { apiFetch, connectSse } from "@/shared/lib/apiClient";
 import type {
   RecentSearchesResponse,
   SaveRecentSearchRequest,
   SearchAutocompleteResponse,
   SearchMessageResponse,
+  TrendingSearchStocksResponse,
 } from "@/shared/types/search";
 
 type SearchAutocompleteEnvelope = {
@@ -88,6 +89,21 @@ function normalizeSearchMessageResponse(
   } satisfies SearchMessageResponse;
 }
 
+function normalizeTrendingSearchStocksResponse(payload: TrendingSearchStocksResponse) {
+  return {
+    stocks: Array.isArray(payload.stocks)
+      ? payload.stocks.map((stock) => ({
+          rank: Number(stock.rank ?? 0),
+          stockId: Number(stock.stockId ?? 0),
+          name: typeof stock.name === "string" ? stock.name : "",
+          price: Number(stock.price ?? 0),
+          fluctuationRate: Number(stock.fluctuationRate ?? 0),
+          iconUrl: typeof stock.iconUrl === "string" ? stock.iconUrl : null,
+        }))
+      : [],
+  } satisfies TrendingSearchStocksResponse;
+}
+
 export async function getSearchAutocomplete(query: string) {
   if (!query.trim()) {
     return {
@@ -141,4 +157,16 @@ export async function clearRecentSearches() {
   });
 
   return normalizeSearchMessageResponse(payload);
+}
+
+export function subscribeTrendingSearchStocks(handlers: {
+  onMessage: (payload: TrendingSearchStocksResponse) => void;
+  onError?: (error: Event) => void;
+  onOpen?: () => void;
+}) {
+  return connectSse<TrendingSearchStocksResponse>("/api/stream/stocks/trending", {
+    ...handlers,
+    useBaseUrl: false,
+    onMessage: (payload) => handlers.onMessage(normalizeTrendingSearchStocksResponse(payload)),
+  });
 }

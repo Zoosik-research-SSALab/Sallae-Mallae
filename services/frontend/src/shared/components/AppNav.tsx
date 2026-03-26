@@ -29,6 +29,7 @@ import {
   getRecentSearches,
   getSearchAutocomplete,
   saveRecentSearch,
+  subscribeTrendingSearchStocks,
 } from "@/shared/lib/searchApi";
 import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
 import { updateUserProfile } from "@/shared/lib/userProfileApi";
@@ -37,6 +38,7 @@ import type {
   SearchAutocompleteResponse,
   SearchNewsItem,
   SearchStockItem,
+  TrendingSearchStockItem,
 } from "@/shared/types/search";
 import SearchModal from "@/shared/ui/SearchModal";
 
@@ -99,6 +101,9 @@ export default function AppNav() {
   const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([]);
   const [searchResults, setSearchResults] = useState<SearchAutocompleteResponse>({ stocks: [], news: [] });
   const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [trendingStocks, setTrendingStocks] = useState<TrendingSearchStockItem[]>([]);
+  const [trendingStocksUpdatedAt, setTrendingStocksUpdatedAt] = useState<string | null>(null);
+  const [isTrendingStocksLoading, setIsTrendingStocksLoading] = useState(false);
   const shouldIgnoreSearchTriggerFocusRef = useRef(false);
 
   const profileButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -197,6 +202,26 @@ export default function AppNav() {
       isMounted = false;
     };
   }, [isLoggedIn, isSearchModalOpen]);
+
+  useEffect(() => {
+    if (!isSearchModalOpen || searchKeyword.trim()) {
+      setIsTrendingStocksLoading(false);
+      return;
+    }
+
+    setIsTrendingStocksLoading(true);
+
+    return subscribeTrendingSearchStocks({
+      onMessage: (payload) => {
+        setTrendingStocks(payload.stocks.slice(0, 5));
+        setTrendingStocksUpdatedAt(new Date().toISOString());
+        setIsTrendingStocksLoading(false);
+      },
+      onError: () => {
+        setIsTrendingStocksLoading(false);
+      },
+    });
+  }, [isSearchModalOpen, searchKeyword]);
 
   useEffect(() => {
     if (!isSearchModalOpen) {
@@ -353,6 +378,26 @@ export default function AppNav() {
 
     closeSearchModal();
     window.open(news.url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleTrendingStockSelect = async (stock: TrendingSearchStockItem) => {
+    setSearchKeyword(stock.name);
+
+    if (isLoggedIn) {
+      try {
+        await saveRecentSearch({
+          keyword: stock.name,
+          stockId: stock.stockId,
+        });
+
+        const payload = await getRecentSearches();
+        setRecentSearches(payload.recent);
+      } catch {
+        // Ignore recent-search save failures so search interaction can continue.
+      }
+    }
+
+    submitSearch(stock.name);
   };
 
   const handleRecentSearchClick = (item: RecentSearchItem) => {
@@ -721,6 +766,9 @@ export default function AppNav() {
         recentSearches={recentSearches}
         searchResults={searchResults}
         isSearching={isSearchLoading}
+        trendingStocks={trendingStocks}
+        trendingStocksUpdatedAt={trendingStocksUpdatedAt}
+        isTrendingStocksLoading={isTrendingStocksLoading}
         onClose={closeSearchModal}
         onValueChange={setSearchKeyword}
         onSubmit={submitSearch}
@@ -729,6 +777,7 @@ export default function AppNav() {
         onRecentSearchesClear={handleRecentSearchesClear}
         onStockSelect={handleStockSelect}
         onNewsSelect={handleNewsSelect}
+        onTrendingStockSelect={handleTrendingStockSelect}
       />
 
       {isLoggedIn && isProfileMenuOpen ? (

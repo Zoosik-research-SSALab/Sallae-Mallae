@@ -20,6 +20,19 @@ export type SearchAutocompleteResponse = {
   news: SearchNewsItem[];
 };
 
+export type TrendingSearchStockItem = {
+  rank: number;
+  stockId: number;
+  name: string;
+  price: number;
+  fluctuationRate: number;
+  iconUrl: string | null;
+};
+
+export type TrendingSearchStocksResponse = {
+  stocks: TrendingSearchStockItem[];
+};
+
 export type RecentSearchItem = {
   keyword: string;
   searchedAt: string;
