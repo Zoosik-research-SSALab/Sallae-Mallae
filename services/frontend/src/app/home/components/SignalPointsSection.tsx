@@ -61,7 +61,13 @@ function SignalListCard({ title, description, items, tone }: SignalListCardProps
                 </div>
               </div>
             </div>
-            <WatchlistHeartButton stockId={item.stockId} stockName={item.name} size="sm" surface={index === 1 ? "muted" : "default"} />
+            <WatchlistHeartButton
+              stockId={item.stockId}
+              stockName={item.name}
+              initialWatched={item.isWatchlisted}
+              size="sm"
+              surface={index === 1 ? "muted" : "default"}
+            />
           </div>
         ))}
       </div>

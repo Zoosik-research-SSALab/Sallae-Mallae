@@ -74,7 +74,7 @@ function sortHoldings(items: PortfolioHolding[], sortType: HoldingsSortType) {
 function HoldingRows({ items }: { items: PortfolioHolding[] }) {
   return (
     <>
-      <div className="grid grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] gap-4 border-b border-[color:var(--color-border-secondary)] px-2 py-4">
+      <div className="grid items-center grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] gap-4 border-b border-[color:var(--color-border-secondary)] px-2 py-4">
         <span className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">종목명 / 정보</span>
         <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">매입가</span>
         <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">현재가</span>
@@ -379,48 +379,56 @@ export default function PortfolioTabsSection({ holdings, todayTrades, monthlyRet
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center gap-6 overflow-x-auto border-b border-[color:var(--color-border-primary)]">
-        {tabs.map((tab) => {
-          const extraLabel = tab.id === "todayTrades" ? ` (${todayTrades.length})` : "";
+      <div className="flex flex-col gap-3 border-b border-[color:var(--color-border-primary)] pb-3 md:flex-row md:items-end md:justify-between">
+        <div className="flex min-w-0 items-center gap-6 overflow-x-auto">
+          {tabs.map((tab) => {
+            const extraLabel = tab.id === "todayTrades" ? ` (${todayTrades.length})` : "";
 
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleTabChange(tab.id)}
-              className={cn(
-                "whitespace-nowrap pb-3 text-sm font-semibold leading-5 transition-colors md:text-base md:leading-6",
-                activeTab === tab.id
-                  ? "border-b border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
-                  : "text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-secondary)]",
-              )}
-            >
-              {tab.label}
-              {extraLabel}
-            </button>
-          );
-        })}
-      </div>
-
-      {activeTab === "holdings" ? (
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          {holdingsSortOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => handleHoldingsSortChange(option.id)}
-              className={cn(
-                "rounded-lg px-3 py-2 text-xs font-semibold transition-colors md:text-sm",
-                option.id === holdingsSort
-                  ? "bg-[color:var(--color-bg-info-subtle)] text-[color:var(--color-text-info)]"
-                  : "bg-[color:var(--color-bg-secondary)] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]",
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  "whitespace-nowrap pb-0 text-sm font-semibold leading-5 transition-colors md:text-base md:leading-6",
+                  activeTab === tab.id
+                    ? "text-[color:var(--color-text-primary)]"
+                    : "text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-secondary)]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-flex border-b pb-3",
+                    activeTab === tab.id
+                      ? "border-[color:var(--color-border-base)]"
+                      : "border-transparent",
+                  )}
+                >
+                  {tab.label}
+                  {extraLabel}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      ) : null}
+
+        {activeTab === "holdings" ? (
+          <label className="flex shrink-0 items-center gap-2 self-end md:self-auto">
+            <span className="sr-only">현재 보유 종목 정렬</span>
+            <select
+              value={holdingsSort}
+              onChange={(event) => handleHoldingsSortChange(event.target.value as HoldingsSortType)}
+              className="min-w-[180px] rounded-lg border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-3 py-2 text-xs font-semibold text-[color:var(--color-text-primary)] outline-none transition-colors hover:border-[color:var(--color-border-base)] focus:border-[color:var(--color-border-base)] md:text-sm"
+            >
+              {holdingsSortOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
 
       {activeTab === "holdings" ? (
         <>
