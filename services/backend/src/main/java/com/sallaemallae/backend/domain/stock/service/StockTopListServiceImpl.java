@@ -11,6 +11,7 @@ import com.sallaemallae.backend.domain.stock.service.StockTopListSupport.SignalF
 import com.sallaemallae.backend.domain.stock.service.StockTopListSupport.StockTopListCandidate;
 import com.sallaemallae.backend.domain.stock.service.StockTopListSupport.StockTopListQuery;
 import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.infra.kis.stock.KisQuoteData;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ public class StockTopListServiceImpl implements StockTopListService {
   private final WatchlistService watchlistService;
   private final StockDividendYieldSnapshotService stockDividendYieldSnapshotService;
   private final StockQuoteCacheService stockQuoteCacheService;
+  private final StockIconUrlResolver stockIconUrlResolver;
 
   @Override
   public StockListResponse getTopStocks(
@@ -98,6 +100,7 @@ public class StockTopListServiceImpl implements StockTopListService {
           signalFilter,
           StockTopListSupport.resolveConfidence(sourceRank, fluctuationRate, signalFilter),
           watchlistedStockIds.contains(stock.getId()),
+          stockIconUrlResolver.resolve(stock.getIconUrl()),
           resolveMarketCap(stock, price),
           resolveSectorFilter(stock)
       ));

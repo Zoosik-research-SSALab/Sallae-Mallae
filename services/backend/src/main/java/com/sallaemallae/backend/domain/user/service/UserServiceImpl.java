@@ -28,6 +28,7 @@ import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.storage.exception.StorageErrorCode;
 import com.sallaemallae.backend.domain.storage.service.FileStorageService;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.user.exception.UserErrorCode;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
@@ -56,6 +57,7 @@ public class UserServiceImpl implements UserService {
   private final FileStorageService fileStorageService;
   private final StockQuoteCacheService stockQuoteCacheService;
   private final SignalQueryRepository signalQueryRepository;
+  private final StockIconUrlResolver stockIconUrlResolver;
 
   private static final int WATCHLIST_MAX_SIZE = 50;
 
@@ -119,7 +121,8 @@ public class UserServiceImpl implements UserService {
               fluctuationRate,
               signalType,
               confidence,
-              item.getCreatedAt()
+              item.getCreatedAt(),
+              stockIconUrlResolver.resolve(stock.getIconUrl())
           );
         })
         .toList();

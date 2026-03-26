@@ -32,7 +32,8 @@ public class SearchQueryRepository {
                s.name,
                s.gics_sector,
                latest_price.close_price,
-               latest_price.fluctuation_rate
+               latest_price.fluctuation_rate,
+               s.icon_url
         FROM stocks s
                  LEFT JOIN LATERAL (
             SELECT sp.close_price, sp.fluctuation_rate
@@ -95,7 +96,8 @@ public class SearchQueryRepository {
         (String) row[2],
         (String) row[3],
         toInteger(row[4]),
-        toBigDecimal(row[5])
+        toBigDecimal(row[5]),
+        (String) row[6]
     );
   }
 

@@ -52,7 +52,7 @@ class ChairmanPortfolioServiceImplTest {
     given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5))
-        .willReturn(List.of(new ChairmanPortfolioQueryRepository.PopularSignalRow(1, 1L, "005930", "삼성전자", 74300, "BUY")));
+        .willReturn(List.of(new ChairmanPortfolioQueryRepository.PopularSignalRow(1, 1L, "005930", "삼성전자", 74300, "BUY", null)));
     AiDailyPerformance februaryFirst = dailyPerformance(LocalDate.of(2026, 2, 27), 1.0f);
     AiDailyPerformance februarySecond = dailyPerformance(LocalDate.of(2026, 2, 28), -0.5f);
     AiDailyPerformance marchFirst = dailyPerformance(LocalDate.of(2026, 3, 4), 2.0f);
@@ -72,7 +72,8 @@ class ChairmanPortfolioServiceImplTest {
             74300,
             OffsetDateTime.now().minusDays(14),
             12L,
-            14.43f
+            14.43f,
+            null
         )));
 
     ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("HOLDINGS", 0, 6);
@@ -182,7 +183,8 @@ class ChairmanPortfolioServiceImplTest {
             65000f,
             74300,
             9L,
-            3.21f
+            3.21f,
+            null
         )));
 
     ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("TODAY_TRADES", 0, 6);

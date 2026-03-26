@@ -36,6 +36,7 @@ public class ChairmanPortfolioQueryRepository {
         SELECT s.id AS stock_id,
                s.ticker,
                s.name,
+               s.icon_url,
                h.avg_buy_price AS buy_price,
                COALESCE(h.current_price, price.close_price) AS current_price,
                h.buy_date AS buy_time,
@@ -72,7 +73,8 @@ public class ChairmanPortfolioQueryRepository {
           toInteger(row.get("current_price")),
           toOffsetDateTime(row.get("buy_time")),
           toLong(row.get("holding_quantity")),
-          toFloat(row.get("return_rate"))
+          toFloat(row.get("return_rate")),
+          row.get("icon_url", String.class)
       ));
     }
     return items;
@@ -106,6 +108,7 @@ public class ChairmanPortfolioQueryRepository {
         SELECT s.id AS stock_id,
                s.ticker,
                s.name,
+               s.icon_url,
                h.trade_type,
                h.trade_time,
                h.trade_price_rate,
@@ -148,7 +151,8 @@ public class ChairmanPortfolioQueryRepository {
           toFloat(row.get("trade_price_rate")),
           toInteger(row.get("current_price")),
           toLong(row.get("holding_quantity")),
-          toFloat(row.get("return_rate"))
+          toFloat(row.get("return_rate")),
+          row.get("icon_url", String.class)
       ));
     }
     return items;
@@ -238,6 +242,7 @@ public class ChairmanPortfolioQueryRepository {
         SELECT s.id AS stock_id,
                s.ticker,
                s.name,
+               s.icon_url,
                p.close_price,
                lr.signal
         FROM latest_reports lr
@@ -268,7 +273,8 @@ public class ChairmanPortfolioQueryRepository {
           row.get("ticker", String.class),
           row.get("name", String.class),
           toInteger(row.get("close_price")),
-          row.get("signal", String.class)
+          row.get("signal", String.class),
+          row.get("icon_url", String.class)
       ));
     }
     return items;
@@ -400,7 +406,8 @@ public class ChairmanPortfolioQueryRepository {
       Integer currentPrice,
       OffsetDateTime buyTime,
       Long holdingQuantity,
-      Float returnRate
+      Float returnRate,
+      String iconUrl
   ) {
     public Integer holdingDays(LocalDate currentDate) {
       if (buyTime == null) {
@@ -419,7 +426,8 @@ public class ChairmanPortfolioQueryRepository {
       Float tradePrice,
       Integer currentPrice,
       Long holdingQuantity,
-      Float returnRate
+      Float returnRate,
+      String iconUrl
   ) {
   }
 
@@ -445,7 +453,8 @@ public class ChairmanPortfolioQueryRepository {
       String ticker,
       String name,
       Integer price,
-      String signal
+      String signal,
+      String iconUrl
   ) {
   }
 

@@ -4,6 +4,7 @@ import com.sallaemallae.backend.domain.auth.entity.User;
 import com.sallaemallae.backend.domain.auth.repository.UserRepository;
 import com.sallaemallae.backend.domain.notification.dto.response.NotificationActionResponse;
 import com.sallaemallae.backend.domain.notification.dto.response.NotificationBulkActionResponse;
+import com.sallaemallae.backend.domain.notification.dto.response.NotificationItemResponse;
 import com.sallaemallae.backend.domain.notification.dto.response.NotificationListResponse;
 import com.sallaemallae.backend.domain.notification.dto.response.NotificationSettingsResponse;
 import com.sallaemallae.backend.domain.notification.dto.request.NotificationSettingsUpdateRequest;
@@ -13,6 +14,7 @@ import com.sallaemallae.backend.domain.notification.enumtype.NotificationTab;
 import com.sallaemallae.backend.domain.notification.exception.NotificationErrorCode;
 import com.sallaemallae.backend.domain.notification.repository.NotificationQueryRepository;
 import com.sallaemallae.backend.domain.notification.repository.UserNotificationRepository;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.user.exception.UserErrorCode;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.time.OffsetDateTime;
@@ -30,6 +32,7 @@ public class NotificationServiceImpl implements NotificationService {
   private final NotificationQueryRepository notificationQueryRepository;
   private final UserNotificationRepository userNotificationRepository;
   private final UserRepository userRepository;
+  private final StockIconUrlResolver stockIconUrlResolver;
 
   /** 미확인 알림 수를 배지 형식으로 반환합니다. */
   @Override
@@ -47,15 +50,26 @@ public class NotificationServiceImpl implements NotificationService {
     NotificationTab notificationTab = NotificationTab.from(tab);
     OffsetDateTime cutoff = createRetentionCutoff();
 
-    return new NotificationListResponse(
-        notificationQueryRepository.findNotifications(
-            userId,
-            notificationTab,
-            normalizeOffset(offset),
-            normalizeLimit(limit),
-            cutoff
-        )
-    );
+    // 알림 목록의 종목 아이콘 URL을 전체 URL로 변환
+    java.util.List<NotificationItemResponse> items = notificationQueryRepository.findNotifications(
+        userId,
+        notificationTab,
+        normalizeOffset(offset),
+        normalizeLimit(limit),
+        cutoff
+    ).stream()
+        .map(item -> new NotificationItemResponse(
+            item.id(),
+            item.notiType(),
+            item.stockName(),
+            item.message(),
+            item.isRead(),
+            item.createdAt(),
+            item.stockId(),
+            stockIconUrlResolver.resolve(item.iconUrl())
+        ))
+        .toList();
+    return new NotificationListResponse(items);
   }
 
   /** 알림 1건을 읽음 처리합니다. */

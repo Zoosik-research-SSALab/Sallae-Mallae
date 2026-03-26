@@ -9,6 +9,7 @@ public record SearchStockItemResponse(
     String name,
     @JsonProperty("gics_sector") String gicsSector,
     @JsonProperty("current_price") Integer currentPrice,
-    @JsonProperty("fluctuation_rate") BigDecimal fluctuationRate
+    @JsonProperty("fluctuation_rate") BigDecimal fluctuationRate,
+    @JsonProperty("icon_url") String iconUrl
 ) {
 }

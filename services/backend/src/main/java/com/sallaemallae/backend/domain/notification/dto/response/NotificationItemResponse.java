@@ -21,6 +21,8 @@ public record NotificationItemResponse(
     @Schema(description = "알림 수신 시각")
     OffsetDateTime createdAt,
     @Schema(description = "종목 ID", example = "1")
-    Long stockId
+    Long stockId,
+    @Schema(description = "종목 아이콘 URL")
+    String iconUrl
 ) {
 }

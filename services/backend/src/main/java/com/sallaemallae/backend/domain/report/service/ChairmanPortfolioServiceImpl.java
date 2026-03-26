@@ -12,6 +12,7 @@ import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.Sign
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.Summary;
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.TodayTradeItem;
 import com.sallaemallae.backend.domain.report.exception.ReportErrorCode;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HoldingRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HallOfFameHitRateRow;
@@ -50,6 +51,7 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
   private final AiPortfolioRepository aiPortfolioRepository;
   private final AiDailyPerformanceRepository aiDailyPerformanceRepository;
   private final ChairmanPortfolioQueryRepository chairmanPortfolioQueryRepository;
+  private final StockIconUrlResolver stockIconUrlResolver;
 
   @Override
   public ChairmanPortfolioResponse getChairmanPortfolio(String tab, int offset, int limit) {
@@ -178,7 +180,8 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.ticker(),
         row.name(),
         row.price(),
-        row.signal()
+        row.signal(),
+        stockIconUrlResolver.resolve(row.iconUrl())
     );
   }
 
@@ -191,7 +194,8 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.currentPrice(),
         row.holdingDays(LocalDate.now()),
         row.holdingQuantity(),
-        row.returnRate()
+        row.returnRate(),
+        stockIconUrlResolver.resolve(row.iconUrl())
     );
   }
 
@@ -205,7 +209,8 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.tradePrice(),
         row.currentPrice(),
         row.holdingQuantity(),
-        row.returnRate()
+        row.returnRate(),
+        stockIconUrlResolver.resolve(row.iconUrl())
     );
   }
 
