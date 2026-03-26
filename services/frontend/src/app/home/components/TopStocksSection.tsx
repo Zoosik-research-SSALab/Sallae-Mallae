@@ -147,14 +147,14 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col">
           {visibleRows.map((row) => {
             const isMutedRow = row.length === 2 && row.every((item) => mutedBackgroundRanks.has(item.rank));
 
             return (
               <div
                 key={row.map((item) => item.stockId).join("-")}
-                className={`grid gap-2 md:grid-cols-2 ${isMutedRow ? "md:rounded-xl md:bg-[color:var(--color-bg-tertiary)]" : ""}`}
+                className={`grid md:grid-cols-2 ${isMutedRow ? "md:rounded-xl md:bg-[color:var(--color-bg-tertiary)]" : ""}`}
               >
                 {row.map((item) => {
                   const isMutedBackground = mutedBackgroundRanks.has(item.rank);

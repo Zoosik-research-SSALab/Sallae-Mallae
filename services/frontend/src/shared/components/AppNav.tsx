@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -16,6 +16,7 @@ import ProfileEditModal from "@/shared/components/nav/ProfileEditModal";
 import ProfileMenu from "@/shared/components/nav/ProfileMenu";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
 import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
+import { useSearchModal } from "@/shared/hooks/useSearchModal";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
@@ -25,6 +26,7 @@ import { clearSessionUser } from "@/shared/lib/authSession";
 import { useAuthStore } from "@/shared/lib/authStore";
 import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
 import { updateUserProfile } from "@/shared/lib/userProfileApi";
+import SearchModal from "@/shared/ui/SearchModal";
 
 type NavItem = {
   href: string;
@@ -66,8 +68,8 @@ function CategoryIcon({ Icon, active }: { Icon: IconType | null; active: boolean
 }
 
 export default function AppNav() {
-  const router = useRouter();
   const pathname = usePathname();
+  const router = useRouter();
   const { resolvedTheme, isHydrated } = useTheme();
   const authStatus = useAuthStore((state) => state.status);
   const currentUser = useAuthStore((state) => state.user);
@@ -80,7 +82,6 @@ export default function AppNav() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
   const [profileMenuAnchorRect, setProfileMenuAnchorRect] = useState<DOMRect | null>(null);
-  const [searchKeyword, setSearchKeyword] = useState("");
 
   const profileButtonRef = useRef<HTMLButtonElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -95,6 +96,26 @@ export default function AppNav() {
   const { data: notificationCount } = useNotificationCountQuery(isAuthReady && isLoggedIn);
   const unreadCount = isLoggedIn && typeof notificationCount === "number" ? notificationCount : 0;
   const displayCount = unreadCount > 99 ? "99+" : String(unreadCount);
+  const {
+    isSearchModalOpen,
+    searchKeyword,
+    recentSearches,
+    searchResults,
+    isSearchLoading,
+    trendingStocks,
+    trendingStocksUpdatedAt,
+    isTrendingStocksLoading,
+    setSearchKeyword,
+    openSearchModal,
+    closeSearchModal,
+    submitSearch,
+    handleStockSelect,
+    handleNewsSelect,
+    handleTrendingStockSelect,
+    handleRecentSearchClick,
+    handleRecentSearchRemove,
+    handleRecentSearchesClear,
+  } = useSearchModal({ isLoggedIn });
 
   const isActivePath = (item: NavItem) => {
     if (item.highlightOnMatch === false) {
@@ -205,17 +226,9 @@ export default function AppNav() {
     setIsProfileMenuOpen(false);
   };
 
-  const goToSearch = () => {
-    const keyword = searchKeyword.trim();
-
-    if (keyword) {
-      router.push(`/search?keyword=${encodeURIComponent(keyword)}`);
-    } else {
-      router.push("/search");
-    }
-
+  const handleOpenSearchModal = () => {
     setIsDrawerOpen(false);
-    setIsProfileMenuOpen(false);
+    openSearchModal();
   };
 
   const handleOpenLoginModal = () => {
@@ -346,19 +359,21 @@ export default function AppNav() {
               <input
                 type="text"
                 value={searchKeyword}
-                onChange={(event) => setSearchKeyword(event.target.value)}
+                onFocus={handleOpenSearchModal}
+                onClick={handleOpenSearchModal}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    goToSearch();
+                    submitSearch(searchKeyword);
                   }
                 }}
                 placeholder="종목명 또는 코드 검색"
-                className="typo-body-sm w-full rounded-xl bg-[color:var(--color-bg-secondary)] py-2.5 pl-9 pr-4 text-[color:var(--color-text-tertiary)] outline outline-1 outline-[color:var(--color-border-secondary)] placeholder:text-[color:var(--color-text-tertiary)] transition-colors focus:text-[color:var(--color-text-primary)]"
+                readOnly
+                className="typo-body-sm w-full cursor-pointer rounded-xl bg-[color:var(--color-bg-secondary)] py-2.5 pl-9 pr-4 text-[color:var(--color-text-tertiary)] outline outline-1 outline-[color:var(--color-border-secondary)] placeholder:text-[color:var(--color-text-tertiary)] transition-colors focus:text-[color:var(--color-text-primary)]"
               />
               <button
                 type="button"
-                onClick={goToSearch}
+                onClick={handleOpenSearchModal}
                 className={`absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
                 aria-label="검색"
               >
@@ -458,7 +473,7 @@ export default function AppNav() {
                   <div className="h-5 w-px bg-[color:var(--color-border-primary)]" />
                   <button
                     type="button"
-                    onClick={goToSearch}
+                    onClick={handleOpenSearchModal}
                     className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" style={{ strokeWidth: 2 }} />
@@ -552,6 +567,27 @@ export default function AppNav() {
           </aside>
         </div>
       ) : null}
+
+      <SearchModal
+        key={isSearchModalOpen ? "search-modal-open" : "search-modal-closed"}
+        open={isSearchModalOpen}
+        value={searchKeyword}
+        recentSearches={recentSearches}
+        searchResults={searchResults}
+        isSearching={isSearchLoading}
+        trendingStocks={trendingStocks}
+        trendingStocksUpdatedAt={trendingStocksUpdatedAt}
+        isTrendingStocksLoading={isTrendingStocksLoading}
+        onClose={closeSearchModal}
+        onValueChange={setSearchKeyword}
+        onSubmit={submitSearch}
+        onRecentSearchClick={handleRecentSearchClick}
+        onRecentSearchRemove={handleRecentSearchRemove}
+        onRecentSearchesClear={handleRecentSearchesClear}
+        onStockSelect={handleStockSelect}
+        onNewsSelect={handleNewsSelect}
+        onTrendingStockSelect={handleTrendingStockSelect}
+      />
 
       {isLoggedIn && isProfileMenuOpen ? (
         <ProfileMenu
