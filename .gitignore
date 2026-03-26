@@ -1,2 +1,2 @@
 .omc/
-infra/env/
+*.env
