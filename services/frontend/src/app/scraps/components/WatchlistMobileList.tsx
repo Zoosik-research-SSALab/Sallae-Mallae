@@ -47,7 +47,7 @@ export default function WatchlistMobileList({
             <article key={item.stockId} className="border-b border-[color:var(--color-border-secondary)] py-4">
               <div className="flex items-center gap-4">
                 <div className="flex min-w-0 flex-1 items-center gap-4">
-                  <WatchlistStockAvatar name={item.name} />
+                  <WatchlistStockAvatar name={item.name} iconUrl={item.iconUrl} />
 
                   <div className="min-w-0 flex-1">
                     <Link

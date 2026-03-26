@@ -44,6 +44,7 @@ type WatchlistListItemPayload = {
   signal?: string;
   confidence?: number;
   createdAt?: string | null;
+  iconUrl?: string | null;
 };
 
 type WatchlistListPayload = {
@@ -103,6 +104,7 @@ function normalizeWatchlistList(
       signal: item.signal ?? "HOLD",
       confidence: item.confidence ?? 0,
       createdAt: item.createdAt ?? null,
+      iconUrl: typeof item.iconUrl === "string" ? item.iconUrl : null,
     })),
   };
 }

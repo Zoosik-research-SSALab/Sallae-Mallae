@@ -5,6 +5,7 @@ import { RiTimerLine } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import type { PortfolioPopularSignal, PortfolioSignalSummary } from "../types/portfolio";
 import { formatCurrency, formatInteger, getSignalActionClassName, getSignalActionLabel } from "../utils/portfolioFormatters";
+import StockLogo from "@/app/stocks/components/StockLogo";
 
 type Props = {
   signalSummary: PortfolioSignalSummary;
@@ -107,6 +108,13 @@ export default function PortfolioSidebar({ signalSummary, popularSignals, classN
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="w-4 text-center text-sm font-semibold text-[color:var(--color-text-info)]">{item.rank}</span>
+                  <StockLogo
+                    label={item.name.slice(0, 2)}
+                    iconUrl={item.iconUrl}
+                    className="h-8 w-8 text-[9px]"
+                    labelClassName="text-[9px]"
+                    sizes="32px"
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">{item.name}</p>
                     <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">{formatCurrency(item.price)}</p>

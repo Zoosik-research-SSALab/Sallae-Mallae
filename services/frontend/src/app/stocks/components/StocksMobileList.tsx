@@ -66,7 +66,7 @@ export default function StocksMobileList({
                       <div className="typo-body-md min-w-4 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>
 
                       <div className="flex min-w-0 flex-1 items-center gap-4">
-                        <StockLogo label={item.name.slice(0, 2)} />
+                        <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
 
                         <div className="min-w-0 flex-1">
                           <div className="typo-body-sm truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>

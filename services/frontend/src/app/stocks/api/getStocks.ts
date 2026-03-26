@@ -60,6 +60,7 @@ function normalizeStocksResponse(payload: StocksResponse) {
     stocks: payload.stocks.map((stock) => ({
       ...stock,
       dividendYield: stock.dividendYield ?? null,
+      iconUrl: typeof stock.iconUrl === "string" ? stock.iconUrl : null,
     })),
   } satisfies StocksResponse;
 }

@@ -3,6 +3,7 @@
 import { memo, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { GoArrowUpRight, GoChevronRight, GoSearch, GoX } from "react-icons/go";
+import StockLogo from "@/app/stocks/components/StockLogo";
 import { formatStockSectorLabel } from "@/app/stocks/utils/stockSectorLabels";
 import type {
   RecentSearchItem,
@@ -177,9 +178,13 @@ const StockResultRow = memo(function StockResultRow({
       )}
     >
       <div className="flex min-w-0 items-center gap-4">
-        <div className="typo-body-xs flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] font-semibold text-[color:var(--color-text-base)]">
-          로고
-        </div>
+        <StockLogo
+          label={stock.name.slice(0, 2)}
+          iconUrl={stock.iconUrl}
+          className="h-10 w-10 text-[10px]"
+          labelClassName="text-[10px]"
+          sizes="40px"
+        />
         <div className="min-w-0">
           <div className="typo-body-md truncate font-extrabold text-[color:var(--color-text-primary)]">
             <HighlightedText text={stock.name} keyword={keyword} />
@@ -326,9 +331,13 @@ const TrendingStockRow = memo(function TrendingStockRow({
         <span className="typo-body-md w-4 shrink-0 font-extrabold text-[color:var(--color-text-info)]">
           {stock.rank}
         </span>
-        <div className="typo-body-xs flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] font-semibold text-[color:var(--color-text-base)]">
-          로고
-        </div>
+        <StockLogo
+          label={stock.name.slice(0, 2)}
+          iconUrl={stock.iconUrl}
+          className="h-8 w-8 text-[10px]"
+          labelClassName="text-[10px]"
+          sizes="32px"
+        />
         <span className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)]">
           {stock.name}
         </span>

@@ -67,7 +67,7 @@ export default function WatchlistDesktopTable({
             <article key={item.stockId} className="border-b border-[color:var(--color-border-secondary)] px-4 py-4">
               <div className="flex items-center justify-between gap-6">
                 <div className="flex min-w-0 flex-1 items-center gap-4">
-                  <WatchlistStockAvatar name={item.name} />
+                  <WatchlistStockAvatar name={item.name} iconUrl={item.iconUrl} />
                   <div className="min-w-0">
                     <Link
                       href={`/stocks/${item.stockId}`}

@@ -448,6 +448,7 @@ export function getMockWatchlistListResponse() {
       signal: catalogItem.signal,
       confidence: catalogItem.confidence,
       createdAt: new Date(Date.now() - index * 86_400_000).toISOString(),
+      iconUrl: `assets/stock-icons/${catalogItem.name}_${catalogItem.ticker}.png`,
     };
   });
 
