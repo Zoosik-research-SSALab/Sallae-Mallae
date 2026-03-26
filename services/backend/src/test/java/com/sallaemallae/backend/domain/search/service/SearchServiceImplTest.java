@@ -10,6 +10,7 @@ import com.sallaemallae.backend.domain.search.dto.response.SearchResponse;
 import com.sallaemallae.backend.domain.search.dto.response.SearchStockItemResponse;
 import com.sallaemallae.backend.domain.search.repository.SearchCacheRepository;
 import com.sallaemallae.backend.domain.search.repository.SearchQueryRepository;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -29,6 +30,9 @@ class SearchServiceImplTest {
   @Mock
   private SearchCacheRepository searchCacheRepository;
 
+  @Mock
+  private StockIconUrlResolver stockIconUrlResolver;
+
   @InjectMocks
   private SearchServiceImpl searchService;
 
@@ -47,7 +51,7 @@ class SearchServiceImplTest {
   @DisplayName("검색어 앞뒤 공백을 제거한 뒤 종목과 뉴스를 함께 반환한다")
   void search_trimsKeywordAndReturnsStocksAndNews() {
     List<SearchStockItemResponse> stocks = List.of(
-        new SearchStockItemResponse(1L, "005930", "삼성전자", "Information Technology", 70300, BigDecimal.valueOf(2.15))
+        new SearchStockItemResponse(1L, "005930", "삼성전자", "Information Technology", 70300, BigDecimal.valueOf(2.15), null)
     );
     List<SearchNewsItemResponse> news = List.of(
         new SearchNewsItemResponse(

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse;
 import com.sallaemallae.backend.domain.report.exception.ReportErrorCode;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.signal.entity.AiDailyPerformance;
 import com.sallaemallae.backend.domain.signal.entity.AiPortfolio;
 import com.sallaemallae.backend.domain.signal.repository.AiDailyPerformanceRepository;
@@ -36,6 +37,9 @@ class ChairmanPortfolioServiceImplTest {
 
   @Mock
   private ChairmanPortfolioQueryRepository chairmanPortfolioQueryRepository;
+
+  @Mock
+  private StockIconUrlResolver stockIconUrlResolver;
 
   @InjectMocks
   private ChairmanPortfolioServiceImpl chairmanPortfolioService;
