@@ -44,6 +44,7 @@ export function transformPerformanceResponse(raw: unknown): PerformanceResponse 
   const fallback: PerformanceResponse = {
     cumulativeReturn: 0,
     winRate: 0,
+    averageReturn1y: 0,
     recentReturn: 0,
     holding: {
       buyDate: "",
@@ -64,6 +65,7 @@ export function transformPerformanceResponse(raw: unknown): PerformanceResponse 
   return {
     cumulativeReturn: (record.cumulativeReturn as number) ?? fallback.cumulativeReturn,
     winRate: (record.winRate as number) ?? fallback.winRate,
+    averageReturn1y: (record.averageReturn1y as number) ?? fallback.averageReturn1y,
     recentReturn: (record.recentReturn as number) ?? fallback.recentReturn,
     holding: (record.holding as PerformanceResponse["holding"]) ?? fallback.holding,
     chart: Array.isArray(record.chart) ? (record.chart as PerformanceResponse["chart"]) : fallback.chart,

@@ -21,6 +21,7 @@ export type CommitteeMember = {
 export type BacktestBestTrade = {
   returnRate: number;
   period: string;
+  holdingDays: number;
   buyPrice: number;
   sellPrice: number;
 };

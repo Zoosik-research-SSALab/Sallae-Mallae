@@ -96,6 +96,7 @@ export function adaptBacktestFromTrades(trades: TradeItem[]): {
   const bestTrade: BacktestBestTrade = {
     returnRate: best.returnRate,
     period: `${bestStartLabel} ~ ${bestEndLabel}`,
+    holdingDays: best.holdingDays,
     buyPrice: best.buyPrice,
     sellPrice: best.sellPrice ?? best.currentPrice ?? best.buyPrice,
   };

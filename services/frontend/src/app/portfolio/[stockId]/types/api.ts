@@ -64,6 +64,7 @@ export type PerformanceChartPoint = {
 export type PerformanceResponse = {
   cumulativeReturn: number;
   winRate: number;
+  averageReturn1y: number;
   recentReturn: number;
   holding: PerformanceHolding;
   chart: PerformanceChartPoint[];
