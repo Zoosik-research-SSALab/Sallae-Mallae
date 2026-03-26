@@ -78,21 +78,21 @@ export type StockFinancialsPayload = {
 };
 
 export type StockKeyword = {
-  id: number;
+  id: number | null;
   name: string;
+  news: StockKeywordNewsItem[];
 };
 
 export type StockKeywordNewsItem = {
-  id: number;
+  id: number | null;
   title: string;
-  publisher: string;
-  publishedAt: string;
-  url?: string;
+  publisher: string | null;
+  publishedAt: string | null;
+  url?: string | null;
 };
 
 export type StockKeywordsPayload = {
   keywords: StockKeyword[];
-  news: StockKeywordNewsItem[];
 };
 
 export type StockAnnouncementItem = {

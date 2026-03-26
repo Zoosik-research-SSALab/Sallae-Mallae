@@ -5,7 +5,11 @@ import {
   PORTFOLIO_HERO_DESCRIPTION,
   PORTFOLIO_HERO_TITLE,
 } from "../utils/portfolioStaticContent";
-import { formatInteger, formatSignedValue } from "../utils/portfolioFormatters";
+import {
+  formatInteger,
+  formatSignedValue,
+  getDeltaTextClassName,
+} from "../utils/portfolioFormatters";
 
 type Props = {
   hero: PortfolioHeroType;
@@ -77,9 +81,11 @@ export default function PortfolioHero({ hero }: Props) {
                 <p
                   className={cn(
                     "text-[24px] leading-7 font-extrabold md:text-[32px] md:leading-9",
-                    metric.tone === "danger"
-                      ? "text-[color:var(--color-text-danger)]"
-                      : "text-[color:var(--color-text-primary)]",
+                    metric.id === "yesterday_return"
+                      ? getDeltaTextClassName(metric.value)
+                      : metric.tone === "danger"
+                        ? "text-[color:var(--color-text-danger)]"
+                        : "text-[color:var(--color-text-primary)]",
                   )}
                 >
                   {value}
