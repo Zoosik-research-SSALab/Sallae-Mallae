@@ -121,7 +121,7 @@ public record ChairmanPortfolioResponse(
   public record MonthlyReturnItem(
       @Schema(description = "기준 월", example = "2026-03")
       String month,
-      @Schema(description = "월간 수익률", example = "4.31")
+      @Schema(description = "월간 실현 수익률", example = "4.31")
       Float monthlyReturn,
       @Schema(description = "월간 실현 손익 금액", example = "1823400", nullable = true)
       Long realizedProfitAmount,
