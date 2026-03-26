@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
 import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import Pagination from "@/shared/ui/Pagination";
@@ -40,8 +42,18 @@ export default function WatchlistDesktopTable({
   onPageChange,
   onToggleSuccess,
 }: Props) {
+  const router = useRouter();
   const showEmptyState = !isLoading && items.length === 0 && totalPages === 0;
   const showPagination = totalPages > 1;
+
+  const handleRowKeyDown = (event: React.KeyboardEvent<HTMLElement>, stockId: number) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    router.push(`/stocks/${stockId}`);
+  };
 
   return (
     <section className="hidden w-full flex-col gap-0 lg:flex">
@@ -64,17 +76,21 @@ export default function WatchlistDesktopTable({
           Array.from({ length: pageSize }).map((_, index) => <DesktopSkeletonRow key={index} />)
         ) : items.length > 0 ? (
           items.map((item) => (
-            <article key={item.stockId} className="border-b border-[color:var(--color-border-secondary)] px-4 py-4">
+            <article
+              key={item.stockId}
+              role="link"
+              tabIndex={0}
+              onClick={() => router.push(`/stocks/${item.stockId}`)}
+              onKeyDown={(event) => handleRowKeyDown(event, item.stockId)}
+              className="cursor-pointer border-b border-[color:var(--color-border-secondary)] px-4 py-4 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none"
+            >
               <div className="flex items-center justify-between gap-6">
                 <div className="flex min-w-0 flex-1 items-center gap-4">
                   <WatchlistStockAvatar name={item.name} iconUrl={item.iconUrl} />
                   <div className="min-w-0">
-                    <Link
-                      href={`/stocks/${item.stockId}`}
-                      className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
-                    >
+                    <div className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]">
                       {item.name}
-                    </Link>
+                    </div>
                     <div className="typo-body-xs mt-1 truncate font-semibold text-[color:var(--color-text-tertiary)]">
                       {formatWatchlistMetaLabel(item)}
                     </div>
@@ -103,13 +119,15 @@ export default function WatchlistDesktopTable({
                   </div>
 
                   <div className="flex w-16 justify-end">
-                    <WatchlistHeartButton
-                      stockId={item.stockId}
-                      stockName={item.name}
-                      initialWatched
-                      inactiveIconStyle="outline"
-                      onToggleSuccess={(nextIsWatched) => onToggleSuccess(item.stockId, nextIsWatched)}
-                    />
+                    <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                      <WatchlistHeartButton
+                        stockId={item.stockId}
+                        stockName={item.name}
+                        initialWatched
+                        inactiveIconStyle="outline"
+                        onToggleSuccess={(nextIsWatched) => onToggleSuccess(item.stockId, nextIsWatched)}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
