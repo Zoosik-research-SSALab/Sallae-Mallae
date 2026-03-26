@@ -6,6 +6,7 @@ import com.sallaemallae.backend.domain.search.dto.response.SearchResponse;
 import com.sallaemallae.backend.domain.search.dto.response.SearchStockItemResponse;
 import com.sallaemallae.backend.domain.search.repository.SearchCacheRepository;
 import com.sallaemallae.backend.domain.search.repository.SearchQueryRepository;
+import com.sallaemallae.backend.domain.stock.service.TrendingStockService;
 import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class SearchServiceImpl implements SearchService {
   private final SearchQueryRepository searchQueryRepository;
   private final SearchCacheRepository searchCacheRepository;
   private final StockIconUrlResolver stockIconUrlResolver;
+  private final TrendingStockService trendingStockService;
 
   @Override
   @Transactional(readOnly = true)
@@ -56,6 +58,8 @@ public class SearchServiceImpl implements SearchService {
   @Override
   public void saveRecent(Long userId, SearchHistoryRequest request) {
     searchCacheRepository.saveRecent(userId, normalizeKeyword(request.keyword()), request.stockId(), RECENT_LIMIT);
+    // 인기 검색 종목 카운트 증가
+    trendingStockService.incrementSearchCount(request.stockId());
   }
 
   @Override
