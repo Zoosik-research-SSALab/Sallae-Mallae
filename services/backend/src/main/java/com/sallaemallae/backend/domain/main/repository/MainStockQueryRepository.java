@@ -36,7 +36,10 @@ public class MainStockQueryRepository {
         return nowKst.toLocalDate();
     }
 
-    /** 의장 confidence 상위 10종목 조회 (직전 영업일 report_date 기준, 종목별 최신 1건) */
+    /**
+     * 의장 confidence 상위 10종목 조회 (직전 영업일 report_date 기준, 종목별 최신 1건).
+     * CTE로 최신 리포트를 한 번에 추출 후 JOIN하여 LATERAL 반복 실행을 최소화.
+     */
     public List<TopStockItemResponse> getTopTenStocksToday() {
         LocalDate tradingDate = getCurrentTradingDate();
 
@@ -45,18 +48,18 @@ public class MainStockQueryRepository {
                 SELECT MAX(report_date) AS rd
                 FROM ai_debate_reports
                 WHERE report_date <= :tradingDate
+            ),
+            latest_reports AS (
+                SELECT DISTINCT ON (stock_id) stock_id, chairman_signal, debate_confidence
+                FROM ai_debate_reports
+                WHERE report_date = (SELECT rd FROM latest_date)
+                ORDER BY stock_id, created_at DESC, id DESC
             )
             SELECT s.id AS stock_id, s.name AS stock_name,
                    sp.close_price, sp.fluctuation_rate,
-                   r.chairman_signal, r.debate_confidence
-            FROM stocks s
-            JOIN LATERAL (
-                SELECT chairman_signal, debate_confidence
-                FROM ai_debate_reports
-                WHERE stock_id = s.id
-                  AND report_date = (SELECT rd FROM latest_date)
-                ORDER BY created_at DESC, id DESC LIMIT 1
-            ) r ON true
+                   lr.chairman_signal, lr.debate_confidence
+            FROM latest_reports lr
+            JOIN stocks s ON s.id = lr.stock_id AND s.is_active = true
             JOIN LATERAL (
                 SELECT close_price, fluctuation_rate
                 FROM stock_prices_daily
@@ -64,8 +67,7 @@ public class MainStockQueryRepository {
                   AND trade_date <= :tradingDate
                 ORDER BY trade_date DESC LIMIT 1
             ) sp ON true
-            WHERE s.is_active = true
-            ORDER BY r.debate_confidence DESC NULLS LAST
+            ORDER BY lr.debate_confidence DESC NULLS LAST
             LIMIT 10
             """;
 
