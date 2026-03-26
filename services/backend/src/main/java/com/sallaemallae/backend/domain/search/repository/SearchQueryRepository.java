@@ -38,6 +38,7 @@ public class SearchQueryRepository {
                s.ticker,
                s.name,
                s.gics_sector,
+               s.icon_url,
                latest_price.close_price,
                latest_price.fluctuation_rate
         FROM stocks s
@@ -139,8 +140,9 @@ public class SearchQueryRepository {
         (String) row[1],
         (String) row[2],
         (String) row[3],
-        toInteger(row[4]),
-        toBigDecimal(row[5])
+        toInteger(row[5]),
+        toBigDecimal(row[6]),
+        (String) row[4]
     );
   }
 

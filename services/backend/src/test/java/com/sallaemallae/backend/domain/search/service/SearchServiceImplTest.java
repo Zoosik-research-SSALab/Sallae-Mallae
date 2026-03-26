@@ -47,7 +47,14 @@ class SearchServiceImplTest {
   @DisplayName("검색어 앞뒤 공백을 제거한 뒤 종목과 뉴스를 함께 반환한다")
   void search_trimsKeywordAndReturnsStocksAndNews() {
     List<SearchStockItemResponse> stocks = List.of(
-        new SearchStockItemResponse(1L, "005930", "삼성전자", "Information Technology", 70300, BigDecimal.valueOf(2.15))
+        new SearchStockItemResponse(
+            1L,
+            "005930",
+            "삼성전자",
+            "Information Technology",
+            70300,
+            BigDecimal.valueOf(2.15),
+            "https://example.com/icons/005930.png")
     );
     List<SearchNewsItemResponse> news = List.of(
         new SearchNewsItemResponse(

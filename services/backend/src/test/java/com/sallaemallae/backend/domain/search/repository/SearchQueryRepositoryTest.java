@@ -55,7 +55,8 @@ class SearchQueryRepositoryTest {
         "삼성전자",
         "Information Technology",
         70300,
-        BigDecimal.valueOf(2.15)
+        BigDecimal.valueOf(2.15),
+        "https://example.com/icons/005930.png"
     );
 
     assertThat(SearchQueryRepository.matchesStock(item, "삼성")).isTrue();
