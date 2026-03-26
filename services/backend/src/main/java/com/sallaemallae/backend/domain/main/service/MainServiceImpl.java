@@ -16,7 +16,6 @@ import com.sallaemallae.backend.domain.main.repository.MainStockQueryRepository;
 import com.sallaemallae.backend.domain.news.repository.PipelineSignalRepository;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.sse.SseManager;
-import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -48,7 +48,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Service
 public class MainServiceImpl implements MainService {
 
-    private static final String CHANNEL_TOP_STOCKS = "top-stocks";
     private static final String CHANNEL_MARKET_INDEX = "market-index";
     private static final String CHANNEL_CATEGORIES = "categories";
 
@@ -99,7 +98,7 @@ public class MainServiceImpl implements MainService {
             .build();
     }
 
-    // ── SSE 스트림 등록 메서드 ──
+    // ── REST GET 메서드 ──
 
     /** 추천 종목 TOP10 조회 (캐시 우선, 미스 시 DB 조회 후 관심종목 여부 매핑) */
     @Override
@@ -148,8 +147,6 @@ public class MainServiceImpl implements MainService {
         return emitter;
     }
 
-    // ── REST GET 메서드 ──
-
     /** 당일 매수/매도 상위 3종목 조회 (캐시 우선, 미스 시 DB 조회 후 관심종목 여부 매핑) */
     @Override
     @Transactional(readOnly = true)
@@ -163,11 +160,11 @@ public class MainServiceImpl implements MainService {
         return applyWatchlistToNewSignals(data, userId);
     }
 
-    // ── @Scheduled 갱신 메서드 (1분마다 실행) ──
+    // ── @Scheduled 갱신 메서드 ──
 
     /**
      * PORTFOLIO_DONE 신호 감지 시 추천 종목 TOP10 + 매수/매도 신호 일괄 갱신.
-     * 장마감(15:30 KST) 이후부터 5분마다 폴링하며, 신호 감지 시 1회 갱신 후 다음 장마감까지 휴면.
+     * 18:00~익일 09:00 사이 5분마다 폴링하며, 신호 감지 시 1회 갱신 후 다음 날까지 휴면.
      */
     @Scheduled(fixedRate = 300_000, initialDelay = 5_000)
     public void refreshOnPortfolioDone() {
@@ -202,6 +199,76 @@ public class MainServiceImpl implements MainService {
         } catch (Exception e) {
             log.error("PORTFOLIO_DONE 신호 처리 실패", e);
         }
+    }
+
+    /** 장중 1분마다 추천 종목/매수매도 신호의 가격·변동률을 분봉 기반으로 갱신 */
+    @Scheduled(fixedRate = 60_000, initialDelay = 10_000)
+    public void refreshPrices() {
+        if (!isMarketOpen()) {
+            return;
+        }
+        try {
+            // 추천 종목 TOP10 가격 갱신
+            cacheRepository.getTopStocks().ifPresent(cached -> {
+                List<Long> stockIds = cached.stocks().stream()
+                    .map(TopStockItemResponse::stockId).toList();
+                Map<Long, float[]> prices = queryRepository.getLatestPrices(stockIds);
+                if (prices.isEmpty()) {
+                    return;
+                }
+                List<TopStockItemResponse> updated = cached.stocks().stream()
+                    .map(item -> {
+                        float[] pf = prices.get(item.stockId());
+                        if (pf == null) {
+                            return item;
+                        }
+                        return new TopStockItemResponse(
+                            item.rank(), item.stockId(), item.name(),
+                            (int) pf[0], pf[1],
+                            item.signal(), item.confidence(), item.isWatchlisted()
+                        );
+                    }).toList();
+                cacheRepository.saveTopStocks(new TopStocksResponse(updated));
+            });
+
+            // 매수/매도 신호 가격 갱신
+            cacheRepository.getNewSignals().ifPresent(cached -> {
+                List<Long> buyIds = cached.buy().stream()
+                    .map(NewSignalItemResponse::stockId).toList();
+                List<Long> sellIds = cached.sell().stream()
+                    .map(NewSignalItemResponse::stockId).toList();
+                List<Long> allIds = new ArrayList<>(buyIds);
+                allIds.addAll(sellIds);
+                Map<Long, float[]> prices = queryRepository.getLatestPrices(allIds);
+                if (prices.isEmpty()) {
+                    return;
+                }
+                List<NewSignalItemResponse> updatedBuy = mapSignalPrices(cached.buy(), prices);
+                List<NewSignalItemResponse> updatedSell = mapSignalPrices(cached.sell(), prices);
+                cacheRepository.saveNewSignals(new NewSignalsResponse(updatedBuy, updatedSell));
+            });
+
+            log.debug("장중 가격 갱신 완료");
+        } catch (Exception e) {
+            log.error("장중 가격 갱신 실패", e);
+        }
+    }
+
+    /** 매수/매도 신호 항목에 최신 가격 매핑 */
+    private List<NewSignalItemResponse> mapSignalPrices(
+            List<NewSignalItemResponse> items, Map<Long, float[]> prices) {
+        return items.stream()
+            .map(item -> {
+                float[] pf = prices.get(item.stockId());
+                if (pf == null) {
+                    return item;
+                }
+                return new NewSignalItemResponse(
+                    item.stockId(), item.ticker(), item.name(),
+                    item.confidence(), (int) pf[0], pf[1],
+                    item.isWatchlisted()
+                );
+            }).toList();
     }
 
     /** 카테고리별 등락률 대표 종목 갱신 → Redis 저장 → SSE broadcast */

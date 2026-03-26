@@ -9,7 +9,9 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -125,6 +127,48 @@ public class MainStockQueryRepository {
 
         @SuppressWarnings("unchecked")
         List<Object[]> result = entityManager.createNativeQuery(sql).getResultList();
+        return result;
+    }
+
+    /** 종목 ID 목록에 대한 최신 분봉 가격/변동률 조회 (1분봉 우선, 없으면 일봉 fallback) */
+    public Map<Long, float[]> getLatestPrices(List<Long> stockIds) {
+        if (stockIds == null || stockIds.isEmpty()) {
+            return Map.of();
+        }
+
+        String sql = """
+            SELECT s.id AS stock_id,
+                   COALESCE(m.close_price, d.close_price) AS close_price,
+                   COALESCE(m.fluctuation_rate, d.fluctuation_rate) AS fluctuation_rate
+            FROM stocks s
+            LEFT JOIN LATERAL (
+                SELECT close_price, fluctuation_rate
+                FROM stock_prices_minute
+                WHERE stock_id = s.id
+                ORDER BY trade_timestamp DESC LIMIT 1
+            ) m ON true
+            LEFT JOIN LATERAL (
+                SELECT close_price, fluctuation_rate
+                FROM stock_prices_daily
+                WHERE stock_id = s.id
+                ORDER BY trade_date DESC LIMIT 1
+            ) d ON true
+            WHERE s.id IN :stockIds
+            """;
+
+        List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
+            .setParameter("stockIds", stockIds)
+            .getResultList();
+
+        Map<Long, float[]> result = new HashMap<>();
+        for (Tuple row : rows) {
+            Long stockId = row.get("stock_id", Number.class).longValue();
+            int price = row.get("close_price", Number.class) != null
+                ? row.get("close_price", Number.class).intValue() : 0;
+            float rate = row.get("fluctuation_rate", Number.class) != null
+                ? row.get("fluctuation_rate", Number.class).floatValue() : 0f;
+            result.put(stockId, new float[]{price, rate});
+        }
         return result;
     }
 

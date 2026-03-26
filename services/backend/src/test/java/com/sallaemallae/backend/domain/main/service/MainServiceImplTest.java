@@ -17,6 +17,7 @@ import com.sallaemallae.backend.global.sse.SseManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -203,7 +204,64 @@ class MainServiceImplTest {
         }
     }
 
-    // ── refreshOnPortfolioDone는 시간 의존성이 있어 통합 테스트에서 검증 ──
+    // ── getTopStocks 관심종목 매핑 ──
+
+    @Nested
+    @DisplayName("getTopStocks 관심종목 매핑")
+    class GetTopStocksWatchlist {
+
+        @Test
+        @DisplayName("로그인 유저의 관심종목에 isWatchlisted=true가 매핑된다")
+        void mapsWatchlistedStocks() {
+            TopStocksResponse cached = new TopStocksResponse(List.of(
+                new TopStockItemResponse(1, 1L, "삼성전자", 70000, 1.5f, "BUY", 85, false),
+                new TopStockItemResponse(2, 2L, "SK하이닉스", 130000, -0.5f, "SELL", 70, false)
+            ));
+            given(cacheRepository.getTopStocks()).willReturn(Optional.of(cached));
+            given(watchlistRepository.findStockIdsByUserId(100L)).willReturn(List.of(1L));
+
+            TopStocksResponse result = mainService.getTopStocks(100L);
+
+            assertThat(result.stocks().get(0).isWatchlisted()).isTrue();
+            assertThat(result.stocks().get(1).isWatchlisted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("비로그인 유저는 모두 isWatchlisted=false")
+        void nonLoginUser_allFalse() {
+            TopStocksResponse cached = new TopStocksResponse(List.of(
+                new TopStockItemResponse(1, 1L, "삼성전자", 70000, 1.5f, "BUY", 85, false)
+            ));
+            given(cacheRepository.getTopStocks()).willReturn(Optional.of(cached));
+
+            TopStocksResponse result = mainService.getTopStocks(null);
+
+            assertThat(result.stocks().get(0).isWatchlisted()).isFalse();
+        }
+    }
+
+    // ── getNewSignals 관심종목 매핑 ──
+
+    @Nested
+    @DisplayName("getNewSignals 관심종목 매핑")
+    class GetNewSignalsWatchlist {
+
+        @Test
+        @DisplayName("로그인 유저의 관심종목에 isWatchlisted=true가 매핑된다")
+        void mapsWatchlistedSignals() {
+            NewSignalsResponse cached = new NewSignalsResponse(
+                List.of(new NewSignalItemResponse(1L, "005930", "삼성전자", 90, 70000, 1.5f, false)),
+                List.of(new NewSignalItemResponse(2L, "000660", "SK하이닉스", 80, 130000, -2.0f, false))
+            );
+            given(cacheRepository.getNewSignals()).willReturn(Optional.of(cached));
+            given(watchlistRepository.findStockIdsByUserId(100L)).willReturn(List.of(2L));
+
+            NewSignalsResponse result = mainService.getNewSignals(100L);
+
+            assertThat(result.buy().get(0).isWatchlisted()).isFalse();
+            assertThat(result.sell().get(0).isWatchlisted()).isTrue();
+        }
+    }
 
     // ── refreshCategories ──
 
