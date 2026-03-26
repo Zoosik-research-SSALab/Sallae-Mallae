@@ -7,6 +7,7 @@ public record SearchNewsItemResponse(
     Long id,
     String title,
     String publisher,
+    String url,
     @JsonProperty("published_at") OffsetDateTime publishedAt
 ) {
 }

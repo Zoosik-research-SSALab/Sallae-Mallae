@@ -53,15 +53,10 @@ class ChairmanPortfolioServiceImplTest {
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5))
         .willReturn(List.of(new ChairmanPortfolioQueryRepository.PopularSignalRow(1, 1L, "005930", "삼성전자", 74300, "BUY", null)));
-    AiDailyPerformance februaryFirst = dailyPerformance(LocalDate.of(2026, 2, 27), 1.0f);
-    AiDailyPerformance februarySecond = dailyPerformance(LocalDate.of(2026, 2, 28), -0.5f);
-    AiDailyPerformance marchFirst = dailyPerformance(LocalDate.of(2026, 3, 4), 2.0f);
-    given(aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(1L))
-        .willReturn(List.of(februaryFirst, februarySecond, marchFirst));
     given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L))
         .willReturn(List.of(
-            new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-03", 120000L, 2, 1),
-            new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-02", -30000L, 1, 1)
+            new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-03", 120000L, 1_500_000L, 2, 1),
+            new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-02", -30000L, 750_000L, 1, 1)
         ));
     given(chairmanPortfolioQueryRepository.findHoldingRows(1L, 0, 6))
         .willReturn(List.of(new ChairmanPortfolioQueryRepository.HoldingRow(
@@ -79,7 +74,7 @@ class ChairmanPortfolioServiceImplTest {
     ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("HOLDINGS", 0, 6);
 
     assertThat(response.summary().cumulativeReturn()).isEqualTo(42.5f);
-    assertThat(response.summary().hitRate()).isCloseTo(1.25f, org.assertj.core.data.Offset.offset(0.01f));
+    assertThat(response.summary().hitRate()).isCloseTo(2.0f, org.assertj.core.data.Offset.offset(0.01f));
     assertThat(response.summary().yesterdayReturn()).isEqualTo(1.34f);
     assertThat(response.signalSummary().buyCount()).isEqualTo(15);
     assertThat(response.holdings()).hasSize(1);
@@ -100,30 +95,22 @@ class ChairmanPortfolioServiceImplTest {
     given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5)).willReturn(List.of());
-    AiDailyPerformance februaryFirst = dailyPerformance(LocalDate.of(2026, 2, 27), 1.0f);
-    AiDailyPerformance februarySecond = dailyPerformance(LocalDate.of(2026, 2, 28), -0.5f);
-    AiDailyPerformance marchFirst = dailyPerformance(LocalDate.of(2026, 3, 4), 2.0f);
-    given(aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(1L))
-        .willReturn(List.of(
-            februaryFirst,
-            februarySecond,
-            marchFirst
-        ));
     given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L))
         .willReturn(List.of(
-            new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-03", 1823400L, 6, 4),
-            new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-02", -120000L, 3, 2)
+            new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-03", 1823400L, 16_200_000L, 6, 4),
+            new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-02", -120000L, 3_000_000L, 3, 2)
         ));
 
     ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("MONTHLY_RETURNS", 0, 10);
 
     assertThat(response.monthlyReturns()).hasSize(2);
     assertThat(response.monthlyReturns().get(0).month()).isEqualTo("2026-03");
+    assertThat(response.monthlyReturns().get(0).monthlyReturn()).isCloseTo(11.26f, org.assertj.core.data.Offset.offset(0.01f));
     assertThat(response.monthlyReturns().get(0).realizedProfitAmount()).isEqualTo(1823400L);
     assertThat(response.monthlyReturns().get(0).buyCount()).isEqualTo(6);
     assertThat(response.monthlyReturns().get(0).sellCount()).isEqualTo(4);
     assertThat(response.summary().yesterdayReturn()).isEqualTo(2.0f);
-    assertThat(response.summary().hitRate()).isCloseTo(1.25f, org.assertj.core.data.Offset.offset(0.01f));
+    assertThat(response.summary().hitRate()).isCloseTo(3.63f, org.assertj.core.data.Offset.offset(0.01f));
     assertThat(response.page().totalCount()).isEqualTo(2);
     assertThat(response.holdings()).isNull();
   }
@@ -149,7 +136,6 @@ class ChairmanPortfolioServiceImplTest {
     given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5)).willReturn(List.of());
-    given(aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(1L)).willReturn(List.of());
     given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L)).willReturn(List.of());
     given(chairmanPortfolioQueryRepository.findHoldingRows(1L, 0, 6)).willReturn(List.of());
 
@@ -166,7 +152,6 @@ class ChairmanPortfolioServiceImplTest {
     given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
     given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
         .willReturn(Optional.of(latestPerformance));
-    given(aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(1L)).willReturn(List.of());
     given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L)).willReturn(List.of());
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(1);
     given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
@@ -200,13 +185,6 @@ class ChairmanPortfolioServiceImplTest {
     given(portfolio.getCumulativeReturn()).willReturn(cumulativeReturn);
     given(portfolio.getUpdatedAt()).willReturn(OffsetDateTime.of(2026, 3, 17, 9, 0, 0, 0, ZoneOffset.UTC));
     return portfolio;
-  }
-
-  private AiDailyPerformance dailyPerformance(LocalDate date, Float dailyReturn) {
-    AiDailyPerformance performance = mock(AiDailyPerformance.class);
-    given(performance.getRecordDate()).willReturn(date);
-    given(performance.getDailyReturn()).willReturn(dailyReturn);
-    return performance;
   }
 
   private AiDailyPerformance latestDailyPerformance(Float dailyReturn) {

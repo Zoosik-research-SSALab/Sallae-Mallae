@@ -84,8 +84,8 @@ public class UserServiceImpl implements UserService {
         .toList();
     Map<String, KisQuoteData> quoteMap = stockQuoteCacheService.getAll("J", tickers);
 
-    // AI 시그널 조회 (stockId → SignalCandidateRow)
-    Map<Long, SignalCandidateRow> signalMap = signalQueryRepository.findLatestSignalCandidates()
+    // AI 시그널 조회 (stockId → SignalCandidateRow) — 관심종목 전용 (HOLD/STAY 포함)
+    Map<Long, SignalCandidateRow> signalMap = signalQueryRepository.findLatestSignalsForStocks(stockIds)
         .stream()
         .collect(Collectors.toMap(SignalCandidateRow::stockId, Function.identity(), (a, b) -> a));
 

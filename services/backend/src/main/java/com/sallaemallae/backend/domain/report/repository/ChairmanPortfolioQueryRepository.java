@@ -162,6 +162,11 @@ public class ChairmanPortfolioQueryRepository {
     String sql = """
         SELECT TO_CHAR(DATE_TRUNC('month', h.trade_time), 'YYYY-MM') AS month,
                COALESCE(SUM(CASE WHEN h.trade_type = 'SELL' THEN h.realized_profit ELSE 0 END), 0) AS realized_profit_amount,
+               COALESCE(SUM(CASE
+                                WHEN h.trade_type = 'SELL' AND h.trade_amount IS NOT NULL
+                                  THEN h.trade_amount - h.realized_profit
+                                ELSE 0
+                            END), 0) AS realized_cost_amount,
                COALESCE(SUM(CASE WHEN h.trade_type = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
                COALESCE(SUM(CASE WHEN h.trade_type = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count
         FROM ai_trading_history h
@@ -179,6 +184,7 @@ public class ChairmanPortfolioQueryRepository {
       items.add(new MonthlyTradeMetricRow(
           row.get("month", String.class),
           toLong(row.get("realized_profit_amount")),
+          toLong(row.get("realized_cost_amount")),
           toInteger(row.get("buy_count")),
           toInteger(row.get("sell_count"))
       ));
@@ -434,6 +440,7 @@ public class ChairmanPortfolioQueryRepository {
   public record MonthlyTradeMetricRow(
       String month,
       Long realizedProfitAmount,
+      Long realizedCostAmount,
       Integer buyCount,
       Integer sellCount
   ) {
