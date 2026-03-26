@@ -62,7 +62,7 @@ public class SearchServiceImpl implements SearchService {
     searchCacheRepository.saveRecent(userId, normalizeKeyword(request.keyword()), request.stockId(), RECENT_LIMIT);
     // 실제 존재하는 종목인 경우에만 인기 검색 카운트 증가
     Long stockId = request.stockId();
-    if (stockId != null && stockRepository.existsById(stockId)) {
+    if (stockId != null && stockRepository.existsByIdAndIsActiveTrue(stockId)) {
       trendingStockService.incrementSearchCount(stockId);
     }
   }

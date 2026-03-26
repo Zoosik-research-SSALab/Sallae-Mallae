@@ -81,7 +81,7 @@ public class TrendingStockService {
             .filter(Objects::nonNull)
             .toList();
 
-        Map<Long, Stock> stockMap = stockRepository.findAllById(ids).stream()
+        Map<Long, Stock> stockMap = stockRepository.findAllByIdInAndIsActiveTrue(ids).stream()
             .collect(Collectors.toMap(Stock::getId, Function.identity()));
 
         List<TrendingStockItemResponse> items = new ArrayList<>();

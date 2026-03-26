@@ -42,12 +42,13 @@ class TrendingStockServiceTest {
     @DisplayName("Redis TOP5 종목을 순위별로 반환한다")
     void refreshTrending_returnsRankedStocks() {
         Set<String> topIds = new LinkedHashSet<>(List.of("1", "3", "2"));
+        given(sseManager.hasEmitters("trending-stocks")).willReturn(true);
         given(trendingCacheRepository.getTopStockIds(5)).willReturn(topIds);
 
         Stock samsung = stock(1L, "삼성전자");
         Stock lg = stock(2L, "LG에너지솔루션");
         Stock hynix = stock(3L, "SK하이닉스");
-        given(stockRepository.findAllById(List.of(1L, 3L, 2L))).willReturn(List.of(samsung, hynix, lg));
+        given(stockRepository.findAllByIdInAndIsActiveTrue(List.of(1L, 3L, 2L))).willReturn(List.of(samsung, hynix, lg));
 
         trendingStockService.refreshTrending();
 
@@ -67,6 +68,7 @@ class TrendingStockServiceTest {
     @Test
     @DisplayName("Redis에 데이터가 없으면 빈 리스트를 broadcast한다")
     void refreshTrending_emptyRedis_broadcastsEmpty() {
+        given(sseManager.hasEmitters("trending-stocks")).willReturn(true);
         given(trendingCacheRepository.getTopStockIds(5)).willReturn(Set.of());
 
         trendingStockService.refreshTrending();
@@ -93,11 +95,12 @@ class TrendingStockServiceTest {
     @Test
     @DisplayName("존재하지 않는 종목 ID는 결과에서 제외한다")
     void refreshTrending_skipsUnknownStockIds() {
+        given(sseManager.hasEmitters("trending-stocks")).willReturn(true);
         Set<String> topIds = new LinkedHashSet<>(List.of("999", "1"));
         given(trendingCacheRepository.getTopStockIds(5)).willReturn(topIds);
 
         Stock samsung = stock(1L, "삼성전자");
-        given(stockRepository.findAllById(List.of(999L, 1L))).willReturn(List.of(samsung));
+        given(stockRepository.findAllByIdInAndIsActiveTrue(List.of(999L, 1L))).willReturn(List.of(samsung));
 
         trendingStockService.refreshTrending();
 
@@ -111,11 +114,12 @@ class TrendingStockServiceTest {
     @Test
     @DisplayName("파싱 불가능한 ID는 무시하고 나머지만 반환한다")
     void refreshTrending_skipsInvalidIds() {
+        given(sseManager.hasEmitters("trending-stocks")).willReturn(true);
         Set<String> topIds = new LinkedHashSet<>(List.of("abc", "1"));
         given(trendingCacheRepository.getTopStockIds(5)).willReturn(topIds);
 
         Stock samsung = stock(1L, "삼성전자");
-        given(stockRepository.findAllById(List.of(1L))).willReturn(List.of(samsung));
+        given(stockRepository.findAllByIdInAndIsActiveTrue(List.of(1L))).willReturn(List.of(samsung));
 
         trendingStockService.refreshTrending();
 
