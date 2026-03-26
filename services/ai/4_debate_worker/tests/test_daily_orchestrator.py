@@ -7,6 +7,7 @@ from datetime import date
 
 from worker.daily_orchestrator import (
     DEBATE_PIPELINE_DONE,
+    ML_PIPELINE_DONE,
     NEWS_PIPELINE_DONE,
     PORTFOLIO_PIPELINE_DONE,
     DailyAutomationOptions,
@@ -94,8 +95,13 @@ def build_options() -> DailyAutomationOptions:
 
 
 class DailyAutomationRunnerTest(unittest.TestCase):
-    def test_runs_debate_and_portfolio_when_news_done_exists(self) -> None:
-        store = FakeSignalStore(done_signals={(NEWS_PIPELINE_DONE, date(2026, 3, 24))})
+    def test_runs_debate_and_portfolio_when_news_and_ml_done_exist(self) -> None:
+        store = FakeSignalStore(
+            done_signals={
+                (NEWS_PIPELINE_DONE, date(2026, 3, 24)),
+                (ML_PIPELINE_DONE, date(2026, 3, 24)),
+            }
+        )
         debate_runner = FakeDebateRunner(
             RunSummary(
                 run_key="k",
@@ -128,6 +134,7 @@ class DailyAutomationRunnerTest(unittest.TestCase):
         store = FakeSignalStore(
             done_signals={
                 (NEWS_PIPELINE_DONE, date(2026, 3, 24)),
+                (ML_PIPELINE_DONE, date(2026, 3, 24)),
                 (DEBATE_PIPELINE_DONE, date(2026, 3, 24)),
             }
         )
@@ -160,7 +167,10 @@ class DailyAutomationRunnerTest(unittest.TestCase):
 
     def test_backfills_missing_debate_dates_before_target_date(self) -> None:
         store = FakeSignalStore(
-            done_signals={(NEWS_PIPELINE_DONE, date(2026, 3, 24))},
+            done_signals={
+                (NEWS_PIPELINE_DONE, date(2026, 3, 24)),
+                (ML_PIPELINE_DONE, date(2026, 3, 24)),
+            },
             latest_portfolio_record_date=date(2026, 3, 22),
         )
         debate_runner = FakeDebateRunner(
@@ -189,8 +199,43 @@ class DailyAutomationRunnerTest(unittest.TestCase):
         self.assertEqual(debate_runner.run_once_calls, 1)
         self.assertEqual(portfolio_runner.run_calls, 1)
 
-    def test_stops_after_debate_failure_before_threshold(self) -> None:
+    def test_skips_when_ml_done_signal_is_missing(self) -> None:
         store = FakeSignalStore(done_signals={(NEWS_PIPELINE_DONE, date(2026, 3, 24))})
+        debate_runner = FakeDebateRunner(
+            RunSummary(
+                run_key="k",
+                report_date=date(2026, 3, 24),
+                discovered=1,
+                succeeded=1,
+                duplicated=0,
+                failed_retryable=0,
+                failed_permanent=0,
+                skipped=0,
+            )
+        )
+        portfolio_runner = FakePortfolioRunner()
+
+        runner = DailyAutomationRunner(
+            signal_store=store,
+            debate_runner=debate_runner,
+            portfolio_runner=portfolio_runner,
+            stop_event=threading.Event(),
+        )
+
+        runner.run_once(build_options())
+
+        self.assertEqual(debate_runner.run_once_calls, 0)
+        self.assertEqual(portfolio_runner.run_calls, 0)
+        self.assertNotIn((DEBATE_PIPELINE_DONE, date(2026, 3, 24)), store.done_signals)
+        self.assertNotIn((PORTFOLIO_PIPELINE_DONE, date(2026, 3, 24)), store.done_signals)
+
+    def test_stops_after_debate_failure_before_threshold(self) -> None:
+        store = FakeSignalStore(
+            done_signals={
+                (NEWS_PIPELINE_DONE, date(2026, 3, 24)),
+                (ML_PIPELINE_DONE, date(2026, 3, 24)),
+            }
+        )
         debate_runner = FakeDebateRunner(
             RunSummary(
                 run_key="k",
@@ -219,7 +264,12 @@ class DailyAutomationRunnerTest(unittest.TestCase):
         self.assertNotIn((DEBATE_PIPELINE_DONE, date(2026, 3, 24)), store.done_signals)
 
     def test_marks_done_after_debate_failure_threshold(self) -> None:
-        store = FakeSignalStore(done_signals={(NEWS_PIPELINE_DONE, date(2026, 3, 24))})
+        store = FakeSignalStore(
+            done_signals={
+                (NEWS_PIPELINE_DONE, date(2026, 3, 24)),
+                (ML_PIPELINE_DONE, date(2026, 3, 24)),
+            }
+        )
         store.status_counts[(DEBATE_PIPELINE_DONE, date(2026, 3, 24), "FAILED")] = 2
         debate_runner = FakeDebateRunner(
             RunSummary(
@@ -252,6 +302,7 @@ class DailyAutomationRunnerTest(unittest.TestCase):
         store = FakeSignalStore(
             done_signals={
                 (NEWS_PIPELINE_DONE, date(2026, 3, 24)),
+                (ML_PIPELINE_DONE, date(2026, 3, 24)),
                 (DEBATE_PIPELINE_DONE, date(2026, 3, 24)),
             }
         )
@@ -286,6 +337,7 @@ class DailyAutomationRunnerTest(unittest.TestCase):
         store = FakeSignalStore(
             done_signals={
                 (NEWS_PIPELINE_DONE, date(2026, 3, 24)),
+                (ML_PIPELINE_DONE, date(2026, 3, 24)),
                 (DEBATE_PIPELINE_DONE, date(2026, 3, 24)),
             }
         )

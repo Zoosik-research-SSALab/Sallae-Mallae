@@ -24,6 +24,7 @@ FIXED_HOLIDAYS_MMDD: frozenset[str] = frozenset({
     "12-25",
 })
 NEWS_PIPELINE_DONE = "NEWS_PIPELINE_DONE"
+ML_PIPELINE_DONE = "ML_PIPELINE_DONE"
 DEBATE_PIPELINE_DONE = "DEBATE_PIPELINE_DONE"
 PORTFOLIO_PIPELINE_DONE = "PORTFOLIO_PIPELINE_DONE"
 
@@ -135,6 +136,9 @@ class DailyAutomationRunner:
 
         if not self.signal_store.exists_done_for_date(NEWS_PIPELINE_DONE, report_date):
             logger.info("당일 %s 신호 없음 | report_date=%s | 스킵", NEWS_PIPELINE_DONE, report_date)
+            return
+        if not self.signal_store.exists_done_for_date(ML_PIPELINE_DONE, report_date):
+            logger.info("당일 %s 신호 없음 | report_date=%s | 스킵", ML_PIPELINE_DONE, report_date)
             return
 
         if not self.signal_store.exists_done_for_date(DEBATE_PIPELINE_DONE, report_date):
