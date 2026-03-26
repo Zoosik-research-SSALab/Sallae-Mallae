@@ -12,17 +12,17 @@ import org.springframework.stereotype.Component;
 public class StockIconUrlResolver {
 
     private final String publicUrl;
-    private final String bucket;
 
     public StockIconUrlResolver(
-        @Value("${minio.public-url}") String publicUrl,
-        @Value("${minio.bucket}") String bucket
+        @Value("${minio.public-url}") String publicUrl
     ) {
         this.publicUrl = publicUrl;
-        this.bucket = bucket;
     }
 
-    /** 상대 경로를 전체 URL로 변환. null/blank이면 null, 절대 URL이면 그대로 반환. */
+    /**
+     * 상대 경로를 전체 URL로 변환. null/blank이면 null, 절대 URL이면 그대로 반환.
+     * Nginx가 /assets/ → MinIO assets 버킷으로 프록시하므로, MINIO_PUBLIC_URL에 버킷이 이미 포함됨.
+     */
     public String resolve(String iconPath) {
         if (iconPath == null || iconPath.isBlank()) {
             return null;
@@ -31,8 +31,7 @@ public class StockIconUrlResolver {
             return iconPath;
         }
         String base = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl;
-        String normalizedBucket = bucket.startsWith("/") ? bucket.substring(1) : bucket;
         String normalizedPath = iconPath.startsWith("/") ? iconPath.substring(1) : iconPath;
-        return base + "/" + normalizedBucket + "/" + normalizedPath;
+        return base + "/" + normalizedPath;
     }
 }
