@@ -38,13 +38,15 @@ public class NotificationSseService {
   /**
    * 특정 유저에게 새 알림 이벤트를 SSE로 전송한다.
    */
-  public void pushToUser(Long userId, String notiType, String title, String message) {
+  public void pushToUser(Long userId, String notiType, String title, String message,
+      String unreadCount) {
     String channel = CHANNEL_PREFIX + userId;
     sseManager.broadcast(channel, Map.of(
         "type", "NEW_NOTIFICATION",
         "notiType", notiType,
         "title", title,
-        "message", message
+        "message", message,
+        "unreadCount", unreadCount
     ));
   }
 }
