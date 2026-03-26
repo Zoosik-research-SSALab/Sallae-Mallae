@@ -95,7 +95,7 @@ public class SearchQueryRepository {
             WHERE n.published_at IS NOT NULL
               AND (
                 n.title ILIKE :contains ESCAPE '\\'
-                    OR COALESCE(n.snippet, '') ILIKE :contains ESCAPE '\\'
+                    OR n.snippet ILIKE :contains ESCAPE '\\'
                 )
         )
         SELECT mn.id,
