@@ -47,6 +47,7 @@ function normalizeSearchAutocompleteResponse(payload: SearchAutocompleteResponse
             typeof stock.fluctuationRate === "number" && Number.isFinite(stock.fluctuationRate)
               ? stock.fluctuationRate
               : null,
+          iconUrl: typeof stock.iconUrl === "string" ? stock.iconUrl : null,
         }))
       : [],
     news: Array.isArray(response.news)

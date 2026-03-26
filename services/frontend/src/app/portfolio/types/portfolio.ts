@@ -20,6 +20,7 @@ export type PortfolioHolding = {
   stockId: number;
   ticker: string;
   name: string;
+  iconUrl?: string | null;
   buyPrice: number | null;
   currentPrice: number | null;
   holdingDays: number | null;
@@ -34,6 +35,7 @@ export type PortfolioTodayTrade = {
   stockId: number;
   ticker: string;
   name: string;
+  iconUrl?: string | null;
   action: PortfolioTradeAction;
   executedAt: string;
   executedPrice: number | null;
@@ -67,6 +69,7 @@ export type PortfolioPopularSignal = {
   name: string;
   price: number;
   action: PortfolioSignalAction;
+  iconUrl?: string | null;
 };
 
 export type PortfolioHallOfFameTone = "info" | "danger" | "warning" | "success";

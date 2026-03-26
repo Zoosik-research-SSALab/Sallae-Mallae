@@ -53,11 +53,13 @@ type PortfolioPayload = {
     price?: number | null;
     signal?: string | null;
     action?: string | null;
+    iconUrl?: string | null;
   }> | null;
   holdings?: Array<{
     stockId?: number | null;
     ticker?: string | null;
     name?: string | null;
+    iconUrl?: string | null;
     buyPrice?: number | null;
     currentPrice?: number | null;
     holdingDays?: number | null;
@@ -69,6 +71,7 @@ type PortfolioPayload = {
     stockId?: number | null;
     ticker?: string | null;
     name?: string | null;
+    iconUrl?: string | null;
     action?: string | null;
     tradeType?: string | null;
     executedAt?: string | null;
@@ -140,6 +143,10 @@ function readNumber(value: unknown, fallback = 0) {
 
 function readString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
+}
+
+function readStringOrNull(value: unknown) {
+  return typeof value === "string" ? value : null;
 }
 
 function formatSeoulDateParts(date: Date) {
@@ -285,6 +292,7 @@ function normalizePopularSignals(value: PortfolioPayload["popularSignals"]): Por
         name: readString(item.name),
         price: readNumber(item.price),
         action: isPortfolioSignalAction(rawAction) ? rawAction : "WATCH",
+        iconUrl: readStringOrNull(item.iconUrl),
       };
     });
 }
@@ -300,6 +308,7 @@ function normalizeHoldings(value: PortfolioPayload["holdings"]): PortfolioHoldin
       stockId: readNumber(item.stockId),
       ticker: readString(item.ticker),
       name: readString(item.name),
+      iconUrl: readStringOrNull(item.iconUrl),
       buyPrice: readNumberOrNull(item.buyPrice),
       currentPrice: readNumberOrNull(item.currentPrice),
       holdingDays: readNumberOrNull(item.holdingDays),
@@ -350,6 +359,7 @@ function normalizeTodayTrades(
         stockId,
         ticker: readString(item.ticker),
         name: readString(item.name),
+        iconUrl: readStringOrNull(item.iconUrl),
         action: action === "SELL" ? "SELL" : "BUY",
         executedAt: formatTradeTimeLabel(item.executedAt ?? item.tradeTime),
         executedPrice: readNumberOrNull(item.executedPrice ?? item.tradePrice),

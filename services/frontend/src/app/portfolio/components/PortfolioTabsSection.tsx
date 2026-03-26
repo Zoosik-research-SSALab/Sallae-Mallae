@@ -16,6 +16,7 @@ import {
   getDeltaTextClassName,
   getTradeActionLabel,
 } from "../utils/portfolioFormatters";
+import StockLogo from "@/app/stocks/components/StockLogo";
 import { cn } from "@/shared/utils/cn";
 import Pagination from "@/shared/ui/Pagination";
 
@@ -92,9 +93,7 @@ function HoldingRows({ items }: { items: PortfolioHolding[] }) {
           className="grid grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] items-center gap-4 rounded-2xl px-2 py-6 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg-primary)]"
         >
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] text-xs font-semibold text-[color:var(--color-text-base)]">
-              {item.name.slice(0, 2)}
-            </div>
+            <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
             <span className="min-w-0 truncate text-base font-semibold leading-6 text-[color:var(--color-text-primary)]">
               {item.name}
             </span>
@@ -186,9 +185,7 @@ function MobileHoldingCards({ items }: { items: PortfolioHolding[] }) {
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] text-[10px] font-semibold text-[color:var(--color-text-base)]">
-            {item.name.slice(0, 2)}
-          </div>
+          <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
           <div className="min-w-0">
             <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--color-text-primary)]">
               {item.name}

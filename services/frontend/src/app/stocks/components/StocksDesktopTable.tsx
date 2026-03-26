@@ -89,7 +89,7 @@ export default function StocksDesktopTable({
                         <div className="typo-body-md min-w-6 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>
 
                         <div className="flex min-w-0 items-center gap-4">
-                          <StockLogo label={item.name.slice(0, 2)} />
+                          <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
 
                           <div className="min-w-0">
                             <div className="typo-body-md truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>

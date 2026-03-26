@@ -22,6 +22,7 @@ export type WatchlistListItem = {
   signal: "BUY" | "SELL" | "HOLD" | string;
   confidence: number;
   createdAt: string | null;
+  iconUrl?: string | null;
 };
 
 export type WatchlistListResponse = {
