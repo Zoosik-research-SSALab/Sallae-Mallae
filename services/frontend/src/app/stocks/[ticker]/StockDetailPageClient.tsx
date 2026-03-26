@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import NewsDetailModal from "@/app/news/components/NewsDetailModal";
 import type { StockChartPeriod, StockFinancialType } from "@/app/stocks/types/stockDetail";
 import type { StockQuoteSnapshot } from "./api/connectStockPriceStream";
 import { useStockAnnouncementsQuery } from "./hooks/useStockAnnouncementsQuery";
@@ -149,12 +150,13 @@ function mergeMinutePricesWithQuoteTick(
 export default function StockDetailPageClient({ stockId }: Props) {
   const [chartPeriod, setChartPeriod] = useState<StockChartPeriod>("1MIN");
   const [financialType, setFinancialType] = useState<StockFinancialType>("QUARTERLY");
+  const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null);
 
   const overviewQuery = useStockOverviewQuery(stockId);
   const indicatorsQuery = useStockIndicatorsQuery(stockId);
   const financialsQuery = useStockFinancialsQuery(stockId, financialType);
   const keywordsQuery = useStockKeywordsQuery(stockId);
-  const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
+  const announcementsQuery = useStockAnnouncementsQuery(stockId, 3, 0);
   const chartPriceStream = useStockPriceStream(stockId, chartPeriod);
   const quoteTicker = overviewQuery.data?.ticker ?? "";
   const quoteStream = useStockQuoteStream(quoteTicker, {
@@ -248,6 +250,7 @@ export default function StockDetailPageClient({ stockId }: Props) {
                 <StockKeywordsNewsSection
                   keywords={keywordsQuery.data?.keywords ?? []}
                   isLoading={isKeywordsPending}
+                  onNewsSelect={setSelectedNewsId}
                 />
                 <StockAnnouncementsSection
                   stockId={overviewQuery.data.id}
@@ -259,6 +262,10 @@ export default function StockDetailPageClient({ stockId }: Props) {
           )}
         </div>
       </div>
+
+      {selectedNewsId !== null ? (
+        <NewsDetailModal newsId={selectedNewsId} onClose={() => setSelectedNewsId(null)} />
+      ) : null}
     </main>
   );
 }

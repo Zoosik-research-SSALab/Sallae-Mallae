@@ -8,9 +8,10 @@ import StockSectionLoadingOverlay from "./common/StockSectionLoadingOverlay";
 type Props = {
   keywords: StockKeyword[];
   isLoading: boolean;
+  onNewsSelect?: (newsId: number) => void;
 };
 
-export default function StockKeywordsNewsSection({ keywords, isLoading }: Props) {
+export default function StockKeywordsNewsSection({ keywords, isLoading, onNewsSelect }: Props) {
   const [selectedKeywordKey, setSelectedKeywordKey] = useState<string | null>(null);
 
   const visibleKeywords = useMemo(() => keywords.slice(0, 3), [keywords]);
@@ -109,19 +110,20 @@ export default function StockKeywordsNewsSection({ keywords, isLoading }: Props)
 
                   const newsKey = String(item.id ?? `${activeKeyword.name}-news-${index}`);
 
-                  return item.url ? (
-                    <a
-                      key={newsKey}
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
-                    >
-                      {content}
-                    </a>
-                  ) : (
-                    <div key={newsKey}>{content}</div>
-                  );
+                  if (typeof item.id === "number" && onNewsSelect) {
+                    return (
+                      <button
+                        key={newsKey}
+                        type="button"
+                        onClick={() => onNewsSelect(item.id as number)}
+                        className="block w-full text-left transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
+                      >
+                        {content}
+                      </button>
+                    );
+                  }
+
+                  return <div key={newsKey}>{content}</div>;
                 })
               ) : (
                 <div className="rounded-2xl bg-[color:var(--color-bg-secondary)] px-4 py-5 text-sm font-medium text-[color:var(--color-text-secondary)]">
