@@ -8,7 +8,7 @@ services:
       ROOT_WEB_TARGET: ${ROOT_WEB_TARGET:-host.docker.internal:8081}
       ROOT_API_TARGET: ${ROOT_API_TARGET:-host.docker.internal:8082}
       ROOT_AI_TARGET: ${ROOT_AI_TARGET:-host.docker.internal:8083}
-      ROOT_ASSETS_TARGET: ${ROOT_ASSETS_TARGET:-host.docker.internal:9000}
+      ROOT_ASSETS_TARGET: ${ROOT_ASSETS_TARGET:-minio:9000}
       ROOT_ASSETS_BUCKET: ${ROOT_ASSETS_BUCKET:-assets}
     ports:
       - "${GATEWAY_HTTP_PORT:-80}:80"
@@ -21,3 +21,11 @@ services:
       - ${GATEWAY_NGINX_TEMPLATE:-../nginx/nginx.gateway.conf.template}:/etc/nginx/templates/default.conf.template:ro
       - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
       - ${CERTBOT_WEBROOT:-/var/www/certbot}:/var/www/certbot:ro
+    networks:
+      - default
+      - base-net
+
+networks:
+  base-net:
+    external: true
+    name: sallae-base-net
