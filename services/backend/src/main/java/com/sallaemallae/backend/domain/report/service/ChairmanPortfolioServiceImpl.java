@@ -26,12 +26,8 @@ import com.sallaemallae.backend.domain.signal.repository.AiDailyPerformanceRepos
 import com.sallaemallae.backend.domain.signal.repository.AiPortfolioRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.time.LocalDate;
-import java.time.YearMonth;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -232,52 +228,25 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
   }
 
   private List<MonthlyReturnItem> buildMonthlyReturns(Long portfolioId) {
-    List<AiDailyPerformance> performances = aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(portfolioId);
-    Map<YearMonth, MonthlyAccumulator> accumulators = new LinkedHashMap<>();
-    for (AiDailyPerformance performance : performances) {
-      if (performance.getRecordDate() == null) {
-        continue;
-      }
-      YearMonth yearMonth = YearMonth.from(performance.getRecordDate());
-      MonthlyAccumulator accumulator = accumulators.computeIfAbsent(yearMonth, ignored -> new MonthlyAccumulator());
-      accumulator.accumulate(performance.getDailyReturn());
-    }
-    Map<String, MonthlyTradeMetricRow> tradeMetricsByMonth = new LinkedHashMap<>();
-    for (MonthlyTradeMetricRow row : chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(portfolioId)) {
-      tradeMetricsByMonth.put(row.month(), row);
-    }
-
-    List<MonthlyReturnItem> items = new ArrayList<>();
-    accumulators.forEach((yearMonth, accumulator) -> {
-      MonthlyTradeMetricRow metrics = tradeMetricsByMonth.get(yearMonth.toString());
-      items.add(new MonthlyReturnItem(
-          yearMonth.toString(),
-          accumulator.monthlyReturn(),
-          metrics != null ? metrics.realizedProfitAmount() : 0L,
-          metrics != null ? metrics.buyCount() : 0,
-          metrics != null ? metrics.sellCount() : 0,
-          null,
-          null
-      ));
-    });
-
-    items.sort(Comparator.comparing(MonthlyReturnItem::month).reversed());
-    return items;
+    return chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(portfolioId).stream()
+        .map(row -> new MonthlyReturnItem(
+            row.month(),
+            calculateRealizedMonthlyReturn(row),
+            row.realizedProfitAmount(),
+            row.buyCount(),
+            row.sellCount(),
+            null,
+            null
+        ))
+        .sorted(Comparator.comparing(MonthlyReturnItem::month).reversed())
+        .toList();
   }
 
-  private static final class MonthlyAccumulator {
-
-    private float factor = 1f;
-
-    void accumulate(Float dailyReturn) {
-      if (dailyReturn == null) {
-        return;
-      }
-      factor *= (1 + (dailyReturn / 100f));
+  private float calculateRealizedMonthlyReturn(MonthlyTradeMetricRow row) {
+    long realizedCostAmount = row.realizedCostAmount() != null ? row.realizedCostAmount() : 0L;
+    if (realizedCostAmount <= 0L) {
+      return 0f;
     }
-
-    float monthlyReturn() {
-      return (factor - 1f) * 100f;
-    }
+    return ((float) row.realizedProfitAmount() / realizedCostAmount) * 100f;
   }
 }
