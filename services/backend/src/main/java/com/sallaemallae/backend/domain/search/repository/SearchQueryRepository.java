@@ -7,9 +7,12 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -63,31 +66,13 @@ public class SearchQueryRepository {
   }
 
   public List<SearchNewsItemResponse> searchNews(String keyword) {
-    @SuppressWarnings("unchecked")
-    List<Object[]> rows = entityManager.createNativeQuery("""
-        SELECT n.id,
-               n.title,
-               n.publisher,
-               n.url,
-               n.published_at
-        FROM stock_news n
-        WHERE n.published_at IS NOT NULL
-          AND EXISTS (
-            SELECT 1
-            FROM news_keyword_map nkm
-                     JOIN keywords k ON k.id = nkm.keyword_id
-            WHERE nkm.news_id = n.id
-              AND k.name = :keyword
-          )
-        ORDER BY n.published_at DESC, n.id DESC
-        """)
-        .setParameter("keyword", keyword)
-        .setMaxResults(NEWS_SEARCH_LIMIT)
-        .getResultList();
+    List<SearchNewsItemResponse> keywordMatched = searchNewsByKeyword(keyword);
+    if (keywordMatched.size() >= NEWS_SEARCH_LIMIT) {
+      return keywordMatched;
+    }
 
-    return rows.stream()
-        .map(this::toNewsItem)
-        .toList();
+    List<SearchNewsItemResponse> fallbackMatched = searchNewsByTitle(keyword, NEWS_SEARCH_LIMIT * 3);
+    return mergeNews(keywordMatched, fallbackMatched, NEWS_SEARCH_LIMIT);
   }
 
   static boolean matchesStock(SearchStockItemResponse item, String keyword) {
@@ -146,6 +131,72 @@ public class SearchQueryRepository {
     );
   }
 
+  private List<SearchNewsItemResponse> searchNewsByKeyword(String keyword) {
+    @SuppressWarnings("unchecked")
+    List<Object[]> rows = entityManager.createNativeQuery("""
+        SELECT n.id,
+               n.title,
+               n.publisher,
+               n.url,
+               n.published_at
+        FROM stock_news n
+        WHERE n.published_at IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM news_keyword_map nkm
+                     JOIN keywords k ON k.id = nkm.keyword_id
+            WHERE nkm.news_id = n.id
+              AND k.name = :keyword
+          )
+        ORDER BY n.published_at DESC, n.id DESC
+        """)
+        .setParameter("keyword", keyword)
+        .setMaxResults(NEWS_SEARCH_LIMIT)
+        .getResultList();
+
+    return rows.stream()
+        .map(this::toNewsItem)
+        .toList();
+  }
+
+  private List<SearchNewsItemResponse> searchNewsByTitle(String keyword, int fetchLimit) {
+    String contains = buildContainsPattern(keyword);
+    String startsWith = buildStartsWithPattern(keyword);
+
+    @SuppressWarnings("unchecked")
+    List<Object[]> rows = entityManager.createNativeQuery("""
+        WITH matched_news AS (
+            SELECT n.id,
+                   n.title,
+                   n.publisher,
+                   n.url,
+                   n.published_at,
+                   CASE
+                       WHEN n.title ILIKE :startsWith ESCAPE '\\' THEN 0
+                       ELSE 1
+                       END AS match_priority
+            FROM stock_news n
+            WHERE n.published_at IS NOT NULL
+              AND n.title ILIKE :contains ESCAPE '\\'
+        )
+        SELECT mn.id,
+               mn.title,
+               mn.publisher,
+               mn.url,
+               mn.published_at
+        FROM matched_news mn
+        ORDER BY mn.match_priority, mn.published_at DESC, mn.id DESC
+        """)
+        .setParameter("contains", contains)
+        .setParameter("startsWith", startsWith)
+        .setMaxResults(fetchLimit)
+        .getResultList();
+
+    return rows.stream()
+        .map(this::toNewsItem)
+        .toList();
+  }
+
   static String buildContainsPattern(String keyword) {
     return "%" + escapeLikeKeyword(keyword) + "%";
   }
@@ -180,6 +231,27 @@ public class SearchQueryRepository {
       }
     }
     return builder.toString();
+  }
+
+  static List<SearchNewsItemResponse> mergeNews(
+      List<SearchNewsItemResponse> primary,
+      List<SearchNewsItemResponse> fallback,
+      int limit
+  ) {
+    Map<Long, SearchNewsItemResponse> merged = new LinkedHashMap<>();
+    for (SearchNewsItemResponse item : primary) {
+      merged.putIfAbsent(item.id(), item);
+      if (merged.size() >= limit) {
+        return new ArrayList<>(merged.values());
+      }
+    }
+    for (SearchNewsItemResponse item : fallback) {
+      merged.putIfAbsent(item.id(), item);
+      if (merged.size() >= limit) {
+        return new ArrayList<>(merged.values());
+      }
+    }
+    return new ArrayList<>(merged.values());
   }
 
   private static boolean startsWithIgnoreCase(String text, String keyword) {

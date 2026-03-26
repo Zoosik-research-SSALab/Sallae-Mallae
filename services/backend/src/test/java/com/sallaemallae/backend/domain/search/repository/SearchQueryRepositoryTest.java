@@ -2,8 +2,11 @@ package com.sallaemallae.backend.domain.search.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sallaemallae.backend.domain.search.dto.response.SearchNewsItemResponse;
 import com.sallaemallae.backend.domain.search.dto.response.SearchStockItemResponse;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -66,5 +69,39 @@ class SearchQueryRepositoryTest {
     assertThat(SearchQueryRepository.matchesStock(item, "ㅅㅅ")).isTrue();
     assertThat(SearchQueryRepository.matchesStock(item, "ㅅㅈ")).isFalse();
     assertThat(SearchQueryRepository.matchesStock(item, "반도체")).isFalse();
+  }
+
+  @Test
+  @DisplayName("뉴스 검색 결과는 키워드 매핑 결과를 우선하고 fallback 결과는 중복 없이 뒤에 붙인다")
+  void mergeNews_prioritizesKeywordMatchesAndDeduplicates() {
+    SearchNewsItemResponse keywordNews = new SearchNewsItemResponse(
+        1L,
+        "삼성전자 실적 개선",
+        "연합뉴스",
+        "https://example.com/news/1",
+        OffsetDateTime.parse("2026-03-26T09:00:00+09:00")
+    );
+    SearchNewsItemResponse duplicateFallback = new SearchNewsItemResponse(
+        1L,
+        "삼성전자 실적 개선",
+        "연합뉴스",
+        "https://example.com/news/1",
+        OffsetDateTime.parse("2026-03-26T09:00:00+09:00")
+    );
+    SearchNewsItemResponse fallbackNews = new SearchNewsItemResponse(
+        2L,
+        "삼성 반도체 투자 확대",
+        "매일경제",
+        "https://example.com/news/2",
+        OffsetDateTime.parse("2026-03-25T09:00:00+09:00")
+    );
+
+    List<SearchNewsItemResponse> merged = SearchQueryRepository.mergeNews(
+        List.of(keywordNews),
+        List.of(duplicateFallback, fallbackNews),
+        5
+    );
+
+    assertThat(merged).containsExactly(keywordNews, fallbackNews);
   }
 }
