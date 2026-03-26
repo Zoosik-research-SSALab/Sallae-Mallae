@@ -11,6 +11,7 @@ import com.sallaemallae.backend.domain.report.dto.PerformanceResponse;
 import com.sallaemallae.backend.domain.report.dto.PerformanceResponse.ChartPoint;
 import com.sallaemallae.backend.domain.report.dto.PerformanceResponse.Holding;
 import com.sallaemallae.backend.domain.report.dto.PerformanceTradesResponse;
+import com.sallaemallae.backend.domain.report.dto.PerformanceTradesResponse.TradeCycleItem;
 import com.sallaemallae.backend.domain.report.dto.PerformanceTradesResponse.TradeItem;
 import com.sallaemallae.backend.domain.report.dto.ReportHistoryItemResponse;
 import com.sallaemallae.backend.domain.report.entity.AiDebateReport;
@@ -119,14 +120,22 @@ public class ReportServiceImpl implements ReportService {
     AiPortfolio portfolio = getLatestPortfolio();
     int normalizedOffset = Math.max(offset, 0);
     int normalizedLimit = normalizeLimit(limit, 30, 100);
-    List<AiTradingHistory> trades = aiTradingHistoryRepository.findByPortfolioIdAndStockIdOrderByTradeTimeDesc(
+    List<AiTradingHistory> pagedTrades = aiTradingHistoryRepository.findByPortfolioIdAndStockIdOrderByTradeTimeDesc(
         portfolio.getId(),
         stockId,
         normalizedOffset,
         normalizedLimit
     );
+    List<AiTradingHistory> allTrades = aiTradingHistoryRepository.findByPortfolioIdAndStockIdOrderByTradeTimeDesc(
+        portfolio.getId(),
+        stockId
+    );
+    Optional<AiPortfolioHolding> holding = aiPortfolioHoldingRepository.findByPortfolioIdAndStockId(
+        portfolio.getId(),
+        stockId
+    );
 
-    List<TradeItem> items = trades.stream()
+    List<TradeItem> items = pagedTrades.stream()
         .map(trade -> new TradeItem(
             trade.getTradeType().name(),
             trade.getTradeTime(),
@@ -134,8 +143,13 @@ public class ReportServiceImpl implements ReportService {
             trade.getReturnRate()
         ))
         .toList();
+    List<TradeCycleItem> tradeCycles = paginate(
+        buildTradeCycles(stockId, allTrades, holding.orElse(null)),
+        normalizedOffset,
+        normalizedLimit
+    );
 
-    return new PerformanceTradesResponse(items);
+    return new PerformanceTradesResponse(items, tradeCycles);
   }
 
   private AiDebateReport getLatestDebateReport(Long stockId) {
@@ -479,6 +493,214 @@ public class ReportServiceImpl implements ReportService {
       return null;
     }
     return priceHistory.get(priceHistory.size() - 1).getClosePrice();
+  }
+
+  private List<TradeCycleItem> buildTradeCycles(Long stockId, List<AiTradingHistory> trades, AiPortfolioHolding holding) {
+    if (trades.isEmpty()) {
+      return List.of();
+    }
+
+    List<AiTradingHistory> ascendingTrades = trades.stream()
+        .filter(trade -> trade.getTradeTime() != null)
+        .sorted(Comparator.comparing(AiTradingHistory::getTradeTime))
+        .toList();
+    List<List<AiTradingHistory>> cycles = new ArrayList<>();
+    List<AiTradingHistory> currentCycle = new ArrayList<>();
+
+    for (AiTradingHistory trade : ascendingTrades) {
+      currentCycle.add(trade);
+      if (isCycleClosed(trade)) {
+        cycles.add(List.copyOf(currentCycle));
+        currentCycle = new ArrayList<>();
+      }
+    }
+
+    if (!currentCycle.isEmpty()) {
+      cycles.add(List.copyOf(currentCycle));
+    }
+
+    List<TradeCycleItem> mappedCycles = new ArrayList<>();
+    for (int index = 0; index < cycles.size(); index++) {
+      List<AiTradingHistory> cycleTrades = cycles.get(index);
+      boolean latestCycle = index == cycles.size() - 1;
+      mappedCycles.add(toTradeCycleItem(stockId, cycleTrades, holding, latestCycle));
+    }
+
+    return mappedCycles.stream()
+        .sorted(Comparator.comparing(TradeCycleItem::buyDate, Comparator.nullsLast(Comparator.reverseOrder())))
+        .toList();
+  }
+
+  private TradeCycleItem toTradeCycleItem(
+      Long stockId,
+      List<AiTradingHistory> cycleTrades,
+      AiPortfolioHolding holding,
+      boolean latestCycle
+  ) {
+    List<AiTradingHistory> buyTrades = cycleTrades.stream()
+        .filter(trade -> trade.getTradeType() != null && trade.getTradeType().name().equals("BUY"))
+        .toList();
+    List<AiTradingHistory> sellTrades = cycleTrades.stream()
+        .filter(trade -> trade.getTradeType() != null && trade.getTradeType().name().equals("SELL"))
+        .toList();
+
+    AiTradingHistory firstTrade = cycleTrades.getFirst();
+    AiTradingHistory lastTrade = cycleTrades.getLast();
+    Long remainingQuantity = resolveRemainingQuantity(lastTrade, holding, latestCycle);
+    boolean openCycle = remainingQuantity != null && remainingQuantity > 0;
+    OffsetDateTime buyDate = firstTrade.getTradeTime();
+    OffsetDateTime sellDate = openCycle ? null : lastTrade.getTradeTime();
+    Integer buyPrice = openCycle && latestCycle && holding != null && holding.getAvgBuyPrice() != null
+        ? holding.getAvgBuyPrice()
+        : calculateAveragePrice(buyTrades);
+    Integer currentPrice = openCycle
+        ? resolveCurrentPrice(stockId, holding)
+        : null;
+    Integer sellPrice = openCycle ? null : calculateAveragePrice(sellTrades);
+    Integer holdingDays = calculateHoldingDays(buyDate, sellDate);
+    Float cycleReturnRate = openCycle
+        ? resolveOpenCycleReturnRate(holding, buyPrice, currentPrice)
+        : calculateClosedCycleReturnRate(cycleTrades, sellTrades);
+
+    return new TradeCycleItem(
+        buildCycleId(stockId, buyDate, cycleTrades),
+        openCycle ? "holding" : "sold",
+        buyDate,
+        sellDate,
+        buyPrice,
+        sellPrice,
+        currentPrice,
+        holdingDays,
+        cycleReturnRate,
+        buyTrades.size(),
+        sellTrades.size(),
+        remainingQuantity,
+        hasPartialSell(sellTrades)
+    );
+  }
+
+  private boolean isCycleClosed(AiTradingHistory trade) {
+    return trade.getHoldingQuantityAfter() != null && trade.getHoldingQuantityAfter() == 0L;
+  }
+
+  private Long resolveRemainingQuantity(AiTradingHistory lastTrade, AiPortfolioHolding holding, boolean latestCycle) {
+    if (latestCycle && holding != null && holding.getHoldingQuantity() != null) {
+      return holding.getHoldingQuantity();
+    }
+    if (lastTrade.getHoldingQuantityAfter() != null) {
+      return lastTrade.getHoldingQuantityAfter();
+    }
+    return lastTrade.getTradeType() != null && lastTrade.getTradeType().name().equals("SELL") ? 0L : null;
+  }
+
+  private Integer resolveCurrentPrice(Long stockId, AiPortfolioHolding holding) {
+    if (holding != null && holding.getCurrentPrice() != null) {
+      return holding.getCurrentPrice();
+    }
+    List<StockPriceDaily> priceHistory = stockPriceDailyRepository.findByStockIdOrderByTradeDateAsc(stockId);
+    return latestPrice(priceHistory);
+  }
+
+  private Integer calculateAveragePrice(List<AiTradingHistory> trades) {
+    long totalAmount = 0L;
+    long totalQuantity = 0L;
+    long sumOfPrices = 0L;
+    int priceCount = 0;
+
+    for (AiTradingHistory trade : trades) {
+      if (trade.getTradeAmount() != null && trade.getTradeQuantity() != null && trade.getTradeQuantity() > 0) {
+        totalAmount += trade.getTradeAmount();
+        totalQuantity += trade.getTradeQuantity();
+      }
+
+      Integer price = resolveTradePrice(trade);
+      if (price != null) {
+        sumOfPrices += price;
+        priceCount++;
+      }
+    }
+
+    if (totalAmount > 0 && totalQuantity > 0) {
+      return Math.toIntExact(Math.round((double) totalAmount / totalQuantity));
+    }
+    if (priceCount > 0) {
+      return Math.toIntExact(Math.round((double) sumOfPrices / priceCount));
+    }
+    return null;
+  }
+
+  private Integer resolveTradePrice(AiTradingHistory trade) {
+    if (trade.getTradePrice() != null) {
+      return trade.getTradePrice();
+    }
+    if (trade.getTradePriceRate() != null) {
+      return Math.toIntExact(Math.round(trade.getTradePriceRate()));
+    }
+    return null;
+  }
+
+  private Integer calculateHoldingDays(OffsetDateTime buyDate, OffsetDateTime sellDate) {
+    if (buyDate == null) {
+      return null;
+    }
+    LocalDate endDate = sellDate != null ? sellDate.toLocalDate() : LocalDate.now();
+    return Math.toIntExact(ChronoUnit.DAYS.between(buyDate.toLocalDate(), endDate));
+  }
+
+  private Float resolveOpenCycleReturnRate(AiPortfolioHolding holding, Integer buyPrice, Integer currentPrice) {
+    if (holding != null && holding.getReturnRate() != null) {
+      return holding.getReturnRate();
+    }
+    if (buyPrice == null || currentPrice == null || buyPrice == 0) {
+      return null;
+    }
+    return (currentPrice - buyPrice) * 100f / buyPrice;
+  }
+
+  private Float calculateClosedCycleReturnRate(List<AiTradingHistory> cycleTrades, List<AiTradingHistory> sellTrades) {
+    long totalBuyAmount = cycleTrades.stream()
+        .filter(trade -> trade.getTradeType() != null && trade.getTradeType().name().equals("BUY"))
+        .map(AiTradingHistory::getTradeAmount)
+        .filter(Objects::nonNull)
+        .mapToLong(Long::longValue)
+        .sum();
+    long realizedProfit = sellTrades.stream()
+        .map(AiTradingHistory::getRealizedProfit)
+        .filter(Objects::nonNull)
+        .mapToLong(Long::longValue)
+        .sum();
+
+    if (totalBuyAmount > 0) {
+      return realizedProfit * 100f / totalBuyAmount;
+    }
+    return sellTrades.stream()
+        .map(AiTradingHistory::getReturnRate)
+        .filter(Objects::nonNull)
+        .reduce((first, second) -> second)
+        .orElse(null);
+  }
+
+  private boolean hasPartialSell(List<AiTradingHistory> sellTrades) {
+    return sellTrades.stream()
+        .anyMatch(trade -> trade.getHoldingQuantityAfter() != null && trade.getHoldingQuantityAfter() > 0);
+  }
+
+  private String buildCycleId(Long stockId, OffsetDateTime buyDate, List<AiTradingHistory> cycleTrades) {
+    String datePart = buyDate != null ? buyDate.toLocalDate().toString() : "unknown";
+    Long firstTradeId = cycleTrades.getFirst().getId();
+    Long lastTradeId = cycleTrades.getLast().getId();
+    if (firstTradeId != null && lastTradeId != null) {
+      return stockId + "-" + datePart + "-" + firstTradeId + "-" + lastTradeId;
+    }
+    return stockId + "-" + datePart;
+  }
+
+  private <T> List<T> paginate(List<T> items, int offset, int limit) {
+    if (items.isEmpty() || offset >= items.size()) {
+      return List.of();
+    }
+    int endIndex = Math.min(offset + limit, items.size());
+    return items.subList(offset, endIndex);
   }
 
   private Holding toHolding(AiPortfolioHolding holding, List<AiTradingHistory> trades, Integer latestPrice) {

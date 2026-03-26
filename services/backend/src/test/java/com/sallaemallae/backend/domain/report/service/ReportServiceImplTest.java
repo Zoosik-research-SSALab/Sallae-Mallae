@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sallaemallae.backend.domain.report.dto.PerformanceResponse;
+import com.sallaemallae.backend.domain.report.dto.PerformanceTradesResponse;
 import com.sallaemallae.backend.domain.report.dto.ReportHistoryItemResponse;
 import com.sallaemallae.backend.domain.report.entity.AiDebateReport;
 import com.sallaemallae.backend.domain.report.enumtype.AiSignal;
@@ -26,6 +27,7 @@ import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -182,6 +184,91 @@ class ReportServiceImplTest {
             assertThat(exception.getErrorCode()).isEqualTo(StockErrorCode.STOCK_NOT_FOUND));
   }
 
+  @Test
+  @DisplayName("trades 조회는 raw 이벤트와 cycle 요약을 함께 반환한다")
+  void getPerformanceTrades_returnsRawTradesAndTradeCycles() {
+    given(stockRepository.existsByIdAndIsActiveTrue(1L)).willReturn(true);
+
+    AiPortfolio portfolio = org.mockito.Mockito.mock(AiPortfolio.class);
+    given(portfolio.getId()).willReturn(10L);
+    given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
+
+    AiPortfolioHolding holding = org.mockito.Mockito.mock(AiPortfolioHolding.class);
+    given(holding.getAvgBuyPrice()).willReturn(3925);
+    given(holding.getCurrentPrice()).willReturn(4185);
+    given(holding.getHoldingQuantity()).willReturn(30L);
+    given(holding.getReturnRate()).willReturn(6.62f);
+    given(aiPortfolioHoldingRepository.findByPortfolioIdAndStockId(10L, 1L)).willReturn(Optional.of(holding));
+
+    AiTradingHistory openPartialSell = mockTrade(106L, TradeType.SELL,
+        OffsetDateTime.of(2026, 2, 20, 6, 30, 0, 0, ZoneOffset.UTC),
+        4100, 10L, 41_000L, 1_750L, 30L, null, 4.43f);
+    AiTradingHistory openBuySecond = mockTrade(105L, TradeType.BUY,
+        OffsetDateTime.of(2026, 2, 10, 6, 30, 0, 0, ZoneOffset.UTC),
+        3950, 20L, 79_000L, 0L, 40L, 3925, null);
+    AiTradingHistory openBuyFirst = mockTrade(104L, TradeType.BUY,
+        OffsetDateTime.of(2026, 2, 5, 6, 30, 0, 0, ZoneOffset.UTC),
+        3900, 20L, 78_000L, 0L, 20L, 3900, null);
+
+    AiTradingHistory soldSecondSell = mockTrade(103L, TradeType.SELL,
+        OffsetDateTime.of(2025, 9, 25, 6, 30, 0, 0, ZoneOffset.UTC),
+        2900, 50L, 145_000L, -10_000L, 0L, null, -6.451613f);
+    AiTradingHistory soldFirstSell = mockTrade(102L, TradeType.SELL,
+        OffsetDateTime.of(2025, 9, 24, 6, 30, 0, 0, ZoneOffset.UTC),
+        2858, 50L, 142_900L, -12_100L, 50L, null, -7.806452f);
+    AiTradingHistory soldBuy = mockTrade(101L, TradeType.BUY,
+        OffsetDateTime.of(2025, 9, 17, 6, 30, 0, 0, ZoneOffset.UTC),
+        3100, 100L, 310_000L, 0L, 100L, 3100, null);
+
+    List<AiTradingHistory> descendingTrades = List.of(
+        openPartialSell,
+        openBuySecond,
+        openBuyFirst,
+        soldSecondSell,
+        soldFirstSell,
+        soldBuy
+    );
+
+    given(aiTradingHistoryRepository.findByPortfolioIdAndStockIdOrderByTradeTimeDesc(10L, 1L, 0, 10))
+        .willReturn(descendingTrades);
+    given(aiTradingHistoryRepository.findByPortfolioIdAndStockIdOrderByTradeTimeDesc(10L, 1L))
+        .willReturn(descendingTrades);
+
+    PerformanceTradesResponse response = reportService.getPerformanceTrades(1L, 0, 10);
+
+    assertThat(response.trades()).hasSize(6);
+    assertThat(response.tradeCycles()).hasSize(2);
+
+    PerformanceTradesResponse.TradeCycleItem openCycle = response.tradeCycles().get(0);
+    assertThat(openCycle.status()).isEqualTo("holding");
+    assertThat(openCycle.buyDate()).isEqualTo(OffsetDateTime.of(2026, 2, 5, 6, 30, 0, 0, ZoneOffset.UTC));
+    assertThat(openCycle.sellDate()).isNull();
+    assertThat(openCycle.buyPrice()).isEqualTo(3925);
+    assertThat(openCycle.currentPrice()).isEqualTo(4185);
+    assertThat(openCycle.returnRate()).isEqualTo(6.62f);
+    assertThat(openCycle.buyCount()).isEqualTo(2);
+    assertThat(openCycle.sellCount()).isEqualTo(1);
+    assertThat(openCycle.remainingQuantity()).isEqualTo(30L);
+    assertThat(openCycle.hasPartialSell()).isTrue();
+    assertThat(openCycle.holdingDays()).isEqualTo(
+        Math.toIntExact(ChronoUnit.DAYS.between(LocalDate.of(2026, 2, 5), LocalDate.now()))
+    );
+
+    PerformanceTradesResponse.TradeCycleItem soldCycle = response.tradeCycles().get(1);
+    assertThat(soldCycle.status()).isEqualTo("sold");
+    assertThat(soldCycle.buyDate()).isEqualTo(OffsetDateTime.of(2025, 9, 17, 6, 30, 0, 0, ZoneOffset.UTC));
+    assertThat(soldCycle.sellDate()).isEqualTo(OffsetDateTime.of(2025, 9, 25, 6, 30, 0, 0, ZoneOffset.UTC));
+    assertThat(soldCycle.buyPrice()).isEqualTo(3100);
+    assertThat(soldCycle.sellPrice()).isEqualTo(2879);
+    assertThat(soldCycle.currentPrice()).isNull();
+    assertThat(soldCycle.holdingDays()).isEqualTo(8);
+    assertThat(soldCycle.returnRate()).isCloseTo(-7.129f, org.assertj.core.data.Offset.offset(0.001f));
+    assertThat(soldCycle.buyCount()).isEqualTo(1);
+    assertThat(soldCycle.sellCount()).isEqualTo(2);
+    assertThat(soldCycle.remainingQuantity()).isEqualTo(0L);
+    assertThat(soldCycle.hasPartialSell()).isTrue();
+  }
+
   private StockPriceDaily stockPriceDaily(LocalDate tradeDate, Integer closePrice) throws Exception {
     return StockPriceDaily.builder()
         .stockId(1L)
@@ -247,5 +334,32 @@ class ReportServiceImplTest {
     Field field = target.getClass().getDeclaredField(fieldName);
     field.setAccessible(true);
     field.set(target, value);
+  }
+
+  private AiTradingHistory mockTrade(
+      Long id,
+      TradeType tradeType,
+      OffsetDateTime tradeTime,
+      Integer tradePrice,
+      Long tradeQuantity,
+      Long tradeAmount,
+      Long realizedProfit,
+      Long holdingQuantityAfter,
+      Integer avgBuyPriceAfter,
+      Float returnRate
+  ) {
+    AiTradingHistory trade = org.mockito.Mockito.mock(AiTradingHistory.class);
+    org.mockito.Mockito.lenient().when(trade.getId()).thenReturn(id);
+    org.mockito.Mockito.lenient().when(trade.getTradeType()).thenReturn(tradeType);
+    org.mockito.Mockito.lenient().when(trade.getTradeTime()).thenReturn(tradeTime);
+    org.mockito.Mockito.lenient().when(trade.getTradePrice()).thenReturn(tradePrice);
+    org.mockito.Mockito.lenient().when(trade.getTradePriceRate()).thenReturn(tradePrice != null ? tradePrice.floatValue() : null);
+    org.mockito.Mockito.lenient().when(trade.getTradeQuantity()).thenReturn(tradeQuantity);
+    org.mockito.Mockito.lenient().when(trade.getTradeAmount()).thenReturn(tradeAmount);
+    org.mockito.Mockito.lenient().when(trade.getRealizedProfit()).thenReturn(realizedProfit);
+    org.mockito.Mockito.lenient().when(trade.getHoldingQuantityAfter()).thenReturn(holdingQuantityAfter);
+    org.mockito.Mockito.lenient().when(trade.getAvgBuyPriceAfter()).thenReturn(avgBuyPriceAfter);
+    org.mockito.Mockito.lenient().when(trade.getReturnRate()).thenReturn(returnRate);
+    return trade;
   }
 }
