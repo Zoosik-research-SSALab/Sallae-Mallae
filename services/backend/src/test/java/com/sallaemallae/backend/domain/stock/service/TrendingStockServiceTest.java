@@ -1,6 +1,7 @@
 package com.sallaemallae.backend.domain.stock.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -14,11 +15,11 @@ import com.sallaemallae.backend.global.sse.SseManager;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -34,20 +35,8 @@ class TrendingStockServiceTest {
     @Mock
     private SseManager sseManager;
 
+    @InjectMocks
     private TrendingStockService trendingStockService;
-
-    @BeforeEach
-    void setUp() {
-        Stock samsung = stock(1L, "삼성전자");
-        Stock hynix = stock(3L, "SK하이닉스");
-        Stock lg = stock(2L, "LG에너지솔루션");
-        given(stockRepository.findAll()).willReturn(List.of(samsung, hynix, lg));
-
-        trendingStockService = new TrendingStockService(
-            trendingCacheRepository, stockRepository, sseManager
-        );
-        trendingStockService.initStockCache();
-    }
 
     @Test
     @DisplayName("Redis TOP5 종목을 순위별로 반환한다")
@@ -55,10 +44,15 @@ class TrendingStockServiceTest {
         Set<String> topIds = new LinkedHashSet<>(List.of("1", "3", "2"));
         given(trendingCacheRepository.getTopStockIds(5)).willReturn(topIds);
 
+        Stock samsung = stock(1L, "삼성전자");
+        Stock lg = stock(2L, "LG에너지솔루션");
+        Stock hynix = stock(3L, "SK하이닉스");
+        given(stockRepository.findAllById(List.of(1L, 3L, 2L))).willReturn(List.of(samsung, hynix, lg));
+
         trendingStockService.refreshTrending();
 
         ArgumentCaptor<TrendingStocksResponse> captor = ArgumentCaptor.forClass(TrendingStocksResponse.class);
-        verify(sseManager).broadcast(org.mockito.ArgumentMatchers.eq("trending-stocks"), captor.capture());
+        verify(sseManager).broadcast(eq("trending-stocks"), captor.capture());
 
         TrendingStocksResponse response = captor.getValue();
         assertThat(response.stocks()).hasSize(3);
@@ -78,7 +72,7 @@ class TrendingStockServiceTest {
         trendingStockService.refreshTrending();
 
         ArgumentCaptor<TrendingStocksResponse> captor = ArgumentCaptor.forClass(TrendingStocksResponse.class);
-        verify(sseManager).broadcast(org.mockito.ArgumentMatchers.eq("trending-stocks"), captor.capture());
+        verify(sseManager).broadcast(eq("trending-stocks"), captor.capture());
         assertThat(captor.getValue().stocks()).isEmpty();
     }
 
@@ -94,6 +88,42 @@ class TrendingStockServiceTest {
     void incrementSearchCount_delegatesToRepository() {
         trendingStockService.incrementSearchCount(1L);
         verify(trendingCacheRepository).incrementSearchCount(1L);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 종목 ID는 결과에서 제외한다")
+    void refreshTrending_skipsUnknownStockIds() {
+        Set<String> topIds = new LinkedHashSet<>(List.of("999", "1"));
+        given(trendingCacheRepository.getTopStockIds(5)).willReturn(topIds);
+
+        Stock samsung = stock(1L, "삼성전자");
+        given(stockRepository.findAllById(List.of(999L, 1L))).willReturn(List.of(samsung));
+
+        trendingStockService.refreshTrending();
+
+        ArgumentCaptor<TrendingStocksResponse> captor = ArgumentCaptor.forClass(TrendingStocksResponse.class);
+        verify(sseManager).broadcast(eq("trending-stocks"), captor.capture());
+
+        assertThat(captor.getValue().stocks()).hasSize(1);
+        assertThat(captor.getValue().stocks().get(0).stockId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("파싱 불가능한 ID는 무시하고 나머지만 반환한다")
+    void refreshTrending_skipsInvalidIds() {
+        Set<String> topIds = new LinkedHashSet<>(List.of("abc", "1"));
+        given(trendingCacheRepository.getTopStockIds(5)).willReturn(topIds);
+
+        Stock samsung = stock(1L, "삼성전자");
+        given(stockRepository.findAllById(List.of(1L))).willReturn(List.of(samsung));
+
+        trendingStockService.refreshTrending();
+
+        ArgumentCaptor<TrendingStocksResponse> captor = ArgumentCaptor.forClass(TrendingStocksResponse.class);
+        verify(sseManager).broadcast(eq("trending-stocks"), captor.capture());
+
+        assertThat(captor.getValue().stocks()).hasSize(1);
+        assertThat(captor.getValue().stocks().get(0).name()).isEqualTo("삼성전자");
     }
 
     private Stock stock(Long id, String name) {

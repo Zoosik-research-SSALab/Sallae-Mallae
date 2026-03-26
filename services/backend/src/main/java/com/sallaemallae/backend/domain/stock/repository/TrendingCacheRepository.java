@@ -3,6 +3,7 @@ package com.sallaemallae.backend.domain.stock.repository;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +24,15 @@ public class TrendingCacheRepository {
 
     private final StringRedisTemplate stringRedisTemplate;
 
-    /** 종목 검색 횟수 1 증가 (TTL은 매번 멱등하게 설정) */
+    /** 종목 검색 횟수 1 증가 (TTL은 당일 자정까지로 설정) */
     public void incrementSearchCount(Long stockId) {
         String key = todayKey();
         stringRedisTemplate.opsForZSet().incrementScore(key, String.valueOf(stockId), 1);
-        stringRedisTemplate.expire(key, Duration.ofDays(1));
+        Duration ttl = Duration.between(
+            ZonedDateTime.now(KST),
+            LocalDate.now(KST).plusDays(1).atStartOfDay(KST)
+        );
+        stringRedisTemplate.expire(key, ttl);
     }
 
     /** 검색 횟수 상위 N개 종목 ID 조회 (내림차순) */

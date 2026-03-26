@@ -6,12 +6,13 @@ import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.stock.repository.TrendingCacheRepository;
 import com.sallaemallae.backend.global.sse.SseManager;
-import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,18 +35,12 @@ public class TrendingStockService {
     private final StockRepository stockRepository;
     private final SseManager sseManager;
 
-    /** 종목 ID → Stock 매핑 캐시 (서버 기동 시 1회 로드, 종목 정보는 거의 변경되지 않음) */
-    private final Map<Long, Stock> stockCache = new ConcurrentHashMap<>();
-
-    @PostConstruct
-    void initStockCache() {
-        stockRepository.findAll().forEach(stock -> stockCache.put(stock.getId(), stock));
-        log.info("종목 캐시 초기화 완료: {}건", stockCache.size());
-    }
-
-    /** SSE 스트림 등록 및 현재 데이터 즉시 전송 */
+    /** SSE 스트림 등록 및 현재 데이터 즉시 전송 (완료/타임아웃/에러 시 emitter 정리) */
     public SseEmitter streamTrending() {
-        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
+        SseEmitter emitter = new SseEmitter(60_000L);
+        emitter.onCompletion(() -> sseManager.removeEmitter(CHANNEL, emitter));
+        emitter.onTimeout(() -> sseManager.removeEmitter(CHANNEL, emitter));
+        emitter.onError(ex -> sseManager.removeEmitter(CHANNEL, emitter));
         sseManager.addEmitter(CHANNEL, emitter);
         TrendingStocksResponse data = buildTrendingStocks();
         sseManager.sendToEmitter(emitter, data);
@@ -71,21 +66,25 @@ public class TrendingStockService {
         }
     }
 
-    /** Redis에서 TOP5 종목 ID 조회 → 메모리 캐시에서 종목 정보 매핑 */
+    /** Redis에서 TOP5 종목 ID 조회 → DB에서 종목 정보 매핑 */
     private TrendingStocksResponse buildTrendingStocks() {
         Set<String> topStockIds = trendingCacheRepository.getTopStockIds(TOP_LIMIT);
         if (topStockIds.isEmpty()) {
             return new TrendingStocksResponse(List.of());
         }
 
+        List<Long> ids = topStockIds.stream()
+            .map(this::parseLong)
+            .filter(Objects::nonNull)
+            .toList();
+
+        Map<Long, Stock> stockMap = stockRepository.findAllById(ids).stream()
+            .collect(Collectors.toMap(Stock::getId, Function.identity()));
+
         List<TrendingStockItemResponse> items = new ArrayList<>();
         int rank = 1;
-        for (String idStr : topStockIds) {
-            Long id = parseLong(idStr);
-            if (id == null) {
-                continue;
-            }
-            Stock stock = stockCache.get(id);
+        for (Long id : ids) {
+            Stock stock = stockMap.get(id);
             if (stock != null) {
                 items.add(new TrendingStockItemResponse(rank++, stock.getId(), stock.getName()));
             }
