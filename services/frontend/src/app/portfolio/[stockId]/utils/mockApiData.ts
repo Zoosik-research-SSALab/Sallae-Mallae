@@ -68,6 +68,7 @@ export function getMockPerformanceResponse(): PerformanceResponse {
   return {
     cumulativeReturn: 124.5,
     winRate: 75.0,
+    averageReturn1y: 10.2,
     recentReturn: 14.43,
     holding: {
       buyDate: "2026-02-13",

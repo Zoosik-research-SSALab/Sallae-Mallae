@@ -1,6 +1,5 @@
 import { apiFetch } from "@/shared/lib/apiClient";
-
-type ApiEnvelope<T> = { success: boolean; data: T; error: unknown };
+import { unwrapApiResponse } from "@/shared/utils/apiResponse";
 
 export async function getStockTrades(
   stockId: string,
@@ -14,20 +13,10 @@ export async function getStockTrades(
   const query = params.toString();
   const url = `/api/report/${stockId}/performance/trades${query ? `?${query}` : ""}`;
 
-  const response = await apiFetch<ApiEnvelope<unknown> | unknown>(url, {
+  const response = await apiFetch(url, {
     cache: "no-store",
     withAuth: true,
   });
 
-  // Unwrap envelope only
-  if (
-    typeof response === "object" &&
-    response !== null &&
-    "data" in response &&
-    "success" in response
-  ) {
-    return (response as ApiEnvelope<unknown>).data;
-  }
-
-  return response;
+  return unwrapApiResponse(response);
 }

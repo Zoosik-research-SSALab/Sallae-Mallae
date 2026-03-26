@@ -96,6 +96,7 @@ export function adaptBacktestFromTrades(trades: TradeItem[]): {
   const bestTrade: BacktestBestTrade = {
     returnRate: best.returnRate,
     period: `${bestStartLabel} ~ ${bestEndLabel}`,
+    holdingDays: best.holdingDays,
     buyPrice: best.buyPrice,
     sellPrice: best.sellPrice ?? best.currentPrice ?? best.buyPrice,
   };
@@ -108,9 +109,7 @@ export function adaptBacktestFromTrades(trades: TradeItem[]): {
     (t) => new Date(t.buyDate) >= oneYearAgo
   );
 
-  // TODO: Replace placeholder sum with a proper cumulative compound return
-  // calculation once the backend provides raw equity-curve data.
-  const oneYearReturn = recentTrades.reduce(
+  const averageReturn1y = recentTrades.reduce(
     (acc, t) => acc + t.returnRate,
     0
   );
@@ -124,7 +123,7 @@ export function adaptBacktestFromTrades(trades: TradeItem[]): {
       : String(new Date().getFullYear());
 
   const stats: BacktestStats = {
-    oneYearReturn,
+    averageReturn1y,
     oneYearTradeCount: recentTrades.length,
     allTimeTradeCount: trades.length,
     allTimeSince,

@@ -51,11 +51,10 @@ function mapApiTradeToEntry(item: TradeItem, index: number): TradeEntry {
   };
 }
 
-function calcBacktest(trades: TradeItem[]): {
+function calcBacktest(trades: TradeItem[], averageReturn1y: number): {
   bestTrade: BacktestBestTrade;
   stats: BacktestStats;
 } {
-  // TODO: BE should provide backtest stats directly; this is a client-side approximation
   const soldTrades = trades.filter((t) => t.sellDate && t.sellPrice != null);
 
   let best = soldTrades[0] ?? trades[0];
@@ -63,22 +62,30 @@ function calcBacktest(trades: TradeItem[]): {
     if (t.returnRate > (best?.returnRate ?? -Infinity)) best = t;
   }
 
+  const bestPeriodStart = best ? formatDateShort(best.buyDate) : "";
+  const bestPeriodEnd = best
+    ? best.sellDate ? formatDateShort(best.sellDate) : "현재"
+    : "";
+
   const bestTrade: BacktestBestTrade = best
     ? {
         returnRate: best.returnRate,
-        period: "",
+        period: `${bestPeriodStart} ~ ${bestPeriodEnd}`,
+        holdingDays: best.holdingDays ?? 0,
         buyPrice: best.buyPrice,
         sellPrice: best.sellPrice ?? best.currentPrice ?? 0,
       }
-    : { returnRate: 0, period: "", buyPrice: 0, sellPrice: 0 };
+    : { returnRate: 0, period: "", holdingDays: 0, buyPrice: 0, sellPrice: 0 };
 
-  const totalReturn = soldTrades.reduce((sum, t) => sum + t.returnRate, 0);
+  const allTimeSince = trades.length > 0
+    ? `${Math.min(...trades.map((t) => new Date(t.buyDate).getFullYear()))}~`
+    : "거래없음";
 
   const stats: BacktestStats = {
-    oneYearReturn: Number(totalReturn.toFixed(2)),
+    averageReturn1y,
     oneYearTradeCount: soldTrades.length,
     allTimeTradeCount: trades.length,
-    allTimeSince: "",
+    allTimeSince,
   };
 
   return { bestTrade, stats };
@@ -172,7 +179,9 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
   const trades: TradeEntry[] = rawTrades.map(mapApiTradeToEntry);
 
   // ── Backtest props ─────────────────────────────────────────────────────────
-  const backtestResult = rawTrades.length > 0 ? calcBacktest(rawTrades) : null;
+  const backtestResult = rawTrades.length > 0
+    ? calcBacktest(rawTrades, performanceData?.averageReturn1y ?? 0)
+    : null;
 
   // ── Committee props ────────────────────────────────────────────────────────
   const firstReport = reportData?.reports?.[0];
