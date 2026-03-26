@@ -80,7 +80,8 @@ public class MainStockQueryRepository {
                 row.get("close_price", Number.class).intValue(),
                 toFloat(row.get("fluctuation_rate", Number.class)),
                 row.get("chairman_signal", String.class),
-                toPercentInt(row.get("debate_confidence", Number.class))
+                toPercentInt(row.get("debate_confidence", Number.class)),
+                false
             ));
         }
         return items;
@@ -174,7 +175,8 @@ public class MainStockQueryRepository {
                 row.get("stock_name", String.class),
                 toPercentInt(row.get("debate_confidence", Number.class)),
                 row.get("close_price", Number.class).intValue(),
-                toFloat(row.get("fluctuation_rate", Number.class))
+                toFloat(row.get("fluctuation_rate", Number.class)),
+                false
             ));
         }
         return items;

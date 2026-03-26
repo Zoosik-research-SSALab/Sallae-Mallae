@@ -11,6 +11,8 @@ import com.sallaemallae.backend.domain.main.dto.TopStockItemResponse;
 import com.sallaemallae.backend.domain.main.dto.TopStocksResponse;
 import com.sallaemallae.backend.domain.main.repository.MainCacheRepository;
 import com.sallaemallae.backend.domain.main.repository.MainStockQueryRepository;
+import com.sallaemallae.backend.domain.news.repository.PipelineSignalRepository;
+import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.sse.SseManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
@@ -36,6 +38,12 @@ class MainServiceImplTest {
     private MainCacheRepository cacheRepository;
 
     @Mock
+    private WatchlistRepository watchlistRepository;
+
+    @Mock
+    private PipelineSignalRepository pipelineSignalRepository;
+
+    @Mock
     private SseManager sseManager;
 
     @Spy
@@ -44,35 +52,25 @@ class MainServiceImplTest {
     @InjectMocks
     private MainServiceImpl mainService;
 
-    // ── streamTopStocks ──
+    // ── getTopStocks ──
 
     @Nested
-    @DisplayName("streamTopStocks")
-    class StreamTopStocks {
-
-        @Test
-        @DisplayName("SSE emitter를 생성하고 SseManager에 등록한다")
-        void registersEmitter() {
-            given(cacheRepository.getTopStocks()).willReturn(Optional.empty());
-
-            SseEmitter emitter = mainService.streamTopStocks();
-
-            assertThat(emitter).isNotNull();
-            verify(sseManager).addEmitter("top-stocks", emitter);
-        }
+    @DisplayName("getTopStocks")
+    class GetTopStocks {
 
         @Test
         @DisplayName("캐시 미스 시 DB 조회 후 캐시에 저장한다")
         void cacheMiss_queriesDbAndSaves() {
             given(cacheRepository.getTopStocks()).willReturn(Optional.empty());
             List<TopStockItemResponse> items = List.of(
-                new TopStockItemResponse(1, 1L, "삼성전자", 70000, 1.5f, "BUY", 85)
+                new TopStockItemResponse(1, 1L, "삼성전자", 70000, 1.5f, "BUY", 85, false)
             );
             given(queryRepository.getTopTenStocksToday()).willReturn(items);
 
-            SseEmitter emitter = mainService.streamTopStocks();
+            TopStocksResponse result = mainService.getTopStocks(null);
 
-            assertThat(emitter).isNotNull();
+            assertThat(result.stocks()).hasSize(1);
+            assertThat(result.stocks().get(0).name()).isEqualTo("삼성전자");
             verify(cacheRepository).saveTopStocks(org.mockito.ArgumentMatchers.argThat(response ->
                 response.stocks().size() == 1
                     && response.stocks().get(0).name().equals("삼성전자")
@@ -80,16 +78,17 @@ class MainServiceImplTest {
         }
 
         @Test
-        @DisplayName("캐시가 있으면 초기 데이터를 전송한다")
-        void sendsInitialCachedData() {
+        @DisplayName("캐시가 있으면 캐시에서 반환한다")
+        void returnsCachedData() {
             TopStocksResponse cached = new TopStocksResponse(List.of(
-                new TopStockItemResponse(1, 1L, "삼성전자", 70000, 1.5f, "BUY", 85)
+                new TopStockItemResponse(1, 1L, "삼성전자", 70000, 1.5f, "BUY", 85, false)
             ));
             given(cacheRepository.getTopStocks()).willReturn(Optional.of(cached));
 
-            SseEmitter emitter = mainService.streamTopStocks();
+            TopStocksResponse result = mainService.getTopStocks(null);
 
-            assertThat(emitter).isNotNull();
+            assertThat(result.stocks()).hasSize(1);
+            assertThat(result.stocks().get(0).name()).isEqualTo("삼성전자");
         }
     }
 
@@ -156,12 +155,12 @@ class MainServiceImplTest {
         @DisplayName("캐시에 데이터가 있으면 캐시에서 반환한다")
         void returnsCachedData() {
             NewSignalsResponse cached = new NewSignalsResponse(
-                List.of(new NewSignalItemResponse(1L, "005930", "삼성전자", 90, 70000, 1.5f)),
-                List.of(new NewSignalItemResponse(2L, "000660", "SK하이닉스", 80, 130000, -2.0f))
+                List.of(new NewSignalItemResponse(1L, "005930", "삼성전자", 90, 70000, 1.5f, false)),
+                List.of(new NewSignalItemResponse(2L, "000660", "SK하이닉스", 80, 130000, -2.0f, false))
             );
             given(cacheRepository.getNewSignals()).willReturn(Optional.of(cached));
 
-            NewSignalsResponse result = mainService.getNewSignals();
+            NewSignalsResponse result = mainService.getNewSignals(null);
 
             assertThat(result.buy()).hasSize(1);
             assertThat(result.buy().get(0).name()).isEqualTo("삼성전자");
@@ -175,15 +174,15 @@ class MainServiceImplTest {
             given(cacheRepository.getNewSignals()).willReturn(Optional.empty());
 
             List<NewSignalItemResponse> buyList = List.of(
-                new NewSignalItemResponse(1L, "005930", "삼성전자", 90, 70000, 1.5f)
+                new NewSignalItemResponse(1L, "005930", "삼성전자", 90, 70000, 1.5f, false)
             );
             List<NewSignalItemResponse> sellList = List.of(
-                new NewSignalItemResponse(2L, "000660", "SK하이닉스", 80, 130000, -2.0f)
+                new NewSignalItemResponse(2L, "000660", "SK하이닉스", 80, 130000, -2.0f, false)
             );
             given(queryRepository.getTodayBuySignals()).willReturn(buyList);
             given(queryRepository.getTodaySellSignals()).willReturn(sellList);
 
-            NewSignalsResponse result = mainService.getNewSignals();
+            NewSignalsResponse result = mainService.getNewSignals(null);
 
             assertThat(result.buy()).hasSize(1);
             assertThat(result.sell()).hasSize(1);
@@ -197,47 +196,14 @@ class MainServiceImplTest {
             given(queryRepository.getTodayBuySignals()).willReturn(new ArrayList<>());
             given(queryRepository.getTodaySellSignals()).willReturn(new ArrayList<>());
 
-            NewSignalsResponse result = mainService.getNewSignals();
+            NewSignalsResponse result = mainService.getNewSignals(null);
 
             assertThat(result.buy()).isEmpty();
             assertThat(result.sell()).isEmpty();
         }
     }
 
-    // ── refreshTopStocks ──
-
-    @Nested
-    @DisplayName("refreshTopStocks")
-    class RefreshTopStocks {
-
-        @Test
-        @DisplayName("DB에서 조회 → 캐시 저장 → SSE broadcast")
-        void refreshesAndBroadcasts() {
-            List<TopStockItemResponse> items = List.of(
-                new TopStockItemResponse(1, 1L, "삼성전자", 70000, 1.5f, "BUY", 85),
-                new TopStockItemResponse(2, 2L, "SK하이닉스", 130000, -0.5f, "SELL", 70)
-            );
-            given(queryRepository.getTopTenStocksToday()).willReturn(items);
-
-            mainService.refreshTopStocks();
-
-            TopStocksResponse expected = new TopStocksResponse(items);
-            verify(cacheRepository).saveTopStocks(expected);
-            verify(sseManager).broadcast("top-stocks", expected);
-        }
-
-        @Test
-        @DisplayName("빈 결과도 정상 처리한다")
-        void emptyResult_stillBroadcasts() {
-            given(queryRepository.getTopTenStocksToday()).willReturn(new ArrayList<>());
-
-            mainService.refreshTopStocks();
-
-            TopStocksResponse expected = new TopStocksResponse(List.of());
-            verify(cacheRepository).saveTopStocks(expected);
-            verify(sseManager).broadcast("top-stocks", expected);
-        }
-    }
+    // ── refreshOnPortfolioDone는 시간 의존성이 있어 통합 테스트에서 검증 ──
 
     // ── refreshCategories ──
 
@@ -311,26 +277,4 @@ class MainServiceImplTest {
         }
     }
 
-    // ── refreshNewSignals ──
-
-    @Nested
-    @DisplayName("refreshNewSignals")
-    class RefreshNewSignals {
-
-        @Test
-        @DisplayName("매수/매도 신호를 갱신하여 캐시에 저장한다 (SSE broadcast 없음)")
-        void refreshesCacheOnly() {
-            List<NewSignalItemResponse> buy = List.of(
-                new NewSignalItemResponse(1L, "005930", "삼성전자", 90, 70000, 1.5f)
-            );
-            given(queryRepository.getTodayBuySignals()).willReturn(buy);
-            given(queryRepository.getTodaySellSignals()).willReturn(new ArrayList<>());
-
-            mainService.refreshNewSignals();
-
-            verify(cacheRepository).saveNewSignals(org.mockito.ArgumentMatchers.argThat(response ->
-                response.buy().size() == 1 && response.sell().isEmpty()
-            ));
-        }
-    }
 }

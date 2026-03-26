@@ -13,17 +13,26 @@ import com.sallaemallae.backend.domain.main.dto.TopStockItemResponse;
 import com.sallaemallae.backend.domain.main.dto.TopStocksResponse;
 import com.sallaemallae.backend.domain.main.repository.MainCacheRepository;
 import com.sallaemallae.backend.domain.main.repository.MainStockQueryRepository;
+import com.sallaemallae.backend.domain.news.repository.PipelineSignalRepository;
+import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.sse.SseManager;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.concurrent.atomic.AtomicReference;
 import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
 import java.util.Comparator;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +54,8 @@ public class MainServiceImpl implements MainService {
 
     private final MainStockQueryRepository queryRepository;
     private final MainCacheRepository cacheRepository;
+    private final WatchlistRepository watchlistRepository;
+    private final PipelineSignalRepository pipelineSignalRepository;
     private final SseManager sseManager;
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
@@ -53,9 +64,16 @@ public class MainServiceImpl implements MainService {
     private final String naverKosdaqUrl;
     private final String naverFxUrl;
 
+    /** 마지막 PORTFOLIO_DONE 신호 처리 시각 (재기동 시 당일 00:00 초기화) */
+    private final AtomicReference<OffsetDateTime> lastPortfolioDoneAt =
+        new AtomicReference<>(LocalDate.now(ZoneId.of("Asia/Seoul"))
+            .atStartOfDay(ZoneId.of("Asia/Seoul")).toOffsetDateTime());
+
     public MainServiceImpl(
         MainStockQueryRepository queryRepository,
         MainCacheRepository cacheRepository,
+        WatchlistRepository watchlistRepository,
+        PipelineSignalRepository pipelineSignalRepository,
         SseManager sseManager,
         ObjectMapper objectMapper,
         @Value("${main.naver.kospi-url:}") String naverKospiUrl,
@@ -64,6 +82,8 @@ public class MainServiceImpl implements MainService {
     ) {
         this.queryRepository = queryRepository;
         this.cacheRepository = cacheRepository;
+        this.watchlistRepository = watchlistRepository;
+        this.pipelineSignalRepository = pipelineSignalRepository;
         this.sseManager = sseManager;
         this.objectMapper = objectMapper;
         this.naverKospiUrl = defaultString(naverKospiUrl);
@@ -81,11 +101,10 @@ public class MainServiceImpl implements MainService {
 
     // ── SSE 스트림 등록 메서드 ──
 
-    /** 추천 종목 TOP10 SSE 스트림 등록 및 현재 캐시 즉시 전송 (캐시 미스 시 DB 조회) */
+    /** 추천 종목 TOP10 조회 (캐시 우선, 미스 시 DB 조회 후 관심종목 여부 매핑) */
     @Override
-    public SseEmitter streamTopStocks() {
-        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
-        sseManager.addEmitter(CHANNEL_TOP_STOCKS, emitter);
+    @Transactional(readOnly = true)
+    public TopStocksResponse getTopStocks(Long userId) {
         TopStocksResponse data = cacheRepository.getTopStocks()
             .orElseGet(() -> {
                 List<TopStockItemResponse> items = queryRepository.getTopTenStocksToday();
@@ -93,8 +112,7 @@ public class MainServiceImpl implements MainService {
                 cacheRepository.saveTopStocks(fresh);
                 return fresh;
             });
-        sendInitial(emitter, data);
-        return emitter;
+        return applyWatchlistToTopStocks(data, userId);
     }
 
     /** 시장 지수 SSE 스트림 등록 및 현재 캐시 즉시 전송 (캐시 미스 시 기본값 전송) */
@@ -132,31 +150,57 @@ public class MainServiceImpl implements MainService {
 
     // ── REST GET 메서드 ──
 
-    /** 당일 매수/매도 상위 3종목 조회 (캐시 우선, 미스 시 DB 조회) */
+    /** 당일 매수/매도 상위 3종목 조회 (캐시 우선, 미스 시 DB 조회 후 관심종목 여부 매핑) */
     @Override
     @Transactional(readOnly = true)
-    public NewSignalsResponse getNewSignals() {
-        return cacheRepository.getNewSignals()
+    public NewSignalsResponse getNewSignals(Long userId) {
+        NewSignalsResponse data = cacheRepository.getNewSignals()
             .orElseGet(() -> {
-                NewSignalsResponse data = buildNewSignals();
-                cacheRepository.saveNewSignals(data);
-                return data;
+                NewSignalsResponse fresh = buildNewSignals();
+                cacheRepository.saveNewSignals(fresh);
+                return fresh;
             });
+        return applyWatchlistToNewSignals(data, userId);
     }
 
     // ── @Scheduled 갱신 메서드 (1분마다 실행) ──
 
-    /** 추천 종목 TOP10 갱신 → Redis 저장 → SSE broadcast */
-    @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
-    public void refreshTopStocks() {
+    /**
+     * PORTFOLIO_DONE 신호 감지 시 추천 종목 TOP10 + 매수/매도 신호 일괄 갱신.
+     * 장마감(15:30 KST) 이후부터 5분마다 폴링하며, 신호 감지 시 1회 갱신 후 다음 장마감까지 휴면.
+     */
+    @Scheduled(fixedRate = 300_000, initialDelay = 5_000)
+    public void refreshOnPortfolioDone() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("Asia/Seoul"));
+        LocalTime currentTime = now.toLocalTime();
+
+        // 오전 9시 ~ 오후 6시 사이에는 폴링하지 않음
+        if (!currentTime.isBefore(LocalTime.of(9, 0)) && currentTime.isBefore(LocalTime.of(18, 0))) {
+            return;
+        }
+
+        OffsetDateTime since = lastPortfolioDoneAt.get();
+        boolean hasSignal = pipelineSignalRepository.existsPortfolioDoneSignalSince(since);
+
+        if (!hasSignal) {
+            return;
+        }
+
         try {
+            // 추천 종목 TOP10 갱신
             List<TopStockItemResponse> items = queryRepository.getTopTenStocksToday();
-            TopStocksResponse data = new TopStocksResponse(items);
-            cacheRepository.saveTopStocks(data);
-            sseManager.broadcast(CHANNEL_TOP_STOCKS, data);
-            log.debug("추천 종목 TOP10 갱신 완료: {}건", items.size());
+            TopStocksResponse topStocksData = new TopStocksResponse(items);
+            cacheRepository.saveTopStocks(topStocksData);
+            log.info("PORTFOLIO_DONE 감지 → 추천 종목 TOP10 갱신 완료: {}건", items.size());
+
+            // 매수/매도 신호 갱신
+            NewSignalsResponse signalsData = buildNewSignals();
+            cacheRepository.saveNewSignals(signalsData);
+            log.info("PORTFOLIO_DONE 감지 → 매수/매도 신호 갱신 완료");
+
+            lastPortfolioDoneAt.set(now.toOffsetDateTime());
         } catch (Exception e) {
-            log.error("추천 종목 TOP10 갱신 실패", e);
+            log.error("PORTFOLIO_DONE 신호 처리 실패", e);
         }
     }
 
@@ -198,17 +242,6 @@ public class MainServiceImpl implements MainService {
         return !now.isBefore(LocalTime.of(8, 50)) && !now.isAfter(LocalTime.of(15, 40));
     }
 
-    /** 매수/매도 신호 갱신 (캐시만 갱신, SSE 없음) */
-    @Scheduled(fixedRate = 60_000, initialDelay = 20_000)
-    public void refreshNewSignals() {
-        try {
-            NewSignalsResponse data = buildNewSignals();
-            cacheRepository.saveNewSignals(data);
-            log.debug("매수/매도 신호 갱신 완료");
-        } catch (Exception e) {
-            log.error("매수/매도 신호 갱신 실패", e);
-        }
-    }
 
     // ── private: 데이터 조립 ──
 
@@ -374,5 +407,52 @@ public class MainServiceImpl implements MainService {
             return 0f;
         }
         return ((Number) value).floatValue();
+    }
+
+    /** 사용자의 관심종목 ID Set 조회 (비로그인 시 빈 Set) */
+    private Set<Long> getWatchlistStockIds(Long userId) {
+        if (userId == null) {
+            return Collections.emptySet();
+        }
+        return new HashSet<>(watchlistRepository.findStockIdsByUserId(userId));
+    }
+
+    /** 추천 종목 TOP10에 관심종목 여부 매핑 */
+    private TopStocksResponse applyWatchlistToTopStocks(TopStocksResponse data, Long userId) {
+        Set<Long> watchlistIds = getWatchlistStockIds(userId);
+        if (watchlistIds.isEmpty()) {
+            return data;
+        }
+        List<TopStockItemResponse> mapped = data.stocks().stream()
+            .map(item -> new TopStockItemResponse(
+                item.rank(), item.stockId(), item.name(), item.price(),
+                item.fluctuationRate(), item.signal(), item.confidence(),
+                watchlistIds.contains(item.stockId())
+            ))
+            .toList();
+        return new TopStocksResponse(mapped);
+    }
+
+    /** 매수/매도 신호에 관심종목 여부 매핑 */
+    private NewSignalsResponse applyWatchlistToNewSignals(NewSignalsResponse data, Long userId) {
+        Set<Long> watchlistIds = getWatchlistStockIds(userId);
+        if (watchlistIds.isEmpty()) {
+            return data;
+        }
+        List<NewSignalItemResponse> buy = data.buy().stream()
+            .map(item -> new NewSignalItemResponse(
+                item.stockId(), item.ticker(), item.name(),
+                item.confidence(), item.price(), item.fluctuationRate(),
+                watchlistIds.contains(item.stockId())
+            ))
+            .toList();
+        List<NewSignalItemResponse> sell = data.sell().stream()
+            .map(item -> new NewSignalItemResponse(
+                item.stockId(), item.ticker(), item.name(),
+                item.confidence(), item.price(), item.fluctuationRate(),
+                watchlistIds.contains(item.stockId())
+            ))
+            .toList();
+        return new NewSignalsResponse(buy, sell);
     }
 }

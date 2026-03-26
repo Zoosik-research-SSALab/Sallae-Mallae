@@ -11,6 +11,7 @@ public record TopStockItemResponse(
     int price,
     float fluctuationRate,
     String signal,
-    int confidence
+    int confidence,
+    boolean isWatchlisted
 ) {
 }

@@ -1,8 +1,10 @@
 package com.sallaemallae.backend.domain.main.controller;
 
 import com.sallaemallae.backend.domain.main.dto.NewSignalsResponse;
+import com.sallaemallae.backend.domain.main.dto.TopStocksResponse;
 import com.sallaemallae.backend.domain.main.service.MainService;
 import com.sallaemallae.backend.global.response.ApiResponse;
+import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -24,19 +26,22 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class MainController {
 
     private final MainService mainService;
+    private final AuthenticatedUserProvider authProvider;
 
-    /** FS-MAIN-001: 오늘의 추천 종목 TOP10 (SSE) */
-    @Operation(summary = "추천 종목 TOP10 실시간 스트림", description = "오늘 날짜 기준 AI 추천 종목 상위 10개를 SSE로 스트리밍합니다.")
-    @GetMapping(value = "/stream/main/top-stocks", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamTopStocks() {
-        return mainService.streamTopStocks();
+    /** FS-MAIN-001: 오늘의 추천 종목 TOP10 (REST GET, 관심종목 여부 포함) */
+    @Operation(summary = "추천 종목 TOP10 조회", description = "오늘 날짜 기준 AI 추천 종목 상위 10개를 반환합니다. 로그인 시 관심종목 여부 포함.")
+    @GetMapping("/main/top-stocks")
+    public ApiResponse<TopStocksResponse> getTopStocks() {
+        Long userId = authProvider.getCurrentUserIdOrNull();
+        return ApiResponse.success(mainService.getTopStocks(userId));
     }
 
-    /** FS-MAIN-002: 당일 매수 상위 3 + 매도 상위 3 종목 (REST GET) */
-    @Operation(summary = "당일 매수/매도 신호 조회", description = "당일 매수 상위 3개 + 매도 상위 3개 종목을 반환합니다.")
+    /** FS-MAIN-002: 당일 매수 상위 3 + 매도 상위 3 종목 (REST GET, 관심종목 여부 포함) */
+    @Operation(summary = "당일 매수/매도 신호 조회", description = "당일 매수 상위 3개 + 매도 상위 3개 종목을 반환합니다. 로그인 시 관심종목 여부 포함.")
     @GetMapping("/main/new-signals")
     public ApiResponse<NewSignalsResponse> getNewSignals() {
-        return ApiResponse.success(mainService.getNewSignals());
+        Long userId = authProvider.getCurrentUserIdOrNull();
+        return ApiResponse.success(mainService.getNewSignals(userId));
     }
 
     /** FS-MAIN-003: 코스피/코스닥/환율 실시간 지수 (SSE) */
