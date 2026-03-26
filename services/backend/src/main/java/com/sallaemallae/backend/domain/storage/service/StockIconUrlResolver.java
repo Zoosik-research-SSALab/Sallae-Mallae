@@ -22,11 +22,17 @@ public class StockIconUrlResolver {
         this.bucket = bucket;
     }
 
-    /** 상대 경로를 전체 URL로 변환. null이면 null 반환. */
+    /** 상대 경로를 전체 URL로 변환. null/blank이면 null, 절대 URL이면 그대로 반환. */
     public String resolve(String iconPath) {
         if (iconPath == null || iconPath.isBlank()) {
             return null;
         }
-        return publicUrl + "/" + bucket + "/" + iconPath;
+        if (iconPath.startsWith("http://") || iconPath.startsWith("https://")) {
+            return iconPath;
+        }
+        String base = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl;
+        String normalizedBucket = bucket.startsWith("/") ? bucket.substring(1) : bucket;
+        String normalizedPath = iconPath.startsWith("/") ? iconPath.substring(1) : iconPath;
+        return base + "/" + normalizedBucket + "/" + normalizedPath;
     }
 }
