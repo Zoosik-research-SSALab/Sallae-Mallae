@@ -233,6 +233,7 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
         <StockDetailHeader
           stockName={stockName}
           portfolioLabel={portfolioLabel}
+          stockDbId={overviewData?.id ?? 0}
         />
       </div>
 
