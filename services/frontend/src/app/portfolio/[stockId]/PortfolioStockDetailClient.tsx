@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import StockDetailHeader from "./components/StockDetailHeader";
 import StockInfoSection from "./components/StockInfoSection";
 import InvestmentCalculator from "./components/InvestmentCalculator";
@@ -124,6 +125,9 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
     refetch: refetchTrades,
   } = useStockTradesQuery(stockId);
 
+  // ── Investment calculator state (훅은 조건부 return 앞에 위치해야 함) ──
+  const [investmentAmount, setInvestmentAmount] = useState("");
+
   const isLoading = overviewLoading || reportLoading || performanceLoading || tradesLoading;
   const isError = overviewError || reportError || performanceError || tradesError;
 
@@ -161,12 +165,21 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
 
   // ── Performance props ──────────────────────────────────────────────────────
   const apiHolding = performanceData?.holding;
+  const customAmountWon = Number(investmentAmount) * 10_000;
+  const useCustom = apiHolding && customAmountWon > 0 && apiHolding.buyPrice > 0;
+
   const performanceProps = apiHolding
     ? {
-        totalPnl: apiHolding.evaluationProfit,
+        totalPnl: useCustom
+          ? Math.round(customAmountWon * (apiHolding.currentReturn / 100))
+          : apiHolding.evaluationProfit,
         returnRate: apiHolding.currentReturn,
-        holdingCount: apiHolding.holdingQuantity,
-        investmentPrincipal: apiHolding.investmentAmount,
+        holdingCount: useCustom
+          ? Math.floor(customAmountWon / apiHolding.buyPrice)
+          : apiHolding.holdingQuantity,
+        investmentPrincipal: useCustom
+          ? customAmountWon
+          : apiHolding.investmentAmount,
         buyDate: formatDateShort(apiHolding.buyDate),
         holdingDays: apiHolding.holdingDays,
         buyPrice: apiHolding.buyPrice,
@@ -252,7 +265,10 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
               />
 
               {/* Investment calculator */}
-              <InvestmentCalculator />
+              <InvestmentCalculator
+                amount={investmentAmount}
+                onAmountChange={setInvestmentAmount}
+              />
 
               {/* Performance metrics */}
               {performanceProps ? (
