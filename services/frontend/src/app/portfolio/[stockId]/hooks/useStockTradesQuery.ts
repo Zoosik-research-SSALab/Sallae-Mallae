@@ -6,8 +6,8 @@ import { transformTradesResponse } from "../utils/transformApiResponse";
 
 export function useStockTradesQuery(
   stockId: string,
-  offset?: number,
-  limit?: number,
+  offset = 0,
+  limit = 6,
 ) {
   return useQuery({
     queryKey: ["portfolio-stock", "trades", stockId, offset, limit],
