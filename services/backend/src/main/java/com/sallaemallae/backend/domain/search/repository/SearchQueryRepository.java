@@ -4,7 +4,9 @@ import com.sallaemallae.backend.domain.search.dto.response.SearchNewsItemRespons
 import com.sallaemallae.backend.domain.search.dto.response.SearchStockItemResponse;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -293,6 +295,12 @@ public class SearchQueryRepository {
   private OffsetDateTime toOffsetDateTime(Object value) {
     if (value == null) {
       return null;
+    }
+    if (value instanceof LocalDate localDate) {
+      return localDate.atStartOfDay(ZONE_ID).toOffsetDateTime();
+    }
+    if (value instanceof Date date) {
+      return date.toLocalDate().atStartOfDay(ZONE_ID).toOffsetDateTime();
     }
     if (value instanceof OffsetDateTime dateTime) {
       return dateTime;
