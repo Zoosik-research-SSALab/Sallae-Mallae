@@ -17,4 +17,4 @@ docker compose \
   -f "$SOURCE_DIR/infra/base/docker-compose.base.yml" \
   -p "sallae-base" \
   exec -T postgres \
-  sh -lc 'until pg_isready -U "$POSTGRES_USER" -d postgres; do sleep 1; done; psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$APP_DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS timescaledb; CREATE EXTENSION IF NOT EXISTS vector;"'
+  sh -lc 'until pg_isready -U "$POSTGRES_USER" -d postgres; do sleep 1; done; psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$APP_DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS timescaledb; CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm;"'
