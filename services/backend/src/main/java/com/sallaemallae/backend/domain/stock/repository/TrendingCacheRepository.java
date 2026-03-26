@@ -29,7 +29,7 @@ public class TrendingCacheRepository {
         String key = todayKey();
         Double score = stringRedisTemplate.opsForZSet()
             .incrementScore(key, String.valueOf(stockId), 1);
-        // score가 1.0이면 해당 종목의 첫 검색 → 키가 새로 생성됐을 가능성이 높으므로 TTL 설정
+        // score가 1.0이면 해당 종목의 첫 검색 → TTL이 아직 미설정일 수 있으므로 설정
         if (score != null && score == 1.0) {
             Duration ttl = Duration.between(
                 ZonedDateTime.now(KST),
