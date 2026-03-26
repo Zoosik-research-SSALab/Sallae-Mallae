@@ -154,10 +154,11 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
             return (
               <div
                 key={row.map((item) => item.stockId).join("-")}
-                className={`grid gap-2 md:grid-cols-2 ${isMutedRow ? "rounded-xl bg-[color:var(--color-bg-tertiary)]" : ""}`}
+                className={`grid gap-2 md:grid-cols-2 ${isMutedRow ? "md:rounded-xl md:bg-[color:var(--color-bg-tertiary)]" : ""}`}
               >
                 {row.map((item) => {
                   const isMutedBackground = mutedBackgroundRanks.has(item.rank);
+                  const isOddRank = item.rank % 2 === 1;
 
                   return (
                     <div
@@ -166,12 +167,14 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
                       tabIndex={0}
                       onClick={() => handleNavigateToReport(item.stockId)}
                       onKeyDown={(event) => handleCardKeyDown(event, item.stockId)}
-                      className={`cursor-pointer rounded-xl px-4 py-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg-primary)] ${
+                      className={`cursor-pointer rounded-xl px-4 py-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg-primary)] hover:bg-[color:var(--color-bg-secondary)] ${
+                        isOddRank ? "bg-[color:var(--color-bg-tertiary)]" : "bg-[color:var(--color-bg-primary)]"
+                      } ${
                         isMutedRow
-                          ? "bg-transparent hover:bg-[color:var(--color-bg-secondary)]"
+                          ? "md:bg-transparent"
                           : isMutedBackground
-                            ? "bg-[color:var(--color-bg-tertiary)] hover:bg-[color:var(--color-bg-secondary)]"
-                            : "bg-[color:var(--color-bg-primary)] hover:bg-[color:var(--color-bg-secondary)]"
+                            ? "md:bg-[color:var(--color-bg-tertiary)]"
+                            : "md:bg-[color:var(--color-bg-primary)]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-4">
@@ -205,7 +208,7 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
                               stockName={item.name}
                               initialWatched={item.isWatchlisted}
                               size="sm"
-                              surface={isMutedRow ? "muted" : "default"}
+                              surface={isMutedRow || isMutedBackground ? "muted" : "default"}
                             />
                           </div>
                         </div>
