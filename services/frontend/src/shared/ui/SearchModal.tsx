@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { GoSearch, GoX } from "react-icons/go";
-import type { RecentSearchItem, SearchAutocompleteResponse, SearchNewsItem, SearchStockItem } from "@/shared/types/search";
+import { motion } from "motion/react";
+import { GoArrowUpRight, GoChevronRight, GoSearch, GoX } from "react-icons/go";
+import { formatStockSectorLabel } from "@/app/stocks/utils/stockSectorLabels";
+import type {
+  RecentSearchItem,
+  SearchAutocompleteResponse,
+  SearchNewsItem,
+  SearchStockItem,
+} from "@/shared/types/search";
 import Input from "@/shared/ui/Input";
 import { cn } from "@/shared/utils/cn";
 
@@ -24,7 +31,13 @@ type Props = {
   onNewsSelect?: (news: SearchNewsItem) => void;
 };
 
-type SearchResultTab = "stocks" | "news";
+type SearchResultTab = "all" | "stocks" | "news";
+
+const TAB_ITEMS: Array<{ value: SearchResultTab; label: string }> = [
+  { value: "all", label: "전체" },
+  { value: "stocks", label: "종목" },
+  { value: "news", label: "뉴스" },
+];
 
 function formatPrice(value: number) {
   return `${value.toLocaleString("ko-KR")}원`;
@@ -92,6 +105,105 @@ function renderHighlightedText(text: string, keyword: string) {
   });
 }
 
+function StockResultRow({
+  stock,
+  keyword,
+  onClick,
+}: {
+  stock: SearchStockItem;
+  keyword: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-4 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]"
+    >
+      <div className="flex min-w-0 items-center gap-4">
+        <div className="typo-body-xs flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] font-semibold text-[color:var(--color-text-base)]">
+          로고
+        </div>
+        <div className="min-w-0">
+          <div className="typo-body-md truncate font-extrabold text-[color:var(--color-text-primary)]">
+            {renderHighlightedText(stock.name, keyword)}
+          </div>
+          <div className="typo-body-sm mt-0.5 truncate font-medium text-[color:var(--color-text-secondary)]">
+            {stock.ticker} <span className="typo-body-xs mx-1">|</span> {formatStockSectorLabel(stock.gicsSector)}
+          </div>
+        </div>
+      </div>
+
+      <div className="shrink-0 text-right">
+        <div className="typo-body-md font-semibold text-[color:var(--color-text-primary)]">
+          {formatPrice(stock.currentPrice)}
+        </div>
+        <div
+          className={cn(
+            "typo-body-sm mt-0.5 font-semibold",
+            stock.fluctuationRate > 0
+              ? "text-[color:var(--color-text-danger)]"
+              : stock.fluctuationRate < 0
+                ? "text-[color:var(--color-text-info)]"
+                : "text-[color:var(--color-text-secondary)]",
+          )}
+        >
+          {formatSignedRate(stock.fluctuationRate)}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function NewsResultRow({
+  news,
+  keyword,
+  onClick,
+  compact = false,
+}: {
+  news: SearchNewsItem;
+  keyword: string;
+  onClick?: () => void;
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center justify-between gap-4 rounded-3xl bg-[color:var(--color-bg-secondary)] px-5 py-4 text-left transition-colors hover:bg-[color:var(--color-bg-tertiary)]"
+      >
+        <div className="min-w-0">
+          <div className="typo-body-md line-clamp-2 font-bold text-[color:var(--color-text-primary)]">
+            {renderHighlightedText(news.title, keyword)}
+          </div>
+          <div className="typo-body-sm mt-1 text-[color:var(--color-text-secondary)]">
+            {formatSearchedAt(news.publishedAt)} · {news.publisher}
+          </div>
+        </div>
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--color-bg-tertiary)] text-[color:var(--color-text-secondary)]">
+          <GoArrowUpRight className="h-4 w-4" />
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full flex-col items-start gap-1 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]"
+    >
+      <div className="typo-body-md line-clamp-2 font-semibold text-[color:var(--color-text-primary)]">
+        {renderHighlightedText(news.title, keyword)}
+      </div>
+      <div className="typo-body-sm text-[color:var(--color-text-secondary)]">
+        {news.publisher} · {formatSearchedAt(news.publishedAt)}
+      </div>
+    </button>
+  );
+}
+
 export default function SearchModal({
   open,
   value,
@@ -111,7 +223,7 @@ export default function SearchModal({
 }: Props) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<SearchResultTab>("stocks");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const trimmedValue = value.trim();
   const normalizedRecentSearches = Array.isArray(recentSearches) ? recentSearches : [];
   const normalizedStockResults = Array.isArray(searchResults?.stocks) ? searchResults.stocks : [];
@@ -120,12 +232,19 @@ export default function SearchModal({
   const hasRecentSearches = normalizedRecentSearches.length > 0;
   const hasStockResults = normalizedStockResults.length > 0;
   const hasNewsResults = normalizedNewsResults.length > 0;
-  const visibleTab =
-    isShowingResults && activeTab === "stocks" && !hasStockResults && hasNewsResults
-      ? "news"
-      : isShowingResults && activeTab === "news" && !hasNewsResults && hasStockResults
-        ? "stocks"
-        : activeTab;
+  const hasAnyResults = hasStockResults || hasNewsResults;
+  const stockPreview = normalizedStockResults.slice(0, 5);
+  const newsPreview = normalizedNewsResults.slice(0, 3);
+  const showStockMore = normalizedStockResults.length > stockPreview.length;
+  const showNewsMore = normalizedNewsResults.length > newsPreview.length;
+
+  const initialTab: SearchResultTab = !isShowingResults
+    ? "all"
+    : hasStockResults && !hasNewsResults
+      ? "stocks"
+      : "all";
+
+  const [currentTab, setCurrentTab] = useState<SearchResultTab>(initialTab);
 
   useEffect(() => {
     if (!open) {
@@ -135,21 +254,23 @@ export default function SearchModal({
     const originalOverflow = document.body.style.overflow;
     const previousActiveElement = document.activeElement as HTMLElement | null;
 
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
 
     const dialogElement = dialogRef.current;
 
     const getFocusableElements = () => {
-      if (!dialogElement) return [];
+      if (!dialogElement) {
+        return [];
+      }
 
       return Array.from(
         dialogElement.querySelectorAll<HTMLElement>(
           [
-            'button:not([disabled])',
-            'input:not([disabled])',
-            'select:not([disabled])',
-            'textarea:not([disabled])',
-            'a[href]',
+            "button:not([disabled])",
+            "input:not([disabled])",
+            "select:not([disabled])",
+            "textarea:not([disabled])",
+            "a[href]",
             '[tabindex]:not([tabindex="-1"])',
           ].join(","),
         ),
@@ -157,7 +278,7 @@ export default function SearchModal({
         return !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true";
       });
     };
-    
+
     getFocusableElements()[0]?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -179,48 +300,52 @@ export default function SearchModal({
 
       const firstElement = focusableElements[0];
       const lastElement = focusableElements[focusableElements.length - 1];
-      const activeElement = document.activeElement as HTMLElement | null;
+      const focusedElement = document.activeElement as HTMLElement | null;
 
       if (event.shiftKey) {
-        if (activeElement === firstElement || !dialogElement?.contains(activeElement)) {
+        if (focusedElement === firstElement || !dialogElement?.contains(focusedElement)) {
           event.preventDefault();
           lastElement.focus();
         }
         return;
       }
 
-      if (activeElement === lastElement) {
+      if (focusedElement === lastElement) {
         event.preventDefault();
         firstElement.focus();
       }
-
     };
+
     window.addEventListener("keydown", onKeyDown);
 
-    return() => {
+    return () => {
       document.body.style.overflow = originalOverflow;
-
       window.removeEventListener("keydown", onKeyDown);
-
       previousActiveElement?.focus();
     };
-
-    
   }, [onClose, open]);
-  
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const nextValue = value.trim();
-    if (!nextValue) return;
+    if (!nextValue) {
+      return;
+    }
 
     onSubmit?.(nextValue);
+  };
+
+  const handleTabChange = (tab: SearchResultTab) => {
+    setCurrentTab(tab);
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (!open) {
     return null;
   }
+
+  const visibleTab = isShowingResults ? currentTab : "all";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:px-6">
@@ -270,106 +395,152 @@ export default function SearchModal({
           </button>
         </form>
 
-        <div className="flex-1 overflow-y-auto bg-[color:var(--color-bg-primary)]">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-[color:var(--color-bg-primary)]">
           <div className="flex flex-col gap-8 p-6">
             {isShowingResults ? (
               <>
                 <section className="flex flex-col gap-4">
                   <div className="border-b border-[color:var(--color-border-primary)] pt-2">
-                    <div className="flex items-start gap-6">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("stocks")}
-                        className={cn(
-                          "typo-body-md border-b pb-3 font-semibold transition-colors",
-                          visibleTab === "stocks"
-                            ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
-                            : "border-transparent text-[color:var(--color-text-tertiary)]",
-                        )}
-                      >
-                        종목
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("news")}
-                        className={cn(
-                          "typo-body-md border-b pb-3 font-semibold transition-colors",
-                          visibleTab === "news"
-                            ? "border-[color:var(--color-border-base)] text-[color:var(--color-text-primary)]"
-                            : "border-transparent text-[color:var(--color-text-tertiary)]",
-                        )}
-                      >
-                        이슈·뉴스
-                      </button>
+                    <div className="relative flex items-start gap-6">
+                      {TAB_ITEMS.map((tab) => (
+                        <button
+                          key={tab.value}
+                          type="button"
+                          onClick={() => handleTabChange(tab.value)}
+                          className={cn(
+                            "typo-body-md relative pb-3 font-semibold transition-colors",
+                            visibleTab === tab.value
+                              ? "text-[color:var(--color-text-primary)]"
+                              : "text-[color:var(--color-text-tertiary)]",
+                          )}
+                        >
+                          {tab.label}
+                          {visibleTab === tab.value ? (
+                            <motion.span
+                              layoutId="search-modal-tab-underline"
+                              transition={{ type: "spring", stiffness: 520, damping: 42 }}
+                              className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-[color:var(--color-border-base)]"
+                            />
+                          ) : null}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  {isSearching ? <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">검색 중...</p> : null}
+                  {isSearching ? (
+                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">검색 중...</p>
+                  ) : null}
                 </section>
 
+                {!isSearching && visibleTab === "all" ? (
+                  hasAnyResults ? (
+                    <div className="flex flex-col gap-10">
+                      {hasStockResults ? (
+                        <section className="flex flex-col gap-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <h2 className="typo-body-md font-semibold text-[color:var(--color-text-secondary)]">종목</h2>
+                            {showStockMore ? (
+                              <button
+                                type="button"
+                                onClick={() => handleTabChange("stocks")}
+                                className="typo-body-sm inline-flex items-center gap-1 font-semibold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-primary)]"
+                              >
+                                종목 더보기
+                                <GoChevronRight className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
+
+                          <div className="flex flex-col gap-2 px-1">
+                            {stockPreview.map((stock) => (
+                              <StockResultRow
+                                key={stock.id}
+                                stock={stock}
+                                keyword={trimmedValue}
+                                onClick={() => onStockSelect?.(stock)}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      ) : null}
+
+                      {hasNewsResults ? (
+                        <section className="flex flex-col gap-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <h2 className="typo-body-md font-semibold text-[color:var(--color-text-secondary)]">뉴스</h2>
+                            {showNewsMore ? (
+                              <button
+                                type="button"
+                                onClick={() => handleTabChange("news")}
+                                className="typo-body-sm inline-flex items-center gap-1 font-semibold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-primary)]"
+                              >
+                                뉴스 더보기
+                                <GoChevronRight className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
+
+                          <div className="flex flex-col gap-3">
+                            {newsPreview.map((news) => (
+                              <NewsResultRow
+                                key={news.id}
+                                news={news}
+                                keyword={trimmedValue}
+                                onClick={() => onNewsSelect?.(news)}
+                                compact
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+                      일치하는 검색 결과가 없습니다.
+                    </p>
+                  )
+                ) : null}
+
                 {!isSearching && visibleTab === "stocks" ? (
-                  <section className="flex flex-col gap-4">
-                    {hasStockResults ? (
+                  hasStockResults ? (
+                    <section className="flex flex-col gap-4">
                       <div className="flex flex-col gap-2 px-2">
                         {normalizedStockResults.map((stock) => (
-                          <button
+                          <StockResultRow
                             key={stock.id}
-                            type="button"
+                            stock={stock}
+                            keyword={trimmedValue}
                             onClick={() => onStockSelect?.(stock)}
-                            className="flex w-full items-center justify-between gap-4 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]"
-                          >
-                            <div className="flex min-w-0 items-center gap-4">
-                              <div className="typo-body-xs flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-bg-interactive-primary)] font-semibold text-[color:var(--color-text-base)]">
-                                로고
-                              </div>
-                              <div className="min-w-0">
-                                <div className="typo-body-md truncate font-extrabold text-[color:var(--color-text-primary)]">
-                                  {renderHighlightedText(stock.name, trimmedValue)}
-                                </div>
-                                <div className="typo-body-sm mt-0.5 truncate font-medium text-[color:var(--color-text-secondary)]">
-                                  {stock.ticker} <span className="typo-body-xs mx-1">|</span> {stock.gicsSector}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <div className="typo-body-md font-semibold text-[color:var(--color-text-primary)]">{formatPrice(stock.currentPrice)}</div>
-                              <div className={cn("typo-body-sm mt-0.5 font-semibold", stock.fluctuationRate > 0 ? "text-[color:var(--color-text-danger)]" : stock.fluctuationRate < 0 ? "text-[color:var(--color-text-info)]" : "text-[color:var(--color-text-secondary)]")}>
-                                {formatSignedRate(stock.fluctuationRate)}
-                              </div>
-                            </div>
-                          </button>
+                          />
                         ))}
                       </div>
-                    ) : (
-                      <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">일치하는 종목이 없습니다.</p>
-                    )}
-                  </section>
+                    </section>
+                  ) : (
+                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+                      일치하는 종목이 없습니다.
+                    </p>
+                  )
                 ) : null}
 
                 {!isSearching && visibleTab === "news" ? (
-                  <section className="flex flex-col gap-4">
-                    {hasNewsResults ? (
+                  hasNewsResults ? (
+                    <section className="flex flex-col gap-4">
                       <div className="flex flex-col gap-2 px-2">
                         {normalizedNewsResults.map((news) => (
-                          <button
+                          <NewsResultRow
                             key={news.id}
-                            type="button"
+                            news={news}
+                            keyword={trimmedValue}
                             onClick={() => onNewsSelect?.(news)}
-                            className="flex w-full flex-col items-start gap-1 rounded-2xl p-4 text-left transition-colors hover:bg-[color:var(--color-bg-secondary)]"
-                          >
-                            <div className="typo-body-md line-clamp-2 font-semibold text-[color:var(--color-text-primary)]">
-                              {renderHighlightedText(news.title, trimmedValue)}
-                            </div>
-                            <div className="typo-body-sm text-[color:var(--color-text-secondary)]">
-                              {news.publisher} · {formatSearchedAt(news.publishedAt)}
-                            </div>
-                          </button>
+                          />
                         ))}
                       </div>
-                    ) : (
-                      <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">일치하는 이슈·뉴스가 없습니다.</p>
-                    )}
-                  </section>
+                    </section>
+                  ) : (
+                    <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+                      일치하는 뉴스가 없습니다.
+                    </p>
+                  )
                 ) : null}
               </>
             ) : (
@@ -399,13 +570,17 @@ export default function SearchModal({
                           onClick={() => onRecentSearchClick?.(item)}
                           className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left"
                         >
-                          <span className="typo-body-sm truncate font-medium text-[color:var(--color-text-primary)]">{item.keyword}</span>
-                          <span className="typo-body-xs shrink-0 text-[color:var(--color-text-tertiary)]">{formatSearchedAt(item.searchedAt)}</span>
+                          <span className="typo-body-sm truncate font-medium text-[color:var(--color-text-primary)]">
+                            {item.keyword}
+                          </span>
+                          <span className="typo-body-xs shrink-0 text-[color:var(--color-text-tertiary)]">
+                            {formatSearchedAt(item.searchedAt)}
+                          </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => onRecentSearchRemove?.(item.keyword)}
-                          aria-label={`${item.keyword} 최근 검색어 삭제`}
+                          aria-label={`${item.keyword} 최근 검색어 제거`}
                           className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[color:var(--color-border-disabled)] transition-colors hover:bg-[color:var(--color-bg-secondary)] hover:text-[color:var(--color-text-primary)]"
                         >
                           <GoX className="h-3.5 w-3.5" />
@@ -414,7 +589,9 @@ export default function SearchModal({
                     ))}
                   </div>
                 ) : (
-                  <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">최근 검색어가 없습니다.</p>
+                  <p className="typo-body-sm text-[color:var(--color-text-tertiary)]">
+                    최근 검색어가 없습니다.
+                  </p>
                 )}
               </section>
             )}

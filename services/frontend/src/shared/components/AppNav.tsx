@@ -347,8 +347,12 @@ export default function AppNav() {
   };
 
   const handleNewsSelect = (news: SearchNewsItem) => {
-    void news;
-    // Keep the current search keyword when a news item is selected.
+    if (!news.url) {
+      return;
+    }
+
+    closeSearchModal();
+    window.open(news.url, "_blank", "noopener,noreferrer");
   };
 
   const handleRecentSearchClick = (item: RecentSearchItem) => {
@@ -511,7 +515,7 @@ export default function AppNav() {
                 }}
                 placeholder="종목명 또는 코드 검색"
                 readOnly
-                className="typo-body-sm w-full rounded-xl bg-[color:var(--color-bg-secondary)] py-2.5 pl-9 pr-4 text-[color:var(--color-text-tertiary)] outline outline-1 outline-[color:var(--color-border-secondary)] placeholder:text-[color:var(--color-text-tertiary)] transition-colors focus:text-[color:var(--color-text-primary)]"
+                className="typo-body-sm w-full cursor-pointer rounded-xl bg-[color:var(--color-bg-secondary)] py-2.5 pl-9 pr-4 text-[color:var(--color-text-tertiary)] outline outline-1 outline-[color:var(--color-border-secondary)] placeholder:text-[color:var(--color-text-tertiary)] transition-colors focus:text-[color:var(--color-text-primary)]"
               />
               <button
                 type="button"
@@ -711,6 +715,7 @@ export default function AppNav() {
       ) : null}
 
       <SearchModal
+        key={isSearchModalOpen ? "search-modal-open" : "search-modal-closed"}
         open={isSearchModalOpen}
         value={searchKeyword}
         recentSearches={recentSearches}
