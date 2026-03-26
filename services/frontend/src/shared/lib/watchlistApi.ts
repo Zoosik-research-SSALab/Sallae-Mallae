@@ -132,10 +132,10 @@ export async function getWatchlistStatus(stockId: number) {
 export async function addWatchlist(stockId: number) {
   const payload = await authApiFetch<
     WatchlistToggleResponse | ApiEnvelope<WatchlistToggleResponse>,
-    { stockId: number }
+    { stock_id: number }
   >("/api/users/watchlist", {
     method: "POST",
-    body: { stockId },
+    body: { stock_id: stockId },
   });
 
   return unwrapApiEnvelope(payload);

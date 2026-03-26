@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 type PostWatchlistBody = {
   stockId?: number;
+  stock_id?: number;
 };
 
 export async function GET(request: NextRequest) {
@@ -53,7 +54,9 @@ export async function POST(request: NextRequest) {
     body = {};
   }
 
-  if (typeof body.stockId !== "number") {
+  const stockId = body.stockId ?? body.stock_id;
+
+  if (typeof stockId !== "number") {
     return NextResponse.json(
       {
         message: "stock_id is required",
@@ -62,5 +65,5 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(snakelizeKeys(addMockWatchlist(body.stockId)));
+  return NextResponse.json(snakelizeKeys(addMockWatchlist(stockId)));
 }

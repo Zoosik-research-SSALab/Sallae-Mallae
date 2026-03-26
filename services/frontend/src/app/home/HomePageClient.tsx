@@ -21,13 +21,15 @@ export default function HomePageClient() {
     typeof window !== "undefined" ? Boolean(readPendingSocialSignup()) : false,
   );
 
+  const topStocks = topStocksData?.stocks;
+
   const popularSearches = useMemo(
     () =>
-      topStocksData.stocks.slice(0, 5).map((item) => ({
+      (topStocks ?? []).slice(0, 5).map((item) => ({
         rank: item.rank,
         keyword: item.name,
       })),
-    [topStocksData.stocks],
+    [topStocks],
   );
 
   return (
@@ -35,7 +37,7 @@ export default function HomePageClient() {
       <main className="flex w-full justify-center bg-[color:var(--color-bg-primary)] py-8">
         <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-4 md:px-6 lg:px-8 xl:flex-row xl:items-start xl:justify-center xl:px-0">
           <div className="flex min-w-0 flex-1 flex-col gap-0 xl:w-[896px] xl:max-w-[896px] xl:flex-none">
-            <TopStocksSection stocks={topStocksData.stocks} isLoading={topStocksLoading} />
+            <TopStocksSection stocks={topStocks ?? []} isLoading={topStocksLoading} />
             <SignalPointsSection data={newSignalsData} isLoading={newSignalsLoading} />
             <CategoryStocksSection categories={categoriesData.categories} isLoading={categoriesLoading} />
           </div>

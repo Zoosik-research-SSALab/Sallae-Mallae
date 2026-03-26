@@ -137,6 +137,7 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
                   <WatchlistHeartButton
                     stockId={featured.stockId}
                     stockName={featured.name}
+                    initialWatched={featured.isWatchlisted}
                     size="md"
                     surface="muted"
                   />
@@ -202,6 +203,7 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
                             <WatchlistHeartButton
                               stockId={item.stockId}
                               stockName={item.name}
+                              initialWatched={item.isWatchlisted}
                               size="sm"
                               surface={isMutedRow ? "muted" : "default"}
                             />
