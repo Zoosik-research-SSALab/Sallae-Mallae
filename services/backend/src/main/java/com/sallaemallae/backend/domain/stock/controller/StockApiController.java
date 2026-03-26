@@ -19,7 +19,6 @@ import com.sallaemallae.backend.domain.stock.service.StockPriceStreamService;
 import com.sallaemallae.backend.domain.stock.service.StockRealtimeMinuteService;
 import com.sallaemallae.backend.domain.stock.service.StockService;
 import com.sallaemallae.backend.domain.stock.service.StockTopListService;
-import com.sallaemallae.backend.domain.stock.service.TrendingStockService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import java.util.List;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
@@ -34,9 +33,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 
 @Tag(name = "Stock Detail", description = "Stock basic info and market data APIs")
@@ -51,15 +48,7 @@ public class StockApiController {
   private final StockMarketQueryService stockMarketQueryService;
   private final StockPriceStreamService stockPriceStreamService;
   private final StockRealtimeMinuteService stockRealtimeMinuteService;
-  private final TrendingStockService trendingStockService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
-
-  /** 실시간 인기 검색 종목 TOP5 (SSE) */
-  @Operation(summary = "인기 검색 종목 TOP5 실시간 스트림", description = "검색 횟수 기반 인기 종목 상위 5개를 SSE로 스트리밍합니다.")
-  @GetMapping(value = "/trending", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-  public SseEmitter streamTrendingStocks() {
-      return trendingStockService.streamTrending();
-  }
 
   @Operation(
       summary = "Get top stock list",
