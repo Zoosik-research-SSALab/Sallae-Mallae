@@ -129,6 +129,21 @@ def save_signals_to_db(engine, report_date: date, signals: list[dict]) -> None:
                 "report_date": report_date, "ticker": s["ticker"], "prob": s["lgbm_prob"],
             })
 
+            # GARCH
+            garch_vol_5d = s.get("garch_vol_5d")
+            if garch_vol_5d is not None and not (isinstance(garch_vol_5d, float) and np.isnan(garch_vol_5d)):
+                conn.execute(text("""
+                    INSERT INTO ml_garch_predictions (stock_id, report_date, model_version, vol_5d, risk_flag)
+                    SELECT st.id, :report_date, 'garch-v1', :vol_5d, :risk_flag
+                    FROM stocks st WHERE st.ticker = :ticker
+                    ON CONFLICT (stock_id, report_date, model_version) DO UPDATE
+                    SET vol_5d = EXCLUDED.vol_5d, risk_flag = EXCLUDED.risk_flag
+                """), {
+                    "report_date": report_date, "ticker": s["ticker"],
+                    "vol_5d": garch_vol_5d,
+                    "risk_flag": s.get("garch_risk_flag", False),
+                })
+
             # Ensemble
             signal_agreement = (s["tft_prob"] >= 0.5) == (s["lgbm_prob"] >= 0.5)
             confidence_gap = abs(s["tft_prob"] - s["lgbm_prob"])
