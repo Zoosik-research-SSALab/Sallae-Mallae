@@ -46,4 +46,7 @@ public interface StockPriceDailyRepository extends JpaRepository<StockPriceDaily
 
   List<StockPriceDaily> findByTradeDateBetweenOrderByStockIdAscTradeDateAsc(
       java.time.LocalDate startDate, java.time.LocalDate endDate);
+
+  Optional<StockPriceDaily> findTopByStockIdAndTradeDateLessThanEqualOrderByTradeDateDesc(
+      Long stockId, LocalDate tradeDate);
 }
