@@ -16,4 +16,13 @@ public interface PipelineSignalRepository extends JpaRepository<PipelineSignal, 
         AND ps.createdAt >= :since
       """)
   boolean existsDoneSignalSince(@Param("since") OffsetDateTime since);
+
+  // 지정 시각 이후의 완료된 포트폴리오 파이프라인 신호 존재 여부 확인
+  @Query("""
+      SELECT COUNT(ps) > 0 FROM PipelineSignal ps
+      WHERE ps.signalType = 'PORTFOLIO_DONE'
+        AND ps.status = 'DONE'
+        AND ps.createdAt >= :since
+      """)
+  boolean existsPortfolioDoneSignalSince(@Param("since") OffsetDateTime since);
 }

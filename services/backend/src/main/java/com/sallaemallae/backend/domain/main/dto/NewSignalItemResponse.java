@@ -10,6 +10,7 @@ public record NewSignalItemResponse(
     String name,
     int confidence,
     int price,
-    float fluctuationRate
+    float fluctuationRate,
+    boolean isWatchlisted
 ) {
 }
