@@ -84,14 +84,14 @@ public class MainTestController {
     @GetMapping("/main/test/new-signals")
     public ApiResponse<NewSignalsResponse> getNewSignals() {
         List<NewSignalItemResponse> buy = List.of(
-            new NewSignalItemResponse(1L, "005930", "삼성전자", 92, 72500, 2.1f),
-            new NewSignalItemResponse(2L, "000660", "SK하이닉스", 88, 185000, 3.5f),
-            new NewSignalItemResponse(4L, "005380", "현대자동차", 82, 245000, 1.8f)
+            new NewSignalItemResponse(1L, "005930", "삼성전자", 92, 72500, 2.1f, false),
+            new NewSignalItemResponse(2L, "000660", "SK하이닉스", 88, 185000, 3.5f, false),
+            new NewSignalItemResponse(4L, "005380", "현대자동차", 82, 245000, 1.8f, false)
         );
         List<NewSignalItemResponse> sell = List.of(
-            new NewSignalItemResponse(3L, "373220", "LG에너지솔루션", 85, 385000, -1.2f),
-            new NewSignalItemResponse(5L, "035420", "NAVER", 80, 215000, -0.7f),
-            new NewSignalItemResponse(7L, "005490", "POSCO홀딩스", 76, 312000, -2.3f)
+            new NewSignalItemResponse(3L, "373220", "LG에너지솔루션", 85, 385000, -1.2f, false),
+            new NewSignalItemResponse(5L, "035420", "NAVER", 80, 215000, -0.7f, false),
+            new NewSignalItemResponse(7L, "005490", "POSCO홀딩스", 76, 312000, -2.3f, false)
         );
         return ApiResponse.success(new NewSignalsResponse(buy, sell));
     }
@@ -114,29 +114,29 @@ public class MainTestController {
     private TopStocksResponse buildTopStocks(boolean setA) {
         if (setA) {
             return new TopStocksResponse(List.of(
-                new TopStockItemResponse(1, 1L, "삼성전자", 72500, 2.1f, "BUY", 92),
-                new TopStockItemResponse(2, 2L, "SK하이닉스", 185000, 3.5f, "BUY", 88),
-                new TopStockItemResponse(3, 3L, "LG에너지솔루션", 385000, -1.2f, "SELL", 85),
-                new TopStockItemResponse(4, 4L, "현대자동차", 245000, 1.8f, "BUY", 82),
-                new TopStockItemResponse(5, 5L, "NAVER", 215000, -0.7f, "SELL", 80),
-                new TopStockItemResponse(6, 6L, "카카오", 48500, 1.5f, "BUY", 78),
-                new TopStockItemResponse(7, 7L, "POSCO홀딩스", 312000, -2.3f, "SELL", 76),
-                new TopStockItemResponse(8, 8L, "삼성바이오로직스", 825000, 0.9f, "BUY", 74),
-                new TopStockItemResponse(9, 9L, "기아", 125000, 2.7f, "BUY", 72),
-                new TopStockItemResponse(10, 10L, "셀트리온", 178000, -1.5f, "SELL", 70)
+                new TopStockItemResponse(1, 1L, "삼성전자", 72500, 2.1f, "BUY", 92, false),
+                new TopStockItemResponse(2, 2L, "SK하이닉스", 185000, 3.5f, "BUY", 88, false),
+                new TopStockItemResponse(3, 3L, "LG에너지솔루션", 385000, -1.2f, "SELL", 85, false),
+                new TopStockItemResponse(4, 4L, "현대자동차", 245000, 1.8f, "BUY", 82, false),
+                new TopStockItemResponse(5, 5L, "NAVER", 215000, -0.7f, "SELL", 80, false),
+                new TopStockItemResponse(6, 6L, "카카오", 48500, 1.5f, "BUY", 78, false),
+                new TopStockItemResponse(7, 7L, "POSCO홀딩스", 312000, -2.3f, "SELL", 76, false),
+                new TopStockItemResponse(8, 8L, "삼성바이오로직스", 825000, 0.9f, "BUY", 74, false),
+                new TopStockItemResponse(9, 9L, "기아", 125000, 2.7f, "BUY", 72, false),
+                new TopStockItemResponse(10, 10L, "셀트리온", 178000, -1.5f, "SELL", 70, false)
             ));
         }
         return new TopStocksResponse(List.of(
-            new TopStockItemResponse(1, 11L, "현대모비스", 235000, 4.2f, "BUY", 95),
-            new TopStockItemResponse(2, 12L, "KB금융", 68000, -1.8f, "SELL", 90),
-            new TopStockItemResponse(3, 13L, "신한지주", 45000, 2.9f, "BUY", 87),
-            new TopStockItemResponse(4, 14L, "한화에어로스페이스", 185000, 5.3f, "BUY", 84),
-            new TopStockItemResponse(5, 15L, "HD현대중공업", 165000, -2.1f, "SELL", 81),
-            new TopStockItemResponse(6, 16L, "크래프톤", 265000, 3.7f, "BUY", 79),
-            new TopStockItemResponse(7, 17L, "두산에너빌리티", 18500, -1.4f, "SELL", 77),
-            new TopStockItemResponse(8, 18L, "에코프로", 98000, 6.2f, "BUY", 75),
-            new TopStockItemResponse(9, 19L, "HD한국조선해양", 145000, 4.8f, "BUY", 73),
-            new TopStockItemResponse(10, 20L, "LG전자", 98000, -0.9f, "SELL", 71)
+            new TopStockItemResponse(1, 11L, "현대모비스", 235000, 4.2f, "BUY", 95, false),
+            new TopStockItemResponse(2, 12L, "KB금융", 68000, -1.8f, "SELL", 90, false),
+            new TopStockItemResponse(3, 13L, "신한지주", 45000, 2.9f, "BUY", 87, false),
+            new TopStockItemResponse(4, 14L, "한화에어로스페이스", 185000, 5.3f, "BUY", 84, false),
+            new TopStockItemResponse(5, 15L, "HD현대중공업", 165000, -2.1f, "SELL", 81, false),
+            new TopStockItemResponse(6, 16L, "크래프톤", 265000, 3.7f, "BUY", 79, false),
+            new TopStockItemResponse(7, 17L, "두산에너빌리티", 18500, -1.4f, "SELL", 77, false),
+            new TopStockItemResponse(8, 18L, "에코프로", 98000, 6.2f, "BUY", 75, false),
+            new TopStockItemResponse(9, 19L, "HD한국조선해양", 145000, 4.8f, "BUY", 73, false),
+            new TopStockItemResponse(10, 20L, "LG전자", 98000, -0.9f, "SELL", 71, false)
         ));
     }
 

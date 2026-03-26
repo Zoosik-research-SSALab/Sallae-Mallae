@@ -32,6 +32,8 @@ public record StockListItemResponse(
     @Schema(description = "Derived confidence score", example = "87")
     int confidence,
     @Schema(description = "Whether the stock is watchlisted by the current user", example = "false")
-    boolean isWatchlisted
+    boolean isWatchlisted,
+    @Schema(description = "Stock icon URL", example = "https://minio.example.com/assets/stock-icons/삼성전자_005930.png", nullable = true)
+    String iconUrl
 ) {
 }

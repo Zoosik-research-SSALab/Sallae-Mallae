@@ -9,7 +9,9 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -80,7 +82,8 @@ public class MainStockQueryRepository {
                 row.get("close_price", Number.class).intValue(),
                 toFloat(row.get("fluctuation_rate", Number.class)),
                 row.get("chairman_signal", String.class),
-                toPercentInt(row.get("debate_confidence", Number.class))
+                toPercentInt(row.get("debate_confidence", Number.class)),
+                false
             ));
         }
         return items;
@@ -124,6 +127,62 @@ public class MainStockQueryRepository {
 
         @SuppressWarnings("unchecked")
         List<Object[]> result = entityManager.createNativeQuery(sql).getResultList();
+        return result;
+    }
+
+    /**
+     * 종목 ID 목록에 대한 최신 가격 및 전일 대비 변동률 조회.
+     * 현재가: 1분봉 우선, 없으면 일봉 fallback.
+     * 변동률: (현재가 - 전일 종가) / 전일 종가 * 100 으로 계산.
+     */
+    public Map<Long, float[]> getLatestPrices(List<Long> stockIds) {
+        if (stockIds == null || stockIds.isEmpty()) {
+            return Map.of();
+        }
+
+        String sql = """
+            SELECT s.id AS stock_id,
+                   COALESCE(m.close_price, d.close_price) AS current_price,
+                   prev.close_price AS prev_close_price
+            FROM stocks s
+            LEFT JOIN LATERAL (
+                SELECT close_price
+                FROM stock_prices_minute
+                WHERE stock_id = s.id
+                ORDER BY trade_timestamp DESC LIMIT 1
+            ) m ON true
+            LEFT JOIN LATERAL (
+                SELECT close_price
+                FROM stock_prices_daily
+                WHERE stock_id = s.id
+                ORDER BY trade_date DESC LIMIT 1
+            ) d ON true
+            LEFT JOIN LATERAL (
+                SELECT close_price
+                FROM stock_prices_daily
+                WHERE stock_id = s.id
+                  AND trade_date < CURRENT_DATE
+                ORDER BY trade_date DESC LIMIT 1
+            ) prev ON true
+            WHERE s.id IN (:stockIds)
+            """;
+
+        List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
+            .setParameter("stockIds", stockIds)
+            .getResultList();
+
+        Map<Long, float[]> result = new HashMap<>();
+        for (Tuple row : rows) {
+            Long stockId = row.get("stock_id", Number.class).longValue();
+            Number currentNum = row.get("current_price", Number.class);
+            Number prevNum = row.get("prev_close_price", Number.class);
+            int price = currentNum != null ? currentNum.intValue() : 0;
+            float rate = 0f;
+            if (currentNum != null && prevNum != null && prevNum.floatValue() != 0f) {
+                rate = (currentNum.floatValue() - prevNum.floatValue()) / prevNum.floatValue() * 100f;
+            }
+            result.put(stockId, new float[]{price, rate});
+        }
         return result;
     }
 
@@ -174,7 +233,8 @@ public class MainStockQueryRepository {
                 row.get("stock_name", String.class),
                 toPercentInt(row.get("debate_confidence", Number.class)),
                 row.get("close_price", Number.class).intValue(),
-                toFloat(row.get("fluctuation_rate", Number.class))
+                toFloat(row.get("fluctuation_rate", Number.class)),
+                false
             ));
         }
         return items;

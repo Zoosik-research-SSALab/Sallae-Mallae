@@ -36,21 +36,14 @@ public class ChairmanPortfolioQueryRepository {
         SELECT s.id AS stock_id,
                s.ticker,
                s.name,
-               buy_entry.trade_price_rate AS buy_price,
-               price.close_price AS current_price,
-               buy_entry.trade_time AS buy_time,
+               s.icon_url,
+               h.avg_buy_price AS buy_price,
+               COALESCE(h.current_price, price.close_price) AS current_price,
+               h.buy_date AS buy_time,
+               h.holding_quantity,
                h.return_rate
         FROM ai_portfolio_holdings h
         JOIN stocks s ON s.id = h.stock_id
-        LEFT JOIN LATERAL (
-            SELECT trade_price_rate, trade_time
-            FROM ai_trading_history
-            WHERE portfolio_id = :portfolioId
-              AND stock_id = h.stock_id
-              AND trade_type = 'BUY'
-            ORDER BY trade_time DESC, id DESC
-            LIMIT 1
-        ) buy_entry ON true
         LEFT JOIN LATERAL (
             SELECT close_price
             FROM stock_prices_daily
@@ -79,7 +72,9 @@ public class ChairmanPortfolioQueryRepository {
           toFloat(row.get("buy_price")),
           toInteger(row.get("current_price")),
           toOffsetDateTime(row.get("buy_time")),
-          toFloat(row.get("return_rate"))
+          toLong(row.get("holding_quantity")),
+          toFloat(row.get("return_rate")),
+          row.get("icon_url", String.class)
       ));
     }
     return items;
@@ -113,13 +108,27 @@ public class ChairmanPortfolioQueryRepository {
         SELECT s.id AS stock_id,
                s.ticker,
                s.name,
+               s.icon_url,
                h.trade_type,
                h.trade_time,
                h.trade_price_rate,
+               price.close_price AS current_price,
+               COALESCE(holding.holding_quantity, h.holding_quantity_after) AS holding_quantity,
                h.return_rate
         FROM ai_trading_history h
         JOIN stocks s ON s.id = h.stock_id
         JOIN latest_trade_day d ON DATE(h.trade_time) = d.trade_day
+        LEFT JOIN ai_portfolio_holdings holding
+               ON holding.portfolio_id = h.portfolio_id
+              AND holding.stock_id = h.stock_id
+        LEFT JOIN LATERAL (
+            SELECT close_price
+            FROM stock_prices_daily
+            WHERE stock_id = h.stock_id
+              AND trade_date <= CURRENT_DATE
+            ORDER BY trade_date DESC, id DESC
+            LIMIT 1
+        ) price ON true
         WHERE h.portfolio_id = :portfolioId
         ORDER BY h.trade_time DESC, h.id DESC
         LIMIT :limit OFFSET :offset
@@ -140,28 +149,77 @@ public class ChairmanPortfolioQueryRepository {
           row.get("trade_type", String.class),
           toOffsetDateTime(row.get("trade_time")),
           toFloat(row.get("trade_price_rate")),
-          toFloat(row.get("return_rate"))
+          toInteger(row.get("current_price")),
+          toLong(row.get("holding_quantity")),
+          toFloat(row.get("return_rate")),
+          row.get("icon_url", String.class)
       ));
     }
     return items;
   }
 
-  public SignalSummaryRow findSignalSummary() {
+  public List<MonthlyTradeMetricRow> findMonthlyTradeMetricRows(Long portfolioId) {
+    String sql = """
+        SELECT TO_CHAR(DATE_TRUNC('month', h.trade_time), 'YYYY-MM') AS month,
+               COALESCE(SUM(CASE WHEN h.trade_type = 'SELL' THEN h.realized_profit ELSE 0 END), 0) AS realized_profit_amount,
+               COALESCE(SUM(CASE
+                                WHEN h.trade_type = 'SELL' AND h.trade_amount IS NOT NULL
+                                  THEN h.trade_amount - h.realized_profit
+                                ELSE 0
+                            END), 0) AS realized_cost_amount,
+               COALESCE(SUM(CASE WHEN h.trade_type = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
+               COALESCE(SUM(CASE WHEN h.trade_type = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count
+        FROM ai_trading_history h
+        WHERE h.portfolio_id = :portfolioId
+        GROUP BY DATE_TRUNC('month', h.trade_time)
+        ORDER BY month DESC
+        """;
+
+    List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
+        .setParameter("portfolioId", portfolioId)
+        .getResultList();
+
+    List<MonthlyTradeMetricRow> items = new ArrayList<>();
+    for (Tuple row : rows) {
+      items.add(new MonthlyTradeMetricRow(
+          row.get("month", String.class),
+          toLong(row.get("realized_profit_amount")),
+          toLong(row.get("realized_cost_amount")),
+          toInteger(row.get("buy_count")),
+          toInteger(row.get("sell_count"))
+      ));
+    }
+    return items;
+  }
+
+  public SignalSummaryRow findSignalSummary(Long portfolioId) {
     String sql = """
         WITH latest_report_date AS (
             SELECT MAX(report_date) AS report_date
             FROM ai_debate_reports
             WHERE report_date <= CURRENT_DATE
+        ),
+        latest_reports AS (
+            SELECT DISTINCT ON (r.stock_id)
+                   r.stock_id,
+                   r.chairman_signal
+            FROM ai_debate_reports r
+            JOIN latest_report_date d ON r.report_date = d.report_date
+            ORDER BY r.stock_id, r.created_at DESC, r.id DESC
         )
         SELECT COALESCE(SUM(CASE WHEN r.chairman_signal = 'BUY' THEN 1 ELSE 0 END), 0) AS buy_count,
                COALESCE(SUM(CASE WHEN r.chairman_signal = 'SELL' THEN 1 ELSE 0 END), 0) AS sell_count,
-               COALESCE(SUM(CASE WHEN r.chairman_signal = 'HOLD' THEN 1 ELSE 0 END), 0) AS hold_count,
-               COALESCE(SUM(CASE WHEN r.chairman_signal = 'STAY' THEN 1 ELSE 0 END), 0) AS watch_count
-        FROM ai_debate_reports r
-        JOIN latest_report_date d ON r.report_date = d.report_date
+               COALESCE(SUM(CASE WHEN r.chairman_signal = 'HOLD' AND h.stock_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS hold_count,
+               COALESCE(SUM(CASE WHEN (r.chairman_signal = 'HOLD' AND h.stock_id IS NULL) OR r.chairman_signal = 'STAY' THEN 1 ELSE 0 END), 0) AS watch_count
+        FROM latest_reports r
+        LEFT JOIN ai_portfolio_holdings h
+               ON h.portfolio_id = :portfolioId
+              AND h.stock_id = r.stock_id
         """;
 
-    Tuple row = (Tuple) entityManager.createNativeQuery(sql, Tuple.class).getSingleResult();
+    Tuple row = (Tuple) entityManager.createNativeQuery(sql, Tuple.class)
+        .setParameter("portfolioId", portfolioId)
+        .getSingleResult();
     return new SignalSummaryRow(
         toInteger(row.get("buy_count")),
         toInteger(row.get("sell_count")),
@@ -190,6 +248,7 @@ public class ChairmanPortfolioQueryRepository {
         SELECT s.id AS stock_id,
                s.ticker,
                s.name,
+               s.icon_url,
                p.close_price,
                lr.signal
         FROM latest_reports lr
@@ -220,7 +279,8 @@ public class ChairmanPortfolioQueryRepository {
           row.get("ticker", String.class),
           row.get("name", String.class),
           toInteger(row.get("close_price")),
-          row.get("signal", String.class)
+          row.get("signal", String.class),
+          row.get("icon_url", String.class)
       ));
     }
     return items;
@@ -351,7 +411,9 @@ public class ChairmanPortfolioQueryRepository {
       Float buyPrice,
       Integer currentPrice,
       OffsetDateTime buyTime,
-      Float returnRate
+      Long holdingQuantity,
+      Float returnRate,
+      String iconUrl
   ) {
     public Integer holdingDays(LocalDate currentDate) {
       if (buyTime == null) {
@@ -368,7 +430,19 @@ public class ChairmanPortfolioQueryRepository {
       String tradeType,
       OffsetDateTime tradeTime,
       Float tradePrice,
-      Float returnRate
+      Integer currentPrice,
+      Long holdingQuantity,
+      Float returnRate,
+      String iconUrl
+  ) {
+  }
+
+  public record MonthlyTradeMetricRow(
+      String month,
+      Long realizedProfitAmount,
+      Long realizedCostAmount,
+      Integer buyCount,
+      Integer sellCount
   ) {
   }
 
@@ -386,7 +460,8 @@ public class ChairmanPortfolioQueryRepository {
       String ticker,
       String name,
       Integer price,
-      String signal
+      String signal,
+      String iconUrl
   ) {
   }
 

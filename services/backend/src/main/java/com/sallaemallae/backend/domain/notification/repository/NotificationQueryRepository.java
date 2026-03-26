@@ -48,7 +48,8 @@ public class NotificationQueryRepository {
                sn.message,
                un.is_read,
                un.created_at,
-               sn.stock_id
+               sn.stock_id,
+               s.icon_url
         FROM user_notifications un
                  JOIN stock_notifications sn ON sn.id = un.notification_id
                  JOIN stocks s ON s.id = sn.stock_id
@@ -146,7 +147,8 @@ public class NotificationQueryRepository {
         (String) row[3],
         toBoolean(row[4]),
         toOffsetDateTime(row[5]),
-        toLong(row[6])
+        toLong(row[6]),
+        (String) row[7]
     );
   }
 

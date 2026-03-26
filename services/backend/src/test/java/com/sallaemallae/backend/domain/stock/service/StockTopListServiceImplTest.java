@@ -12,6 +12,7 @@ import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.exception.BusinessException;
@@ -45,13 +46,17 @@ class StockTopListServiceImplTest {
   @Mock
   private StockQuoteCacheService stockQuoteCacheService;
 
+  @Mock
+  private StockIconUrlResolver stockIconUrlResolver;
+
   private StockTopListServiceImpl createService() {
     return new StockTopListServiceImpl(
         stockRepository,
         stockPriceDailyRepository,
         watchlistService,
         stockDividendYieldSnapshotService,
-        stockQuoteCacheService
+        stockQuoteCacheService,
+        stockIconUrlResolver
     );
   }
 
@@ -331,6 +336,25 @@ class StockTopListServiceImplTest {
     );
   }
 
+  @Test
+  void getTopStocks_resolvesIconUrlThroughResolver() {
+    StockTopListServiceImpl service = createService();
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L, "stock-icons/삼성전자_005930.png");
+
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(samsung));
+    given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
+        "005930", quoteData("005930", 70000, 2.2f, 100000L)
+    ));
+    given(stockIconUrlResolver.resolve("stock-icons/삼성전자_005930.png"))
+        .willReturn("https://cdn.example.com/assets/stock-icons/삼성전자_005930.png");
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "CHANGE", null, 0, 10);
+
+    assertThat(response.stocks().get(0).iconUrl())
+        .isEqualTo("https://cdn.example.com/assets/stock-icons/삼성전자_005930.png");
+  }
+
   private Stock stock(
       Long id,
       String ticker,
@@ -339,12 +363,25 @@ class StockTopListServiceImplTest {
       String category,
       Long outstandingShares
   ) {
+    return stock(id, ticker, name, gicsSector, category, outstandingShares, null);
+  }
+
+  private Stock stock(
+      Long id,
+      String ticker,
+      String name,
+      String gicsSector,
+      String category,
+      Long outstandingShares,
+      String iconUrl
+  ) {
     Stock stock = mock(Stock.class);
     given(stock.getId()).willReturn(id);
     given(stock.getTicker()).willReturn(ticker);
     given(stock.getName()).willReturn(name);
     given(stock.getCategory()).willReturn(category);
     given(stock.getOutstandingShares()).willReturn(outstandingShares);
+    given(stock.getIconUrl()).willReturn(iconUrl);
     return stock;
   }
 

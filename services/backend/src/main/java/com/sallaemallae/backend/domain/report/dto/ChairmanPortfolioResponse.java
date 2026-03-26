@@ -32,7 +32,7 @@ public record ChairmanPortfolioResponse(
   public record Summary(
       @Schema(description = "누적 수익률", example = "42.5")
       Float cumulativeReturn,
-      @Schema(description = "예측 적중률", example = "85.2")
+      @Schema(description = "월간 평균 수익률", example = "2.15")
       Float hitRate,
       @Schema(description = "전일 수익률", example = "1.34", nullable = true)
       Float yesterdayReturn,
@@ -69,7 +69,9 @@ public record ChairmanPortfolioResponse(
       @Schema(description = "현재가", example = "74300")
       Integer price,
       @Schema(description = "AI 매매신호", example = "BUY")
-      String signal
+      String signal,
+      @Schema(description = "종목 아이콘 URL", nullable = true)
+      String iconUrl
   ) {
   }
 
@@ -87,8 +89,12 @@ public record ChairmanPortfolioResponse(
       Integer currentPrice,
       @Schema(description = "보유 일수", example = "14", nullable = true)
       Integer holdingDays,
+      @Schema(description = "보유 수량", example = "12", nullable = true)
+      Long holdingQuantity,
       @Schema(description = "수익률", example = "14.43", nullable = true)
-      Float returnRate
+      Float returnRate,
+      @Schema(description = "종목 아이콘 URL", nullable = true)
+      String iconUrl
   ) {
   }
 
@@ -106,8 +112,14 @@ public record ChairmanPortfolioResponse(
       OffsetDateTime tradeTime,
       @Schema(description = "매매 단가", example = "65000", nullable = true)
       Float tradePrice,
+      @Schema(description = "현재가", example = "74300", nullable = true)
+      Integer currentPrice,
+      @Schema(description = "보유 수량", example = "12", nullable = true)
+      Long holdingQuantity,
       @Schema(description = "수익률", example = "3.21", nullable = true)
-      Float returnRate
+      Float returnRate,
+      @Schema(description = "종목 아이콘 URL", nullable = true)
+      String iconUrl
   ) {
   }
 
@@ -115,8 +127,14 @@ public record ChairmanPortfolioResponse(
   public record MonthlyReturnItem(
       @Schema(description = "기준 월", example = "2026-03")
       String month,
-      @Schema(description = "월간 수익률", example = "4.31")
+      @Schema(description = "월간 실현 수익률", example = "4.31")
       Float monthlyReturn,
+      @Schema(description = "월간 실현 손익 금액", example = "1823400", nullable = true)
+      Long realizedProfitAmount,
+      @Schema(description = "월간 매수 횟수", example = "6", nullable = true)
+      Integer buyCount,
+      @Schema(description = "월간 매도 횟수", example = "4", nullable = true)
+      Integer sellCount,
       @Schema(description = "코스피 월간 수익률", example = "2.17", nullable = true)
       Float kospiReturn,
       @Schema(description = "초과 수익률", example = "2.14", nullable = true)

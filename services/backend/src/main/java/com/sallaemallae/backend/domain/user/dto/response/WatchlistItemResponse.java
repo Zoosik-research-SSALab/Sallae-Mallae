@@ -12,6 +12,7 @@ public record WatchlistItemResponse(
     @JsonProperty("fluctuation_rate") Float fluctuationRate,
     String signal,
     Integer confidence,
-    OffsetDateTime createdAt
+    OffsetDateTime createdAt,
+    String iconUrl
 ) {
 }

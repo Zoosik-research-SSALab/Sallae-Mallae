@@ -1,10 +1,14 @@
 package com.sallaemallae.backend.domain.user.service;
 
+import com.sallaemallae.backend.domain.news.entity.StockNews;
 import com.sallaemallae.backend.domain.user.dto.response.WatchlistNewsItemResponse;
 import com.sallaemallae.backend.domain.user.dto.response.WatchlistNewsResponse;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
+import com.sallaemallae.backend.global.util.OffsetBasedPageRequest;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -22,25 +26,44 @@ public class WatchlistServiceImpl implements WatchlistService {
 
   private final WatchlistRepository watchlistRepository;
 
-  // 사용자 관심종목에 연결된 최신 뉴스 조회 (관련 종목명 포함)
+  private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+  // 관심종목 뉴스 목록 조회 (키워드 필터, 기간 필터, 페이지네이션, 관련 종목명 포함)
   @Override
-  public WatchlistNewsResponse getWatchlistNews(Long userId, int limit) {
-    List<Object[]> rows = watchlistRepository.findWatchlistNews(userId, limit);
-    List<Long> newsIds = rows.stream().map(r -> toLong(r[0])).toList();
+  public WatchlistNewsResponse getWatchlistNews(Long userId, String keyword, LocalDate startDate, LocalDate endDate, int offset, int limit) {
+    OffsetBasedPageRequest pageable = new OffsetBasedPageRequest(offset, limit);
+    boolean hasKeyword = keyword != null && !keyword.isBlank();
+
+    OffsetDateTime startDateTime = (startDate != null)
+        ? startDate.atStartOfDay(KST).toOffsetDateTime()
+        : null;
+    OffsetDateTime endDateTime = endDate.atTime(LocalTime.MAX).atZone(KST).toOffsetDateTime();
+
+    List<StockNews> rows;
+    long totalCount;
+    if (hasKeyword) {
+      rows = watchlistRepository.findWatchlistNewsByKeyword(userId, keyword, startDateTime, endDateTime, pageable);
+      totalCount = watchlistRepository.countWatchlistNewsByKeyword(userId, keyword, startDateTime, endDateTime);
+    } else {
+      rows = watchlistRepository.findWatchlistNews(userId, startDateTime, endDateTime, pageable);
+      totalCount = watchlistRepository.countWatchlistNews(userId, startDateTime, endDateTime);
+    }
+
+    List<Long> newsIds = rows.stream().map(StockNews::getId).toList();
     Map<Long, List<String>> stockMap = buildStockNameMap(newsIds);
 
     List<WatchlistNewsItemResponse> news = rows.stream()
-        .map(r -> new WatchlistNewsItemResponse(
-            toLong(r[0]),
-            (String) r[1],
-            (String) r[2],
-            (String) r[3],
-            (String) r[4],
-            toOffsetDateTime(r[5]),
-            stockMap.getOrDefault(toLong(r[0]), List.of())))
+        .map(sn -> new WatchlistNewsItemResponse(
+            sn.getId(),
+            sn.getTitle(),
+            sn.getSnippet(),
+            sn.getUrl(),
+            sn.getPublisher(),
+            sn.getPublishedAt(),
+            stockMap.getOrDefault(sn.getId(), List.of())))
         .toList();
 
-    return new WatchlistNewsResponse(news);
+    return new WatchlistNewsResponse(totalCount, news);
   }
 
   @Override
@@ -63,16 +86,9 @@ public class WatchlistServiceImpl implements WatchlistService {
     return stockMap;
   }
 
-  // native query 결과의 Object를 Long으로 안전 변환
+  // Object를 Long으로 안전 변환
   private Long toLong(Object obj) {
     if (obj instanceof Number n) return n.longValue();
-    return null;
-  }
-
-  // native query 결과의 Object를 OffsetDateTime으로 안전 변환 (Timestamp 호환)
-  private OffsetDateTime toOffsetDateTime(Object obj) {
-    if (obj instanceof OffsetDateTime odt) return odt;
-    if (obj instanceof java.sql.Timestamp ts) return ts.toInstant().atOffset(ZoneOffset.UTC);
     return null;
   }
 }

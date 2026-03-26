@@ -12,10 +12,12 @@ import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.Sign
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.Summary;
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse.TodayTradeItem;
 import com.sallaemallae.backend.domain.report.exception.ReportErrorCode;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HoldingRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HallOfFameHitRateRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.HallOfFameReturnRow;
+import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.PopularSignalRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.SignalSummaryRow;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository.TodayTradeRow;
@@ -25,12 +27,8 @@ import com.sallaemallae.backend.domain.signal.repository.AiDailyPerformanceRepos
 import com.sallaemallae.backend.domain.signal.repository.AiPortfolioRepository;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.time.LocalDate;
-import java.time.YearMonth;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +47,7 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
   private final AiPortfolioRepository aiPortfolioRepository;
   private final AiDailyPerformanceRepository aiDailyPerformanceRepository;
   private final ChairmanPortfolioQueryRepository chairmanPortfolioQueryRepository;
+  private final StockIconUrlResolver stockIconUrlResolver;
 
   @Override
   public ChairmanPortfolioResponse getChairmanPortfolio(String tab, int offset, int limit) {
@@ -57,15 +56,20 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_NOT_FOUND));
 
     int holdingCount = chairmanPortfolioQueryRepository.countHoldings(portfolio.getId());
+    List<MonthlyReturnItem> allMonthlyReturns = buildMonthlyReturns(portfolio.getId());
+    Float yesterdayReturn = aiDailyPerformanceRepository
+        .findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(portfolio.getId(), LocalDate.now())
+        .map(AiDailyPerformance::getDailyReturn)
+        .orElse(null);
     Summary summary = new Summary(
         portfolio.getCumulativeReturn(),
-        calculateHitRate(portfolio),
-        null,
+        calculateAverageMonthlyReturn(allMonthlyReturns),
+        yesterdayReturn,
         null,
         holdingCount
     );
 
-    SignalSummaryRow summaryRow = chairmanPortfolioQueryRepository.findSignalSummary();
+    SignalSummaryRow summaryRow = chairmanPortfolioQueryRepository.findSignalSummary(portfolio.getId());
     SignalSummary signalSummary = new SignalSummary(
         summaryRow.buyCount(),
         summaryRow.sellCount(),
@@ -99,9 +103,8 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
             .toList();
       }
       case MONTHLY_RETURNS -> {
-        List<MonthlyReturnItem> monthlyItems = buildMonthlyReturns(portfolio.getId());
-        totalCount = monthlyItems.size();
-        monthlyReturns = monthlyItems.stream()
+        totalCount = allMonthlyReturns.size();
+        monthlyReturns = allMonthlyReturns.stream()
             .skip(query.offset())
             .limit(query.limit())
             .toList();
@@ -153,11 +156,17 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
     );
   }
 
-  private float calculateHitRate(AiPortfolio portfolio) {
-    if (portfolio.getTotalTrades() == 0) {
+  private float calculateAverageMonthlyReturn(List<MonthlyReturnItem> monthlyReturns) {
+    if (monthlyReturns.isEmpty()) {
       return 0f;
     }
-    return (float) portfolio.getWinningTrades() * 100 / portfolio.getTotalTrades();
+    float sum = 0f;
+    for (MonthlyReturnItem item : monthlyReturns) {
+      if (item.monthlyReturn() != null) {
+        sum += item.monthlyReturn();
+      }
+    }
+    return sum / monthlyReturns.size();
   }
 
   private PopularSignalItem toPopularSignalItem(PopularSignalRow row) {
@@ -167,7 +176,8 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.ticker(),
         row.name(),
         row.price(),
-        row.signal()
+        row.signal(),
+        stockIconUrlResolver.resolve(row.iconUrl())
     );
   }
 
@@ -179,7 +189,9 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.buyPrice(),
         row.currentPrice(),
         row.holdingDays(LocalDate.now()),
-        row.returnRate()
+        row.holdingQuantity(),
+        row.returnRate(),
+        stockIconUrlResolver.resolve(row.iconUrl())
     );
   }
 
@@ -191,7 +203,10 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.tradeType(),
         row.tradeTime(),
         row.tradePrice(),
-        row.returnRate()
+        row.currentPrice(),
+        row.holdingQuantity(),
+        row.returnRate(),
+        stockIconUrlResolver.resolve(row.iconUrl())
     );
   }
 
@@ -218,43 +233,25 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
   }
 
   private List<MonthlyReturnItem> buildMonthlyReturns(Long portfolioId) {
-    List<AiDailyPerformance> performances = aiDailyPerformanceRepository.findByPortfolioIdOrderByRecordDateAsc(portfolioId);
-    Map<YearMonth, MonthlyAccumulator> accumulators = new LinkedHashMap<>();
-    for (AiDailyPerformance performance : performances) {
-      if (performance.getRecordDate() == null) {
-        continue;
-      }
-      YearMonth yearMonth = YearMonth.from(performance.getRecordDate());
-      MonthlyAccumulator accumulator = accumulators.computeIfAbsent(yearMonth, ignored -> new MonthlyAccumulator());
-      accumulator.accumulate(performance.getDailyReturn());
-    }
-
-    List<MonthlyReturnItem> items = new ArrayList<>();
-    accumulators.forEach((yearMonth, accumulator) ->
-        items.add(new MonthlyReturnItem(
-            yearMonth.toString(),
-            accumulator.monthlyReturn(),
+    return chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(portfolioId).stream()
+        .map(row -> new MonthlyReturnItem(
+            row.month(),
+            calculateRealizedMonthlyReturn(row),
+            row.realizedProfitAmount(),
+            row.buyCount(),
+            row.sellCount(),
             null,
             null
-        )));
-
-    items.sort(Comparator.comparing(MonthlyReturnItem::month).reversed());
-    return items;
+        ))
+        .sorted(Comparator.comparing(MonthlyReturnItem::month).reversed())
+        .toList();
   }
 
-  private static final class MonthlyAccumulator {
-
-    private float factor = 1f;
-
-    void accumulate(Float dailyReturn) {
-      if (dailyReturn == null) {
-        return;
-      }
-      factor *= (1 + (dailyReturn / 100f));
+  private float calculateRealizedMonthlyReturn(MonthlyTradeMetricRow row) {
+    long realizedCostAmount = row.realizedCostAmount() != null ? row.realizedCostAmount() : 0L;
+    if (realizedCostAmount <= 0L) {
+      return 0f;
     }
-
-    float monthlyReturn() {
-      return (factor - 1f) * 100f;
-    }
+    return ((float) row.realizedProfitAmount() / realizedCostAmount) * 100f;
   }
 }

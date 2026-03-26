@@ -18,17 +18,31 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class SseManager {
 
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    private final Map<SseEmitter, Runnable> cleanupCallbacks = new ConcurrentHashMap<>();
 
-    /** SSE emitter를 해당 채널에 등록 */
+    /** SSE emitter를 해당 채널에 등록. cleanup 콜백 없이 등록. */
     public void addEmitter(String channel, SseEmitter emitter) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.computeIfAbsent(
             channel, k -> new CopyOnWriteArrayList<>()
         );
         list.add(emitter);
+    }
 
-        emitter.onCompletion(() -> list.remove(emitter));
-        emitter.onTimeout(() -> list.remove(emitter));
-        emitter.onError(e -> list.remove(emitter));
+    /** SSE emitter를 해당 채널에 등록하고, 전송 실패 시 실행할 cleanup 콜백도 등록. */
+    public void addEmitter(String channel, SseEmitter emitter, Runnable onCleanup) {
+        addEmitter(channel, emitter);
+        if (onCleanup != null) {
+            cleanupCallbacks.put(emitter, onCleanup);
+        }
+    }
+
+    /** SSE emitter를 해당 채널에서 제거 */
+    public void removeEmitter(String channel, SseEmitter emitter) {
+        CopyOnWriteArrayList<SseEmitter> list = emitters.get(channel);
+        if (list != null) {
+            list.remove(emitter);
+        }
+        cleanupCallbacks.remove(emitter);
     }
 
     /** 단일 emitter에 데이터 전송 (초기 데이터 전송용) */
@@ -58,7 +72,17 @@ public class SseManager {
 
         if (!dead.isEmpty()) {
             list.removeAll(dead);
-            log.debug("SSE 전송 실패 emitter {}건 제거: channel={}", dead.size(), channel);
+            log.info("SSE 전송 실패 emitter {}건 제거: channel={}", dead.size(), channel);
+            for (SseEmitter emitter : dead) {
+                Runnable callback = cleanupCallbacks.remove(emitter);
+                if (callback != null) {
+                    try {
+                        callback.run();
+                    } catch (Exception e) {
+                        log.warn("SSE cleanup 콜백 실행 실패: channel={}", channel, e);
+                    }
+                }
+            }
         }
     }
 }

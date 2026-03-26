@@ -9,11 +9,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
 
-  // FS-NEWS-001: 키워드 없이 전체 뉴스 목록 조회 (URL 기준 중복 제거, 기간 필터)
+  // FS-NEWS-001: 키워드 없이 전체 뉴스 목록 조회 (기간 필터)
   @Query("""
       SELECT sn FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
-        AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
         AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       ORDER BY sn.publishedAt DESC
@@ -23,11 +22,10 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       @Param("endDateTime") OffsetDateTime endDateTime,
       org.springframework.data.domain.Pageable pageable);
 
-  // FS-NEWS-001: 키워드 없이 전체 뉴스 총 개수 (URL 기준 중복 제거, 기간 필터)
+  // FS-NEWS-001: 키워드 없이 전체 뉴스 총 개수 (기간 필터)
   @Query("""
       SELECT COUNT(sn) FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
-        AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
         AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       """)
@@ -35,15 +33,13 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       @Param("startDateTime") OffsetDateTime startDateTime,
       @Param("endDateTime") OffsetDateTime endDateTime);
 
-  // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 조회 (URL 기준 중복 제거, 같은 URL의 모든 row에서 키워드 검색, 기간 필터)
+  // FS-NEWS-001: 키워드 필터 적용된 뉴스 목록 조회 (기간 필터)
   @Query("""
       SELECT sn FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
-        AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
-        AND EXISTS (SELECT 1 FROM StockNews sn3
-                    JOIN NewsKeywordMap nkm ON nkm.id.newsId = sn3.id
+        AND EXISTS (SELECT 1 FROM NewsKeywordMap nkm
                     JOIN Keyword k ON nkm.id.keywordId = k.id
-                    WHERE sn3.url = sn.url AND k.name = :keyword)
+                    WHERE nkm.id.newsId = sn.id AND k.name = :keyword)
         AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       ORDER BY sn.publishedAt DESC
@@ -54,15 +50,13 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       @Param("endDateTime") OffsetDateTime endDateTime,
       org.springframework.data.domain.Pageable pageable);
 
-  // FS-NEWS-001: 키워드 필터 적용된 뉴스 총 개수 (URL 기준 중복 제거, 같은 URL의 모든 row에서 키워드 검색, 기간 필터)
+  // FS-NEWS-001: 키워드 필터 적용된 뉴스 총 개수 (기간 필터)
   @Query("""
       SELECT COUNT(sn) FROM StockNews sn
       WHERE sn.publishedAt IS NOT NULL
-        AND sn.id IN (SELECT MIN(sn2.id) FROM StockNews sn2 WHERE sn2.url IS NOT NULL GROUP BY sn2.url)
-        AND EXISTS (SELECT 1 FROM StockNews sn3
-                    JOIN NewsKeywordMap nkm ON nkm.id.newsId = sn3.id
+        AND EXISTS (SELECT 1 FROM NewsKeywordMap nkm
                     JOIN Keyword k ON nkm.id.keywordId = k.id
-                    WHERE sn3.url = sn.url AND k.name = :keyword)
+                    WHERE nkm.id.newsId = sn.id AND k.name = :keyword)
         AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
         AND sn.publishedAt <= :endDateTime
       """)
@@ -71,15 +65,12 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
       @Param("startDateTime") OffsetDateTime startDateTime,
       @Param("endDateTime") OffsetDateTime endDateTime);
 
-  // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (같은 URL의 모든 매핑 종목 포함, N+1 방지)
+  // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (N+1 방지)
   @Query("""
-      SELECT sn.id, s.name
-      FROM StockNews sn
-      JOIN StockNews sn2 ON sn2.url = sn.url
-      JOIN StockNewsMap snm ON snm.id.newsId = sn2.id
+      SELECT snm.id.newsId, s.name
+      FROM StockNewsMap snm
       JOIN Stock s ON snm.id.stockId = s.id
-      WHERE sn.id IN :newsIds
-      GROUP BY sn.id, s.name
+      WHERE snm.id.newsId IN :newsIds
       """)
   List<Object[]> findStockNamesByNewsIds(@Param("newsIds") List<Long> newsIds);
 

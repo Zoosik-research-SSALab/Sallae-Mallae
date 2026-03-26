@@ -51,4 +51,7 @@ public class Stock extends BaseTimeEntity {
 
   @Column(name = "is_active", nullable = false)
   private boolean isActive;
+
+  @Column(name = "icon_url", length = 500)
+  private String iconUrl;
 }

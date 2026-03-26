@@ -86,81 +86,74 @@ public class StockApiController {
     ));
   }
 
-  @Operation(summary = "Get stock basic info", description = "Returns the basic stock info for the given ticker.")
-  @GetMapping("/{ticker}")
+  @Operation(summary = "Get stock basic info", description = "Returns the basic stock info for the given stock.")
+  @GetMapping("/{stockId}")
   public ApiResponse<StockBasicInfoResponse> getStockBasicInfo(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockBasicInfo(stockId));
   }
 
   @Operation(summary = "Get stock overview", description = "Returns stock overview including latest price and 52-week range.")
-  @GetMapping("/{ticker}/overview")
+  @GetMapping("/{stockId}/overview")
   public ApiResponse<StockOverviewResponse> getStockOverview(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockOverview(stockId));
   }
 
-  @Operation(summary = "Get stock indicators", description = "Returns valuation, earnings and dividend indicators for the given ticker.")
-  @GetMapping("/{ticker}/indicators")
+  @Operation(summary = "Get stock indicators", description = "Returns valuation, earnings and dividend indicators for the given stock.")
+  @GetMapping("/{stockId}/indicators")
   public ApiResponse<StockIndicatorsResponse> getStockIndicators(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockIndicators(stockId));
   }
 
-  @Operation(summary = "Get stock financials", description = "Returns yearly or quarterly financials for the given ticker.")
-  @GetMapping("/{ticker}/financials")
+  @Operation(summary = "Get stock financials", description = "Returns yearly or quarterly financials for the given stock.")
+  @GetMapping("/{stockId}/financials")
   public ApiResponse<StockFinancialsResponse> getStockFinancials(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker,
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
       @Parameter(description = "Financial type: YEARLY or QUARTERLY", example = "YEARLY")
       @RequestParam(defaultValue = "YEARLY") String type
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockFinancials(stockId, type));
   }
 
-  @Operation(summary = "Get stock keywords", description = "Returns top keywords and related news for the given ticker.")
-  @GetMapping("/{ticker}/keywords")
+  @Operation(summary = "Get stock keywords", description = "Returns top keywords and related news for the given stock.")
+  @GetMapping("/{stockId}/keywords")
   public ApiResponse<StockKeywordsResponse> getStockKeywords(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockKeywords(stockId));
   }
 
-  @Operation(summary = "Get stock announcements", description = "Returns latest announcements for the given ticker.")
-  @GetMapping("/{ticker}/announcements")
+  @Operation(summary = "Get stock announcements", description = "Returns latest announcements for the given stock.")
+  @GetMapping("/{stockId}/announcements")
   public ApiResponse<StockAnnouncementsResponse> getStockAnnouncements(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker,
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
       @Parameter(description = "Number of announcements to return", example = "4")
       @RequestParam(defaultValue = "4") int limit,
       @Parameter(description = "Offset for pagination", example = "0")
       @RequestParam(defaultValue = "0") int offset
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockAnnouncements(stockId, limit, offset));
   }
 
-  @Operation(summary = "Get stock announcement detail", description = "Returns announcement detail for the given ticker and announcementId.")
-  @GetMapping("/{ticker}/announcements/{announcementId}")
+  @Operation(summary = "Get stock announcement detail", description = "Returns announcement detail for the given stock and announcementId.")
+  @GetMapping("/{stockId}/announcements/{announcementId}")
   public ApiResponse<StockAnnouncementDetailResponse> getStockAnnouncement(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker,
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
       @Parameter(description = "Announcement ID", example = "10")
       @PathVariable Long announcementId
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ApiResponse.success(stockService.getStockAnnouncement(stockId, announcementId));
   }
 
@@ -170,16 +163,15 @@ public class StockApiController {
           + "Allowed candleType: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY. "
           + "Use cursor for pagination (oldest timestamp from previous response)."
   )
-  @GetMapping("/{ticker}/prices")
+  @GetMapping("/{stockId}/prices")
   public ResponseEntity<StockPricesResponse> getStockPrices(
-      @Parameter(description = "Stock ticker", example = "005930")
-      @PathVariable String ticker,
+      @Parameter(description = "Stock ID", example = "1")
+      @PathVariable Long stockId,
       @Parameter(description = "Candle type: MINUTE, DAILY, WEEKLY, MONTHLY, YEARLY", example = "DAILY")
       @RequestParam(name = "candle_type", defaultValue = "DAILY") String candleType,
       @Parameter(description = "Cursor for pagination (oldest date from previous page)", example = "2024-01-01")
       @RequestParam(required = false) String cursor
   ) {
-    Long stockId = stockService.resolveStockId(ticker);
     return ResponseEntity.ok(stockPriceStreamService.getLatestPrices(stockId, candleType, cursor));
   }
 

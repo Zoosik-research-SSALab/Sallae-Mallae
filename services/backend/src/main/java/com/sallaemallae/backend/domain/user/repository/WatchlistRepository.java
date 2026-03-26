@@ -1,5 +1,6 @@
 package com.sallaemallae.backend.domain.user.repository;
 
+import com.sallaemallae.backend.domain.news.entity.StockNews;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
 import java.util.List;
@@ -16,26 +17,87 @@ public interface WatchlistRepository extends JpaRepository<UserWatchlist, UserWa
 
   long countByIdUserId(Long userId);
 
-  // FS-WATCH-006: 관심종목 보유 종목의 최신 뉴스 조회
-  @Query(value = """
-      SELECT DISTINCT sn.id, sn.title, sn.snippet, sn.url, sn.publisher, sn.published_at
-      FROM stock_news sn
-      JOIN stock_news_map snm ON sn.id = snm.news_id
-      JOIN user_watchlist uw ON snm.stock_id = uw.stock_id
-      WHERE uw.user_id = :userId
-      ORDER BY sn.published_at DESC
-      LIMIT :limit
-      """, nativeQuery = true)
-  List<Object[]> findWatchlistNews(
+  @Query(value = "SELECT COUNT(*) FROM user_watchlist WHERE user_id = :userId FOR UPDATE", nativeQuery = true)
+  long countByUserIdForUpdate(@Param("userId") Long userId);
+
+  // FS-WATCH-006: 관심종목 뉴스 목록 조회 (키워드 없음, 기간 필터)
+  @Query("""
+      SELECT sn FROM StockNews sn
+      WHERE sn.publishedAt IS NOT NULL
+        AND EXISTS (SELECT 1 FROM StockNewsMap snm
+                    JOIN UserWatchlist uw ON snm.id.stockId = uw.id.stockId
+                    WHERE snm.id.newsId = sn.id AND uw.id.userId = :userId)
+        AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
+        AND sn.publishedAt <= :endDateTime
+      ORDER BY sn.publishedAt DESC
+      """)
+  List<StockNews> findWatchlistNews(
       @Param("userId") Long userId,
-      @Param("limit") int limit);
+      @Param("startDateTime") java.time.OffsetDateTime startDateTime,
+      @Param("endDateTime") java.time.OffsetDateTime endDateTime,
+      org.springframework.data.domain.Pageable pageable);
+
+  // FS-WATCH-006: 관심종목 뉴스 총 개수 (키워드 없음, 기간 필터)
+  @Query("""
+      SELECT COUNT(sn) FROM StockNews sn
+      WHERE sn.publishedAt IS NOT NULL
+        AND EXISTS (SELECT 1 FROM StockNewsMap snm
+                    JOIN UserWatchlist uw ON snm.id.stockId = uw.id.stockId
+                    WHERE snm.id.newsId = sn.id AND uw.id.userId = :userId)
+        AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
+        AND sn.publishedAt <= :endDateTime
+      """)
+  long countWatchlistNews(
+      @Param("userId") Long userId,
+      @Param("startDateTime") java.time.OffsetDateTime startDateTime,
+      @Param("endDateTime") java.time.OffsetDateTime endDateTime);
+
+  // FS-WATCH-006: 관심종목 뉴스 목록 조회 (키워드 필터, 기간 필터)
+  @Query("""
+      SELECT sn FROM StockNews sn
+      WHERE sn.publishedAt IS NOT NULL
+        AND EXISTS (SELECT 1 FROM StockNewsMap snm
+                    JOIN UserWatchlist uw ON snm.id.stockId = uw.id.stockId
+                    WHERE snm.id.newsId = sn.id AND uw.id.userId = :userId)
+        AND EXISTS (SELECT 1 FROM NewsKeywordMap nkm
+                    JOIN Keyword k ON nkm.id.keywordId = k.id
+                    WHERE nkm.id.newsId = sn.id AND k.name = :keyword)
+        AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
+        AND sn.publishedAt <= :endDateTime
+      ORDER BY sn.publishedAt DESC
+      """)
+  List<StockNews> findWatchlistNewsByKeyword(
+      @Param("userId") Long userId,
+      @Param("keyword") String keyword,
+      @Param("startDateTime") java.time.OffsetDateTime startDateTime,
+      @Param("endDateTime") java.time.OffsetDateTime endDateTime,
+      org.springframework.data.domain.Pageable pageable);
+
+  // FS-WATCH-006: 관심종목 뉴스 총 개수 (키워드 필터, 기간 필터)
+  @Query("""
+      SELECT COUNT(sn) FROM StockNews sn
+      WHERE sn.publishedAt IS NOT NULL
+        AND EXISTS (SELECT 1 FROM StockNewsMap snm
+                    JOIN UserWatchlist uw ON snm.id.stockId = uw.id.stockId
+                    WHERE snm.id.newsId = sn.id AND uw.id.userId = :userId)
+        AND EXISTS (SELECT 1 FROM NewsKeywordMap nkm
+                    JOIN Keyword k ON nkm.id.keywordId = k.id
+                    WHERE nkm.id.newsId = sn.id AND k.name = :keyword)
+        AND (CAST(:startDateTime AS timestamp) IS NULL OR sn.publishedAt >= :startDateTime)
+        AND sn.publishedAt <= :endDateTime
+      """)
+  long countWatchlistNewsByKeyword(
+      @Param("userId") Long userId,
+      @Param("keyword") String keyword,
+      @Param("startDateTime") java.time.OffsetDateTime startDateTime,
+      @Param("endDateTime") java.time.OffsetDateTime endDateTime);
 
   // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (N+1 방지)
-  @Query(value = """
-      SELECT snm.news_id, s.name
-      FROM stock_news_map snm
-      JOIN stocks s ON snm.stock_id = s.id
-      WHERE snm.news_id IN :newsIds
-      """, nativeQuery = true)
+  @Query("""
+      SELECT snm.id.newsId, s.name
+      FROM StockNewsMap snm
+      JOIN Stock s ON snm.id.stockId = s.id
+      WHERE snm.id.newsId IN :newsIds
+      """)
   List<Object[]> findStockNamesByNewsIds(@Param("newsIds") List<Long> newsIds);
 }

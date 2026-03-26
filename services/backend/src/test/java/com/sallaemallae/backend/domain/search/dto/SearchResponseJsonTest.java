@@ -29,7 +29,7 @@ class SearchResponseJsonTest {
                 "Information Technology",
                 70300,
                 BigDecimal.valueOf(2.15),
-                "https://example.com/icons/005930.png")
+                null)
         ),
         List.of(
             new SearchNewsItemResponse(

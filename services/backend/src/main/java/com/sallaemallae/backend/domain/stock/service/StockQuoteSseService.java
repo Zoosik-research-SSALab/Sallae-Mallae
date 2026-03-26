@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,21 +51,37 @@ public class StockQuoteSseService {
     SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
     String channel = CHANNEL_PREFIX + ticker;
 
-    Runnable cleanup = () -> releaseSseRef(market, ticker);
+    // AtomicBoolean으로 cleanup 1회 실행 보장.
+    // Spring onTimeout+onCompletion 중복 호출, broadcast dead emitter 감지 등
+    // 여러 경로에서 cleanup이 트리거될 수 있으므로 반드시 필요.
+    AtomicBoolean cleaned = new AtomicBoolean(false);
+    Runnable cleanup = () -> {
+      if (cleaned.compareAndSet(false, true)) {
+        sseManager.removeEmitter(channel, emitter);
+        releaseSseRef(market, ticker);
+      }
+    };
+
+    acquireSseRef(market, ticker);
+    sseManager.addEmitter(channel, emitter, cleanup);
+
     emitter.onCompletion(cleanup);
     emitter.onTimeout(cleanup);
     emitter.onError(error -> cleanup.run());
 
-    acquireSseRef(market, ticker);
-    sseManager.addEmitter(channel, emitter);
-
     try {
       StockQuoteResponse initialQuote = stockMarketQueryService.getQuote(ticker, market);
-      stockNames.put(ticker, initialQuote.name());
+      if (initialQuote.name() != null) {
+        stockNames.put(ticker, initialQuote.name());
+      }
       sseManager.sendToEmitter(emitter, initialQuote);
     } catch (Exception e) {
-      log.warn("Failed to send initial quote via SSE. ticker={}", ticker, e);
-      emitter.completeWithError(e);
+      log.warn("Failed to send initial quote via SSE. ticker={}, Will keep stream open for realtime data.", ticker, e);
+      try {
+        emitter.send(SseEmitter.event().name("error").data("initial quote unavailable"));
+      } catch (Exception sendErr) {
+        log.debug("Failed to send SSE error event. ticker={}", ticker);
+      }
     }
 
     return emitter;

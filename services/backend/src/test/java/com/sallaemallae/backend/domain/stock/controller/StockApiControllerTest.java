@@ -103,8 +103,8 @@ class StockApiControllerTest {
             2,
             new StockListFilterCountsResponse(2, 1, 1),
             java.util.List.of(
-                new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, 7_030_000_000L, 100_000L, null, "BUY", 87, true),
-                new StockListItemResponse(2, 2L, "000660", "SK hynix", "Information Technology", 182000, -1.75f, 12_740_000_000L, 70_000L, null, "SELL", 80, false)
+                new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, 7_030_000_000L, 100_000L, null, "BUY", 87, true, null),
+                new StockListItemResponse(2, 2L, "000660", "SK hynix", "Information Technology", 182000, -1.75f, 12_740_000_000L, 70_000L, null, "SELL", 80, false, null)
             )
         ));
     given(stockMarketQueryService.getQuote(anyString(), anyString()))
@@ -186,13 +186,12 @@ class StockApiControllerTest {
     given(stockService.getStockKeywords(1L))
         .willReturn(new StockKeywordsResponse(
             List.of(
-                new KeywordItem(1L, "HBM 공급망"),
-                new KeywordItem(2L, "반도체 사이클"),
-                new KeywordItem(3L, "AI 서버")
-            ),
-            List.of(
-                new NewsItem(101L, "삼성전자, 차세대 HBM 양산 본격화 전망", "한국경제",
-                    OffsetDateTime.parse("2026-03-12T14:30:00+09:00"))
+                new KeywordItem(1L, "HBM 공급망", List.of(
+                    new NewsItem(101L, "삼성전자, 차세대 HBM 양산 본격화 전망", "한국경제",
+                        OffsetDateTime.parse("2026-03-12T14:30:00+09:00"))
+                )),
+                new KeywordItem(2L, "반도체 사이클", List.of()),
+                new KeywordItem(3L, "AI 서버", List.of())
             )
         ));
     given(stockService.getStockAnnouncements(1L, 4, 0))
@@ -320,8 +319,8 @@ class StockApiControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.keywords[0].id").value(1))
         .andExpect(jsonPath("$.data.keywords[0].name").value("HBM 공급망"))
-        .andExpect(jsonPath("$.data.news[0].id").value(101))
-        .andExpect(jsonPath("$.data.news[0].publisher").value("한국경제"));
+        .andExpect(jsonPath("$.data.keywords[0].news[0].id").value(101))
+        .andExpect(jsonPath("$.data.keywords[0].news[0].publisher").value("한국경제"));
   }
 
   @Test
