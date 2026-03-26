@@ -10,6 +10,8 @@ import com.sallaemallae.backend.domain.search.dto.response.SearchResponse;
 import com.sallaemallae.backend.domain.search.dto.response.SearchStockItemResponse;
 import com.sallaemallae.backend.domain.search.repository.SearchCacheRepository;
 import com.sallaemallae.backend.domain.search.repository.SearchQueryRepository;
+import com.sallaemallae.backend.domain.stock.repository.StockRepository;
+import com.sallaemallae.backend.domain.stock.service.TrendingStockService;
 import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -32,6 +34,12 @@ class SearchServiceImplTest {
 
   @Mock
   private StockIconUrlResolver stockIconUrlResolver;
+
+  @Mock
+  private TrendingStockService trendingStockService;
+
+  @Mock
+  private StockRepository stockRepository;
 
   @InjectMocks
   private SearchServiceImpl searchService;
