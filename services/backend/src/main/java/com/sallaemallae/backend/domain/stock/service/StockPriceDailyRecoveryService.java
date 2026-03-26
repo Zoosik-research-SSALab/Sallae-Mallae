@@ -18,9 +18,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class StockPriceDailyRecoveryService {
 
   private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -37,6 +36,19 @@ public class StockPriceDailyRecoveryService {
   private final StockRepository stockRepository;
   private final StockPriceDailyRepository dailyRepository;
   private final StockPriceMinuteRepository minuteRepository;
+  private final StockPriceDailyRecoveryService self;
+
+  public StockPriceDailyRecoveryService(
+      StockRepository stockRepository,
+      StockPriceDailyRepository dailyRepository,
+      StockPriceMinuteRepository minuteRepository,
+      @Lazy StockPriceDailyRecoveryService self
+  ) {
+    this.stockRepository = stockRepository;
+    this.dailyRepository = dailyRepository;
+    this.minuteRepository = minuteRepository;
+    this.self = self;
+  }
 
   @EventListener(ApplicationReadyEvent.class)
   public void recoverOnStartup() {
@@ -73,13 +85,13 @@ public class StockPriceDailyRecoveryService {
 
     int totalRecovered = 0;
     for (LocalDate date : targetDates) {
-      totalRecovered += recoverDate(activeStockIds, date);
+      totalRecovered += self.recoverDate(activeStockIds, date);
     }
     return totalRecovered;
   }
 
   @Transactional
-  protected int recoverDate(Set<Long> activeStockIds, LocalDate date) {
+  public int recoverDate(Set<Long> activeStockIds, LocalDate date) {
     OffsetDateTime dayStart = date.atStartOfDay(KST).toOffsetDateTime();
     OffsetDateTime dayEnd = date.plusDays(1).atStartOfDay(KST).toOffsetDateTime();
 
@@ -95,8 +107,12 @@ public class StockPriceDailyRecoveryService {
       }
     }
 
+    // 전일 종가 조회 (등락률 계산용)
+    LocalDate prevDate = findPreviousWeekday(date);
+    Map<Long, Integer> prevCloseMap = buildPrevCloseMap(activeStockIds, prevDate);
+
     OffsetDateTime now = OffsetDateTime.now(KST);
-    int saved = 0;
+    List<StockPriceDaily> toSave = new ArrayList<>();
 
     for (var entry : grouped.entrySet()) {
       Long stockId = entry.getKey();
@@ -119,9 +135,11 @@ public class StockPriceDailyRecoveryService {
       Long totalVolume = minutes.stream()
           .map(StockPriceMinute::getVolume).filter(Objects::nonNull)
           .mapToLong(Long::longValue).sum();
-      Float fluctuationRate = computeFluctuationRate(first.getOpenPrice(), last.getClosePrice());
 
-      dailyRepository.save(StockPriceDaily.builder()
+      Integer prevClose = prevCloseMap.get(stockId);
+      Float fluctuationRate = computeFluctuationRate(prevClose, last.getClosePrice());
+
+      toSave.add(StockPriceDaily.builder()
           .stockId(stockId)
           .tradeDate(date)
           .openPrice(first.getOpenPrice())
@@ -132,20 +150,39 @@ public class StockPriceDailyRecoveryService {
           .fluctuationRate(fluctuationRate)
           .createdAt(now)
           .build());
-      saved++;
     }
 
-    if (saved > 0) {
-      log.info("Recovered daily candles for date={}. saved={}", date, saved);
+    if (!toSave.isEmpty()) {
+      dailyRepository.saveAll(toSave);
+      log.info("Recovered daily candles for date={}. saved={}", date, toSave.size());
     }
-    return saved;
+    return toSave.size();
   }
 
-  private Float computeFluctuationRate(Integer openPrice, Integer closePrice) {
-    if (openPrice != null && openPrice != 0 && closePrice != null) {
-      return ((closePrice - openPrice) * 100.0f) / openPrice;
+  /** 전일 종가 대비 등락률: (당일 종가 - 전일 종가) / 전일 종가 * 100 */
+  private Float computeFluctuationRate(Integer prevClose, Integer closePrice) {
+    if (prevClose != null && prevClose != 0 && closePrice != null) {
+      return ((closePrice - prevClose) * 100.0f) / prevClose;
     }
     return null;
+  }
+
+  /** 활성 종목들의 특정 날짜 종가 Map 조회 */
+  private Map<Long, Integer> buildPrevCloseMap(Set<Long> stockIds, LocalDate prevDate) {
+    Map<Long, Integer> map = new LinkedHashMap<>();
+    for (Long stockId : stockIds) {
+      dailyRepository.findTopByStockIdAndTradeDateLessThanEqualOrderByTradeDateDesc(stockId, prevDate)
+          .ifPresent(d -> map.put(stockId, d.getClosePrice()));
+    }
+    return map;
+  }
+
+  private LocalDate findPreviousWeekday(LocalDate date) {
+    LocalDate prev = date.minusDays(1);
+    while (prev.getDayOfWeek() == DayOfWeek.SATURDAY || prev.getDayOfWeek() == DayOfWeek.SUNDAY) {
+      prev = prev.minusDays(1);
+    }
+    return prev;
   }
 
   private List<LocalDate> recentWeekdays(LocalDate today, int count) {
