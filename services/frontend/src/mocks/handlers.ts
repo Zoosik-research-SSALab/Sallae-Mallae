@@ -23,6 +23,10 @@ import {
   getMockPerformanceResponse,
   getMockTradesResponse,
 } from "@/app/portfolio/[stockId]/utils/mockApiData";
+import {
+  getMockInvestmentPerformance,
+  getMockTradeHistory,
+} from "@/app/report/utils/mockReportPageData";
 import { getMockStocksResponse } from "@/app/stocks/utils/mockStocksData";
 import {
   getMockAnnouncementDetail,
@@ -356,16 +360,18 @@ export const handlers = [
     return HttpResponse.json(snakelizeKeys(getMockReportResponse(offset, limit)));
   }),
 
-  http.get("/api/report/:stockId/performance", () => {
-    return HttpResponse.json(snakelizeKeys(getMockPerformanceResponse()));
+  http.get("/api/report/:stockId/performance", ({ params }) => {
+    const { stockId } = params as { stockId: string };
+    return HttpResponse.json(snakelizeKeys(getMockInvestmentPerformance(stockId)));
   }),
 
-  http.get("/api/report/:stockId/performance/trades", ({ request }) => {
+  http.get("/api/report/:stockId/performance/trades", ({ request, params }) => {
+    const { stockId } = params as { stockId: string };
     const searchParams = new URL(request.url).searchParams;
     const offset = parsePositiveInteger(searchParams.get("offset"), 0);
     const limit = Math.max(1, parsePositiveInteger(searchParams.get("limit"), 10));
 
-    return HttpResponse.json(snakelizeKeys(getMockTradesResponse(offset, limit)));
+    return HttpResponse.json(snakelizeKeys(getMockTradeHistory(stockId, { offset, limit })));
   }),
 
   // ── Watchlist ───────────────────────────────────────────────────────────────
