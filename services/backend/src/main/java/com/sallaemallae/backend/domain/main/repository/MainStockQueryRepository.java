@@ -161,7 +161,8 @@ public class MainStockQueryRepository {
                 SELECT close_price
                 FROM stock_prices_daily
                 WHERE stock_id = s.id
-                ORDER BY trade_date DESC LIMIT 1 OFFSET 1
+                  AND trade_date < CURRENT_DATE
+                ORDER BY trade_date DESC LIMIT 1
             ) prev ON true
             WHERE s.id IN (:stockIds)
             """;
