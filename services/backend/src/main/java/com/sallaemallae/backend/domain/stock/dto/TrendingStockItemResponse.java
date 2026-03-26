@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 public record TrendingStockItemResponse(
     int rank,
     Long stockId,
-    String name
+    String name,
+    Integer price,
+    Float fluctuationRate,
+    String iconUrl
 ) {
 }
