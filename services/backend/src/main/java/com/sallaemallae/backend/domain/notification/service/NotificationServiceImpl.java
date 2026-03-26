@@ -26,6 +26,7 @@ public class NotificationServiceImpl implements NotificationService {
 
   private static final int RETENTION_DAYS = 30;
   private static final int MAX_UNREAD_BADGE_COUNT = 99;
+  private static final int MAX_LIMIT = 100;
 
   private final NotificationQueryRepository notificationQueryRepository;
   private final UserNotificationRepository userNotificationRepository;
@@ -105,7 +106,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private int normalizeLimit(int limit) {
-    if (limit <= 0) {
+    if (limit <= 0 || limit > MAX_LIMIT) {
       throw new BusinessException(NotificationErrorCode.INVALID_NOTIFICATION_LIMIT);
     }
     return limit;
