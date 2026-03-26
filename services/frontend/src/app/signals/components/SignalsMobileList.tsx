@@ -124,13 +124,14 @@ export default function SignalsMobileList({
                     }
                   }}
                   className="cursor-pointer border-b border-[color:var(--color-border-secondary)] px-4 py-3 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-inset"
+                  style={{ backgroundColor: signalUi.bg, outlineColor: signalUi.border }}
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <div
                           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px]"
-                          style={{ backgroundColor: signalUi.bg, outlineColor: signalUi.border }}
+                          
                         >
                           <signalUi.Icon className="h-4 w-4 text-[color:var(--color-text-primary)]" />
                         </div>

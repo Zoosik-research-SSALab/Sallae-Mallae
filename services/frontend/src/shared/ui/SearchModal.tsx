@@ -491,7 +491,17 @@ export default function SearchModal({
     return null;
   }
 
-  const visibleTab = isShowingResults ? currentTab : "all";
+  const visibleTab: SearchResultTab = !isShowingResults
+    ? "all"
+    : currentTab === "stocks" && hasStockResults
+      ? "stocks"
+      : currentTab === "news" && hasNewsResults
+        ? "news"
+        : hasStockResults && !hasNewsResults
+          ? "stocks"
+          : hasNewsResults && !hasStockResults
+            ? "news"
+            : "all";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:px-6">

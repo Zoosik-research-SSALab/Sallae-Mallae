@@ -1,5 +1,6 @@
 import { connectSse } from "@/shared/lib/apiClient";
 import { authApiFetch } from "@/shared/lib/authApiClient";
+import { subscribeTrendingSearchStocks } from "@/shared/lib/searchApi";
 import type {
   CategoriesPayload,
   MarketIndexPayload,
@@ -67,4 +68,21 @@ export async function getPopularSearches() {
       keyword: item.name,
     })),
   } satisfies PopularSearchesPayload;
+}
+
+export function subscribePopularSearches(handlers: {
+  onMessage: (payload: PopularSearchesPayload) => void;
+  onError?: (error: Event) => void;
+}) {
+  return subscribeTrendingSearchStocks({
+    onMessage: (payload) => {
+      handlers.onMessage({
+        keywords: payload.stocks.slice(0, 5).map((item) => ({
+          rank: item.rank,
+          keyword: item.name,
+        })),
+      });
+    },
+    onError: handlers.onError,
+  });
 }

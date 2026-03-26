@@ -78,12 +78,12 @@ export default function StocksDesktopTable({
                   layout="position"
                   initial={false}
                   transition={rowLayoutTransition}
-                  className="border-b border-border-secondary px-4 py-4"
+                  className="rounded-xl border-b border-border-secondary px-4 py-4 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-within:bg-[color:var(--color-bg-secondary)]"
                 >
-                  <div className="flex items-center justify-between gap-6">
+                  <div className="flex items-center justify-between gap-6 rounded-xl px-2 py-1">
                     <Link
                       href={`/stocks/${item.id}`}
-                      className="flex min-w-0 flex-1 items-center justify-between gap-6 rounded-xl px-2 py-1 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
+                      className="flex min-w-0 flex-1 items-center justify-between gap-6 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-6">
                         <div className="typo-body-md min-w-6 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { TermsSignupModal } from "@/app/auth/signup/terms/components/TermsSignupCard";
 import CategoryStocksSection from "./components/CategoryStocksSection";
 import SidebarPanel from "./components/SidebarPanel";
@@ -9,6 +9,7 @@ import TopStocksSection from "./components/TopStocksSection";
 import { useCategories } from "./hooks/useCategories";
 import { useMainNewSignalsQuery } from "./hooks/useMainNewSignalsQuery";
 import { useMarketIndex } from "./hooks/useMarketIndex";
+import { usePopularSearchesQuery } from "./hooks/usePopularSearchesQuery";
 import { useTopStocks } from "./hooks/useTopStocks";
 import { readPendingSocialSignup } from "@/shared/lib/socialAuth";
 
@@ -17,20 +18,12 @@ export default function HomePageClient() {
   const { data: marketIndexData, isLoading: marketIndexLoading } = useMarketIndex();
   const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
   const { data: newSignalsData, isLoading: newSignalsLoading } = useMainNewSignalsQuery();
+  const { data: popularSearchesData, isLoading: popularSearchesLoading } = usePopularSearchesQuery();
   const [isTermsSignupModalOpen, setIsTermsSignupModalOpen] = useState(() =>
     typeof window !== "undefined" ? Boolean(readPendingSocialSignup()) : false,
   );
 
   const topStocks = topStocksData?.stocks;
-
-  const popularSearches = useMemo(
-    () =>
-      (topStocks ?? []).slice(0, 5).map((item) => ({
-        rank: item.rank,
-        keyword: item.name,
-      })),
-    [topStocks],
-  );
 
   return (
     <>
@@ -46,8 +39,8 @@ export default function HomePageClient() {
             <SidebarPanel
               marketIndex={marketIndexData}
               marketLoading={marketIndexLoading}
-              searches={popularSearches}
-              searchLoading={topStocksLoading}
+              searches={popularSearchesData.keywords}
+              searchLoading={popularSearchesLoading}
             />
           </div>
         </div>

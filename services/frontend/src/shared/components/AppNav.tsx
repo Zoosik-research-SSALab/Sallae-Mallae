@@ -321,7 +321,7 @@ export default function AppNav() {
   }, [isProfileMenuOpen]);
 
   const goToPath = (path: string) => {
-    window.location.href = path;
+    router.push(path);
     setIsDrawerOpen(false);
     setIsProfileMenuOpen(false);
   };
@@ -351,9 +351,12 @@ export default function AppNav() {
     setSearchKeyword(trimmedKeyword);
   };
 
-  const handleStockSelect = async (stock: SearchStockItem) => {
-    setSearchKeyword(stock.name);
+  const goToStockDetail = (stockId: number) => {
+    closeSearchModal();
+    router.push(`/stocks/${stockId}`);
+  };
 
+  const handleStockSelect = async (stock: SearchStockItem) => {
     if (isLoggedIn) {
       try {
         await saveRecentSearch({
@@ -368,7 +371,7 @@ export default function AppNav() {
       }
     }
 
-    submitSearch(stock.name);
+    goToStockDetail(stock.id);
   };
 
   const handleNewsSelect = (news: SearchNewsItem) => {
@@ -381,8 +384,6 @@ export default function AppNav() {
   };
 
   const handleTrendingStockSelect = async (stock: TrendingSearchStockItem) => {
-    setSearchKeyword(stock.name);
-
     if (isLoggedIn) {
       try {
         await saveRecentSearch({
@@ -397,10 +398,15 @@ export default function AppNav() {
       }
     }
 
-    submitSearch(stock.name);
+    goToStockDetail(stock.stockId);
   };
 
   const handleRecentSearchClick = (item: RecentSearchItem) => {
+    if (item.stockId !== null) {
+      goToStockDetail(item.stockId);
+      return;
+    }
+
     submitSearch(item.keyword);
   };
 
