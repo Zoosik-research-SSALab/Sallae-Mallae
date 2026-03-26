@@ -41,7 +41,33 @@ export function transformReportResponse(raw: unknown): ReportResponse {
 // ── Performance: type assertion ──
 
 export function transformPerformanceResponse(raw: unknown): PerformanceResponse {
-  return raw as PerformanceResponse;
+  const fallback: PerformanceResponse = {
+    cumulativeReturn: 0,
+    winRate: 0,
+    recentReturn: 0,
+    holding: {
+      buyDate: "",
+      buyPrice: 0,
+      currentPrice: 0,
+      holdingQuantity: 0,
+      investmentAmount: 0,
+      evaluationProfit: 0,
+      currentReturn: 0,
+      holdingDays: 0,
+    },
+    chart: [],
+  };
+
+  if (typeof raw !== "object" || raw === null) return fallback;
+
+  const record = raw as Record<string, unknown>;
+  return {
+    cumulativeReturn: (record.cumulativeReturn as number) ?? fallback.cumulativeReturn,
+    winRate: (record.winRate as number) ?? fallback.winRate,
+    recentReturn: (record.recentReturn as number) ?? fallback.recentReturn,
+    holding: (record.holding as PerformanceResponse["holding"]) ?? fallback.holding,
+    chart: Array.isArray(record.chart) ? (record.chart as PerformanceResponse["chart"]) : fallback.chart,
+  };
 }
 
 // ── Trades: pairTrades ──
