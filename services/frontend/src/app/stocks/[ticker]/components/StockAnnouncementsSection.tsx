@@ -20,13 +20,13 @@ export default function StockAnnouncementsSection({ stockId, announcements, isLo
 
         <div className="mt-6 flex flex-col gap-4">
           {isLoading
-            ? Array.from({ length: 4 }).map((_, index) => (
+            ? Array.from({ length: 3 }).map((_, index) => (
                 <div key={index} className="space-y-2">
                   <div className="h-6 animate-pulse rounded bg-[color:var(--color-bg-secondary)]" />
                   <div className="h-4 w-24 animate-pulse rounded bg-[color:var(--color-bg-secondary)]" />
                 </div>
               ))
-            : announcements.slice(0, 4).map((item) => (
+            : announcements.slice(0, 3).map((item) => (
                 <div
                   key={item.id}
                   className="border-b border-[color:var(--color-border-secondary)] pb-4 last:border-b-0 last:pb-0"
