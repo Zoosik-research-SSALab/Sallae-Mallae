@@ -8,6 +8,7 @@ import com.sallaemallae.backend.domain.notification.dto.request.NotificationSett
 import com.sallaemallae.backend.domain.notification.dto.request.NotificationTabRequest;
 import com.sallaemallae.backend.domain.notification.dto.response.NotificationUnreadCountResponse;
 import com.sallaemallae.backend.domain.notification.service.NotificationService;
+import com.sallaemallae.backend.domain.notification.service.NotificationSseService;
 import com.sallaemallae.backend.global.response.ApiResponse;
 import com.sallaemallae.backend.global.security.AuthenticatedUserProvider;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "알림", description = "사용자 알림 API")
 @RestController
@@ -31,7 +34,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationController {
 
   private final NotificationService notificationService;
+  private final NotificationSseService notificationSseService;
   private final AuthenticatedUserProvider authenticatedUserProvider;
+
+  /** 알림 실시간 스트림 (SSE) */
+  @Operation(summary = "알림 실시간 스트림", description = "SSE를 통해 새 알림을 실시간으로 수신합니다.")
+  @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public SseEmitter streamNotifications() {
+    return notificationSseService.subscribe(authenticatedUserProvider.getCurrentUserId());
+  }
 
   /** FS-NOTI-001: 미확인 알림 수 조회 */
   @Operation(summary = "미확인 알림 수 조회", description = "헤더 배지에 표시할 미확인 알림 수를 조회합니다.")
