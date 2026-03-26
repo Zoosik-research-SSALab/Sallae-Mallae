@@ -3,9 +3,11 @@ package com.sallaemallae.backend.domain.notification.service;
 import com.sallaemallae.backend.domain.notification.entity.StockNotification;
 import com.sallaemallae.backend.domain.notification.entity.UserNotification;
 import com.sallaemallae.backend.domain.notification.enumtype.NotifyType;
+import com.sallaemallae.backend.domain.notification.repository.NotificationQueryRepository;
 import com.sallaemallae.backend.domain.notification.repository.StockNotificationRepository;
 import com.sallaemallae.backend.domain.notification.repository.UserNotificationRepository;
 import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
+import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,9 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NotificationPublishService {
 
+  private static final int RETENTION_DAYS = 30;
+  private static final int MAX_UNREAD_BADGE_COUNT = 99;
+
   private final StockNotificationRepository stockNotificationRepository;
   private final UserNotificationRepository userNotificationRepository;
   private final WatchlistRepository watchlistRepository;
+  private final NotificationQueryRepository notificationQueryRepository;
   private final NotificationSseService notificationSseService;
 
   /**
@@ -46,9 +52,12 @@ public class NotificationPublishService {
         .toList();
     userNotificationRepository.saveAll(userNotis);
 
-    // SSE 실시간 푸시
+    // SSE 실시간 푸시 (유저별 읽지 않은 알림 수 포함)
+    OffsetDateTime cutoff = OffsetDateTime.now().minusDays(RETENTION_DAYS);
     for (Long userId : userIds) {
-      notificationSseService.pushToUser(userId, notiType.getResponseValue(), title, message);
+      long unread = notificationQueryRepository.countUnreadNotifications(userId, cutoff);
+      String unreadCount = unread > MAX_UNREAD_BADGE_COUNT ? "99+" : String.valueOf(unread);
+      notificationSseService.pushToUser(userId, notiType.getResponseValue(), title, message, unreadCount);
     }
 
     log.info("알림 발행: type={}, stockId={}, users={}", notiType, stockId, userIds.size());
