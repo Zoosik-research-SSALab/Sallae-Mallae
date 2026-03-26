@@ -9,8 +9,8 @@ type Props = {
   currentPrice: number;
 };
 
-function formatNumber(n: number) {
-  return n.toLocaleString("ko-KR");
+function formatNumber(n: number | undefined | null) {
+  return (n ?? 0).toLocaleString("ko-KR");
 }
 
 export default function PerformanceMetrics({
@@ -60,7 +60,7 @@ export default function PerformanceMetrics({
               style={{ color: pnlColor }}
             >
               {sign}
-              {returnRate.toFixed(2)}%
+              {(returnRate ?? 0).toFixed(2)}%
             </p>
           </div>
 

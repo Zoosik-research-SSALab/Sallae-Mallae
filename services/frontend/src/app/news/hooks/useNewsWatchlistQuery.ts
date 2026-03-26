@@ -1,12 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import type { NewsQueryParams } from "../types/news";
 import { getWatchlistNewsPage } from "../api/getNews";
 
-type Params = {
-  offset: number;
-  limit: number;
-};
+type Params = Pick<NewsQueryParams, "offset" | "limit" | "keyword" | "startDate" | "endDate">;
 
 type Options = {
   enabled?: boolean;

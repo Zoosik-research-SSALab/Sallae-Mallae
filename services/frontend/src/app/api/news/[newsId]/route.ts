@@ -48,8 +48,8 @@ function getMockWatchlistNewsDetail(newsId: number) {
   return {
     id: matchedNews.id,
     title: matchedNews.title,
-    snippet: matchedNews.summary,
-    publisher: matchedNews.source,
+    snippet: matchedNews.snippet,
+    publisher: matchedNews.publisher,
     publishedAt: matchedNews.publishedAt,
     url: matchedNews.url ?? null,
     relatedStocks: matchedNews.relatedStocks.map((stockName, index) => {

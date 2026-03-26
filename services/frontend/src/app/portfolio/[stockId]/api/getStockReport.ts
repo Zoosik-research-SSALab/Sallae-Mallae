@@ -1,11 +1,12 @@
-import type { ReportResponse } from "../types/api";
 import { apiFetch } from "@/shared/lib/apiClient";
+
+type ApiEnvelope<T> = { success: boolean; data: T; error: unknown };
 
 export async function getStockReport(
   stockId: string,
   offset?: number,
   limit?: number,
-): Promise<ReportResponse> {
+) {
   const params = new URLSearchParams();
   if (offset !== undefined) params.set("offset", String(offset));
   if (limit !== undefined) params.set("limit", String(limit));
@@ -13,9 +14,20 @@ export async function getStockReport(
   const query = params.toString();
   const url = `/api/report/${stockId}${query ? `?${query}` : ""}`;
 
-  return apiFetch<ReportResponse>(url, {
+  const response = await apiFetch<ApiEnvelope<unknown> | unknown>(url, {
     cache: "no-store",
-    useBaseUrl: false,
     withAuth: true,
   });
+
+  // Unwrap envelope only
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "data" in response &&
+    "success" in response
+  ) {
+    return (response as ApiEnvelope<unknown>).data;
+  }
+
+  return response;
 }

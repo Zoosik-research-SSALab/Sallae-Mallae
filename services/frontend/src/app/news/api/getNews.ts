@@ -22,6 +22,14 @@ function createNewsSearchParams(params: NewsQueryParams) {
     searchParams.set("keyword", params.keyword);
   }
 
+  if (params.startDate) {
+    searchParams.set("startDate", params.startDate);
+  }
+
+  if (params.endDate) {
+    searchParams.set("endDate", params.endDate);
+  }
+
   return searchParams.toString();
 }
 
@@ -163,6 +171,7 @@ export async function getNews(params: NewsQueryParams) {
   const unwrapped = unwrapNewsApiResponse(payload, "뉴스 응답이 올바르지 않습니다.");
 
   return {
+    totalCount: typeof unwrapped.totalCount === "number" ? unwrapped.totalCount : Array.isArray(unwrapped.news) ? unwrapped.news.length : 0,
     news: Array.isArray(unwrapped.news) ? unwrapped.news.map((item) => normalizeNewsItem(item)) : [],
   } satisfies NewsPayload;
 }
@@ -182,10 +191,11 @@ export async function getTrendingNews() {
   } satisfies NewsTrendingPayload;
 }
 
-export async function getWatchlistNewsPage(params: Pick<NewsQueryParams, "offset" | "limit">) {
+export async function getWatchlistNewsPage(params: Pick<NewsQueryParams, "offset" | "limit" | "keyword" | "startDate" | "endDate">) {
   const payload = await getWatchlistNews(params);
 
   return {
+    totalCount: payload.totalCount,
     news: Array.isArray(payload.news) ? payload.news.map((item) => normalizeWatchlistNewsItem(item)) : [],
   } satisfies NewsPayload;
 }

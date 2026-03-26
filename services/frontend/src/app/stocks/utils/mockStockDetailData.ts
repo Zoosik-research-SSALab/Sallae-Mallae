@@ -149,6 +149,101 @@ const stockSeeds: StockSeed[] = [
     ],
   },
   {
+    id: 2,
+    ticker: "000660",
+    name: "SK하이닉스",
+    marketType: "KOSPI",
+    gicsSector: "반도체",
+    category: "KOSPI 200",
+    basePrice: 213500,
+    indicators: {
+      per: 17.9,
+      pbr: 2.3,
+      roe: 13.6,
+      debtRatio: 28.4,
+      sectorAvg: {
+        per: 22.4,
+        pbr: 2.2,
+        roe: 9.4,
+        debtRatio: 41.8,
+      },
+      prevQuarterDiff: {
+        per: -0.9,
+        pbr: 0.1,
+        roe: 0.8,
+        debtRatio: -0.7,
+      },
+    },
+    yearlyFinancials: [
+      { year: 2023, revenue: 32.8, operatingProfit: -7.7 },
+      { year: 2024, revenue: 46.2, operatingProfit: 8.3 },
+      { year: 2025, revenue: 68.4, operatingProfit: 24.1 },
+      { year: 2026, revenue: 74.9, operatingProfit: 28.7 },
+    ],
+    quarterlyFinancials: [
+      { year: 2025, quarter: 1, revenue: 16.1, operatingProfit: 5.2 },
+      { year: 2025, quarter: 2, revenue: 16.8, operatingProfit: 5.9 },
+      { year: 2025, quarter: 3, revenue: 17.4, operatingProfit: 6.1 },
+      { year: 2025, quarter: 4, revenue: 18.1, operatingProfit: 6.9 },
+      { year: 2026, quarter: 1, revenue: 18.4, operatingProfit: 7.1 },
+      { year: 2026, quarter: 2, revenue: 18.9, operatingProfit: 7.5 },
+    ],
+    keywords: ["HBM", "DDR5", "AI 메모리", "서버 수요"],
+    news: [
+      {
+        id: 161,
+        title: "SK하이닉스, HBM 증설 기대에 메모리 대장주 부각",
+        publisher: "한국경제",
+        minutesAgo: 35,
+        url: "https://www.hankyung.com",
+      },
+      {
+        id: 162,
+        title: "AI 서버 투자 확대에 SK하이닉스 실적 눈높이 상향",
+        publisher: "매일경제",
+        minutesAgo: 110,
+        url: "https://www.mk.co.kr",
+      },
+      {
+        id: 163,
+        title: "외국인 순매수 지속에 반도체주 강세",
+        publisher: "이데일리",
+        minutesAgo: 220,
+        url: "https://www.edaily.co.kr",
+      },
+    ],
+    announcements: [
+      {
+        id: 1,
+        title: "기업설명회(IR) 개최 안내",
+        announcedAt: "2026-02-21T09:00:00+09:00",
+        content: "기관투자자 대상 실적 설명회 개최 일정을 안내합니다.",
+        url: "https://dart.fss.or.kr",
+      },
+      {
+        id: 2,
+        title: "단일판매ㆍ공급계약체결",
+        announcedAt: "2026-02-08T08:40:00+09:00",
+        content: "메모리 반도체 공급 계약 체결 사실을 공시합니다.",
+        url: "https://dart.fss.or.kr",
+      },
+      {
+        id: 3,
+        title: "현금ㆍ현물배당결정 (결산배당)",
+        announcedAt: "2026-01-24T15:10:00+09:00",
+        content: "결산배당 관련 주요 사항을 공시합니다.",
+        url: "https://dart.fss.or.kr",
+      },
+      {
+        id: 4,
+        title: "주주총회소집결의",
+        announcedAt: "2026-01-03T09:20:00+09:00",
+        content: "정기 주주총회 개최 일정을 공시합니다.",
+        url: "https://dart.fss.or.kr",
+      },
+    ],
+  },
+  {
     id: 102,
     ticker: "035420",
     name: "NAVER",
@@ -438,6 +533,10 @@ const stockSeeds: StockSeed[] = [
 const seedByTicker = new Map(stockSeeds.map((seed) => [seed.ticker, seed] as const));
 const seedById = new Map(stockSeeds.map((seed) => [String(seed.id), seed] as const));
 
+export function hasMockStockSeed(stockKey: string) {
+  return seedByTicker.has(stockKey) || seedById.has(stockKey);
+}
+
 const detailedIndicatorByTicker: Record<string, StockIndicators> = {
   "005930": {
     valuation: {
@@ -456,6 +555,25 @@ const detailedIndicatorByTicker: Record<string, StockIndicators> = {
       paymentMonths: "3월, 6월, 9월, 12월",
       annualDividendPerShare: 1668,
       dividendYield: 0.96,
+    },
+  },
+  "000660": {
+    valuation: {
+      per: 17.9,
+      psr: 4.1,
+      pbr: 2.3,
+    },
+    earnings: {
+      eps: 11927,
+      bps: 92826,
+      roe: 13.6,
+    },
+    dividend: {
+      periodLabel: "최근 12개월",
+      paymentCount: 4,
+      paymentMonths: "3월, 6월, 9월, 12월",
+      annualDividendPerShare: 1800,
+      dividendYield: 0.84,
     },
   },
   "035420": {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { LuSearch, LuSlidersHorizontal } from "react-icons/lu";
 import Button from "@/shared/ui/Button";
 import Pagination from "@/shared/ui/Pagination";
@@ -11,9 +11,10 @@ import NewsKeywordSidebar from "./NewsKeywordSidebar";
 import { useNewsQuery } from "../hooks/useNewsQuery";
 import { useNewsTrendingQuery } from "../hooks/useNewsTrendingQuery";
 import { useNewsWatchlistQuery } from "../hooks/useNewsWatchlistQuery";
-import type { NewsPeriodFilter, NewsSortOption, NewsTab } from "../types/news";
-import { NEWS_FETCH_LIMIT, NEWS_PAGE_SIZE } from "../utils/newsConstants";
-import { buildRankedNewsKeywords, filterNewsByPeriod, sortNewsItems } from "../utils/newsFormatters";
+import type { NewsDateRange, NewsTab } from "../types/news";
+import { NEWS_PAGE_SIZE } from "../utils/newsConstants";
+import { createEmptyNewsDateRange, createTodayNewsDateRange } from "../utils/newsDateUtils";
+import { buildRankedNewsKeywords } from "../utils/newsFormatters";
 
 const NEWS_PAGES_PER_BATCH = 4;
 const NEWS_BATCH_LIMIT = NEWS_PAGE_SIZE * NEWS_PAGES_PER_BATCH;
@@ -48,35 +49,30 @@ export default function NewsPageClient() {
   const [searchInput, setSearchInput] = useState("");
   const deferredKeyword = useDeferredValue(searchInput.trim());
   const [activeTab, setActiveTab] = useState<NewsTab>("LATEST");
-  const [sortOption, setSortOption] = useState<NewsSortOption>("LATEST");
-  const [periodOption, setPeriodOption] = useState<NewsPeriodFilter>(null);
-  const [draftSortOption, setDraftSortOption] = useState<NewsSortOption>("LATEST");
-  const [draftPeriodOption, setDraftPeriodOption] = useState<NewsPeriodFilter>(null);
+  const [dateRange, setDateRange] = useState<NewsDateRange>(createEmptyNewsDateRange());
+  const [draftDateRange, setDraftDateRange] = useState<NewsDateRange>(createEmptyNewsDateRange());
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null);
-
-  const requestedPageEnd = currentPage + NEWS_PAGES_PER_BATCH - 1;
-  const requestedBatchCount = Math.max(1, Math.ceil(requestedPageEnd / NEWS_PAGES_PER_BATCH));
-  const requestedLimit = requestedBatchCount * NEWS_BATCH_LIMIT;
-  const needsWideClientFiltering =
-    periodOption !== null ||
-    sortOption !== "LATEST";
-  const effectiveLimit = needsWideClientFiltering
-    ? Math.max(NEWS_FETCH_LIMIT, requestedLimit)
-    : requestedLimit;
+  const batchStartPage = Math.floor((currentPage - 1) / NEWS_PAGES_PER_BATCH) * NEWS_PAGES_PER_BATCH + 1;
+  const offset = (batchStartPage - 1) * NEWS_PAGE_SIZE;
 
   const latestNewsQuery = useNewsQuery({
-    offset: 0,
-    limit: effectiveLimit,
+    offset,
+    limit: NEWS_BATCH_LIMIT,
     keyword: deferredKeyword,
+    startDate: dateRange.startDate ?? undefined,
+    endDate: dateRange.endDate ?? undefined,
   }, {
     enabled: activeTab === "LATEST",
   });
   const watchlistNewsQuery = useNewsWatchlistQuery(
     {
-      offset: 0,
-      limit: effectiveLimit,
+      offset,
+      limit: NEWS_BATCH_LIMIT,
+      keyword: deferredKeyword,
+      startDate: dateRange.startDate ?? undefined,
+      endDate: dateRange.endDate ?? undefined,
     },
     {
       enabled: activeTab === "WATCHLIST",
@@ -85,24 +81,43 @@ export default function NewsPageClient() {
   const trendingKeywordsQuery = useNewsTrendingQuery();
 
   const activeNewsQuery = activeTab === "WATCHLIST" ? watchlistNewsQuery : latestNewsQuery;
-  const queriedNews = useMemo(() => activeNewsQuery.data?.news ?? [], [activeNewsQuery.data]);
-  const periodFilteredNews = useMemo(() => filterNewsByPeriod(queriedNews, periodOption), [queriedNews, periodOption]);
-  const sortedNews = useMemo(() => sortNewsItems(periodFilteredNews, sortOption, deferredKeyword), [periodFilteredNews, sortOption, deferredKeyword]);
   const rankedKeywords = trendingKeywordsQuery.data?.trending ?? buildRankedNewsKeywords(latestNewsQuery.data?.news ?? []);
-  const totalKnownPages = Math.ceil(sortedNews.length / NEWS_PAGE_SIZE);
-  const totalPages = Math.max(1, Math.min(totalKnownPages, requestedPageEnd));
+  const totalCount = activeNewsQuery.data?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / NEWS_PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pagedNews = sortedNews.slice((safeCurrentPage - 1) * NEWS_PAGE_SIZE, safeCurrentPage * NEWS_PAGE_SIZE);
+  const pageOffsetInBatch = Math.max(0, safeCurrentPage - batchStartPage);
+  const pagedItems = useMemo(
+    () => {
+      const currentItems = activeNewsQuery.data?.news ?? [];
+      return currentItems.slice(
+        pageOffsetInBatch * NEWS_PAGE_SIZE,
+        (pageOffsetInBatch + 1) * NEWS_PAGE_SIZE,
+      );
+    },
+    [activeNewsQuery.data, pageOffsetInBatch],
+  );
+
+  useEffect(() => {
+    if (currentPage <= totalPages) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCurrentPage(totalPages);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [currentPage, totalPages]);
 
   const openFilterModal = () => {
-    setDraftSortOption(sortOption);
-    setDraftPeriodOption(periodOption);
+    setDraftDateRange(dateRange.startDate || dateRange.endDate ? dateRange : createTodayNewsDateRange());
     setIsFilterOpen(true);
   };
 
   const applyFilters = () => {
-    setSortOption(draftSortOption);
-    setPeriodOption(draftPeriodOption);
+    setDateRange(draftDateRange);
     setCurrentPage(1);
     setIsFilterOpen(false);
   };
@@ -158,11 +173,10 @@ export default function NewsPageClient() {
 
                   {isFilterOpen ? (
                     <NewsFilterModal
-                      draftSort={draftSortOption}
-                      draftPeriod={draftPeriodOption}
-                      onSortChange={setDraftSortOption}
-                      onPeriodChange={setDraftPeriodOption}
+                      draftRange={draftDateRange}
+                      onRangeChange={setDraftDateRange}
                       onApply={applyFilters}
+                      onReset={() => setDraftDateRange(createEmptyNewsDateRange())}
                       onClose={() => setIsFilterOpen(false)}
                     />
                   ) : null}
@@ -208,8 +222,8 @@ export default function NewsPageClient() {
               {!activeNewsQuery.isLoading && !activeNewsQuery.error ? (
                 <>
                   <div className="flex flex-col">
-                    {pagedNews.length > 0 ? (
-                      pagedNews.map((item) => (
+                    {pagedItems.length > 0 ? (
+                      pagedItems.map((item) => (
                         <NewsArticleCard
                           key={item.id}
                           item={item}

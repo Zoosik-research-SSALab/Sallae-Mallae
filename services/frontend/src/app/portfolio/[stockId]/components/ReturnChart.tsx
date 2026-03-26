@@ -74,8 +74,9 @@ export default function ReturnChart({ chart, currentReturn, buyDate }: Props) {
   });
 
   // Return label: sign + value
-  const returnSign = currentReturn >= 0 ? "+" : "";
-  const returnLabel = `${returnSign}${currentReturn.toFixed(1)}%`;
+  const safeReturn = currentReturn ?? 0;
+  const returnSign = safeReturn >= 0 ? "+" : "";
+  const returnLabel = `${returnSign}${safeReturn.toFixed(1)}%`;
 
   // Badge dimensions
   const BADGE_HEIGHT = 22;

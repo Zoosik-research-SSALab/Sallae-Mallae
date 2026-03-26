@@ -3,6 +3,14 @@ import { getApiBaseUrl } from "../../utils";
 
 export const dynamic = "force-dynamic";
 
+function getObjectKeys(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  return Object.keys(value as Record<string, unknown>);
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ stockId: string }> },
@@ -18,6 +26,11 @@ export async function GET(
   }
 
   try {
+    console.info(`[report/${stockId}/performance] proxy request`, {
+      upstreamUrl,
+      hasAuthorization: Boolean(authorization),
+    });
+
     const upstreamResponse = await fetch(upstreamUrl, {
       method: "GET",
       headers,
@@ -35,7 +48,21 @@ export async function GET(
     }
 
     const body = (await upstreamResponse.json()) as { data?: unknown };
-    return NextResponse.json(body.data ?? body);
+    const unwrapped = body.data ?? body;
+
+    console.info(`[report/${stockId}/performance] proxy response`, {
+      bodyKeys: getObjectKeys(body),
+      unwrappedKeys: getObjectKeys(unwrapped),
+      chartLength:
+        unwrapped &&
+        typeof unwrapped === "object" &&
+        !Array.isArray(unwrapped) &&
+        Array.isArray((unwrapped as { chart?: unknown }).chart)
+          ? (unwrapped as { chart: unknown[] }).chart.length
+          : null,
+    });
+
+    return NextResponse.json(unwrapped);
   } catch (error) {
     console.error(
       `[report/${stockId}/performance] upstream fetch failed:`,
