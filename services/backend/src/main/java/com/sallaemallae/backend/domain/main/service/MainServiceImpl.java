@@ -118,6 +118,9 @@ public class MainServiceImpl implements MainService {
     @Override
     public SseEmitter streamMarketIndex() {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
+        emitter.onCompletion(() -> sseManager.removeEmitter(CHANNEL_MARKET_INDEX, emitter));
+        emitter.onTimeout(() -> sseManager.removeEmitter(CHANNEL_MARKET_INDEX, emitter));
+        emitter.onError(ex -> sseManager.removeEmitter(CHANNEL_MARKET_INDEX, emitter));
         sseManager.addEmitter(CHANNEL_MARKET_INDEX, emitter);
         MarketIndexResponse data = cacheRepository.getMarketIndex()
             .orElseGet(() -> {
@@ -136,6 +139,9 @@ public class MainServiceImpl implements MainService {
     @Override
     public SseEmitter streamCategories() {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
+        emitter.onCompletion(() -> sseManager.removeEmitter(CHANNEL_CATEGORIES, emitter));
+        emitter.onTimeout(() -> sseManager.removeEmitter(CHANNEL_CATEGORIES, emitter));
+        emitter.onError(ex -> sseManager.removeEmitter(CHANNEL_CATEGORIES, emitter));
         sseManager.addEmitter(CHANNEL_CATEGORIES, emitter);
         CategoryStocksResponse data = cacheRepository.getCategories()
             .orElseGet(() -> {
