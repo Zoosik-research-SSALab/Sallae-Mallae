@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import com.sallaemallae.backend.domain.report.dto.ChairmanPortfolioResponse;
 import com.sallaemallae.backend.domain.report.exception.ReportErrorCode;
 import com.sallaemallae.backend.domain.report.repository.ChairmanPortfolioQueryRepository;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.signal.entity.AiDailyPerformance;
 import com.sallaemallae.backend.domain.signal.entity.AiPortfolio;
 import com.sallaemallae.backend.domain.signal.repository.AiDailyPerformanceRepository;
@@ -37,6 +38,9 @@ class ChairmanPortfolioServiceImplTest {
   @Mock
   private ChairmanPortfolioQueryRepository chairmanPortfolioQueryRepository;
 
+  @Mock
+  private StockIconUrlResolver stockIconUrlResolver;
+
   @InjectMocks
   private ChairmanPortfolioServiceImpl chairmanPortfolioService;
 
@@ -52,7 +56,7 @@ class ChairmanPortfolioServiceImplTest {
     given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
     given(chairmanPortfolioQueryRepository.findPopularSignalRows(5))
-        .willReturn(List.of(new ChairmanPortfolioQueryRepository.PopularSignalRow(1, 1L, "005930", "삼성전자", 74300, "BUY")));
+        .willReturn(List.of(new ChairmanPortfolioQueryRepository.PopularSignalRow(1, 1L, "005930", "삼성전자", 74300, "BUY", null)));
     given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L))
         .willReturn(List.of(
             new ChairmanPortfolioQueryRepository.MonthlyTradeMetricRow("2026-03", 120000L, 1_500_000L, 2, 1),
@@ -67,7 +71,8 @@ class ChairmanPortfolioServiceImplTest {
             74300,
             OffsetDateTime.now().minusDays(14),
             12L,
-            14.43f
+            14.43f,
+            null
         )));
 
     ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("HOLDINGS", 0, 6);
@@ -167,7 +172,8 @@ class ChairmanPortfolioServiceImplTest {
             65000f,
             74300,
             9L,
-            3.21f
+            3.21f,
+            null
         )));
 
     ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("TODAY_TRADES", 0, 6);

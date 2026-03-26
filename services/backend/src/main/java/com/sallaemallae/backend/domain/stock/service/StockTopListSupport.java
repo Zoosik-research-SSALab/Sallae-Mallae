@@ -132,7 +132,8 @@ final class StockTopListSupport {
         candidate.dividendYield(),
         candidate.signal().name(),
         candidate.confidence(),
-        candidate.isWatchlisted()
+        candidate.isWatchlisted(),
+        candidate.iconUrl()
     );
   }
 
@@ -154,6 +155,7 @@ final class StockTopListSupport {
       SignalFilter signal,
       int confidence,
       boolean isWatchlisted,
+      String iconUrl,
       Long marketCap,
       SectorFilter sectorFilter
   ) {

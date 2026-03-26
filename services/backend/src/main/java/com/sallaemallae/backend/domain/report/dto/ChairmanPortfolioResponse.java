@@ -69,7 +69,9 @@ public record ChairmanPortfolioResponse(
       @Schema(description = "현재가", example = "74300")
       Integer price,
       @Schema(description = "AI 매매신호", example = "BUY")
-      String signal
+      String signal,
+      @Schema(description = "종목 아이콘 URL", nullable = true)
+      String iconUrl
   ) {
   }
 
@@ -90,7 +92,9 @@ public record ChairmanPortfolioResponse(
       @Schema(description = "보유 수량", example = "12", nullable = true)
       Long holdingQuantity,
       @Schema(description = "수익률", example = "14.43", nullable = true)
-      Float returnRate
+      Float returnRate,
+      @Schema(description = "종목 아이콘 URL", nullable = true)
+      String iconUrl
   ) {
   }
 
@@ -113,7 +117,9 @@ public record ChairmanPortfolioResponse(
       @Schema(description = "보유 수량", example = "12", nullable = true)
       Long holdingQuantity,
       @Schema(description = "수익률", example = "3.21", nullable = true)
-      Float returnRate
+      Float returnRate,
+      @Schema(description = "종목 아이콘 URL", nullable = true)
+      String iconUrl
   ) {
   }
 

@@ -33,6 +33,7 @@ public class SearchQueryRepository {
                    s.ticker,
                    s.name,
                    s.gics_sector,
+                   s.icon_url,
                    CASE
                        WHEN s.name ILIKE :startsWith ESCAPE '\\' THEN 0
                        WHEN s.ticker ILIKE :startsWith ESCAPE '\\' THEN 1
@@ -54,7 +55,8 @@ public class SearchQueryRepository {
                ms.name,
                ms.gics_sector,
                latest_price.close_price,
-               latest_price.fluctuation_rate
+               latest_price.fluctuation_rate,
+               ms.icon_url
         FROM matched_stocks ms
                  LEFT JOIN LATERAL (
             SELECT sp.close_price, sp.fluctuation_rate
@@ -123,7 +125,8 @@ public class SearchQueryRepository {
         (String) row[2],
         (String) row[3],
         toInteger(row[4]),
-        toBigDecimal(row[5])
+        toBigDecimal(row[5]),
+        (String) row[6]
     );
   }
 

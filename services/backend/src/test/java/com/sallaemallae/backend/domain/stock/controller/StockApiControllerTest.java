@@ -103,8 +103,8 @@ class StockApiControllerTest {
             2,
             new StockListFilterCountsResponse(2, 1, 1),
             java.util.List.of(
-                new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, 7_030_000_000L, 100_000L, null, "BUY", 87, true),
-                new StockListItemResponse(2, 2L, "000660", "SK hynix", "Information Technology", 182000, -1.75f, 12_740_000_000L, 70_000L, null, "SELL", 80, false)
+                new StockListItemResponse(1, 1L, "005930", "Samsung Electronics", "Information Technology", 70300, 2.15f, 7_030_000_000L, 100_000L, null, "BUY", 87, true, null),
+                new StockListItemResponse(2, 2L, "000660", "SK hynix", "Information Technology", 182000, -1.75f, 12_740_000_000L, 70_000L, null, "SELL", 80, false, null)
             )
         ));
     given(stockMarketQueryService.getQuote(anyString(), anyString()))

@@ -28,7 +28,8 @@ class SearchResponseJsonTest {
                 "삼성전자",
                 "Information Technology",
                 70300,
-                BigDecimal.valueOf(2.15))
+                BigDecimal.valueOf(2.15),
+                null)
         ),
         List.of(
             new SearchNewsItemResponse(
