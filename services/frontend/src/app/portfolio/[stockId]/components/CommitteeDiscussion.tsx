@@ -107,7 +107,7 @@ export default function CommitteeDiscussion({
             {finalDecision}
           </span>
           <span className="typo-body-sm inline-flex items-center px-3 py-1 rounded bg-bg-danger-subtle font-semibold text-text-danger-bold ">
-            신뢰도 {confidence}%
+            신뢰도 {Math.round(confidence <= 1 ? confidence * 100 : confidence)}%
           </span>
         </div>
       </div>

@@ -49,14 +49,14 @@ export default function BacktestResults({
           {/* Left: return rate + period */}
           <div className="flex flex-1 flex-col gap-3">
             <p className="typo-heading-2xl font-extrabold text-text-danger tracking-tight">
-              +{bestTrade.returnRate}%
+              +{(bestTrade.returnRate ?? 0).toFixed(2)}%
             </p>
             <div className="text-sm font-medium tracking-tight leading-5">
               {/* Mobile: 2 lines */}
               <div className="md:hidden">
                 <p className="typo-body-md tracking-tight">
                   <span className="text-text-secondary">보유 기간: </span>
-                  <span className="text-text-primary">45일</span>
+                  <span className="text-text-primary">{bestTrade.holdingDays}일</span>
                 </p>
                 <p className="text-text-secondary">({bestTrade.period})</p>
               </div>
@@ -66,7 +66,7 @@ export default function BacktestResults({
                   보유 기간:{" "}
                 </span>
                 <span className="text-[color:var(--color-text-primary)]">
-                  45일
+                  {bestTrade.holdingDays}일
                 </span>
                 <span className="text-[color:var(--color-text-secondary)]">
                   {" "}
@@ -111,10 +111,10 @@ export default function BacktestResults({
         {/* 최근 1년 누적 수익률 */}
         <div className="flex flex-1 flex-col gap-1">
           <p className="pb-1 typo-body-md font-semibold text-text-tertiary tracking-tight">
-            최근 1년 누적 수익률
+            최근 1년 평균 수익률
           </p>
           <p className="typo-heading-lg font-extrabold text-text-danger tracking-tight">
-            +{stats.oneYearReturn}%
+            +{(stats.averageReturn1y ?? 0).toFixed(2)}%
           </p>
         </div>
 

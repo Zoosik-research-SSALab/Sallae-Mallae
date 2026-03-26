@@ -75,6 +75,7 @@ export function getTopStocksMock(): TopStocksPayload {
       fluctuationRate: jitterRate(item.fluctuationRate),
       signal: item.signal,
       confidence: item.confidence,
+      isWatchlisted: item.stockId % 3 === 1,
     })),
   };
 }
@@ -85,11 +86,13 @@ export function getNewSignalsMock(): NewSignalsPayload {
       ...item,
       price: jitterPrice(item.price, 500),
       fluctuationRate: jitterRate(item.fluctuationRate, 0.28),
+      isWatchlisted: item.stockId % 2 === 1,
     })),
     sell: sellSignalSeeds.map((item) => ({
       ...item,
       price: jitterPrice(item.price, 500),
       fluctuationRate: jitterRate(item.fluctuationRate, 0.28),
+      isWatchlisted: item.stockId % 2 === 0,
     })),
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import StockDetailHeader from "./components/StockDetailHeader";
 import StockInfoSection from "./components/StockInfoSection";
 import InvestmentCalculator from "./components/InvestmentCalculator";
@@ -51,11 +52,10 @@ function mapApiTradeToEntry(item: TradeItem, index: number): TradeEntry {
   };
 }
 
-function calcBacktest(trades: TradeItem[]): {
+function calcBacktest(trades: TradeItem[], averageReturn1y: number): {
   bestTrade: BacktestBestTrade;
   stats: BacktestStats;
 } {
-  // TODO: BE should provide backtest stats directly; this is a client-side approximation
   const soldTrades = trades.filter((t) => t.sellDate && t.sellPrice != null);
 
   let best = soldTrades[0] ?? trades[0];
@@ -63,22 +63,30 @@ function calcBacktest(trades: TradeItem[]): {
     if (t.returnRate > (best?.returnRate ?? -Infinity)) best = t;
   }
 
+  const bestPeriodStart = best ? formatDateShort(best.buyDate) : "";
+  const bestPeriodEnd = best
+    ? best.sellDate ? formatDateShort(best.sellDate) : "현재"
+    : "";
+
   const bestTrade: BacktestBestTrade = best
     ? {
         returnRate: best.returnRate,
-        period: "",
+        period: `${bestPeriodStart} ~ ${bestPeriodEnd}`,
+        holdingDays: best.holdingDays ?? 0,
         buyPrice: best.buyPrice,
         sellPrice: best.sellPrice ?? best.currentPrice ?? 0,
       }
-    : { returnRate: 0, period: "", buyPrice: 0, sellPrice: 0 };
+    : { returnRate: 0, period: "", holdingDays: 0, buyPrice: 0, sellPrice: 0 };
 
-  const totalReturn = soldTrades.reduce((sum, t) => sum + t.returnRate, 0);
+  const allTimeSince = trades.length > 0
+    ? `${Math.min(...trades.map((t) => new Date(t.buyDate).getFullYear()))}~`
+    : "거래없음";
 
   const stats: BacktestStats = {
-    oneYearReturn: Number(totalReturn.toFixed(2)),
+    averageReturn1y,
     oneYearTradeCount: soldTrades.length,
     allTimeTradeCount: trades.length,
-    allTimeSince: "",
+    allTimeSince,
   };
 
   return { bestTrade, stats };
@@ -117,6 +125,9 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
     refetch: refetchTrades,
   } = useStockTradesQuery(stockId);
 
+  // ── Investment calculator state (훅은 조건부 return 앞에 위치해야 함) ──
+  const [investmentAmount, setInvestmentAmount] = useState("");
+
   const isLoading = overviewLoading || reportLoading || performanceLoading || tradesLoading;
   const isError = overviewError || reportError || performanceError || tradesError;
 
@@ -154,12 +165,21 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
 
   // ── Performance props ──────────────────────────────────────────────────────
   const apiHolding = performanceData?.holding;
+  const customAmountWon = Number(investmentAmount) * 10_000;
+  const useCustom = apiHolding && customAmountWon > 0 && apiHolding.buyPrice > 0;
+
   const performanceProps = apiHolding
     ? {
-        totalPnl: apiHolding.evaluationProfit,
+        totalPnl: useCustom
+          ? Math.round(customAmountWon * (apiHolding.currentReturn / 100))
+          : apiHolding.evaluationProfit,
         returnRate: apiHolding.currentReturn,
-        holdingCount: apiHolding.holdingQuantity,
-        investmentPrincipal: apiHolding.investmentAmount,
+        holdingCount: useCustom
+          ? Math.floor(customAmountWon / apiHolding.buyPrice)
+          : apiHolding.holdingQuantity,
+        investmentPrincipal: useCustom
+          ? customAmountWon
+          : apiHolding.investmentAmount,
         buyDate: formatDateShort(apiHolding.buyDate),
         holdingDays: apiHolding.holdingDays,
         buyPrice: apiHolding.buyPrice,
@@ -172,7 +192,9 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
   const trades: TradeEntry[] = rawTrades.map(mapApiTradeToEntry);
 
   // ── Backtest props ─────────────────────────────────────────────────────────
-  const backtestResult = rawTrades.length > 0 ? calcBacktest(rawTrades) : null;
+  const backtestResult = rawTrades.length > 0
+    ? calcBacktest(rawTrades, performanceData?.averageReturn1y ?? 0)
+    : null;
 
   // ── Committee props ────────────────────────────────────────────────────────
   const firstReport = reportData?.reports?.[0];
@@ -224,6 +246,7 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
         <StockDetailHeader
           stockName={stockName}
           portfolioLabel={portfolioLabel}
+          stockDbId={overviewData?.id ?? 0}
         />
       </div>
 
@@ -242,7 +265,10 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
               />
 
               {/* Investment calculator */}
-              <InvestmentCalculator />
+              <InvestmentCalculator
+                amount={investmentAmount}
+                onAmountChange={setInvestmentAmount}
+              />
 
               {/* Performance metrics */}
               {performanceProps ? (

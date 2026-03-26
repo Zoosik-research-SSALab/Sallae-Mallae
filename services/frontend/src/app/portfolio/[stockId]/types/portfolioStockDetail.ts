@@ -21,12 +21,13 @@ export type CommitteeMember = {
 export type BacktestBestTrade = {
   returnRate: number;
   period: string;
+  holdingDays: number;
   buyPrice: number;
   sellPrice: number;
 };
 
 export type BacktestStats = {
-  oneYearReturn: number;
+  averageReturn1y: number;
   oneYearTradeCount: number;
   allTimeTradeCount: number;
   allTimeSince: string;

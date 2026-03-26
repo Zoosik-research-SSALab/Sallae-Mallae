@@ -247,7 +247,6 @@ export default function StockDetailPageClient({ stockId }: Props) {
               <aside className="flex min-w-0 flex-col gap-12 xl:pt-2">
                 <StockKeywordsNewsSection
                   keywords={keywordsQuery.data?.keywords ?? []}
-                  news={keywordsQuery.data?.news ?? []}
                   isLoading={isKeywordsPending}
                 />
                 <StockAnnouncementsSection

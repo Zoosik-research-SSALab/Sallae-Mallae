@@ -1,6 +1,6 @@
-import type { WatchlistSignal, WatchlistStockItem, WatchlistStreamPayload, WatchlistSummary } from "../types/scraps";
+import type { WatchlistPayload, WatchlistSignal, WatchlistStockItem, WatchlistSummary } from "../types/scraps";
 
-export const WATCHLIST_PAGE_SIZE = 5;
+export const WATCHLIST_PAGE_SIZE = 6;
 
 export function formatPriceLabel(value: number) {
   return `${new Intl.NumberFormat("ko-KR").format(value)}원`;
@@ -56,20 +56,14 @@ export function getWatchlistSignalBadgeClassName(signal: WatchlistSignal) {
 }
 
 export function formatWatchlistMetaLabel(item: WatchlistStockItem) {
-  return item.sector ? `${item.ticker} · ${item.sector}` : item.ticker;
+  return item.ticker;
 }
 
 export function formatWatchlistConfidenceLabel(confidence: number) {
   return `신뢰도 ${confidence}%`;
 }
 
-export function getWatchlistTotalCount(payload: WatchlistStreamPayload) {
-  return payload.watchlist[0]?.total ?? 0;
-}
-
-export function getWatchlistTotalPages(payload: WatchlistStreamPayload, pageSize: number) {
-  const totalCount = getWatchlistTotalCount(payload);
-
+export function getWatchlistTotalPages(totalCount: number, pageSize: number) {
   if (totalCount === 0) {
     return 0;
   }
@@ -77,7 +71,7 @@ export function getWatchlistTotalPages(payload: WatchlistStreamPayload, pageSize
   return Math.ceil(totalCount / pageSize);
 }
 
-export function formatWatchlistSummary(payload: WatchlistStreamPayload, hiddenItems: WatchlistStockItem[]): WatchlistSummary {
+export function formatWatchlistSummary(payload: WatchlistPayload, hiddenItems: WatchlistStockItem[]): WatchlistSummary {
   const hiddenBuyCount = hiddenItems.filter((item) => {
     const signal = normalizeWatchlistSignal(item.signal);
     return signal === "BUY" || signal === "STRONG_BUY";
@@ -86,7 +80,7 @@ export function formatWatchlistSummary(payload: WatchlistStreamPayload, hiddenIt
   const hiddenUpCount = hiddenItems.filter((item) => item.fluctuationRate > 0).length;
 
   return {
-    totalCount: Math.max(0, getWatchlistTotalCount(payload) - hiddenItems.length),
+    totalCount: Math.max(0, payload.totalCount - hiddenItems.length),
     upCount: Math.max(0, payload.upCount - hiddenUpCount),
     buyCount: Math.max(0, payload.buyCount - hiddenBuyCount),
     sellCount: Math.max(0, payload.sellCount - hiddenSellCount),

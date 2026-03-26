@@ -22,7 +22,7 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
     isWatched: false,
     isNotifiedEnabled: false,
   };
-  const initialStatus =
+  const placeholderStatus =
     initialWatched === undefined
       ? isAuthenticated
         ? undefined
@@ -37,7 +37,7 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
     queryFn: () => getWatchlistStatus(stockId),
     enabled: shouldFetchStatus,
     staleTime: 30_000,
-    initialData: initialStatus,
+    placeholderData: placeholderStatus,
   });
 
   const toggleMutation = useMutation({
@@ -88,7 +88,7 @@ export function useWatchlist(stockId: number, initialWatched?: boolean): UseWatc
       queryClient.setQueryData(statusQueryKey, nextStatus);
     },
     onSettled: () => {
-      if (shouldFetchStatus) {
+      if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: statusQueryKey });
       }
 

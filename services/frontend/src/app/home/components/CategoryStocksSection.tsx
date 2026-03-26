@@ -8,6 +8,7 @@ import { formatPrice, formatSignedPriceChange, formatSignedRate, getRateTone } f
 
 const COLLAPSED_CATEGORY_COUNT = 3;
 const EXPANDED_CATEGORY_COUNT = 21;
+const DEFERRED_CATEGORY_ORDER = ["디스플레이", "스마트기기", "기타"] as const;
 
 function getRateClassName(value: number) {
   const tone = getRateTone(value);
@@ -30,7 +31,12 @@ type Props = {
 
 export default function CategoryStocksSection({ categories, isLoading }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const allCategories = categories.slice(0, EXPANDED_CATEGORY_COUNT);
+  const allCategories = [
+    ...categories
+      .filter((category) => !DEFERRED_CATEGORY_ORDER.includes(category.name as (typeof DEFERRED_CATEGORY_ORDER)[number]))
+      .slice(0, EXPANDED_CATEGORY_COUNT),
+    ...DEFERRED_CATEGORY_ORDER.flatMap((name) => categories.filter((category) => category.name === name)),
+  ].slice(0, EXPANDED_CATEGORY_COUNT);
   const visibleCategories = isExpanded ? allCategories : allCategories.slice(0, COLLAPSED_CATEGORY_COUNT);
 
   return (
