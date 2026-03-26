@@ -15,6 +15,7 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class SearchQueryRepository {
 
+  private static final String LIKE_ESCAPE = "\\";
   private static final int STOCK_SEARCH_LIMIT = 10;
   private static final int NEWS_SEARCH_LIMIT = 5;
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
@@ -22,8 +23,8 @@ public class SearchQueryRepository {
   private final EntityManager entityManager;
 
   public List<SearchStockItemResponse> searchStocks(String keyword) {
-    String contains = "%" + keyword + "%";
-    String startsWith = keyword + "%";
+    String contains = buildContainsPattern(keyword);
+    String startsWith = buildStartsWithPattern(keyword);
 
     @SuppressWarnings("unchecked")
     List<Object[]> rows = entityManager.createNativeQuery("""
@@ -33,17 +34,17 @@ public class SearchQueryRepository {
                    s.name,
                    s.gics_sector,
                    CASE
-                       WHEN s.name ILIKE :startsWith THEN 0
-                       WHEN s.ticker ILIKE :startsWith THEN 1
+                       WHEN s.name ILIKE :startsWith ESCAPE '\\' THEN 0
+                       WHEN s.ticker ILIKE :startsWith ESCAPE '\\' THEN 1
                        ELSE 2
                        END AS match_priority
             FROM stocks s
             WHERE s.is_active = true
               AND (
-                s.name ILIKE :contains
-                    OR s.ticker ILIKE :contains
-                    OR COALESCE(s.gics_sector, '') ILIKE :contains
-                    OR COALESCE(s.category, '') ILIKE :contains
+                s.name ILIKE :contains ESCAPE '\\'
+                    OR s.ticker ILIKE :contains ESCAPE '\\'
+                    OR COALESCE(s.gics_sector, '') ILIKE :contains ESCAPE '\\'
+                    OR COALESCE(s.category, '') ILIKE :contains ESCAPE '\\'
                 )
             ORDER BY match_priority, s.name
             LIMIT :stockLimit
@@ -75,8 +76,8 @@ public class SearchQueryRepository {
   }
 
   public List<SearchNewsItemResponse> searchNews(String keyword) {
-    String contains = "%" + keyword + "%";
-    String startsWith = keyword + "%";
+    String contains = buildContainsPattern(keyword);
+    String startsWith = buildStartsWithPattern(keyword);
 
     @SuppressWarnings("unchecked")
     List<Object[]> rows = entityManager.createNativeQuery("""
@@ -87,14 +88,14 @@ public class SearchQueryRepository {
                    n.url,
                    n.published_at,
                    CASE
-                       WHEN n.title ILIKE :startsWith THEN 0
+                       WHEN n.title ILIKE :startsWith ESCAPE '\\' THEN 0
                        ELSE 1
                        END AS match_priority
             FROM stock_news n
             WHERE n.published_at IS NOT NULL
               AND (
-                n.title ILIKE :contains
-                    OR COALESCE(n.snippet, '') ILIKE :contains
+                n.title ILIKE :contains ESCAPE '\\'
+                    OR COALESCE(n.snippet, '') ILIKE :contains ESCAPE '\\'
                 )
         )
         SELECT mn.id,
@@ -134,6 +135,21 @@ public class SearchQueryRepository {
         (String) row[3],
         toOffsetDateTime(row[4])
     );
+  }
+
+  static String buildContainsPattern(String keyword) {
+    return "%" + escapeLikeKeyword(keyword) + "%";
+  }
+
+  static String buildStartsWithPattern(String keyword) {
+    return escapeLikeKeyword(keyword) + "%";
+  }
+
+  static String escapeLikeKeyword(String keyword) {
+    return keyword
+        .replace(LIKE_ESCAPE, LIKE_ESCAPE + LIKE_ESCAPE)
+        .replace("%", LIKE_ESCAPE + "%")
+        .replace("_", LIKE_ESCAPE + "_");
   }
 
   private Long toLong(Object value) {
