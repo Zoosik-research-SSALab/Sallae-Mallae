@@ -36,12 +36,15 @@ import com.sallaemallae.backend.global.exception.GlobalErrorCode;
 import com.sallaemallae.backend.global.security.jwt.RedisTokenService;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -150,7 +153,7 @@ public class UserServiceImpl implements UserService {
     stockRepository.findById(request.stockId())
         .orElseThrow(() -> new BusinessException(StockErrorCode.STOCK_NOT_FOUND));
 
-    long currentCount = watchlistRepository.countByIdUserId(userId);
+    long currentCount = watchlistRepository.countByUserIdForUpdate(userId);
     if (currentCount >= WATCHLIST_MAX_SIZE) {
       throw new BusinessException(UserErrorCode.WATCHLIST_LIMIT_EXCEEDED);
     }
@@ -200,19 +203,25 @@ public class UserServiceImpl implements UserService {
     User user = userRepository.findById(userId)
         .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 
-    if (request.profileImageUrl() != null) {
-      if (fileStorageService.isMinioUrl(request.profileImageUrl())
-          && !fileStorageService.verifyObjectExists(request.profileImageUrl())) {
-        throw new BusinessException(StorageErrorCode.UPLOAD_NOT_VERIFIED);
-      }
+    String oldImageUrl = user.getProfileImageUrl();
+    String newImageUrl = request.profileImageUrl();
 
-      String oldImageUrl = user.getProfileImageUrl();
-      if (fileStorageService.isMinioUrl(oldImageUrl)) {
-        fileStorageService.deleteObject(oldImageUrl);
-      }
+    if (newImageUrl != null
+        && fileStorageService.isMinioUrl(newImageUrl)
+        && !fileStorageService.verifyObjectExists(newImageUrl)) {
+      throw new BusinessException(StorageErrorCode.UPLOAD_NOT_VERIFIED);
     }
 
-    user.updateProfile(request.nickname(), request.profileImageUrl());
+    user.updateProfile(request.nickname(), newImageUrl);
+
+    if (!Objects.equals(oldImageUrl, newImageUrl) && fileStorageService.isMinioUrl(oldImageUrl)) {
+      TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+        @Override
+        public void afterCommit() {
+          fileStorageService.deleteObject(oldImageUrl);
+        }
+      });
+    }
 
     return Map.of("message", "프로필이 수정되었습니다.");
   }

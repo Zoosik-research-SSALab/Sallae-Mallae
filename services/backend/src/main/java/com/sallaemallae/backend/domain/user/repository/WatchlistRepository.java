@@ -17,6 +17,9 @@ public interface WatchlistRepository extends JpaRepository<UserWatchlist, UserWa
 
   long countByIdUserId(Long userId);
 
+  @Query(value = "SELECT COUNT(*) FROM user_watchlist WHERE user_id = :userId FOR UPDATE", nativeQuery = true)
+  long countByUserIdForUpdate(@Param("userId") Long userId);
+
   // FS-WATCH-006: 관심종목 뉴스 목록 조회 (키워드 없음, 기간 필터)
   @Query("""
       SELECT sn FROM StockNews sn
