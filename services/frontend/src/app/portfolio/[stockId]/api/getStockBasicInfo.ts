@@ -1,4 +1,5 @@
 import { apiFetch } from "@/shared/lib/apiClient";
+import { unwrapApiResponse } from "@/shared/utils/apiResponse";
 
 export type StockBasicInfo = {
   id: number;
@@ -10,23 +11,12 @@ export type StockBasicInfo = {
   baseTime: string;
 };
 
-type StockBasicInfoEnvelope = {
-  success: boolean;
-  data: StockBasicInfo;
-  error: unknown;
-};
-
 export async function getStockBasicInfo(
   stockId: string,
 ): Promise<StockBasicInfo> {
-  const response = await apiFetch<StockBasicInfoEnvelope | StockBasicInfo>(
-    `/api/stocks/${stockId}`,
-    { cache: "no-store" },
-  );
+  const response = await apiFetch(`/api/stocks/${stockId}`, {
+    cache: "no-store",
+  });
 
-  if ("data" in response && "success" in response) {
-    return response.data;
-  }
-
-  return response;
+  return unwrapApiResponse<StockBasicInfo>(response);
 }
