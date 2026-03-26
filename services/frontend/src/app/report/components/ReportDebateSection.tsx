@@ -247,11 +247,14 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
                       <div
                         className={`max-w-[min(740px,100%)] rounded-bl-3xl rounded-br-3xl rounded-tl-sm rounded-tr-3xl px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] ${meta.bubbleClassName}`}
                       >
-                        <p className="typo-body-lg text-[color:var(--color-text-primary)]">
-                          {item.speech.message}
-                          <span className={meta.opinionClassName}>{item.speech.opinion}</span>
-                          입니다.
-                        </p>
+                        <div className="flex flex-col gap-2">
+                          <p className={cn("typo-body-sm font-semibold", meta.opinionClassName)}>
+                            {item.speech.segmentLabel}
+                          </p>
+                          <p className="typo-body-lg whitespace-pre-line text-[color:var(--color-text-primary)]">
+                            {item.speech.message}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>

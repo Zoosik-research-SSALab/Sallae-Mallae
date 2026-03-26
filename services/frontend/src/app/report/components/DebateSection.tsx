@@ -33,8 +33,8 @@ interface SpeakerConfig {
 export interface DebateSpeech {
   speakerId: SpeakerId;
   roundLabel: string;
+  segmentLabel: string;
   message: string;
-  opinion: string;
 }
 
 interface JudgmentSummaryItem {
@@ -104,18 +104,68 @@ function formatRoundLabel(roundNo: number) {
   return `Round ${roundNo}: 위원 의견 발표`;
 }
 
+const speechSegmentLabels = ["의견", "근거", "리스크", "실행"] as const;
+
+function parseSpeechSegments(content: string) {
+  const normalized = content.trim();
+  if (!normalized) {
+    return [];
+  }
+
+  const escapedLabels = speechSegmentLabels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const segmentRegex = new RegExp(`(${escapedLabels.join("|")})\\s*:`, "g");
+  const matches = Array.from(normalized.matchAll(segmentRegex));
+
+  if (matches.length === 0) {
+    return [{ segmentLabel: "의견", message: normalized }];
+  }
+
+  return matches
+    .map((match, index) => {
+      const segmentLabel = match[1];
+      const start = match.index ?? 0;
+      const contentStart = start + match[0].length;
+      const nextStart = index < matches.length - 1 ? (matches[index + 1].index ?? normalized.length) : normalized.length;
+      const message = normalized.slice(contentStart, nextStart).trim();
+
+      if (!message) {
+        return null;
+      }
+
+      return {
+        segmentLabel,
+        message,
+      };
+    })
+    .filter((segment): segment is { segmentLabel: string; message: string } => segment !== null)
+    .flatMap((segment) => splitSegmentMessage(segment));
+}
+
+function splitSegmentMessage(segment: { segmentLabel: string; message: string }) {
+  return segment.message
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((message) => ({
+      segmentLabel: segment.segmentLabel,
+      message,
+    }));
+}
+
 export function getDebateSpeeches(report?: DebateReport | null): DebateSpeech[] {
   if (!report) {
     return [];
   }
 
   return report.debate.rounds.flatMap((round) =>
-    round.agents.map((agent) => ({
-      speakerId: speakerIdByAgentName[agent.name] ?? "chart",
-      roundLabel: formatRoundLabel(round.roundNo),
-      message: agent.summary.trim().endsWith(".") ? `${agent.summary.trim().slice(0, -1)} ` : `${agent.summary.trim()} `,
-      opinion: agent.opinion,
-    })),
+    round.agents.flatMap((agent) =>
+      parseSpeechSegments(agent.opinion).map((segment) => ({
+        speakerId: speakerIdByAgentName[agent.name] ?? "chart",
+        roundLabel: formatRoundLabel(round.roundNo),
+        segmentLabel: segment.segmentLabel,
+        message: segment.message,
+      })),
+    ),
   );
 }
 
@@ -197,7 +247,7 @@ function formatSignalLabel(signal?: string) {
 }
 
 function buildSpeechTtsText(speech: DebateSpeech) {
-  return `${speech.message}${speech.opinion}입니다.`;
+  return `${speech.segmentLabel}. ${speech.message}`;
 }
 
 function buildJudgeFinalTtsText(report?: DebateReport | null) {
@@ -1268,7 +1318,7 @@ export default function DebateSection({
                   >
                     <div className="rounded-t-2xl bg-[color:var(--color-bg-danger-bold)] px-4 py-3">
                       <p className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-interactive-inverse)]">
-                        {`${activeSpeechTitle} | ${activeSpeech?.opinion ?? "판단 대기"}`}
+                        {`${activeSpeechTitle} | ${activeSpeech?.segmentLabel ?? "발언"}`}
                       </p>
                     </div>
                     <div className="w-full rounded-b-2xl rounded-tr-2xl border border-[color:var(--color-border-base)] bg-[color:var(--color-bg-primary)] px-5 py-4 sm:px-6 sm:py-5">
