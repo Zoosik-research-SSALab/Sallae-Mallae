@@ -42,4 +42,16 @@ public class StockNotification {
 
   @Column(name = "created_at")
   private OffsetDateTime createdAt;
+
+  public static StockNotification create(Long stockId, NotifyType notiType,
+      String title, String message, String relatedLink) {
+    StockNotification n = new StockNotification();
+    n.stockId = stockId;
+    n.notiType = notiType;
+    n.title = title;
+    n.message = message;
+    n.relatedLink = relatedLink;
+    n.createdAt = OffsetDateTime.now();
+    return n;
+  }
 }

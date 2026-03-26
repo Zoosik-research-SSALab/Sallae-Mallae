@@ -1,6 +1,7 @@
 package com.sallaemallae.backend.domain.report.repository;
 
 import com.sallaemallae.backend.domain.report.entity.AiDebateReport;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,4 +27,21 @@ public interface AiDebateReportRepository extends JpaRepository<AiDebateReport, 
       @Param("offset") int offset,
       @Param("limit") int limit
   );
+
+  @Query(value = """
+      SELECT DISTINCT ON (stock_id) *
+      FROM ai_debate_reports
+      WHERE report_date = :reportDate
+      ORDER BY stock_id, created_at DESC
+      """, nativeQuery = true)
+  List<AiDebateReport> findLatestByReportDate(@Param("reportDate") LocalDate reportDate);
+
+  @Query(value = """
+      SELECT DISTINCT ON (stock_id) *
+      FROM ai_debate_reports
+      WHERE report_date < :reportDate
+        AND report_date >= :reportDate - INTERVAL '7 days'
+      ORDER BY stock_id, report_date DESC, created_at DESC
+      """, nativeQuery = true)
+  List<AiDebateReport> findPreviousLatestByReportDate(@Param("reportDate") LocalDate reportDate);
 }

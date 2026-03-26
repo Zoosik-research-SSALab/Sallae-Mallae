@@ -92,6 +92,17 @@ public interface WatchlistRepository extends JpaRepository<UserWatchlist, UserWa
       @Param("startDateTime") java.time.OffsetDateTime startDateTime,
       @Param("endDateTime") java.time.OffsetDateTime endDateTime);
 
+  // 특정 종목의 알림 수신 대상 유저 ID 조회 (관심종목 알림 ON + 유저 알림 ON + ACTIVE)
+  @Query("""
+      SELECT w.id.userId FROM UserWatchlist w
+      JOIN User u ON u.id = w.id.userId
+      WHERE w.id.stockId = :stockId
+        AND w.isNotiEnabled = true
+        AND u.isNotiEnabled = true
+        AND u.status = com.sallaemallae.backend.domain.auth.enumtype.UserStatus.ACTIVE
+      """)
+  List<Long> findNotiEnabledUserIdsByStockId(@Param("stockId") Long stockId);
+
   // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (N+1 방지)
   @Query("""
       SELECT snm.id.newsId, s.name

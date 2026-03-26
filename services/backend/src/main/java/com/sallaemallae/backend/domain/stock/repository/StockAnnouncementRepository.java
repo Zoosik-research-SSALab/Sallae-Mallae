@@ -2,6 +2,7 @@ package com.sallaemallae.backend.domain.stock.repository;
 
 import com.sallaemallae.backend.domain.stock.entity.StockAnnouncement;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,6 +27,8 @@ public interface StockAnnouncementRepository extends JpaRepository<StockAnnounce
   );
 
   Optional<StockAnnouncement> findByIdAndStockId(Long id, Long stockId);
+
+  List<StockAnnouncement> findByCreatedAtAfterOrderByCreatedAtAsc(OffsetDateTime after);
 
   @Query("""
       select sa
