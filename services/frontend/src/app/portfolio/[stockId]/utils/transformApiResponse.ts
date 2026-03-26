@@ -70,78 +70,13 @@ export function transformPerformanceResponse(raw: unknown): PerformanceResponse 
   };
 }
 
-// ── Trades: pairTrades ──
-
-type RawTrade = Record<string, unknown>;
-
-function calcHoldingDays(from: Date, to: Date): number {
-  return Math.max(1, Math.ceil((to.getTime() - from.getTime()) / 86_400_000));
-}
-
-function pairTrades(rawTrades: RawTrade[]): TradeItem[] {
-  const now = new Date();
-  const paired: TradeItem[] = [];
-  let pendingBuy: RawTrade | null = null;
-
-  // 백엔드가 최신순으로 반환할 수 있으므로 tradeTime 기준 오름차순 정렬
-  const sorted = [...rawTrades].sort((a, b) => {
-    const timeA = new Date(a.tradeTime as string).getTime();
-    const timeB = new Date(b.tradeTime as string).getTime();
-    return timeA - timeB;
-  });
-
-  for (const t of sorted) {
-    if (t.tradeType === "BUY") {
-      if (pendingBuy) {
-        const buyTime = pendingBuy.tradeTime as string;
-        paired.push({
-          status: "holding",
-          buyDate: buyTime,
-          buyPrice: (pendingBuy.tradePriceRate as number) ?? 0,
-          holdingDays: calcHoldingDays(new Date(buyTime), now),
-          returnRate: (pendingBuy.returnRate as number) ?? 0,
-        });
-      }
-      pendingBuy = t;
-    } else if (t.tradeType === "SELL") {
-      if (pendingBuy) {
-        const buyTime = pendingBuy.tradeTime as string;
-        const sellTime = t.tradeTime as string;
-        paired.push({
-          status: "sold",
-          buyDate: buyTime,
-          sellDate: sellTime,
-          buyPrice: (pendingBuy.tradePriceRate as number) ?? 0,
-          sellPrice: (t.tradePriceRate as number) ?? 0,
-          holdingDays: calcHoldingDays(new Date(buyTime), new Date(sellTime)),
-          returnRate: (t.returnRate as number) ?? (pendingBuy.returnRate as number) ?? 0,
-        });
-        pendingBuy = null;
-      }
-    }
-  }
-
-  if (pendingBuy) {
-    const buyTime = pendingBuy.tradeTime as string;
-    paired.push({
-      status: "holding",
-      buyDate: buyTime,
-      buyPrice: (pendingBuy.tradePriceRate as number) ?? 0,
-      holdingDays: calcHoldingDays(new Date(buyTime), now),
-      returnRate: (pendingBuy.returnRate as number) ?? 0,
-    });
-  }
-
-  return paired;
-}
+// ── Trades: trade_cycles 사용 ──
 
 export function transformTradesResponse(raw: unknown): TradesResponse {
   if (typeof raw !== "object" || raw === null) return { trades: [] };
 
   const record = raw as Record<string, unknown>;
-  const rawTrades = Array.isArray(record.trades) ? record.trades : [];
+  const tradeCycles = Array.isArray(record.tradeCycles) ? record.tradeCycles : [];
 
-  if (rawTrades.length === 0) return { trades: [] };
-
-  return { trades: pairTrades(rawTrades as RawTrade[]) };
+  return { trades: tradeCycles as TradeItem[] };
 }

@@ -80,6 +80,11 @@ export type TradeItem = {
   currentPrice?: number;
   holdingDays: number;
   returnRate: number;
+  cycleId?: string;
+  buyCount?: number;
+  sellCount?: number;
+  remainingQuantity?: number;
+  hasPartialSell?: boolean;
 };
 
 export type TradesResponse = {
