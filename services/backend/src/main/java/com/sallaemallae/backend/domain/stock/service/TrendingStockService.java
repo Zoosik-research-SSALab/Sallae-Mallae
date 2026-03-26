@@ -37,7 +37,7 @@ public class TrendingStockService {
 
     /** SSE 스트림 등록 및 현재 데이터 즉시 전송 (완료/타임아웃/에러 시 emitter 정리) */
     public SseEmitter streamTrending() {
-        SseEmitter emitter = new SseEmitter(60_000L);
+        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
         emitter.onCompletion(() -> sseManager.removeEmitter(CHANNEL, emitter));
         emitter.onTimeout(() -> sseManager.removeEmitter(CHANNEL, emitter));
         emitter.onError(ex -> sseManager.removeEmitter(CHANNEL, emitter));
@@ -54,9 +54,12 @@ public class TrendingStockService {
         }
     }
 
-    /** 1분마다 인기 검색 종목 갱신 → SSE broadcast */
+    /** 1분마다 인기 검색 종목 갱신 → SSE broadcast (구독 클라이언트가 있을 때만) */
     @Scheduled(fixedRate = 60_000, initialDelay = 5_000)
     public void refreshTrending() {
+        if (!sseManager.hasEmitters(CHANNEL)) {
+            return;
+        }
         try {
             TrendingStocksResponse data = buildTrendingStocks();
             sseManager.broadcast(CHANNEL, data);

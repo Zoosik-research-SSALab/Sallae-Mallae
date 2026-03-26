@@ -24,15 +24,19 @@ public class TrendingCacheRepository {
 
     private final StringRedisTemplate stringRedisTemplate;
 
-    /** 종목 검색 횟수 1 증가 (TTL은 당일 자정까지로 설정) */
+    /** 종목 검색 횟수 1 증가 (신규 키 생성 시에만 자정까지 TTL 설정) */
     public void incrementSearchCount(Long stockId) {
         String key = todayKey();
-        stringRedisTemplate.opsForZSet().incrementScore(key, String.valueOf(stockId), 1);
-        Duration ttl = Duration.between(
-            ZonedDateTime.now(KST),
-            LocalDate.now(KST).plusDays(1).atStartOfDay(KST)
-        );
-        stringRedisTemplate.expire(key, ttl);
+        Double score = stringRedisTemplate.opsForZSet()
+            .incrementScore(key, String.valueOf(stockId), 1);
+        // score가 1.0이면 해당 종목의 첫 검색 → 키가 새로 생성됐을 가능성이 높으므로 TTL 설정
+        if (score != null && score == 1.0) {
+            Duration ttl = Duration.between(
+                ZonedDateTime.now(KST),
+                LocalDate.now(KST).plusDays(1).atStartOfDay(KST)
+            );
+            stringRedisTemplate.expire(key, ttl);
+        }
     }
 
     /** 검색 횟수 상위 N개 종목 ID 조회 (내림차순) */

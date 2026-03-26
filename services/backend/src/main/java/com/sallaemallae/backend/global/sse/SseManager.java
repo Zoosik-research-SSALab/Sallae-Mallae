@@ -20,6 +20,12 @@ public class SseManager {
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
     private final Map<SseEmitter, Runnable> cleanupCallbacks = new ConcurrentHashMap<>();
 
+    /** 해당 채널에 구독 중인 emitter가 있는지 확인 */
+    public boolean hasEmitters(String channel) {
+        CopyOnWriteArrayList<SseEmitter> list = emitters.get(channel);
+        return list != null && !list.isEmpty();
+    }
+
     /** SSE emitter를 해당 채널에 등록. cleanup 콜백 없이 등록. */
     public void addEmitter(String channel, SseEmitter emitter) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.computeIfAbsent(
