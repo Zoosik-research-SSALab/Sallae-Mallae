@@ -4,7 +4,7 @@ export type SearchStockItem = {
   name: string;
   gicsSector: string;
   currentPrice: number;
-  fluctuationRate: number;
+  fluctuationRate: number | null;
 };
 
 export type SearchNewsItem = {

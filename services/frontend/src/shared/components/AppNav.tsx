@@ -16,6 +16,7 @@ import ProfileEditModal from "@/shared/components/nav/ProfileEditModal";
 import ProfileMenu from "@/shared/components/nav/ProfileMenu";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
 import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
+import { useSearchModal } from "@/shared/hooks/useSearchModal";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
@@ -23,23 +24,8 @@ import { useAuthModalStore } from "@/shared/lib/authModalStore";
 import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { clearSessionUser } from "@/shared/lib/authSession";
 import { useAuthStore } from "@/shared/lib/authStore";
-import {
-  clearRecentSearches,
-  deleteRecentSearch,
-  getRecentSearches,
-  getSearchAutocomplete,
-  saveRecentSearch,
-  subscribeTrendingSearchStocks,
-} from "@/shared/lib/searchApi";
 import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
 import { updateUserProfile } from "@/shared/lib/userProfileApi";
-import type {
-  RecentSearchItem,
-  SearchAutocompleteResponse,
-  SearchNewsItem,
-  SearchStockItem,
-  TrendingSearchStockItem,
-} from "@/shared/types/search";
 import SearchModal from "@/shared/ui/SearchModal";
 
 type NavItem = {
@@ -93,18 +79,9 @@ export default function AppNav() {
   const requireAuthAction = useRequireAuthAction();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
   const [profileMenuAnchorRect, setProfileMenuAnchorRect] = useState<DOMRect | null>(null);
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([]);
-  const [searchResults, setSearchResults] = useState<SearchAutocompleteResponse>({ stocks: [], news: [] });
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
-  const [trendingStocks, setTrendingStocks] = useState<TrendingSearchStockItem[]>([]);
-  const [trendingStocksUpdatedAt, setTrendingStocksUpdatedAt] = useState<string | null>(null);
-  const [isTrendingStocksLoading, setIsTrendingStocksLoading] = useState(false);
-  const shouldIgnoreSearchTriggerFocusRef = useRef(false);
 
   const profileButtonRef = useRef<HTMLButtonElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -119,6 +96,26 @@ export default function AppNav() {
   const { data: notificationCount } = useNotificationCountQuery(isAuthReady && isLoggedIn);
   const unreadCount = isLoggedIn && typeof notificationCount === "number" ? notificationCount : 0;
   const displayCount = unreadCount > 99 ? "99+" : String(unreadCount);
+  const {
+    isSearchModalOpen,
+    searchKeyword,
+    recentSearches,
+    searchResults,
+    isSearchLoading,
+    trendingStocks,
+    trendingStocksUpdatedAt,
+    isTrendingStocksLoading,
+    setSearchKeyword,
+    openSearchModal,
+    closeSearchModal,
+    submitSearch,
+    handleStockSelect,
+    handleNewsSelect,
+    handleTrendingStockSelect,
+    handleRecentSearchClick,
+    handleRecentSearchRemove,
+    handleRecentSearchesClear,
+  } = useSearchModal({ isLoggedIn });
 
   const isActivePath = (item: NavItem) => {
     if (item.highlightOnMatch === false) {
@@ -170,103 +167,6 @@ export default function AppNav() {
     mediaQuery.addEventListener("change", closeDrawerOnDesktop);
     return () => mediaQuery.removeEventListener("change", closeDrawerOnDesktop);
   }, []);
-
-  useEffect(() => {
-    if (!isSearchModalOpen) {
-      return;
-    }
-
-    if (!isLoggedIn) {
-      setRecentSearches([]);
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadRecentSearches = async () => {
-      try {
-        const payload = await getRecentSearches();
-        if (isMounted) {
-          setRecentSearches(payload.recent);
-        }
-      } catch {
-        if (isMounted) {
-          setRecentSearches([]);
-        }
-      }
-    };
-
-    void loadRecentSearches();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isLoggedIn, isSearchModalOpen]);
-
-  useEffect(() => {
-    if (!isSearchModalOpen || searchKeyword.trim()) {
-      setIsTrendingStocksLoading(false);
-      return;
-    }
-
-    setIsTrendingStocksLoading(true);
-
-    return subscribeTrendingSearchStocks({
-      onMessage: (payload) => {
-        setTrendingStocks(payload.stocks.slice(0, 5));
-        setTrendingStocksUpdatedAt(new Date().toISOString());
-        setIsTrendingStocksLoading(false);
-      },
-      onError: () => {
-        setIsTrendingStocksLoading(false);
-      },
-    });
-  }, [isSearchModalOpen, searchKeyword]);
-
-  useEffect(() => {
-    if (!isSearchModalOpen) {
-      return;
-    }
-
-    const trimmedKeyword = searchKeyword.trim();
-    if (!trimmedKeyword) {
-      setSearchResults({ stocks: [], news: [] });
-      setIsSearchLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    setIsSearchLoading(true);
-
-    const timer = window.setTimeout(() => {
-      void getSearchAutocomplete(trimmedKeyword)
-        .then((payload) => {
-          if (!isMounted) {
-            return;
-          }
-
-          setSearchResults(payload);
-        })
-        .catch(() => {
-          if (!isMounted) {
-            return;
-          }
-
-          setSearchResults({ stocks: [], news: [] });
-        })
-        .finally(() => {
-          if (isMounted) {
-            setIsSearchLoading(false);
-          }
-        });
-    }, 180);
-
-    return () => {
-      isMounted = false;
-      window.clearTimeout(timer);
-    };
-  }, [isSearchModalOpen, searchKeyword]);
 
   useEffect(() => {
     if (!isProfileMenuOpen) {
@@ -326,106 +226,9 @@ export default function AppNav() {
     setIsProfileMenuOpen(false);
   };
 
-  const openSearchModal = () => {
-    if (shouldIgnoreSearchTriggerFocusRef.current) {
-      shouldIgnoreSearchTriggerFocusRef.current = false;
-      return;
-    }
-
+  const handleOpenSearchModal = () => {
     setIsDrawerOpen(false);
-    setIsSearchModalOpen(true);
-  };
-
-  const closeSearchModal = () => {
-    shouldIgnoreSearchTriggerFocusRef.current = true;
-    setIsSearchModalOpen(false);
-    setSearchKeyword("");
-  };
-
-  const submitSearch = (keyword: string) => {
-    const trimmedKeyword = keyword.trim();
-    if (!trimmedKeyword) {
-      return;
-    }
-
-    setSearchKeyword(trimmedKeyword);
-  };
-
-  const goToStockDetail = (stockId: number) => {
-    closeSearchModal();
-    router.push(`/stocks/${stockId}`);
-  };
-
-  const handleStockSelect = async (stock: SearchStockItem) => {
-    if (isLoggedIn) {
-      try {
-        await saveRecentSearch({
-          keyword: stock.name,
-          stockId: stock.id,
-        });
-
-        const payload = await getRecentSearches();
-        setRecentSearches(payload.recent);
-      } catch {
-        // Ignore recent-search save failures so search navigation still works.
-      }
-    }
-
-    goToStockDetail(stock.id);
-  };
-
-  const handleNewsSelect = (news: SearchNewsItem) => {
-    if (!news.url) {
-      return;
-    }
-
-    closeSearchModal();
-    window.open(news.url, "_blank", "noopener,noreferrer");
-  };
-
-  const handleTrendingStockSelect = async (stock: TrendingSearchStockItem) => {
-    if (isLoggedIn) {
-      try {
-        await saveRecentSearch({
-          keyword: stock.name,
-          stockId: stock.stockId,
-        });
-
-        const payload = await getRecentSearches();
-        setRecentSearches(payload.recent);
-      } catch {
-        // Ignore recent-search save failures so search interaction can continue.
-      }
-    }
-
-    goToStockDetail(stock.stockId);
-  };
-
-  const handleRecentSearchClick = (item: RecentSearchItem) => {
-    if (item.stockId !== null) {
-      goToStockDetail(item.stockId);
-      return;
-    }
-
-    submitSearch(item.keyword);
-  };
-
-  const handleRecentSearchRemove = async (keyword: string) => {
-    try {
-      await deleteRecentSearch(keyword);
-      const payload = await getRecentSearches();
-      setRecentSearches(payload.recent);
-    } catch {
-      setRecentSearches((currentSearches) => currentSearches.filter((item) => item.keyword !== keyword));
-    }
-  };
-
-  const handleRecentSearchesClear = async () => {
-    try {
-      await clearRecentSearches();
-    } finally {
-      setRecentSearches([]);
-    }
+    openSearchModal();
   };
 
   const handleOpenLoginModal = () => {
@@ -556,8 +359,8 @@ export default function AppNav() {
               <input
                 type="text"
                 value={searchKeyword}
-                onFocus={openSearchModal}
-                onClick={openSearchModal}
+                onFocus={handleOpenSearchModal}
+                onClick={handleOpenSearchModal}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -570,7 +373,7 @@ export default function AppNav() {
               />
               <button
                 type="button"
-                onClick={openSearchModal}
+                onClick={handleOpenSearchModal}
                 className={`absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
                 aria-label="검색"
               >
@@ -670,7 +473,7 @@ export default function AppNav() {
                   <div className="h-5 w-px bg-[color:var(--color-border-primary)]" />
                   <button
                     type="button"
-                    onClick={openSearchModal}
+                    onClick={handleOpenSearchModal}
                     className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" style={{ strokeWidth: 2 }} />

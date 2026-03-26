@@ -308,7 +308,11 @@ function jitterPrice(base: number, spread = 800) {
   return Math.max(1000, Math.round(base + (Math.random() - 0.5) * spread));
 }
 
-function jitterRate(base: number, spread = 0.32) {
+function jitterRate(base: number | null, spread = 0.32) {
+  if (typeof base !== "number" || Number.isNaN(base)) {
+    return null;
+  }
+
   return Number((base + (Math.random() - 0.5) * spread).toFixed(2));
 }
 

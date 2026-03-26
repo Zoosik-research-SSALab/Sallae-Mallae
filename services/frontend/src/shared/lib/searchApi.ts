@@ -1,5 +1,6 @@
 import { apiFetch, connectSse } from "@/shared/lib/apiClient";
 import type {
+  RecentSearchItem,
   RecentSearchesResponse,
   SaveRecentSearchRequest,
   SearchAutocompleteResponse,
@@ -42,7 +43,10 @@ function normalizeSearchAutocompleteResponse(payload: SearchAutocompleteResponse
           name: typeof stock.name === "string" ? stock.name : "",
           gicsSector: typeof stock.gicsSector === "string" ? stock.gicsSector : "",
           currentPrice: Number(stock.currentPrice ?? 0),
-          fluctuationRate: Number(stock.fluctuationRate ?? 0),
+          fluctuationRate:
+            typeof stock.fluctuationRate === "number" && Number.isFinite(stock.fluctuationRate)
+              ? stock.fluctuationRate
+              : null,
         }))
       : [],
     news: Array.isArray(response.news)
@@ -69,8 +73,18 @@ function normalizeRecentSearchesResponse(
   const response = isRecentSearchesEnvelope(payload) ? payload.data : payload;
 
   return {
-    recent: Array.isArray(response.recent) ? response.recent : [],
+    recent: Array.isArray(response.recent)
+      ? response.recent.map((item) => normalizeRecentSearchItem(item))
+      : [],
   } satisfies RecentSearchesResponse;
+}
+
+function normalizeRecentSearchItem(item: RecentSearchItem) {
+  return {
+    keyword: typeof item.keyword === "string" ? item.keyword : "",
+    searchedAt: typeof item.searchedAt === "string" ? item.searchedAt : "",
+    stockId: typeof item.stockId === "number" && Number.isFinite(item.stockId) ? item.stockId : null,
+  } satisfies RecentSearchItem;
 }
 
 function isSearchMessageEnvelope(

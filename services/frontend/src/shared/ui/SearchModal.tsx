@@ -57,7 +57,11 @@ function formatPrice(value: number) {
   return `${value.toLocaleString("ko-KR")}원`;
 }
 
-function formatSignedRate(value: number) {
+function formatSignedRate(value: number | null) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "-";
+  }
+
   if (value > 0) {
     return `+${value.toFixed(2)}%`;
   }
@@ -85,6 +89,7 @@ function formatSearchedAt(value: string | null) {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Seoul",
   }).format(date);
 }
 
@@ -103,6 +108,7 @@ function formatTrendingUpdatedAt(value: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: "Asia/Seoul",
   }).format(date)} 기준`;
 }
 
@@ -191,9 +197,9 @@ const StockResultRow = memo(function StockResultRow({
         <div
           className={cn(
             "typo-body-sm mt-0.5 font-semibold",
-            stock.fluctuationRate > 0
+            typeof stock.fluctuationRate === "number" && stock.fluctuationRate > 0
               ? "text-[color:var(--color-text-danger)]"
-              : stock.fluctuationRate < 0
+              : typeof stock.fluctuationRate === "number" && stock.fluctuationRate < 0
                 ? "text-[color:var(--color-text-info)]"
                 : "text-[color:var(--color-text-secondary)]",
           )}
@@ -331,9 +337,9 @@ const TrendingStockRow = memo(function TrendingStockRow({
       <span
         className={cn(
           "typo-body-md shrink-0 font-semibold",
-          stock.fluctuationRate > 0
+          typeof stock.fluctuationRate === "number" && stock.fluctuationRate > 0
             ? "text-[color:var(--color-text-danger)]"
-            : stock.fluctuationRate < 0
+            : typeof stock.fluctuationRate === "number" && stock.fluctuationRate < 0
               ? "text-[color:var(--color-text-info)]"
               : "text-[color:var(--color-text-secondary)]",
         )}
