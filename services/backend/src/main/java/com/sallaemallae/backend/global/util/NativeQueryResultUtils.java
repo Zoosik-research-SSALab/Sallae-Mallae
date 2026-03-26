@@ -1,6 +1,8 @@
 package com.sallaemallae.backend.global.util;
 
+import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
@@ -26,6 +28,12 @@ public final class NativeQueryResultUtils {
   public static OffsetDateTime toOffsetDateTime(Object value) {
     if (value instanceof OffsetDateTime offsetDateTime) {
       return offsetDateTime;
+    }
+    if (value instanceof LocalDate localDate) {
+      return localDate.atStartOfDay(DEFAULT_ZONE_ID).toOffsetDateTime();
+    }
+    if (value instanceof Date date) {
+      return date.toLocalDate().atStartOfDay(DEFAULT_ZONE_ID).toOffsetDateTime();
     }
     if (value instanceof Timestamp timestamp) {
       return timestamp.toInstant().atZone(DEFAULT_ZONE_ID).toOffsetDateTime();
