@@ -130,7 +130,11 @@ public class MainStockQueryRepository {
         return result;
     }
 
-    /** 종목 ID 목록에 대한 최신 분봉 가격/변동률 조회 (1분봉 우선, 없으면 일봉 fallback) */
+    /**
+     * 종목 ID 목록에 대한 최신 가격 및 전일 대비 변동률 조회.
+     * 현재가: 1분봉 우선, 없으면 일봉 fallback.
+     * 변동률: (현재가 - 전일 종가) / 전일 종가 * 100 으로 계산.
+     */
     public Map<Long, float[]> getLatestPrices(List<Long> stockIds) {
         if (stockIds == null || stockIds.isEmpty()) {
             return Map.of();
@@ -138,22 +142,28 @@ public class MainStockQueryRepository {
 
         String sql = """
             SELECT s.id AS stock_id,
-                   COALESCE(m.close_price, d.close_price) AS close_price,
-                   COALESCE(m.fluctuation_rate, d.fluctuation_rate) AS fluctuation_rate
+                   COALESCE(m.close_price, d.close_price) AS current_price,
+                   prev.close_price AS prev_close_price
             FROM stocks s
             LEFT JOIN LATERAL (
-                SELECT close_price, fluctuation_rate
+                SELECT close_price
                 FROM stock_prices_minute
                 WHERE stock_id = s.id
                 ORDER BY trade_timestamp DESC LIMIT 1
             ) m ON true
             LEFT JOIN LATERAL (
-                SELECT close_price, fluctuation_rate
+                SELECT close_price
                 FROM stock_prices_daily
                 WHERE stock_id = s.id
                 ORDER BY trade_date DESC LIMIT 1
             ) d ON true
-            WHERE s.id IN :stockIds
+            LEFT JOIN LATERAL (
+                SELECT close_price
+                FROM stock_prices_daily
+                WHERE stock_id = s.id
+                ORDER BY trade_date DESC LIMIT 1 OFFSET 1
+            ) prev ON true
+            WHERE s.id IN (:stockIds)
             """;
 
         List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
@@ -163,10 +173,13 @@ public class MainStockQueryRepository {
         Map<Long, float[]> result = new HashMap<>();
         for (Tuple row : rows) {
             Long stockId = row.get("stock_id", Number.class).longValue();
-            int price = row.get("close_price", Number.class) != null
-                ? row.get("close_price", Number.class).intValue() : 0;
-            float rate = row.get("fluctuation_rate", Number.class) != null
-                ? row.get("fluctuation_rate", Number.class).floatValue() : 0f;
+            Number currentNum = row.get("current_price", Number.class);
+            Number prevNum = row.get("prev_close_price", Number.class);
+            int price = currentNum != null ? currentNum.intValue() : 0;
+            float rate = 0f;
+            if (currentNum != null && prevNum != null && prevNum.floatValue() != 0f) {
+                rate = (currentNum.floatValue() - prevNum.floatValue()) / prevNum.floatValue() * 100f;
+            }
             result.put(stockId, new float[]{price, rate});
         }
         return result;

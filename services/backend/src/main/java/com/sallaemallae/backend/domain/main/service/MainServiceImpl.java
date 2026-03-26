@@ -201,7 +201,10 @@ public class MainServiceImpl implements MainService {
         }
     }
 
-    /** 장중 1분마다 추천 종목/매수매도 신호의 가격·변동률을 분봉 기반으로 갱신 */
+    /**
+     * 장중 1분마다 추천 종목/매수매도 신호의 가격·변동률을 분봉 기반으로 갱신.
+     * 주의: refreshOnPortfolioDone과 시간대가 겹치지 않는 전제 (장중 08:50~15:40 vs 18:00~09:00)
+     */
     @Scheduled(fixedRate = 60_000, initialDelay = 10_000)
     public void refreshPrices() {
         if (!isMarketOpen()) {
