@@ -1,22 +1,24 @@
-import type { PerformanceResponse } from "../types/api";
 import { apiFetch } from "@/shared/lib/apiClient";
 
 type ApiEnvelope<T> = { success: boolean; data: T; error: unknown };
 
-export async function getStockPerformance(
-  stockId: string,
-): Promise<PerformanceResponse> {
-  const response = await apiFetch<ApiEnvelope<PerformanceResponse> | PerformanceResponse>(
+export async function getStockPerformance(stockId: string) {
+  const response = await apiFetch<ApiEnvelope<unknown> | unknown>(
     `/api/report/${stockId}/performance`,
     {
       cache: "no-store",
-      useBaseUrl: false,
       withAuth: true,
     },
   );
 
-  if ("data" in response && "success" in response) {
-    return response.data;
+  // Unwrap envelope only
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "data" in response &&
+    "success" in response
+  ) {
+    return (response as ApiEnvelope<unknown>).data;
   }
 
   return response;
