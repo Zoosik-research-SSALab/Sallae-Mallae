@@ -82,7 +82,7 @@ function calcBacktest(trades: TradeItem[], averageReturn1y: number): {
     : "거래없음";
 
   const stats: BacktestStats = {
-    oneYearReturn: averageReturn1y,
+    averageReturn1y,
     oneYearTradeCount: soldTrades.length,
     allTimeTradeCount: trades.length,
     allTimeSince,

@@ -45,6 +45,10 @@ export function unwrapApiResponse<T = unknown>(response: unknown): T {
     throw new ApiResponseError(response.error.code, response.error.message);
   }
 
+  if (response.data === null || response.data === undefined) {
+    return {} as T;
+  }
+
   return response.data as T;
 }
 

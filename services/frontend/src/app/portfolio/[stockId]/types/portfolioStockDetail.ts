@@ -27,7 +27,7 @@ export type BacktestBestTrade = {
 };
 
 export type BacktestStats = {
-  oneYearReturn: number;
+  averageReturn1y: number;
   oneYearTradeCount: number;
   allTimeTradeCount: number;
   allTimeSince: string;
