@@ -34,9 +34,15 @@ public class TrendingStockCacheRepository {
         try {
             return Optional.of(objectMapper.readValue(json, TrendingStocksResponse.class));
         } catch (JsonProcessingException e) {
-            log.warn("인기 검색 종목 캐시 역직렬화 실패", e);
+            log.warn("인기 검색 종목 캐시 역직렬화 실패 → 손상된 캐시 제거", e);
+            redisTemplate.delete(KEY);
             return Optional.empty();
         }
+    }
+
+    /** 캐시 무효화 */
+    public void invalidate() {
+        redisTemplate.delete(KEY);
     }
 
     /** 캐시 저장 */

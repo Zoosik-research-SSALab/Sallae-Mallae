@@ -61,10 +61,11 @@ public class TrendingStockService {
         return emitter;
     }
 
-    /** 검색 시 호출 — 종목 검색 횟수 증가 */
+    /** 검색 시 호출 — 종목 검색 횟수 증가 + 응답 캐시 무효화 */
     public void incrementSearchCount(Long stockId) {
         if (stockId != null) {
             trendingCacheRepository.incrementSearchCount(stockId);
+            trendingStockCacheRepository.invalidate();
         }
     }
 

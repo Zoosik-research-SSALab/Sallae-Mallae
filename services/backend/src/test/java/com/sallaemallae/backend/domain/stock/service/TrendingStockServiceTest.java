@@ -167,6 +167,42 @@ class TrendingStockServiceTest {
         verifyNoInteractions(stockRepository);
     }
 
+    @Test
+    @DisplayName("SSE 연결 시 캐시 미스하면 DB 조회 후 캐시 저장하고 전송한다")
+    void streamTrending_cacheMiss_buildsAndSavesAndSends() {
+        given(trendingStockCacheRepository.getTrending()).willReturn(Optional.empty());
+
+        Set<String> topIds = new LinkedHashSet<>(List.of("1"));
+        given(trendingCacheRepository.getTopStockIds(5)).willReturn(topIds);
+
+        Stock samsung = stock(1L, "삼성전자", "stock-icons/삼성전자_005930.png");
+        given(stockRepository.findAllByIdInAndIsActiveTrue(List.of(1L))).willReturn(List.of(samsung));
+
+        StockPriceDaily samsungPrice = dailyPrice(1L, 72500, 2.1f);
+        given(stockPriceDailyRepository.findLatestByStockIdIn(List.of(1L))).willReturn(List.of(samsungPrice));
+        given(stockIconUrlResolver.resolve("stock-icons/삼성전자_005930.png")).willReturn("/assets/stock-icons/삼성전자_005930.png");
+
+        trendingStockService.streamTrending();
+
+        verify(trendingStockCacheRepository).saveTrending(any());
+        ArgumentCaptor<TrendingStocksResponse> captor = ArgumentCaptor.forClass(TrendingStocksResponse.class);
+        verify(sseManager).sendToEmitter(any(), captor.capture());
+
+        TrendingStocksResponse sent = captor.getValue();
+        assertThat(sent.stocks()).hasSize(1);
+        assertThat(sent.stocks().get(0).price()).isEqualTo(72500);
+        assertThat(sent.stocks().get(0).iconUrl()).isEqualTo("/assets/stock-icons/삼성전자_005930.png");
+    }
+
+    @Test
+    @DisplayName("검색 카운트 증가 시 응답 캐시가 무효화된다")
+    void incrementSearchCount_invalidatesCache() {
+        trendingStockService.incrementSearchCount(1L);
+
+        verify(trendingCacheRepository).incrementSearchCount(1L);
+        verify(trendingStockCacheRepository).invalidate();
+    }
+
     private Stock stock(Long id, String name, String iconUrl) {
         Stock stock = mock(Stock.class);
         given(stock.getId()).willReturn(id);
