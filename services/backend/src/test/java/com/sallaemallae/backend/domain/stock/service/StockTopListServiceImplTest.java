@@ -12,6 +12,7 @@ import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.entity.StockPriceDaily;
 import com.sallaemallae.backend.domain.stock.exception.StockErrorCode;
 import com.sallaemallae.backend.domain.stock.repository.StockPriceDailyRepository;
+import com.sallaemallae.backend.domain.storage.service.StockIconUrlResolver;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
 import com.sallaemallae.backend.domain.user.service.WatchlistService;
 import com.sallaemallae.backend.global.exception.BusinessException;
@@ -45,13 +46,17 @@ class StockTopListServiceImplTest {
   @Mock
   private StockQuoteCacheService stockQuoteCacheService;
 
+  @Mock
+  private StockIconUrlResolver stockIconUrlResolver;
+
   private StockTopListServiceImpl createService() {
     return new StockTopListServiceImpl(
         stockRepository,
         stockPriceDailyRepository,
         watchlistService,
         stockDividendYieldSnapshotService,
-        stockQuoteCacheService
+        stockQuoteCacheService,
+        stockIconUrlResolver
     );
   }
 
