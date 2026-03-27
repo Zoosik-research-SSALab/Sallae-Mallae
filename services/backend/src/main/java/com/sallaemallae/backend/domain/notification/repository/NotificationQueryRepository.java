@@ -162,6 +162,9 @@ public class NotificationQueryRepository {
     if (value == null) {
       return null;
     }
+    if ("SURGE_PLUNGE".equals(value)) {
+      return NotifyType.SURGE.getResponseValue();
+    }
     return NotifyType.valueOf(value).getResponseValue();
   }
 
