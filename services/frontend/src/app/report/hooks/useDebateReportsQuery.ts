@@ -10,6 +10,6 @@ export function useDebateReportsQuery(stockId: string) {
     queryFn: () => getDebateReports(stockId),
     select: transformDebateResponse,
     enabled: Boolean(stockId),
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 }

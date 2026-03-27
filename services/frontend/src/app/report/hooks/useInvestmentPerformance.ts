@@ -8,6 +8,6 @@ export function useInvestmentPerformance(stockId: string) {
     queryKey: ["report-detail", "investment-performance", stockId],
     queryFn: () => getInvestmentPerformance(stockId),
     enabled: Boolean(stockId),
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 }

@@ -14,6 +14,7 @@ import ReportTopBarSection from "../components/ReportTopBarSection";
 import { useDebateReportsQuery } from "../hooks/useDebateReportsQuery";
 import { useInvestmentPerformance } from "../hooks/useInvestmentPerformance";
 import { useTradeHistory } from "../hooks/useTradeHistory";
+import { formatBenchmarkTime } from "../utils/formatters";
 
 interface ReportsDetailPageClientProps {
   stockId: string;
@@ -47,8 +48,6 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
   const market = overviewQuery.data?.marketType ?? "";
   const priceText = typeof latestPrice === "number" ? `${Math.round(latestPrice).toLocaleString("ko-KR")}원` : "";
   const changeText = `${changeRate > 0 ? "+" : ""}${changeRate.toFixed(1)}%`;
-  const signalLabel = formatSignalLabel(debateReport?.chairman.signal);
-  const createdAt = formatDateTime(debateReport?.createdAt ?? "");
   const isMetaLoading = overviewQuery.isLoading || quoteStream.isLoading;
   const metaError =
     overviewQuery.error instanceof Error
@@ -153,9 +152,6 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
         </div>
       ) : null}
 
-      <div className="hidden">
-        {signalLabel} {createdAt}
-      </div>
     </main>
   );
 }
@@ -187,45 +183,4 @@ function TopBarSkeleton({ stockId }: { stockId: string }) {
 
 function SectionSkeleton({ className }: { className: string }) {
   return <div className={`w-full animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)] ${className}`} />;
-}
-
-function formatSignalLabel(signal?: string) {
-  const normalized = signal?.trim().toUpperCase().replace(/\s+/g, "_");
-
-  if (normalized === "STRONG_BUY") {
-    return "강력 매수";
-  }
-  if (normalized === "BUY") {
-    return "매수";
-  }
-  if (normalized === "SELL") {
-    return "매도";
-  }
-  if (normalized === "HOLD" || normalized === "STAY") {
-    return "보류";
-  }
-
-  return signal ?? "판단 대기";
-}
-
-function formatBenchmarkTime(value: string) {
-  if (!value) {
-    return "";
-  }
-
-  const formatted = formatDateTime(value);
-  return formatted ? `${formatted} 기준` : "";
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(
-    2,
-    "0",
-  )} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
