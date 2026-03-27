@@ -4,11 +4,6 @@ import com.sallaemallae.backend.domain.search.dto.response.SearchNewsItemRespons
 import com.sallaemallae.backend.domain.search.dto.response.SearchStockItemResponse;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -17,6 +12,8 @@ import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+
+import static com.sallaemallae.backend.global.util.NativeQueryResultUtils.toOffsetDateTime;
 
 @Repository
 @RequiredArgsConstructor
@@ -32,7 +29,6 @@ public class SearchQueryRepository {
   private static final String LIKE_ESCAPE = "\\";
   private static final int STOCK_SEARCH_LIMIT = 10;
   private static final int NEWS_SEARCH_LIMIT = 5;
-  private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
 
   private final EntityManager entityManager;
 
@@ -290,24 +286,5 @@ public class SearchQueryRepository {
       return decimal;
     }
     return BigDecimal.valueOf(((Number) value).doubleValue());
-  }
-
-  private OffsetDateTime toOffsetDateTime(Object value) {
-    if (value == null) {
-      return null;
-    }
-    if (value instanceof LocalDate localDate) {
-      return localDate.atStartOfDay(ZONE_ID).toOffsetDateTime();
-    }
-    if (value instanceof Date date) {
-      return date.toLocalDate().atStartOfDay(ZONE_ID).toOffsetDateTime();
-    }
-    if (value instanceof OffsetDateTime dateTime) {
-      return dateTime;
-    }
-    if (value instanceof Timestamp timestamp) {
-      return timestamp.toInstant().atZone(ZONE_ID).toOffsetDateTime();
-    }
-    return null;
   }
 }
