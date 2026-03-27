@@ -20,6 +20,8 @@ interface ReportsDetailPageClientProps {
 }
 
 export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageClientProps) {
+  const numericStockId = Number(stockId);
+  const resolvedStockId = Number.isFinite(numericStockId) ? numericStockId : undefined;
   const { reports: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReportsQuery(stockId);
   const overviewQuery = useStockOverviewQuery(stockId);
   const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
@@ -76,6 +78,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
         <section className="flex w-full max-w-[1152px] flex-col gap-16 px-4 py-10">
           {isHeroReady ? (
             <ReportHeroSection
+              stockId={resolvedStockId}
               market={market}
               ticker={ticker}
               benchmarkTime={benchmarkTime}

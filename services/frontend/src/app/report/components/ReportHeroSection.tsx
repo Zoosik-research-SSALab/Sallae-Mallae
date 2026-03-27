@@ -1,6 +1,9 @@
 "use client";
 
+import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
+
 interface ReportHeroSectionProps {
+  stockId?: number;
   market: string;
   ticker: string;
   benchmarkTime: string;
@@ -11,6 +14,7 @@ interface ReportHeroSectionProps {
 }
 
 export default function ReportHeroSection({
+  stockId,
   market,
   ticker,
   benchmarkTime,
@@ -43,9 +47,14 @@ export default function ReportHeroSection({
           <h1 className="heading-reset text-6xl font-black leading-[68px] text-[color:var(--color-text-primary)]">
             {companyName}
           </h1>
-          <span className="text-[32px] text-[color:var(--color-text-danger)]" aria-hidden={true}>
-            ♥
-          </span>
+          {stockId != null ? (
+            <WatchlistHeartButton
+              stockId={stockId}
+              stockName={companyName}
+              size="lg"
+              inactiveIconStyle="outline"
+            />
+          ) : null}
         </div>
       </div>
 
