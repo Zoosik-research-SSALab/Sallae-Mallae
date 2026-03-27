@@ -7,7 +7,7 @@ import java.util.Locale;
 
 public enum NotificationTab {
   ALL(List.of()),
-  SIGNAL(List.of(NotifyType.TRADE_SIGNAL)),
+  SIGNAL(List.of(NotifyType.SIGNAL_BUY, NotifyType.SIGNAL_SELL)),
   SURGE(List.of(NotifyType.SURGE, NotifyType.PLUNGE)),
   ANNOUNCEMENT(List.of(NotifyType.ANNOUNCEMENT));
 
