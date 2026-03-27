@@ -281,6 +281,15 @@ function formatSignalForTts(signal?: string) {
   return formatSignalLabel(signal);
 }
 
+function replaceEnglishSignalsForTts(text: string) {
+  return text
+    .replace(/\bSTRONG[\s_]?BUY\b/gi, "강력 매수")
+    .replace(/\bBUY\b/gi, "매수")
+    .replace(/\bSELL\b/gi, "매도")
+    .replace(/\bHOLD\b/gi, "보류")
+    .replace(/\bSTAY\b/gi, "보류");
+}
+
 function buildJudgeFinalTtsText(report?: DebateReport | null) {
   const verdict = formatSignalForTts(report?.chairman.signal);
   const summary = report?.chairman.summary?.trim();
@@ -289,7 +298,7 @@ function buildJudgeFinalTtsText(report?: DebateReport | null) {
     return `의장 최종 결론입니다. 결론은 ${verdict}입니다.`;
   }
 
-  return `의장 최종 결론입니다. 결론은 ${verdict}입니다. ${summary}`;
+  return `의장 최종 결론입니다. 결론은 ${verdict}입니다. ${replaceEnglishSignalsForTts(summary)}`;
 }
 
 function getRoundIntroTitle(roundLabel: string) {
