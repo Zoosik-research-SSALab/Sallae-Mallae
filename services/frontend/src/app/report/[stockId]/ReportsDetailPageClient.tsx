@@ -20,16 +20,14 @@ interface ReportsDetailPageClientProps {
 }
 
 export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageClientProps) {
-  const numericStockId = Number(stockId);
-  const resolvedStockId = Number.isFinite(numericStockId) ? numericStockId : undefined;
-  const { reports: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReportsQuery(stockId);
+  const { data: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReportsQuery(stockId);
   const overviewQuery = useStockOverviewQuery(stockId);
   const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
   const priceStream = useStockPriceStream(stockId, "1Y");
   const investmentPerformanceQuery = useInvestmentPerformance(stockId);
   const tradeHistoryQuery = useTradeHistory(stockId, 0, 100);
 
-  const debateReport = debateReports[0] ?? null;
+  const debateReport = debateReports?.[0] ?? null;
   const companyName = overviewQuery.data?.name ?? "";
   const ticker = overviewQuery.data?.ticker ?? stockId;
   const quoteTicker = overviewQuery.data?.ticker ?? "";
@@ -78,7 +76,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
         <section className="flex w-full max-w-[1152px] flex-col gap-16 px-4 py-10">
           {isHeroReady ? (
             <ReportHeroSection
-              stockId={resolvedStockId}
+              stockId={Number.isFinite(Number(stockId)) ? Number(stockId) : undefined}
               market={market}
               ticker={ticker}
               benchmarkTime={benchmarkTime}
