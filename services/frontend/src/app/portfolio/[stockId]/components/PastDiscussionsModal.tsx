@@ -1,68 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import { IoChevronBack, IoChevronForward, IoCalendarOutline } from "react-icons/io5";
 import type { ReportItem } from "../types/api";
 import type { CommitteeMember } from "../types/portfolioStockDetail";
+import { ChatBubble } from "./CommitteeChat";
 
 type Props = {
   open: boolean;
   reports: ReportItem[];
   onClose: () => void;
 };
-
-const AVATAR_MAP: Record<string, string> = {
-  차트: "/images/chart_talk.png",
-  펀더멘탈: "/images/fund_talk.png",
-  센티멘트: "/images/news_talk.png",
-  뉴스: "/images/news_talk.png",
-  의장: "/images/judge_talk.png",
-};
-
-function getAvatarSrc(role: string): string {
-  for (const [keyword, src] of Object.entries(AVATAR_MAP)) {
-    if (role.includes(keyword)) return src;
-  }
-  return "/images/profile-placeholder.svg";
-}
-
-function Avatar({ role }: { role: string }) {
-  return (
-    <div
-      className="shrink-0 rounded-xl overflow-hidden flex items-end justify-center relative"
-      style={{ width: 80, height: 120 }}
-    >
-      <Image src={getAvatarSrc(role)} alt={role} fill className="object-cover" />
-    </div>
-  );
-}
-
-function ChatBubble({ member }: { member: CommitteeMember }) {
-  const isLeft = member.alignment === "left";
-  const isDark = member.isDark;
-  const bubbleRadius = isDark
-    ? "rounded-bl-2xl rounded-br-2xl rounded-tl-2xl"
-    : isLeft
-      ? "rounded-bl-2xl rounded-br-2xl rounded-tr-2xl"
-      : "rounded-bl-2xl rounded-br-2xl rounded-tl-2xl";
-  const bubbleBg = isDark ? "bg-bg-inverse-bolder" : "bg-bg-tertiary";
-  const textColor = isDark ? "text-text-base" : "text-text-secondary";
-
-  return (
-    <div className={`flex items-start gap-3 ${isLeft ? "flex-row" : "flex-row-reverse"}`}>
-      <Avatar role={member.role} />
-      <div className="flex flex-1 flex-col gap-1.5 self-stretch min-w-0">
-        <p className={`typo-body-md font-semibold text-text-primary tracking-tight ${isLeft ? "" : "text-right"}`}>
-          {member.role}
-        </p>
-        <div className={`${bubbleBg} ${bubbleRadius} px-4 py-3 w-full`}>
-          <p className={`typo-body-md font-medium tracking-tight ${textColor}`}>{member.opinion}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -225,7 +173,7 @@ export default function PastDiscussionsModal({ open, reports, onClose }: Props) 
   const [selectedYear, setSelectedYear] = useState<string>("");
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [calendarYear, setCalendarYear] = useState(2026);
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(1);
 
   const years = useMemo(() => getYears(reports), [reports]);
@@ -284,9 +232,11 @@ export default function PastDiscussionsModal({ open, reports, onClose }: Props) 
 
   const handlePrevMonth = () => {
     if (calendarMonth === 1) {
-      setCalendarYear((y) => y - 1);
+      setCalendarYear((y) => {
+        setSelectedYear(String(y - 1));
+        return y - 1;
+      });
       setCalendarMonth(12);
-      setSelectedYear(String(calendarYear - 1));
     } else {
       setCalendarMonth((m) => m - 1);
     }
@@ -294,9 +244,11 @@ export default function PastDiscussionsModal({ open, reports, onClose }: Props) 
 
   const handleNextMonth = () => {
     if (calendarMonth === 12) {
-      setCalendarYear((y) => y + 1);
+      setCalendarYear((y) => {
+        setSelectedYear(String(y + 1));
+        return y + 1;
+      });
       setCalendarMonth(1);
-      setSelectedYear(String(calendarYear + 1));
     } else {
       setCalendarMonth((m) => m + 1);
     }
@@ -383,7 +335,7 @@ export default function PastDiscussionsModal({ open, reports, onClose }: Props) 
             </div>
             <div className="flex flex-col gap-6">
               {buildMembers(selectedReport).map((member, index) => (
-                <ChatBubble key={`${member.role}-${index}`} member={member} />
+                <ChatBubble key={`${member.role}-${index}`} member={member} avatarSize="sm" />
               ))}
             </div>
           </div>
