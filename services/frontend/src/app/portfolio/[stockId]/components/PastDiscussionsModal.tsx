@@ -319,7 +319,7 @@ export default function PastDiscussionsModal({ open, reports, onClose }: Props) 
       }}
     >
       <div
-        className="w-full md:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl md:rounded-2xl bg-[color:var(--color-bg-primary)] overflow-hidden"
+        className="w-full md:max-w-lg h-[85vh] flex flex-col rounded-t-2xl md:rounded-2xl bg-[color:var(--color-bg-primary)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -450,7 +450,7 @@ export default function PastDiscussionsModal({ open, reports, onClose }: Props) 
                       key={report.date}
                       type="button"
                       onClick={() => setSelectedReport(report)}
-                      className="flex items-center justify-between px-5 py-4 border-b border-border-primary hover:bg-bg-secondary transition-colors text-left"
+                      className="flex items-center justify-between px-5 py-3 border-b border-border-primary hover:bg-bg-secondary transition-colors text-left"
                     >
                       <span className="typo-body-md font-semibold text-text-primary tracking-tight">
                         {formatDate(report.date)}
