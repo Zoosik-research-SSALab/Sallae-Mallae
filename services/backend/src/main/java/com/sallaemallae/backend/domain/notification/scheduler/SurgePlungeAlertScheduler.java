@@ -73,9 +73,11 @@ public class SurgePlungeAlertScheduler {
         String direction = changeRate > 0 ? "급등" : "급락";
         String changePercent = String.format("%+.1f%%", changeRate * 100);
 
+        NotifyType notiType = changeRate > 0 ? NotifyType.SURGE : NotifyType.PLUNGE;
+
         notificationPublishService.publish(
             stock.getId(),
-            NotifyType.SURGE_PLUNGE,
+            notiType,
             stock.getName() + " " + direction + " 알림",
             stock.getName() + "이(가) " + changePercent + " 변동했습니다. "
                 + "현재가: " + String.format("%,d", currentPrice) + "원",
