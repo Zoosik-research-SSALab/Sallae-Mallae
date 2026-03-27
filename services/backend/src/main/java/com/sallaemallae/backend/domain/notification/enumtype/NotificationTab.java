@@ -2,22 +2,23 @@ package com.sallaemallae.backend.domain.notification.enumtype;
 
 import com.sallaemallae.backend.domain.notification.exception.NotificationErrorCode;
 import com.sallaemallae.backend.global.exception.BusinessException;
+import java.util.List;
 import java.util.Locale;
 
 public enum NotificationTab {
-  ALL(null),
-  SIGNAL(NotifyType.TRADE_SIGNAL),
-  SURGE(NotifyType.SURGE_PLUNGE),
-  ANNOUNCEMENT(NotifyType.ANNOUNCEMENT);
+  ALL(List.of()),
+  SIGNAL(List.of(NotifyType.TRADE_SIGNAL)),
+  SURGE(List.of(NotifyType.SURGE, NotifyType.PLUNGE)),
+  ANNOUNCEMENT(List.of(NotifyType.ANNOUNCEMENT));
 
-  private final NotifyType notifyType;
+  private final List<NotifyType> notifyTypes;
 
-  NotificationTab(NotifyType notifyType) {
-    this.notifyType = notifyType;
+  NotificationTab(List<NotifyType> notifyTypes) {
+    this.notifyTypes = notifyTypes;
   }
 
-  public NotifyType getNotifyType() {
-    return notifyType;
+  public List<NotifyType> getNotifyTypes() {
+    return notifyTypes;
   }
 
   public static NotificationTab from(String value) {

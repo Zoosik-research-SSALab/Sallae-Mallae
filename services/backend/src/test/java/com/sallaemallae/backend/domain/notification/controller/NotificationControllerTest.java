@@ -250,7 +250,7 @@ class NotificationControllerTest {
             INSERT INTO stock_notifications (id, stock_id, noti_type, title, message, related_link, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-        2L, 2L, "SURGE_PLUNGE", "급등락 알림", "카카오가 5% 이상 상승했습니다.", "/stocks/035720", now.minusDays(2)
+        2L, 2L, "SURGE", "급등 알림", "카카오가 5% 이상 상승했습니다.", "/stocks/035720", now.minusDays(2)
     );
     jdbcTemplate.update(
         """

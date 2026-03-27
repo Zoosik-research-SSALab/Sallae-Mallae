@@ -54,10 +54,11 @@ public class NotificationPublishService {
 
     // SSE 실시간 푸시 (유저별 읽지 않은 알림 수 포함)
     OffsetDateTime cutoff = OffsetDateTime.now().minusDays(RETENTION_DAYS);
+    String createdAt = stockNoti.getCreatedAt().toString();
     for (Long userId : userIds) {
       long unread = notificationQueryRepository.countUnreadNotifications(userId, cutoff);
       String unreadCount = unread > MAX_UNREAD_BADGE_COUNT ? "99+" : String.valueOf(unread);
-      notificationSseService.pushToUser(userId, notiType.getResponseValue(), title, message, unreadCount);
+      notificationSseService.pushToUser(userId, notiType.getResponseValue(), title, message, unreadCount, createdAt);
     }
 
     log.info("알림 발행: type={}, stockId={}, users={}", notiType, stockId, userIds.size());

@@ -112,7 +112,7 @@ public class NotificationQueryRepository {
     if (tab == NotificationTab.ALL) {
       return "";
     }
-    return " AND " + alias + ".noti_type = :notiType\n";
+    return " AND " + alias + ".noti_type IN (:notiTypes)\n";
   }
 
   private String buildNotificationIdFilter(NotificationTab tab) {
@@ -123,7 +123,7 @@ public class NotificationQueryRepository {
           AND un.notification_id IN (
             SELECT sn.id
             FROM stock_notifications sn
-            WHERE sn.noti_type = :notiType
+            WHERE sn.noti_type IN (:notiTypes)
           )
         """;
   }
@@ -135,7 +135,7 @@ public class NotificationQueryRepository {
 
   private void bindNotificationTypeParameter(jakarta.persistence.Query query, NotificationTab tab) {
     if (tab != NotificationTab.ALL) {
-      query.setParameter("notiType", toDatabaseType(tab));
+      query.setParameter("notiTypes", toDatabaseTypes(tab));
     }
   }
 
@@ -152,14 +152,18 @@ public class NotificationQueryRepository {
     );
   }
 
-  private String toDatabaseType(NotificationTab tab) {
-    NotifyType notifyType = tab.getNotifyType();
-    return notifyType == null ? null : notifyType.name();
+  private List<String> toDatabaseTypes(NotificationTab tab) {
+    return tab.getNotifyTypes().stream()
+        .map(NotifyType::name)
+        .toList();
   }
 
   private String toResponseType(String value) {
     if (value == null) {
       return null;
+    }
+    if ("SURGE_PLUNGE".equals(value)) {
+      return NotifyType.SURGE.getResponseValue();
     }
     return NotifyType.valueOf(value).getResponseValue();
   }
