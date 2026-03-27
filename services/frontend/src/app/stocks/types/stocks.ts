@@ -13,6 +13,7 @@ export type StockItem = {
   tradingValue: number | null;
   tradingVolume: number | null;
   dividendYield: number | null;
+  iconUrl?: string | null;
 };
 
 export type StocksResponse = {

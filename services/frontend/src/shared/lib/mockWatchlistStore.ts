@@ -434,6 +434,33 @@ export function getMockWatchlistSnapshot({ page, limit }: MockWatchlistSnapshotO
   };
 }
 
+export function getMockWatchlistListResponse() {
+  const watchedItems = Array.from(watchlistStore.entries()).map(([stockId, entry], index) => {
+    const catalogItem = resolveCatalogItem(stockId);
+
+    return {
+      stockId: catalogItem.stockId,
+      ticker: catalogItem.ticker,
+      name: catalogItem.name,
+      isNotifiedEnabled: entry.isNotifiedEnabled,
+      price: jitterPrice(catalogItem.price),
+      fluctuationRate: jitterRate(catalogItem.fluctuationRate),
+      signal: catalogItem.signal,
+      confidence: catalogItem.confidence,
+      createdAt: new Date(Date.now() - index * 86_400_000).toISOString(),
+      iconUrl: `assets/stock-icons/${catalogItem.name}_${catalogItem.ticker}.png`,
+    };
+  });
+
+  return {
+    total: watchedItems.length,
+    buyCount: watchedItems.filter((item) => item.signal === "BUY").length,
+    sellCount: watchedItems.filter((item) => item.signal === "SELL").length,
+    upCount: watchedItems.filter((item) => item.fluctuationRate > 0).length,
+    watchlist: watchedItems,
+  };
+}
+
 export function getMockWatchlistNews(options: MockWatchlistNewsOptions = {}): MockWatchlistNewsPayload {
   const watchedStockIds = new Set(watchlistStore.keys());
   const safeOffset = Math.max(0, options.offset ?? 0);

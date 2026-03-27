@@ -16,6 +16,14 @@ function normalizeGicsSector(value: string) {
   return value.toLowerCase().replace(/[^a-z]/g, "");
 }
 
+function hasHangul(value: string) {
+  return /[가-힣]/.test(value);
+}
+
 export function formatStockSectorLabel(value: string) {
+  if (!value || hasHangul(value)) {
+    return value;
+  }
+
   return GICS_SECTOR_LABELS[normalizeGicsSector(value)] ?? value;
 }

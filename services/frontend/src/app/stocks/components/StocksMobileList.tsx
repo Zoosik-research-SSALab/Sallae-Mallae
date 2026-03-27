@@ -56,17 +56,17 @@ export default function StocksMobileList({
                   layout="position"
                   initial={false}
                   transition={rowLayoutTransition}
-                  className="border-b border-[color:var(--color-border-secondary)] px-4 py-3"
+                  className="border-b border-[color:var(--color-border-secondary)] px-4 py-3 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-within:bg-[color:var(--color-bg-secondary)]"
                 >
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center justify-between gap-4 px-2 py-1">
                     <Link
                       href={`/stocks/${item.id}`}
-                      className="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-2 py-1 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
+                      className="flex min-w-0 flex-1 items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
                     >
                       <div className="typo-body-md min-w-4 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>
 
                       <div className="flex min-w-0 flex-1 items-center gap-4">
-                        <StockLogo label={item.name.slice(0, 2)} />
+                        <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
 
                         <div className="min-w-0 flex-1">
                           <div className="typo-body-sm truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>

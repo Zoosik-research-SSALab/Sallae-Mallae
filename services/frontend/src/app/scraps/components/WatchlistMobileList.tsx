@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
 import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import Pagination from "@/shared/ui/Pagination";
@@ -34,8 +36,18 @@ export default function WatchlistMobileList({
   onPageChange,
   onToggleSuccess,
 }: Props) {
+  const router = useRouter();
   const showEmptyState = !isLoading && items.length === 0 && totalPages === 0;
   const showPagination = totalPages > 1;
+
+  const handleRowKeyDown = (event: React.KeyboardEvent<HTMLElement>, stockId: number) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    router.push(`/stocks/${stockId}`);
+  };
 
   return (
     <section className="flex w-full flex-col gap-0 lg:hidden">
@@ -44,18 +56,22 @@ export default function WatchlistMobileList({
           Array.from({ length: pageSize }).map((_, index) => <MobileSkeletonRow key={index} />)
         ) : items.length > 0 ? (
           items.map((item) => (
-            <article key={item.stockId} className="border-b border-[color:var(--color-border-secondary)] py-4">
+            <article
+              key={item.stockId}
+              role="link"
+              tabIndex={0}
+              onClick={() => router.push(`/stocks/${item.stockId}`)}
+              onKeyDown={(event) => handleRowKeyDown(event, item.stockId)}
+              className="cursor-pointer border-b border-[color:var(--color-border-secondary)] py-4 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none"
+            >
               <div className="flex items-center gap-4">
                 <div className="flex min-w-0 flex-1 items-center gap-4">
-                  <WatchlistStockAvatar name={item.name} />
+                  <WatchlistStockAvatar name={item.name} iconUrl={item.iconUrl} />
 
                   <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/stocks/${item.stockId}`}
-                      className="typo-body-sm truncate font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
-                    >
+                    <div className="typo-body-sm truncate font-semibold text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)]">
                       {item.name}
-                    </Link>
+                    </div>
                     <div className="mt-1 flex items-center gap-1.5">
                       <span className="typo-body-xs font-semibold text-[color:var(--color-text-tertiary)]">{item.ticker}</span>
                       <WatchlistSignalBadge signal={item.signal} compact />
@@ -75,13 +91,15 @@ export default function WatchlistMobileList({
                     </ValueChangeRateText>
                   </div>
 
-                  <WatchlistHeartButton
-                    stockId={item.stockId}
-                    stockName={item.name}
-                    initialWatched
-                    inactiveIconStyle="outline"
-                    onToggleSuccess={(nextIsWatched) => onToggleSuccess(item.stockId, nextIsWatched)}
-                  />
+                  <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                    <WatchlistHeartButton
+                      stockId={item.stockId}
+                      stockName={item.name}
+                      initialWatched
+                      inactiveIconStyle="outline"
+                      onToggleSuccess={(nextIsWatched) => onToggleSuccess(item.stockId, nextIsWatched)}
+                    />
+                  </div>
                 </div>
               </div>
             </article>

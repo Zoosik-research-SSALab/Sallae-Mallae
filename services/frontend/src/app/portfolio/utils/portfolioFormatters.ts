@@ -72,6 +72,22 @@ export function getDeltaSurfaceClassName(value: number | null | undefined) {
   return "bg-[color:var(--color-bg-tertiary)]";
 }
 
+export function getDeltaChartBarClassName(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "bg-[linear-gradient(90deg,var(--color-icon-disabled)_0%,var(--color-bg-tertiary)_100%)]";
+  }
+
+  if (value > 0) {
+    return "bg-[linear-gradient(90deg,var(--color-text-danger-bold)_0%,var(--color-bg-danger-subtle)_100%)]";
+  }
+
+  if (value < 0) {
+    return "bg-[linear-gradient(90deg,var(--color-text-info)_0%,var(--color-bg-info-subtle)_100%)]";
+  }
+
+  return "bg-[linear-gradient(90deg,var(--color-icon-disabled)_0%,var(--color-bg-tertiary)_100%)]";
+}
+
 export function getTradeActionLabel(action: PortfolioTradeAction) {
   return action === "BUY" ? "매수" : "매도 청산";
 }

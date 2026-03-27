@@ -494,8 +494,17 @@ export function formatFinancialLabel(item: StockFinancialItem) {
   return `${item.year}`;
 }
 
+function compareFinancialItems(a: StockFinancialItem, b: StockFinancialItem) {
+  if (a.year !== b.year) {
+    return a.year - b.year;
+  }
+
+  return (a.quarter ?? 0) - (b.quarter ?? 0);
+}
+
 export function getVisibleFinancials(financials: StockFinancialItem[], type: StockFinancialType) {
-  return type === "QUARTERLY" ? financials.slice(-4) : financials;
+  const sortedFinancials = [...financials].sort(compareFinancialItems);
+  return type === "QUARTERLY" ? sortedFinancials.slice(-4) : sortedFinancials;
 }
 
 export function formatFinancialQuarterLabel(item: StockFinancialItem) {

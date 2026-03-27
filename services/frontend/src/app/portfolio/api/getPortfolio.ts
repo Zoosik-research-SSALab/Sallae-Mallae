@@ -53,14 +53,17 @@ type PortfolioPayload = {
     price?: number | null;
     signal?: string | null;
     action?: string | null;
+    iconUrl?: string | null;
   }> | null;
   holdings?: Array<{
     stockId?: number | null;
     ticker?: string | null;
     name?: string | null;
+    iconUrl?: string | null;
     buyPrice?: number | null;
     currentPrice?: number | null;
     holdingDays?: number | null;
+    holdingQuantity?: number | null;
     returnRate?: number | null;
   }> | null;
   todayTrades?: Array<{
@@ -68,6 +71,7 @@ type PortfolioPayload = {
     stockId?: number | null;
     ticker?: string | null;
     name?: string | null;
+    iconUrl?: string | null;
     action?: string | null;
     tradeType?: string | null;
     executedAt?: string | null;
@@ -75,16 +79,16 @@ type PortfolioPayload = {
     executedPrice?: number | null;
     tradePrice?: number | null;
     currentPrice?: number | null;
+    holdingQuantity?: number | null;
     returnRate?: number | null;
   }> | null;
   monthlyReturns?: Array<{
     month?: string | null;
     portfolioReturnRate?: number | null;
     monthlyReturn?: number | null;
-    kospiReturnRate?: number | null;
-    kospiReturn?: number | null;
-    excessReturnRate?: number | null;
-    alpha?: number | null;
+    realizedProfitAmount?: number | null;
+    buyCount?: number | null;
+    sellCount?: number | null;
   }> | null;
   page?: PortfolioPageInfoPayload | null;
   hero?: {
@@ -139,6 +143,10 @@ function readNumber(value: unknown, fallback = 0) {
 
 function readString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
+}
+
+function readStringOrNull(value: unknown) {
+  return typeof value === "string" ? value : null;
 }
 
 function formatSeoulDateParts(date: Date) {
@@ -284,6 +292,7 @@ function normalizePopularSignals(value: PortfolioPayload["popularSignals"]): Por
         name: readString(item.name),
         price: readNumber(item.price),
         action: isPortfolioSignalAction(rawAction) ? rawAction : "WATCH",
+        iconUrl: readStringOrNull(item.iconUrl),
       };
     });
 }
@@ -299,9 +308,11 @@ function normalizeHoldings(value: PortfolioPayload["holdings"]): PortfolioHoldin
       stockId: readNumber(item.stockId),
       ticker: readString(item.ticker),
       name: readString(item.name),
+      iconUrl: readStringOrNull(item.iconUrl),
       buyPrice: readNumberOrNull(item.buyPrice),
       currentPrice: readNumberOrNull(item.currentPrice),
       holdingDays: readNumberOrNull(item.holdingDays),
+      holdingQuantity: readNumberOrNull(item.holdingQuantity),
       returnRate: readNumberOrNull(item.returnRate),
     }));
 }
@@ -348,10 +359,12 @@ function normalizeTodayTrades(
         stockId,
         ticker: readString(item.ticker),
         name: readString(item.name),
+        iconUrl: readStringOrNull(item.iconUrl),
         action: action === "SELL" ? "SELL" : "BUY",
         executedAt: formatTradeTimeLabel(item.executedAt ?? item.tradeTime),
         executedPrice: readNumberOrNull(item.executedPrice ?? item.tradePrice),
         currentPrice,
+        holdingQuantity: readNumberOrNull(item.holdingQuantity),
         returnRate: readNumberOrNull(item.returnRate),
       };
     });
@@ -371,12 +384,9 @@ function normalizeMonthlyReturns(
       portfolioReturnRate: readNumberOrNull(
         item.portfolioReturnRate ?? item.monthlyReturn,
       ),
-      kospiReturnRate: readNumberOrNull(
-        item.kospiReturnRate ?? item.kospiReturn,
-      ),
-      excessReturnRate: readNumberOrNull(
-        item.excessReturnRate ?? item.alpha,
-      ),
+      realizedProfitAmount: readNumberOrNull(item.realizedProfitAmount),
+      buyCount: readNumberOrNull(item.buyCount),
+      sellCount: readNumberOrNull(item.sellCount),
     }));
 }
 

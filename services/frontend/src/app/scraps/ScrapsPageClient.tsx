@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import WatchlistDesktopTable from "./components/WatchlistDesktopTable";
 import WatchlistMobileList from "./components/WatchlistMobileList";
 import WatchlistNewsSection from "./components/WatchlistNewsSection";
 import WatchlistSummaryStats from "./components/WatchlistSummaryStats";
 import { useWatchlistNewsQuery } from "./hooks/useWatchlistNewsQuery";
-import { useWatchlistStream } from "./hooks/useWatchlistStream";
+import { useWatchlistQuery } from "./hooks/useWatchlistQuery";
 import { WATCHLIST_PAGE_SIZE, clampPage, formatWatchlistSummary, getWatchlistTotalPages } from "./utils/watchlistDisplay";
-import type { WatchlistStockItem } from "./types/scraps";
+import type { WatchlistPayload, WatchlistStockItem } from "./types/scraps";
 import Badge from "@/shared/ui/Badge";
 
 function readPageParam(rawPage: string | undefined) {
@@ -23,6 +23,14 @@ function readPageParam(rawPage: string | undefined) {
   return Math.floor(parsedPage);
 }
 
+const emptyWatchlistPayload: WatchlistPayload = {
+  totalCount: 0,
+  buyCount: 0,
+  sellCount: 0,
+  upCount: 0,
+  watchlist: [],
+};
+
 type Props = {
   initialPage?: string;
 };
@@ -31,31 +39,30 @@ export default function ScrapsPageClient({ initialPage }: Props) {
   const router = useRouter();
   const currentPage = readPageParam(initialPage);
 
-  const { data: streamData, isLoading: isStreamLoading, error: streamError } = useWatchlistStream(currentPage, WATCHLIST_PAGE_SIZE);
+  const { data: watchlistData = emptyWatchlistPayload, isLoading: isWatchlistLoading, error: watchlistError } = useWatchlistQuery();
   const { data: newsData, isLoading: isNewsLoading, errorMessage: newsErrorMessage } = useWatchlistNewsQuery();
 
   const [hiddenItems, setHiddenItems] = useState<WatchlistStockItem[]>([]);
-  const hideTimeoutIdsRef = useRef<number[]>([]);
 
-  const clearHideTimeouts = useCallback(() => {
-    hideTimeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-    hideTimeoutIdsRef.current = [];
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearHideTimeouts();
-    };
-  }, [clearHideTimeouts]);
-
-  const hiddenStockIds = useMemo(() => new Set(hiddenItems.map((item) => item.stockId)), [hiddenItems]);
-  const displayedItems = useMemo(
-    () => streamData.watchlist.filter((item) => !hiddenStockIds.has(item.stockId)),
-    [hiddenStockIds, streamData.watchlist],
+  const activeHiddenItems = useMemo(() => {
+    const visibleStockIds = new Set(watchlistData.watchlist.map((item) => item.stockId));
+    return hiddenItems.filter((item) => visibleStockIds.has(item.stockId));
+  }, [hiddenItems, watchlistData.watchlist]);
+  const hiddenStockIds = useMemo(() => new Set(activeHiddenItems.map((item) => item.stockId)), [activeHiddenItems]);
+  const visibleItems = useMemo(
+    () => watchlistData.watchlist.filter((item) => !hiddenStockIds.has(item.stockId)),
+    [hiddenStockIds, watchlistData.watchlist],
   );
-  const totalPages = useMemo(() => getWatchlistTotalPages(streamData, WATCHLIST_PAGE_SIZE), [streamData]);
-  const summary = useMemo(() => formatWatchlistSummary(streamData, hiddenItems), [hiddenItems, streamData]);
-  const hasVisibleWatchlist = isStreamLoading || summary.totalCount > 0;
+  const summary = useMemo(() => formatWatchlistSummary(watchlistData, activeHiddenItems), [activeHiddenItems, watchlistData]);
+  const totalPages = useMemo(() => getWatchlistTotalPages(summary.totalCount, WATCHLIST_PAGE_SIZE), [summary.totalCount]);
+  const safeCurrentPage = clampPage(currentPage, Math.max(totalPages, 1));
+  const pagedItems = useMemo(
+    () => visibleItems.slice((safeCurrentPage - 1) * WATCHLIST_PAGE_SIZE, safeCurrentPage * WATCHLIST_PAGE_SIZE),
+    [safeCurrentPage, visibleItems],
+  );
+  const hasVisibleWatchlist = isWatchlistLoading || summary.totalCount > 0;
+  const shouldShowEmptyState =
+    !isWatchlistLoading && !watchlistError && summary.totalCount === 0;
 
   const replacePage = useCallback(
     (page: number) => {
@@ -70,25 +77,23 @@ export default function ScrapsPageClient({ initialPage }: Props) {
   );
 
   useEffect(() => {
-    if (totalPages > 0 && currentPage > totalPages) {
-      replacePage(clampPage(currentPage, totalPages));
+    if (currentPage !== safeCurrentPage) {
+      replacePage(safeCurrentPage);
     }
-  }, [currentPage, replacePage, totalPages]);
+  }, [currentPage, replacePage, safeCurrentPage]);
 
   const handlePageChange = (page: number) => {
     const nextPage = clampPage(page, Math.max(totalPages, 1));
 
-    if (nextPage === currentPage) {
+    if (nextPage === safeCurrentPage) {
       return;
     }
 
-    clearHideTimeouts();
-    setHiddenItems([]);
     replacePage(nextPage);
   };
 
   const handleToggleSuccess = (stockId: number, nextIsWatched: boolean) => {
-    const targetItem = streamData.watchlist.find((item) => item.stockId === stockId);
+    const targetItem = watchlistData.watchlist.find((item) => item.stockId === stockId);
 
     setHiddenItems((current) => {
       if (nextIsWatched) {
@@ -101,15 +106,6 @@ export default function ScrapsPageClient({ initialPage }: Props) {
 
       return [...current, targetItem];
     });
-
-    if (!nextIsWatched && targetItem) {
-      const timeoutId = window.setTimeout(() => {
-        setHiddenItems((current) => current.filter((item) => item.stockId !== stockId));
-        hideTimeoutIdsRef.current = hideTimeoutIdsRef.current.filter((currentTimeoutId) => currentTimeoutId !== timeoutId);
-      }, 6000);
-
-      hideTimeoutIdsRef.current.push(timeoutId);
-    }
   };
 
   return (
@@ -122,17 +118,17 @@ export default function ScrapsPageClient({ initialPage }: Props) {
                 나의 관심 종목
               </h1>
               <p className="hidden text-base font-medium leading-6 text-[color:var(--color-text-secondary)] lg:block">
-                관심 종목들의 현재가와 AI 매매신호를 한눈에 비교해보세요.
+                관심 종목의 현재가와 AI 매매신호를 한눈에 비교해보세요.
               </p>
               <p className="text-sm font-medium leading-5 text-[color:var(--color-text-secondary)] opacity-80 lg:hidden">
-                관심 종목들의 실시간 변화와 AI 매매 의견을 확인하세요.
+                관심 종목의 실시간 변화와 AI 매매 신호를 확인하세요.
               </p>
             </div>
           </section>
 
           <WatchlistSummaryStats summary={summary} />
 
-          {streamError ? <Badge tone="danger">관심 종목 스트림 연결에 실패했습니다.</Badge> : null}
+          {watchlistError ? <Badge tone="danger">관심 종목을 불러오지 못했습니다.</Badge> : null}
           {newsErrorMessage ? <Badge tone="danger">{newsErrorMessage}</Badge> : null}
 
           <section className="flex flex-col gap-6 pt-2">
@@ -141,27 +137,27 @@ export default function ScrapsPageClient({ initialPage }: Props) {
                 href="/stocks"
                 className="typo-body-sm inline-flex rounded-lg border border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-4 py-2 font-semibold text-[color:var(--color-text-secondary)] shadow-[0px_1px_2px_rgba(0,0,0,0.12)] transition-colors hover:bg-[color:var(--color-bg-secondary)] hover:text-[color:var(--color-text-primary)]"
               >
-                + 관심 더 찾아보기
+                + 관심 종목 더 찾아보기
               </Link>
             </div>
 
             {hasVisibleWatchlist ? (
               <>
                 <WatchlistMobileList
-                  items={displayedItems}
+                  items={pagedItems}
                   pageSize={WATCHLIST_PAGE_SIZE}
-                  isLoading={isStreamLoading}
-                  currentPage={currentPage}
+                  isLoading={isWatchlistLoading}
+                  currentPage={safeCurrentPage}
                   totalPages={totalPages}
                   onPageChange={handlePageChange}
                   onToggleSuccess={handleToggleSuccess}
                 />
 
                 <WatchlistDesktopTable
-                  items={displayedItems}
+                  items={pagedItems}
                   pageSize={WATCHLIST_PAGE_SIZE}
-                  isLoading={isStreamLoading}
-                  currentPage={currentPage}
+                  isLoading={isWatchlistLoading}
+                  currentPage={safeCurrentPage}
                   totalPages={totalPages}
                   onPageChange={handlePageChange}
                   onToggleSuccess={handleToggleSuccess}
@@ -169,9 +165,11 @@ export default function ScrapsPageClient({ initialPage }: Props) {
               </>
             ) : null}
 
-            {!isStreamLoading && summary.totalCount === 0 ? (
+            {shouldShowEmptyState ? (
               <div className="rounded-2xl border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-6 py-10 text-center">
-                <p className="typo-body-md text-[color:var(--color-text-secondary)]">관심 종목을 추가하면 이곳에서 실시간으로 확인할 수 있습니다.</p>
+                <p className="typo-body-md text-[color:var(--color-text-secondary)]">
+                  관심 종목을 추가하면 이곳에서 실시간으로 확인할 수 있습니다.
+                </p>
               </div>
             ) : null}
 

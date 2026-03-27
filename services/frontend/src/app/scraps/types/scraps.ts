@@ -1,23 +1,10 @@
+import type { WatchlistListItem, WatchlistListResponse } from "@/shared/types/watchlist";
+
 export type WatchlistSignal = "BUY" | "SELL" | "HOLD" | string;
 
-export type WatchlistStockItem = {
-  total?: number;
-  stockId: number;
-  ticker: string;
-  name: string;
-  sector?: string;
-  price: number;
-  fluctuationRate: number;
-  signal: WatchlistSignal;
-  confidence: number;
-};
+export type WatchlistStockItem = WatchlistListItem;
 
-export type WatchlistStreamPayload = {
-  buyCount: number;
-  sellCount: number;
-  upCount: number;
-  watchlist: WatchlistStockItem[];
-};
+export type WatchlistPayload = WatchlistListResponse;
 
 export type WatchlistNewsItem = {
   id: number;

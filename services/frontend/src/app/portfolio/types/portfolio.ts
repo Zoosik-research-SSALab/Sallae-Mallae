@@ -20,9 +20,11 @@ export type PortfolioHolding = {
   stockId: number;
   ticker: string;
   name: string;
+  iconUrl?: string | null;
   buyPrice: number | null;
   currentPrice: number | null;
   holdingDays: number | null;
+  holdingQuantity: number | null;
   returnRate: number | null;
 };
 
@@ -33,18 +35,21 @@ export type PortfolioTodayTrade = {
   stockId: number;
   ticker: string;
   name: string;
+  iconUrl?: string | null;
   action: PortfolioTradeAction;
   executedAt: string;
   executedPrice: number | null;
   currentPrice: number | null;
+  holdingQuantity: number | null;
   returnRate: number | null;
 };
 
 export type PortfolioMonthlyReturn = {
   month: string;
   portfolioReturnRate: number | null;
-  kospiReturnRate: number | null;
-  excessReturnRate: number | null;
+  realizedProfitAmount: number | null;
+  buyCount: number | null;
+  sellCount: number | null;
 };
 
 export type PortfolioSignalSummary = {
@@ -64,6 +69,7 @@ export type PortfolioPopularSignal = {
   name: string;
   price: number;
   action: PortfolioSignalAction;
+  iconUrl?: string | null;
 };
 
 export type PortfolioHallOfFameTone = "info" | "danger" | "warning" | "success";
