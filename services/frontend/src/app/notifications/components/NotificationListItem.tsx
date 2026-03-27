@@ -2,6 +2,7 @@
 
 import { memo, useState } from "react";
 import { FaRegTrashAlt } from "react-icons/fa";
+import StockLogo from "@/app/stocks/components/StockLogo";
 import { cn } from "@/shared/utils/cn";
 import type { NotificationItem } from "../types/notifications";
 import {
@@ -44,16 +45,12 @@ function NotificationListItem({ item, onClick, onDelete }: Props) {
         ) : null}
       </div>
 
-      <div
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-semibold leading-4 text-[color:var(--color-text-base)]",
-          item.isRead
-            ? "bg-[color:var(--color-bg-interactive-secondary-pressed)]"
-            : "bg-[color:var(--color-bg-interactive-primary)]",
-        )}
-      >
-        {getNotificationAvatarLabel(item.stockName)}
-      </div>
+      <StockLogo
+        label={getNotificationAvatarLabel(item.stockName)}
+        iconUrl={item.iconUrl}
+        className={cn("h-10 w-10", item.isRead && "opacity-70")}
+        sizes="40px"
+      />
 
       <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-2">

@@ -40,6 +40,12 @@ function normalizeNotificationItem(item: NotificationListItemApi): NotificationI
           ? item.created_at
           : null,
     stockId: Number(item.stockId ?? item.stock_id ?? 0),
+    iconUrl:
+      typeof item.iconUrl === "string"
+        ? item.iconUrl
+        : typeof item.icon_url === "string"
+          ? item.icon_url
+          : null,
   };
 }
 
