@@ -195,6 +195,9 @@ public class NotificationQueryRepository {
     if (value instanceof Timestamp timestamp) {
       return timestamp.toInstant().atZone(ZONE_ID).toOffsetDateTime();
     }
-    return null;
+    if (value instanceof java.time.LocalDateTime ldt) {
+      return ldt.atZone(ZONE_ID).toOffsetDateTime();
+    }
+    return OffsetDateTime.parse(value.toString());
   }
 }
