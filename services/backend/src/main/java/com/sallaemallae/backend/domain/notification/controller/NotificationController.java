@@ -58,7 +58,7 @@ public class NotificationController {
 
   /** FS-NOTI-003: 개별 알림 읽음 처리 */
   @Operation(summary = "개별 알림 읽음 처리", description = "선택한 알림 1건을 읽음 처리합니다.")
-  @PatchMapping("/{notificationId}")
+  @PatchMapping("/{notificationId}/read")
   public ApiResponse<NotificationActionResponse> markAsRead(
       @Parameter(description = "사용자 알림 ID", example = "11")
       @PathVariable Long notificationId
