@@ -326,9 +326,9 @@ function StatementDetailCard({ details }: { details: AgentStatement["details"] }
       </div>
       <div className="flex flex-col gap-4 pt-4">
         {sections.map((key) => (
-          <div key={key} className="flex gap-4">
-            <div className="w-12 shrink-0">
-              <span className={cn("inline-flex items-center justify-center rounded px-2.5 py-1 typo-body-sm font-bold border", detailTagStyles[key].badge)}>
+          <div key={key} className="flex gap-4 items-start">
+            <div className="shrink-0">
+              <span className={cn("inline-flex items-center justify-center whitespace-nowrap rounded px-2.5 py-1 typo-body-sm font-bold border", detailTagStyles[key].badge)}>
                 {detailTagStyles[key].label}
               </span>
             </div>

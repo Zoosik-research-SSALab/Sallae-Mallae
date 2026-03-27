@@ -194,11 +194,16 @@ function getJudgmentLeadText(speakerId: SpeakerId) {
 }
 
 function getJudgmentHighlightText(stance: string) {
-  if (stance.includes("매수")) {
+  const upper = stance.trim().toUpperCase().replace(/\s+/g, "_");
+
+  if (upper === "BUY" || upper === "STRONG_BUY" || stance.includes("매수")) {
     return "매수 의견 반영";
   }
-  if (stance.includes("보류") || stance.includes("관망")) {
+  if (upper === "HOLD" || upper === "STAY" || stance.includes("보류") || stance.includes("관망")) {
     return "보류 의견 일부 반영";
+  }
+  if (upper === "SELL" || stance.includes("매도")) {
+    return "매도 의견 반영";
   }
   if (stance.includes("보유")) {
     return "보유 의견 일부 반영";
@@ -208,7 +213,9 @@ function getJudgmentHighlightText(stance: string) {
 }
 
 function getJudgmentHighlightClassName(stance: string) {
-  return stance.includes("매수")
+  const upper = stance.trim().toUpperCase().replace(/\s+/g, "_");
+  const isBuy = upper === "BUY" || upper === "STRONG_BUY" || stance.includes("매수");
+  return isBuy
     ? "text-[color:var(--color-red-400)] [text-shadow:0px_2px_4px_rgba(0,0,0,0.16)]"
     : "text-[color:var(--color-neutral-500)] [text-shadow:0px_2px_4px_rgba(0,0,0,0.16)]";
 }
@@ -260,11 +267,22 @@ function formatSignalLabel(signal?: string) {
 }
 
 function buildSpeechTtsText(speech: DebateSpeech) {
-  return `${speech.segmentLabel}. ${speech.message}`;
+  return speech.message;
+}
+
+function formatSignalForTts(signal?: string) {
+  const normalized = signal?.trim().toUpperCase().replace(/\s+/g, "_");
+
+  if (normalized === "STRONG_BUY") return "강력 매수";
+  if (normalized === "BUY") return "매수";
+  if (normalized === "SELL") return "매도";
+  if (normalized === "HOLD" || normalized === "STAY") return "보류";
+
+  return formatSignalLabel(signal);
 }
 
 function buildJudgeFinalTtsText(report?: DebateReport | null) {
-  const verdict = formatSignalLabel(report?.chairman.signal);
+  const verdict = formatSignalForTts(report?.chairman.signal);
   const summary = report?.chairman.summary?.trim();
 
   if (!summary) {
