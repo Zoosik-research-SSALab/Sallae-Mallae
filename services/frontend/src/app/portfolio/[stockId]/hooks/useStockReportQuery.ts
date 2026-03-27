@@ -7,7 +7,7 @@ import { transformReportResponse } from "../utils/transformApiResponse";
 export function useStockReportQuery(
   stockId: string,
   offset = 0,
-  limit = 6,
+  limit = 1000,
 ) {
   return useQuery({
     queryKey: ["portfolio-stock", "report", stockId, offset, limit],

@@ -1,11 +1,17 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import type { CommitteeMember } from "../types/portfolioStockDetail";
+import type { ReportItem } from "../types/api";
+import PastDiscussionsModal from "./PastDiscussionsModal";
 
 type Props = {
   finalDecision: string;
   confidence: number;
   briefingDate: string;
   members: CommitteeMember[];
+  reports?: ReportItem[];
 };
 
 const AVATAR_MAP: Record<string, string> = {
@@ -84,9 +90,17 @@ export default function CommitteeDiscussion({
   confidence,
   briefingDate,
   members,
+  reports = [],
 }: Props) {
+  const [modalOpen, setModalOpen] = useState(false);
+
   return (
     <div className="flex flex-col pb-10">
+      <PastDiscussionsModal
+        open={modalOpen}
+        reports={reports}
+        onClose={() => setModalOpen(false)}
+      />
       {/* Header with border-bottom */}
       <div className="flex flex-col gap-1 border-b border-border-primary pb-4">
         <h2 className="typo-heading-sm font-extrabold text-text-primary tracking-tight">
@@ -122,7 +136,9 @@ export default function CommitteeDiscussion({
       {/* Past records button */}
       <button
         type="button"
-        className="w-full py-4 rounded-xl typo-body-md font-semibold text-center bg-bg-secondary text-text-secondary hover:opacity-80 transition-opacity"
+        onClick={() => setModalOpen(true)}
+        disabled={reports.length === 0}
+        className="w-full py-4 rounded-xl typo-body-md font-semibold text-center bg-bg-secondary text-text-secondary hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
       >
         과거 토론 기록 전체보기
       </button>

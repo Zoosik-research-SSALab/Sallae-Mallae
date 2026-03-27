@@ -330,6 +330,7 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
                 confidence={committeeProps.confidence}
                 briefingDate={committeeProps.briefingDate}
                 members={committeeProps.members}
+                reports={reportData?.reports ?? []}
               />
             ) : (
               <p className="typo-body-md text-text-tertiary py-8 text-center">
