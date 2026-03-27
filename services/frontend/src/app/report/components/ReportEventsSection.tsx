@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { StockAnnouncementItem, StockPricePoint } from "@/app/stocks/types/stockDetail";
 import type { ReportEventItem } from "../types/report";
 
 interface ReportEventsSectionProps {
+  stockId: string;
   companyName: string;
   prices: StockPricePoint[];
   events: ReportEventItem[];
@@ -19,7 +21,7 @@ const chartHeight = 420;
 const chartPadding = { top: 28, right: 16, bottom: 40, left: 16 };
 const eventTabs: EventTab[] = ["전체", "실적발표", "주요공시", "시세특이"];
 
-export default function ReportEventsSection({ companyName, prices, events, isLoading = false, error = null }: ReportEventsSectionProps) {
+export default function ReportEventsSection({ stockId, companyName, prices, events, isLoading = false, error = null }: ReportEventsSectionProps) {
   const [activeTab, setActiveTab] = useState<EventTab>("전체");
   const [activeEventId, setActiveEventId] = useState("");
   const filteredEvents = useMemo(() => filterEventsByTab(events, activeTab), [activeTab, events]);
@@ -187,12 +189,12 @@ export default function ReportEventsSection({ companyName, prices, events, isLoa
       </section>
 
       <div className="flex justify-center">
-        <button
-          type="button"
-          className="rounded-xl bg-[color:var(--color-bg-tertiary)] px-8 py-4 text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]"
+        <Link
+          href={`/portfolio/${stockId}`}
+          className="rounded-xl bg-[color:var(--color-bg-tertiary)] px-8 py-4 text-base font-semibold leading-6 text-[color:var(--color-text-secondary)] transition-opacity hover:opacity-80"
         >
           이 종목 포트폴리오 보기
-        </button>
+        </Link>
       </div>
     </section>
   );

@@ -116,6 +116,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
 
         {isEventsReady ? (
           <ReportEventsSection
+            stockId={stockId}
             companyName={companyName}
             prices={prices}
             events={events}
