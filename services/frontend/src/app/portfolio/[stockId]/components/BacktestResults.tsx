@@ -22,7 +22,7 @@ export default function BacktestResults({
           AI 과거 매매 백테스팅 성과
         </h2>
         <p className="typo-body-md font-medium text-text-secondary tracking-tight">
-          최근 1년간(2025~현재) {stockName} 매매 요약
+          최근 1년간({new Date().getFullYear() - 1}~현재) {stockName} 매매 요약
         </p>
       </div>
 
@@ -48,8 +48,11 @@ export default function BacktestResults({
         <div className="flex items-end justify-between pr-3">
           {/* Left: return rate + period */}
           <div className="flex flex-1 flex-col gap-3">
-            <p className="typo-heading-2xl font-extrabold text-text-danger tracking-tight">
-              +{(bestTrade.returnRate ?? 0).toFixed(2)}%
+            <p
+              className="typo-heading-2xl font-extrabold tracking-tight"
+              style={{ color: (bestTrade.returnRate ?? 0) >= 0 ? "var(--color-text-danger)" : "var(--color-text-info)" }}
+            >
+              {(bestTrade.returnRate ?? 0) >= 0 ? "+" : ""}{(bestTrade.returnRate ?? 0).toFixed(2)}%
             </p>
             <div className="text-sm font-medium tracking-tight leading-5">
               {/* Mobile: 2 lines */}
@@ -113,8 +116,11 @@ export default function BacktestResults({
           <p className="pb-1 typo-body-md font-semibold text-text-tertiary tracking-tight">
             최근 1년 평균 수익률
           </p>
-          <p className="typo-heading-lg font-extrabold text-text-danger tracking-tight">
-            +{(stats.averageReturn1y ?? 0).toFixed(2)}%
+          <p
+            className="typo-heading-lg font-extrabold tracking-tight"
+            style={{ color: (stats.averageReturn1y ?? 0) >= 0 ? "var(--color-text-danger)" : "var(--color-text-info)" }}
+          >
+            {(stats.averageReturn1y ?? 0) >= 0 ? "+" : ""}{(stats.averageReturn1y ?? 0).toFixed(2)}%
           </p>
         </div>
 

@@ -27,7 +27,7 @@ function StatusBadge({ status }: { status: TradeEntry["status"] }) {
     );
   }
   return (
-    <span className="inline-flex items-center px-2 py-1 rounded typo-body-sm font-semibold bg-bg-danger-subtle text-text-danger-bold">
+    <span className="inline-flex items-center px-2 py-1 rounded typo-body-sm font-semibold bg-bg-secondary text-text-primary">
       수익 실현
     </span>
   );
@@ -60,7 +60,7 @@ export default function TradeHistory({ trades }: Props) {
       {/* ===== Mobile: card layout ===== */}
       <div className="flex flex-col gap-2 border-t border-border-primary py-4 md:hidden">
         {paginated.map((trade) => {
-          const isPositive = trade.returnRate >= 0;
+          const isPositive = (trade.returnRate ?? 0) >= 0;
           const returnColor = isPositive
             ? "var(--color-text-danger)"
             : "var(--color-text-info)";
@@ -139,7 +139,7 @@ export default function TradeHistory({ trades }: Props) {
 
         {/* Table rows */}
         {paginated.map((trade) => {
-          const isPositive = trade.returnRate >= 0;
+          const isPositive = (trade.returnRate ?? 0) >= 0;
           const returnColor = isPositive
             ? "var(--color-text-danger)"
             : "var(--color-text-info)";

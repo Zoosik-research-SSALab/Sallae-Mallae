@@ -75,6 +75,7 @@ export default function ReturnChart({ chart, currentReturn, buyDate }: Props) {
 
   // Return label: sign + value
   const safeReturn = currentReturn ?? 0;
+  const chartColor = safeReturn >= 0 ? "var(--color-text-danger)" : "var(--color-text-info)";
   const returnSign = safeReturn >= 0 ? "+" : "";
   const returnLabel = `${returnSign}${safeReturn.toFixed(1)}%`;
 
@@ -139,7 +140,7 @@ export default function ReturnChart({ chart, currentReturn, buyDate }: Props) {
             {/* Area fill */}
             <path
               d={areaPath}
-              fill="var(--color-text-danger)"
+              fill={chartColor}
               fillOpacity="0.08"
             />
 
@@ -147,7 +148,7 @@ export default function ReturnChart({ chart, currentReturn, buyDate }: Props) {
             <polyline
               points={polylinePoints}
               fill="none"
-              stroke="var(--color-text-danger)"
+              stroke={chartColor}
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -161,7 +162,7 @@ export default function ReturnChart({ chart, currentReturn, buyDate }: Props) {
                   cx={lastPoint.x}
                   cy={lastPoint.y}
                   r="5"
-                  fill="var(--color-text-danger)"
+                  fill={chartColor}
                   stroke="var(--color-bg-primary)"
                   strokeWidth="2"
                 />
@@ -184,7 +185,7 @@ export default function ReturnChart({ chart, currentReturn, buyDate }: Props) {
                         height={BADGE_HEIGHT}
                         rx="6"
                         ry="6"
-                        fill="var(--color-text-danger)"
+                        fill={chartColor}
                       />
                       <text
                         x={badgeX + BADGE_WIDTH / 2}
