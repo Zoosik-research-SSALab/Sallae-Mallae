@@ -59,10 +59,13 @@ function calcBacktest(trades: TradeItem[], averageReturn1y: number): {
 } {
   const soldTrades = trades.filter((t) => t.sellDate && t.sellPrice != null);
 
-  let best = soldTrades[0] ?? trades[0];
-  for (const t of soldTrades) {
-    if (t.returnRate > (best?.returnRate ?? -Infinity)) best = t;
-  }
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const recentSoldTrades = soldTrades.filter((t) => new Date(t.buyDate) >= oneYearAgo);
+
+  const best = soldTrades.length > 0
+    ? soldTrades.reduce((prev, t) => t.returnRate > prev.returnRate ? t : prev, soldTrades[0])
+    : null;
 
   const bestPeriodStart = best ? formatDateShort(best.buyDate) : "";
   const bestPeriodEnd = best
@@ -77,7 +80,7 @@ function calcBacktest(trades: TradeItem[], averageReturn1y: number): {
         buyPrice: best.buyPrice,
         sellPrice: best.sellPrice ?? best.currentPrice ?? 0,
       }
-    : { returnRate: 0, period: "", holdingDays: 0, buyPrice: 0, sellPrice: 0 };
+    : { returnRate: 0, period: "거래 없음", holdingDays: 0, buyPrice: 0, sellPrice: 0 };
 
   const allTimeSince = trades.length > 0
     ? `${Math.min(...trades.map((t) => new Date(t.buyDate).getFullYear()))}~`
@@ -85,7 +88,7 @@ function calcBacktest(trades: TradeItem[], averageReturn1y: number): {
 
   const stats: BacktestStats = {
     averageReturn1y,
-    oneYearTradeCount: soldTrades.length,
+    oneYearTradeCount: recentSoldTrades.length,
     allTimeTradeCount: trades.length,
     allTimeSince,
   };
@@ -172,7 +175,7 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
   const performanceProps = apiHolding
     ? {
         totalPnl: useCustom
-          ? Math.round(customAmountWon * (apiHolding.currentReturn / 100))
+          ? Math.round(Math.floor(customAmountWon / apiHolding.buyPrice) * apiHolding.buyPrice * (apiHolding.currentReturn / 100))
           : apiHolding.evaluationProfit,
         returnRate: apiHolding.currentReturn,
         holdingCount: useCustom

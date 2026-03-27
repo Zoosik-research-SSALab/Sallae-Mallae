@@ -22,7 +22,7 @@ export default function BacktestResults({
           AI 과거 매매 백테스팅 성과
         </h2>
         <p className="typo-body-md font-medium text-text-secondary tracking-tight">
-          최근 1년간(2025~현재) {stockName} 매매 요약
+          최근 1년간({new Date().getFullYear() - 1}~현재) {stockName} 매매 요약
         </p>
       </div>
 

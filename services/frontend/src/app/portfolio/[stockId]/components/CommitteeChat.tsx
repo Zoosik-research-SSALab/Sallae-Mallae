@@ -32,11 +32,9 @@ export function Avatar({ role, size = "md" }: { role: string; size?: "sm" | "md"
 export function ChatBubble({ member, avatarSize = "md" }: { member: CommitteeMember; avatarSize?: "sm" | "md" }) {
   const isLeft = member.alignment === "left";
   const isDark = member.isDark;
-  const bubbleRadius = isDark
-    ? "rounded-bl-2xl rounded-br-2xl rounded-tl-2xl"
-    : isLeft
-      ? "rounded-bl-2xl rounded-br-2xl rounded-tr-2xl"
-      : "rounded-bl-2xl rounded-br-2xl rounded-tl-2xl";
+  const bubbleRadius = isLeft && !isDark
+    ? "rounded-bl-2xl rounded-br-2xl rounded-tr-2xl"
+    : "rounded-bl-2xl rounded-br-2xl rounded-tl-2xl";
   const bubbleBg = isDark ? "bg-bg-inverse-bolder" : "bg-bg-tertiary";
   const textColor = isDark ? "text-text-base" : "text-text-secondary";
 
