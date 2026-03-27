@@ -10,7 +10,7 @@ import type {
 } from "../types/notifications";
 import { normalizeNotificationType } from "../utils/notificationFormatters";
 
-const NOTIFICATION_COUNT_FETCH_LIMIT = 99;
+const NOTIFICATION_COUNT_FETCH_LIMIT = 100;
 
 type NotificationListApiPayload = {
   notifications?: NotificationListItemApi[] | null;
@@ -129,18 +129,22 @@ export async function updateNotificationSettings(patch: NotificationSettingsPatc
 }
 
 export async function markNotificationAsRead(notificationId: number) {
-  await authApiFetch<void>(`/api/notifications/read/${notificationId}`, {
+  await authApiFetch<void>(`/api/notifications/${notificationId}/read`, {
     method: "PATCH",
   });
 }
 
 export async function markAllNotificationsAsRead(tab: NotificationTab) {
-  const search = new URLSearchParams({
-    tab,
-  });
-
-  await authApiFetch<void>(`/api/notifications/read-all?${search.toString()}`, {
+  await authApiFetch<void, { tab: NotificationTab }>("/api/notifications/read-all", {
     method: "PATCH",
+    body: { tab },
+  });
+}
+
+export async function deleteAllNotifications(tab: NotificationTab) {
+  await authApiFetch<void, { tab: NotificationTab }>("/api/notifications", {
+    method: "DELETE",
+    body: { tab },
   });
 }
 

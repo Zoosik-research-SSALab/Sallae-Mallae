@@ -27,11 +27,11 @@ function getRateClassName(value: number) {
 function getSignalBadgeClassName(signal: string) {
   const normalized = signal.trim().toLowerCase();
 
-  if (normalized === "buy" || normalized === "strong_buy" || signal === "매수") {
+  if (normalized === "buy" || normalized === "strong_buy" || normalized === "매수") {
     return "bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger)]";
   }
 
-  if (normalized === "sell" || signal === "매도") {
+  if (normalized === "sell" || normalized === "매도") {
     return "bg-[color:var(--color-bg-info-subtle)] text-[color:var(--color-text-info)]";
   }
 

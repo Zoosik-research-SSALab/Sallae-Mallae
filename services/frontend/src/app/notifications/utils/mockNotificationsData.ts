@@ -217,6 +217,19 @@ export function markAllMockNotificationsAsRead(tab: NotificationTab) {
   };
 }
 
+export function deleteAllMockNotifications(tab: NotificationTab) {
+  const beforeLength = notificationStore.length;
+
+  notificationStore =
+    tab === "ALL"
+      ? []
+      : notificationStore.filter((item) => getNotificationTabForType(item.notiType) !== tab);
+
+  return {
+    deletedCount: beforeLength - notificationStore.length,
+  };
+}
+
 export function deleteMockNotification(notificationId: number) {
   const beforeLength = notificationStore.length;
   notificationStore = notificationStore.filter((item) => item.id !== notificationId);

@@ -44,7 +44,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   return proxyUsersApiRequest({
     request,
-    path: `/api/notifications/read/${parsedNotificationId}`,
+    path: `/api/notifications/${parsedNotificationId}/read`,
     method: "PATCH",
   });
 }

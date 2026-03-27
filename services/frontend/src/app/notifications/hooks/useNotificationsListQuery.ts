@@ -12,10 +12,11 @@ export const notificationsQueryKeys = {
   settings: () => [...notificationsQueryKeys.all, "settings"] as const,
 };
 
-export function useNotificationsListQuery(tab: NotificationTab, limit: number) {
+export function useNotificationsListQuery(tab: NotificationTab, limit: number, enabled = true) {
   return useQuery({
     queryKey: notificationsQueryKeys.list(tab, limit),
     queryFn: () => getNotifications({ tab, limit, includeHasMore: true }),
+    enabled,
     placeholderData: (previousData, previousQuery) => {
       const previousKey = previousQuery?.queryKey;
 
@@ -33,6 +34,6 @@ export function useNotificationsListQuery(tab: NotificationTab, limit: number) {
       return previousData;
     },
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: enabled ? 60_000 : false,
   });
 }

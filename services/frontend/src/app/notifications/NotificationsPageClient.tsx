@@ -6,7 +6,9 @@ import { LuSettings2 } from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import ProtectedPage from "@/shared/components/ProtectedPage";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
+import { useAuthStore } from "@/shared/lib/authStore";
 import {
+  deleteAllNotifications,
   deleteNotification,
   markAllNotificationsAsRead,
   markNotificationAsRead,
@@ -73,18 +75,24 @@ function restoreNotificationListCaches(
   });
 }
 
+function matchesNotificationTab(item: NotificationItem, tab: NotificationTab) {
+  return tab === "ALL" || getNotificationTabForType(item.notiType) === tab;
+}
+
 export default function NotificationsPageClient() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const authStatus = useAuthStore((state) => state.status);
   const [activeTab, setActiveTab] = useState<NotificationTab>("ALL");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<NotificationItem | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const isAuthenticated = authStatus === "authenticated";
 
-  const notificationsQuery = useNotificationsListQuery(activeTab, visibleCount);
+  const notificationsQuery = useNotificationsListQuery(activeTab, visibleCount, isAuthenticated);
   const settingsQuery = useNotificationSettingsQuery(false);
-  const notificationCountQuery = useNotificationCountQuery(true);
+  const notificationCountQuery = useNotificationCountQuery(isAuthenticated);
 
   const notifications = notificationsQuery.data?.notifications ?? EMPTY_NOTIFICATIONS;
   const hasMore = notificationsQuery.data?.hasMore ?? false;
@@ -144,15 +152,25 @@ export default function NotificationsPageClient() {
         queryKey: notificationsQueryKeys.lists(),
       });
       const unreadCountSnapshot = queryClient.getQueryData<number>(notificationsQueryKeys.unreadCount());
+      let unreadCountDelta = 0;
 
-      updateNotificationListCaches(queryClient, (item) =>
-        tab === "ALL" || getNotificationTabForType(item.notiType) === tab
-          ? { ...item, isRead: true }
-          : item,
-      );
+      updateNotificationListCaches(queryClient, (item) => {
+        if (!matchesNotificationTab(item, tab)) {
+          return item;
+        }
 
-      if (tab === "ALL") {
-        queryClient.setQueryData(notificationsQueryKeys.unreadCount(), 0);
+        if (!item.isRead) {
+          unreadCountDelta += 1;
+        }
+
+        return { ...item, isRead: true };
+      });
+
+      if (unreadCountSnapshot !== undefined) {
+        queryClient.setQueryData(
+          notificationsQueryKeys.unreadCount(),
+          Math.max(0, unreadCountSnapshot - unreadCountDelta),
+        );
       }
 
       return { listSnapshots, unreadCountSnapshot };
@@ -168,6 +186,59 @@ export default function NotificationsPageClient() {
       }
 
       setActionError(getActionErrorMessage(error, "모두 읽음 처리에 실패했습니다."));
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: notificationsQueryKeys.lists() });
+      await queryClient.invalidateQueries({ queryKey: notificationsQueryKeys.unreadCount() });
+    },
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: (tab: NotificationTab) => deleteAllNotifications(tab),
+    onMutate: async (tab: NotificationTab): Promise<NotificationMutationContext> => {
+      setActionError(null);
+
+      await queryClient.cancelQueries({ queryKey: notificationsQueryKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: notificationsQueryKeys.unreadCount() });
+
+      const listSnapshots = queryClient.getQueriesData<NotificationListPayload>({
+        queryKey: notificationsQueryKeys.lists(),
+      });
+      const unreadCountSnapshot = queryClient.getQueryData<number>(notificationsQueryKeys.unreadCount());
+      let unreadCountDelta = 0;
+
+      updateNotificationListCaches(queryClient, (item) => {
+        if (!matchesNotificationTab(item, tab)) {
+          return item;
+        }
+
+        if (!item.isRead) {
+          unreadCountDelta += 1;
+        }
+
+        return null;
+      });
+
+      if (unreadCountSnapshot !== undefined) {
+        queryClient.setQueryData(
+          notificationsQueryKeys.unreadCount(),
+          Math.max(0, unreadCountSnapshot - unreadCountDelta),
+        );
+      }
+
+      return { listSnapshots, unreadCountSnapshot };
+    },
+    onError: (error, _tab, context) => {
+      restoreNotificationListCaches(queryClient, context?.listSnapshots);
+
+      if (context?.unreadCountSnapshot !== undefined) {
+        queryClient.setQueryData(
+          notificationsQueryKeys.unreadCount(),
+          context.unreadCountSnapshot,
+        );
+      }
+
+      setActionError(getActionErrorMessage(error, "모두 삭제 처리에 실패했습니다."));
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: notificationsQueryKeys.lists() });
@@ -266,6 +337,7 @@ export default function NotificationsPageClient() {
   const headerActionDisabled =
     notificationsQuery.isLoading ||
     markAllReadMutation.isPending ||
+    deleteAllMutation.isPending ||
     deleteMutation.isPending ||
     markAsReadMutation.isPending;
 
@@ -304,6 +376,10 @@ export default function NotificationsPageClient() {
   const handleMarkAllRead = useCallback(() => {
     markAllReadMutation.mutate(activeTab);
   }, [activeTab, markAllReadMutation]);
+
+  const handleDeleteAll = useCallback(() => {
+    deleteAllMutation.mutate(activeTab);
+  }, [activeTab, deleteAllMutation]);
 
   const handleTabChange = useCallback((tab: NotificationTab) => {
     setActionError(null);
@@ -376,6 +452,15 @@ export default function NotificationsPageClient() {
               </div>
 
               <div className="flex w-full flex-nowrap items-center justify-end gap-4 whitespace-nowrap text-sm font-medium leading-5 text-[color:var(--color-text-secondary)] lg:w-auto lg:text-base lg:leading-6">
+                <button
+                  type="button"
+                  onClick={handleDeleteAll}
+                  disabled={headerActionDisabled || notifications.length === 0}
+                  className="shrink-0 transition-colors hover:text-[color:var(--color-text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  모두 삭제
+                </button>
+                <span className="h-3 w-px bg-[color:var(--color-icon-disabled)]" />
                 <button
                   type="button"
                   onClick={handleMarkAllRead}
