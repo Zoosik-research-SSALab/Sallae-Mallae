@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import StockActionButtons from "@/app/stocks/[ticker]/components/StockActionButtons";
 
 interface ReportTopBarSectionProps {
   stockId: string;
@@ -8,6 +9,9 @@ interface ReportTopBarSectionProps {
 }
 
 export default function ReportTopBarSection({ stockId, companyName }: ReportTopBarSectionProps) {
+  const numericStockId = Number(stockId);
+  const resolvedStockId = Number.isFinite(numericStockId) ? numericStockId : undefined;
+
   return (
     <section className="flex w-full flex-col items-center border-b border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)]">
       <div className="flex w-full max-w-[1152px] items-center justify-between gap-6 px-4 py-4">
@@ -22,20 +26,7 @@ export default function ReportTopBarSection({ stockId, companyName }: ReportTopB
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-lg bg-[color:var(--color-bg-info-subtle)] px-4 py-2 text-sm font-bold text-[color:var(--color-text-info)]"
-          >
-            관심종목
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-[color:var(--color-bg-tertiary)] px-4 py-2 text-sm font-bold text-[color:var(--color-text-secondary)]"
-          >
-            알림 설정
-          </button>
-        </div>
+        <StockActionButtons stockId={resolvedStockId} stockName={companyName} />
       </div>
     </section>
   );
