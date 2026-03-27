@@ -243,7 +243,7 @@ class NotificationControllerTest {
             INSERT INTO stock_notifications (id, stock_id, noti_type, title, message, related_link, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-        1L, 1L, "TRADE_SIGNAL", "매매 신호 알림", "삼성전자 매수 신호가 도착했습니다.", "/stocks/005930", now.minusDays(1)
+        1L, 1L, "SIGNAL_BUY", "삼성전자 매수 신호", "삼성전자 AI 매매신호가 매수으로 변경되었습니다.", "/stocks/005930", now.minusDays(1)
     );
     jdbcTemplate.update(
         """
@@ -264,7 +264,7 @@ class NotificationControllerTest {
             INSERT INTO stock_notifications (id, stock_id, noti_type, title, message, related_link, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-        4L, 1L, "TRADE_SIGNAL", "오래된 알림", "보관 기간이 지난 알림입니다.", "/stocks/005930", now.minusDays(100)
+        4L, 1L, "SIGNAL_SELL", "오래된 알림", "보관 기간이 지난 알림입니다.", "/stocks/005930", now.minusDays(100)
     );
 
     jdbcTemplate.update(

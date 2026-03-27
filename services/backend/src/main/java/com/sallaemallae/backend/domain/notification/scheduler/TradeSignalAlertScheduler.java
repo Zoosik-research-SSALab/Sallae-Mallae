@@ -55,17 +55,22 @@ public class TradeSignalAlertScheduler {
         continue;
       }
 
+      NotifyType notiType = toNotifyType(currentSignal);
+      if (notiType == null) {
+        continue;
+      }
+
       Stock stock = stockRepository.findById(todayReport.getStockId()).orElse(null);
       if (stock == null) {
         continue;
       }
 
-      String signalText = formatSignalChange(previousSignal, currentSignal);
+      String signalText = translateSignal(currentSignal);
       notificationPublishService.publish(
           stock.getId(),
-          NotifyType.TRADE_SIGNAL,
-          stock.getName() + " 매매신호 변경",
-          stock.getName() + " AI 매매신호가 " + signalText + "으로 변경되었습니다.",
+          notiType,
+          stock.getName() + " " + signalText + " 신호",
+          stock.getName() + " AI 매매신호가 " + signalText + "로 변경되었습니다.",
           null
       );
       alertCount++;
@@ -74,8 +79,12 @@ public class TradeSignalAlertScheduler {
     log.info("매매신호 변경 알림 완료. date={}, alerts={}", today, alertCount);
   }
 
-  private String formatSignalChange(AiSignal from, AiSignal to) {
-    return translateSignal(from) + " → " + translateSignal(to);
+  private NotifyType toNotifyType(AiSignal signal) {
+    return switch (signal) {
+      case BUY -> NotifyType.SIGNAL_BUY;
+      case SELL -> NotifyType.SIGNAL_SELL;
+      case HOLD, STAY -> null;
+    };
   }
 
   private String translateSignal(AiSignal signal) {

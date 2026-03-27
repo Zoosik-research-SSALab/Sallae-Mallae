@@ -165,6 +165,9 @@ public class NotificationQueryRepository {
     if ("SURGE_PLUNGE".equals(value)) {
       return NotifyType.SURGE.getResponseValue();
     }
+    if ("TRADE_SIGNAL".equals(value)) {
+      return NotifyType.SIGNAL_BUY.getResponseValue();
+    }
     return NotifyType.valueOf(value).getResponseValue();
   }
 
