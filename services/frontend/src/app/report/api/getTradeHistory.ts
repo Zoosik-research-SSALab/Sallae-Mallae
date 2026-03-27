@@ -1,27 +1,18 @@
 import { apiFetch } from "@/shared/lib/apiClient";
-import type { TradeHistoryResponse } from "../types/report";
+import { unwrapApiResponse } from "@/shared/utils/apiResponse";
 
-type ApiEnvelope<T> = {
-  success: boolean;
-  data: T | null;
-  error: {
-    code?: string;
-    message?: string;
-  } | null;
-};
+export async function getTradeHistory(stockId: string, offset = 0, limit = 100) {
+  const params = new URLSearchParams();
+  if (offset) params.set("offset", String(offset));
+  if (limit) params.set("limit", String(limit));
 
-export async function getTradeHistory(stockId: string, _offset = 0, _limit = 10): Promise<TradeHistoryResponse> {
-  const payload = await apiFetch<ApiEnvelope<TradeHistoryResponse>>(
-    `/api/report/${encodeURIComponent(stockId.trim())}/performance/trades`,
-    {
-      cache: "no-store",
-      withAuth: true,
-    },
-  );
+  const query = params.toString();
+  const url = `/api/report/${encodeURIComponent(stockId.trim())}/performance/trades${query ? `?${query}` : ""}`;
 
-  if (!payload.success || !payload.data) {
-    throw new Error(payload.error?.message ?? "거래 내역 응답이 비어 있습니다.");
-  }
+  const response = await apiFetch(url, {
+    cache: "no-store",
+    withAuth: true,
+  });
 
-  return payload.data;
+  return unwrapApiResponse(response);
 }

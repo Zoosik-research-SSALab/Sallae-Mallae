@@ -426,7 +426,7 @@ function buildChartSeries(performanceChart: InvestmentPerformanceResponse["chart
 }
 
 function buildHitCountCaption(trades: TradeHistoryItem[]) {
-  const closedTrades = trades.filter((trade) => trade.status === "CLOSED");
+  const closedTrades = trades.filter((trade) => trade.sellDate);
   const positiveTrades = closedTrades.filter((trade) => typeof trade.returnRate === "number" && Number.isFinite(trade.returnRate) && trade.returnRate > 0);
   const totalTrades = closedTrades.length;
 
