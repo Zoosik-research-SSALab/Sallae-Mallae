@@ -300,15 +300,15 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
 const detailTagStyles = {
   basis: {
     label: "근거",
-    badge: "bg-[#eff6ff] border-[#dbeafe] text-[#2563eb]",
+    badge: "bg-[color:var(--color-bg-info-subtle)] border-[color:var(--color-border-info)] text-[color:var(--color-text-info)]",
   },
   risk: {
     label: "리스크",
-    badge: "bg-[#fef2f2] border-[#fee2e2] text-[#dc2626]",
+    badge: "bg-[color:var(--color-bg-danger-subtle)] border-[color:var(--color-border-danger)] text-[color:var(--color-text-danger)]",
   },
   action: {
     label: "실행",
-    badge: "bg-[#f0fdf4] border-[#dcfce7] text-[#16a34a]",
+    badge: "bg-[color:var(--color-bg-success-subtle)] border-[color:var(--color-border-success)] text-[color:var(--color-text-success)]",
   },
 } as const;
 
@@ -334,7 +334,7 @@ function StatementDetailCard({ details }: { details: AgentStatement["details"] }
             </div>
             <div className="flex flex-col gap-0.5">
               {details[key].map((text, i) => (
-                <p key={`${key}-${i}`} className="typo-body-sm text-[#374151]">
+                <p key={`${key}-${i}`} className="typo-body-sm text-[color:var(--color-text-secondary)]">
                   {text}
                 </p>
               ))}

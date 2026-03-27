@@ -283,7 +283,7 @@ function formatSignalForTts(signal?: string) {
 
 function replaceEnglishSignalsForTts(text: string) {
   return text
-    .replace(/\bSTRONG[\s_]?BUY\b/gi, "강력 매수")
+    .replace(/\bSTRONG[\s_]+BUY\b/gi, "강력 매수")
     .replace(/\bBUY\b/gi, "매수")
     .replace(/\bSELL\b/gi, "매도")
     .replace(/\bHOLD\b/gi, "보류")

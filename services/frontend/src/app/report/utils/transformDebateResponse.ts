@@ -38,7 +38,7 @@ export function transformDebateResponse(raw: unknown): DebateReport[] {
     const wrapper = report.chairman;
 
     return {
-      date: report.date,
+      date: report.date ?? "",
       chairman: wrapper?.chairman ?? {
         signal: "",
         confidence: 0,
