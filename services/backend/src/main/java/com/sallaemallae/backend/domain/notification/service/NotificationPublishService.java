@@ -27,6 +27,7 @@ public class NotificationPublishService {
   private final WatchlistRepository watchlistRepository;
   private final NotificationQueryRepository notificationQueryRepository;
   private final NotificationSseService notificationSseService;
+  private final NotificationEmailService notificationEmailService;
 
   /**
    * 알림을 생성하고 해당 종목의 관심종목 유저에게 배포한다.
@@ -60,6 +61,9 @@ public class NotificationPublishService {
       String unreadCount = unread > MAX_UNREAD_BADGE_COUNT ? "99+" : String.valueOf(unread);
       notificationSseService.pushToUser(userId, notiType.getResponseValue(), title, message, unreadCount, createdAt);
     }
+
+    // 이메일 알림 (비동기 — 발송 실패가 알림 생성에 영향 없음)
+    notificationEmailService.sendNotificationEmails(stockId, notiType, title, message, relatedLink);
 
     log.info("알림 발행: type={}, stockId={}, users={}", notiType, stockId, userIds.size());
     return userIds.size();
