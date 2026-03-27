@@ -4,6 +4,7 @@ import com.sallaemallae.backend.domain.signal.exception.SignalErrorCode;
 import com.sallaemallae.backend.domain.signal.repository.SignalQueryRepository.SignalCandidateRow;
 import com.sallaemallae.backend.global.exception.BusinessException;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 
 final class SignalSupport {
@@ -36,25 +37,55 @@ final class SignalSupport {
 
   record SignalQuery(
       SignalFilter filter,
+      List<String> categories,
+      String keyword,
       MarketCapFilter marketCapFilter,
       SignalSort sort,
       int offset,
       int limit
   ) {
 
-    static SignalQuery of(String filter, String marketCap, String sort, int offset, int limit) {
+    static SignalQuery of(String filter, String categories, String keyword, String marketCap, String sort, int offset, int limit) {
       if (offset < 0 || limit < 1 || limit > MAX_LIMIT) {
         throw new BusinessException(SignalErrorCode.SIGNAL_INPUT_INVALID);
       }
 
       return new SignalQuery(
           SignalFilter.from(filter),
+          parseCategories(categories),
+          normalize(keyword),
           MarketCapFilter.from(marketCap),
           SignalSort.from(sort),
           offset,
           limit
       );
     }
+
+    boolean matchesCategory(String category) {
+      return categories.isEmpty() || categories.contains(normalize(category));
+    }
+
+    boolean matchesKeyword(String name, String ticker) {
+      if (keyword.isEmpty()) {
+        return true;
+      }
+      return normalize(name).contains(keyword) || normalize(ticker).contains(keyword);
+    }
+  }
+
+  private static List<String> parseCategories(String categories) {
+    if (categories == null || categories.isBlank()) {
+      return List.of();
+    }
+    return List.of(categories.split(",")).stream()
+        .map(String::trim)
+        .filter(value -> !value.isEmpty())
+        .map(SignalSupport::normalize)
+        .toList();
+  }
+
+  private static String normalize(String value) {
+    return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
   }
 
   enum SignalFilter {

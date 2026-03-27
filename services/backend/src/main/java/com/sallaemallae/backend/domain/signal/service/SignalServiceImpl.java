@@ -17,20 +17,33 @@ public class SignalServiceImpl implements SignalService {
   private final SignalQueryRepository signalQueryRepository;
 
   @Override
-  public SignalListResponse getSignals(String filter, String marketCap, String sort, int offset, int limit) {
-    SignalSupport.SignalQuery query = SignalSupport.SignalQuery.of(filter, marketCap, sort, offset, limit);
+  public SignalListResponse getSignals(
+      String filter,
+      String categories,
+      String keyword,
+      String marketCap,
+      String sort,
+      int offset,
+      int limit
+  ) {
+    SignalSupport.SignalQuery query = SignalSupport.SignalQuery.of(filter, categories, keyword, marketCap, sort, offset, limit);
     List<SignalCandidateRow> candidates = signalQueryRepository.findLatestSignalCandidates();
 
-    int buyCount = (int) candidates.stream()
+    List<SignalCandidateRow> scopedCandidates = candidates.stream()
+        .filter(candidate -> query.matchesCategory(candidate.category()))
+        .filter(candidate -> query.matchesKeyword(candidate.name(), candidate.ticker()))
+        .filter(candidate -> query.marketCapFilter().matches(candidate.marketCap()))
+        .toList();
+
+    int buyCount = (int) scopedCandidates.stream()
         .filter(candidate -> "BUY".equals(candidate.signal()))
         .count();
-    int sellCount = (int) candidates.stream()
+    int sellCount = (int) scopedCandidates.stream()
         .filter(candidate -> "SELL".equals(candidate.signal()))
         .count();
 
-    List<SignalItemResponse> items = candidates.stream()
+    List<SignalItemResponse> items = scopedCandidates.stream()
         .filter(candidate -> query.filter().matches(candidate.signal()))
-        .filter(candidate -> query.marketCapFilter().matches(candidate.marketCap()))
         .sorted(SignalSupport.comparator(query.sort()))
         .skip(query.offset())
         .limit(query.limit())
