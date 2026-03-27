@@ -229,6 +229,8 @@
   --semantic-color-bg-danger-bold: var(--color-red-700);
   --semantic-color-bg-danger-subtle: var(--color-red-50);
   --semantic-color-bg-info-subtle: var(--color-blue-50);
+  --semantic-color-bg-success-subtle: var(--color-green-50);
+  --semantic-color-bg-success-sublte: var(--semantic-color-bg-success-subtle);
   --semantic-color-bg-info-bold: var(--color-blue-700);
   --semantic-color-bg-warning-bold:var(--color-yellow-500);
   --semantic-color-bg-warning-subtle:var(--color-yellow-50);
@@ -369,6 +371,8 @@
   --color-bg-danger-bold: var(--semantic-color-bg-danger-bold);
   --color-bg-danger-subtle: var(--semantic-color-bg-danger-subtle);
   --color-bg-info-subtle: var(--semantic-color-bg-info-subtle);
+  --color-bg-success-subtle: var(--semantic-color-bg-success-subtle);
+  --color-bg-success-sublte: var(--semantic-color-bg-success-sublte);
   --color-bg-info-bold:var(--semantic-color-bg-info-bold);
   --color-bg-warning-bold:var(--semantic-color-bg-warning-bold);
   --color-bg-warning-subtle:var(--semantic-color-bg-warning-subtle);
@@ -453,6 +457,8 @@
   --semantic-color-bg-danger-bold: var(--color-red-400);
   --semantic-color-bg-danger-subtle: var(--color-red-800);
   --semantic-color-bg-info-subtle: var(--color-blue-700);
+  --semantic-color-bg-success-subtle: var(--color-green-900);
+  --semantic-color-bg-success-sublte: var(--semantic-color-bg-success-subtle);
   --semantic-color-bg-info-bold: var(--color-blue-400);
   --semantic-color-bg-warning-bold: var(--color-yellow-700);
   --semantic-color-bg-warning-subtle:var(--color-yellow-800);
@@ -524,6 +530,8 @@
     --semantic-color-bg-danger-bold: var(--color-red-400);
     --semantic-color-bg-danger-subtle: var(--color-red-800);
     --semantic-color-bg-info-subtle: var(--color-blue-800);
+    --semantic-color-bg-success-subtle: var(--color-green-900);
+    --semantic-color-bg-success-sublte: var(--semantic-color-bg-success-subtle);
     --semantic-color-bg-info-bold: var(--color-blue-400);
     --semantic-color-bg-warning-bold: var(--color-yellow-700);
     --semantic-color-bg-warning-subtle:var(--color-yellow-800);

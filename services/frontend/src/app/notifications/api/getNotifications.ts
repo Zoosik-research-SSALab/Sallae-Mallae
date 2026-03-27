@@ -1,4 +1,4 @@
-import { authApiFetch } from "@/shared/lib/authApiClient";
+﻿import { authApiFetch } from "@/shared/lib/authApiClient";
 import type {
   NotificationItem,
   NotificationListItemApi,
@@ -10,7 +10,7 @@ import type {
 } from "../types/notifications";
 import { normalizeNotificationType } from "../utils/notificationFormatters";
 
-const NOTIFICATION_COUNT_FETCH_LIMIT = 1000;
+const NOTIFICATION_COUNT_FETCH_LIMIT = 99;
 
 type NotificationListApiPayload = {
   notifications?: NotificationListItemApi[] | null;
@@ -67,7 +67,6 @@ export async function getNotifications(params: {
     `/api/notifications/list?${search.toString()}`,
     {
       cache: "no-store",
-      useBaseUrl: false,
     },
   );
 
@@ -99,7 +98,6 @@ export async function getNotificationSettings() {
     "/api/notifications/settings",
     {
       cache: "no-store",
-      useBaseUrl: false,
     },
   );
 
@@ -115,7 +113,6 @@ export async function updateNotificationSettings(patch: NotificationSettingsPatc
     {
       method: "PATCH",
       body: patch,
-      useBaseUrl: false,
     },
   );
 
@@ -126,22 +123,23 @@ export async function updateNotificationSettings(patch: NotificationSettingsPatc
 }
 
 export async function markNotificationAsRead(notificationId: number) {
-  await authApiFetch<void>(`/api/notifications/${notificationId}/read`, {
+  await authApiFetch<void>(`/api/notifications/read/${notificationId}`, {
     method: "PATCH",
-    useBaseUrl: false,
   });
 }
 
-export async function markAllNotificationsAsRead() {
-  await authApiFetch<void>("/api/notifications/read-all", {
+export async function markAllNotificationsAsRead(tab: NotificationTab) {
+  const search = new URLSearchParams({
+    tab,
+  });
+
+  await authApiFetch<void>(`/api/notifications/read-all?${search.toString()}`, {
     method: "PATCH",
-    useBaseUrl: false,
   });
 }
 
 export async function deleteNotification(notificationId: number) {
   await authApiFetch<void>(`/api/notifications/${notificationId}`, {
     method: "DELETE",
-    useBaseUrl: false,
   });
 }

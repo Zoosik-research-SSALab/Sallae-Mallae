@@ -45,8 +45,12 @@ function NewsLoadingState() {
   );
 }
 
-export default function NewsPageClient() {
-  const [searchInput, setSearchInput] = useState("");
+type Props = {
+  initialKeyword?: string;
+};
+
+export default function NewsPageClient({ initialKeyword = "" }: Props) {
+  const [searchInput, setSearchInput] = useState(initialKeyword);
   const deferredKeyword = useDeferredValue(searchInput.trim());
   const [activeTab, setActiveTab] = useState<NewsTab>("LATEST");
   const [dateRange, setDateRange] = useState<NewsDateRange>(createEmptyNewsDateRange());

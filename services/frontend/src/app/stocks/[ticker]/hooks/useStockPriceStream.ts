@@ -15,6 +15,7 @@ type StockPriceStreamState = {
   error: string | null;
   hasMore: boolean;
   loadMore: () => void;
+  refetch: () => void;
 };
 
 const initialPayload: StockPricesPayload = {
@@ -44,9 +45,44 @@ export function useStockPriceStream(
   const hasMoreRef = useRef(false);
   const nextCursorRef = useRef<string | null>(null);
   const isFetchingMoreRef = useRef(false);
+  const requestIdRef = useRef(0);
+
+  const loadInitial = useCallback(async (resetData: boolean) => {
+    const requestId = ++requestIdRef.current;
+
+    try {
+      if (resetData) {
+        setData(initialPayload);
+      }
+      setIsLoading(true);
+      setIsFetchingMore(false);
+      setError(null);
+      hasMoreRef.current = false;
+      nextCursorRef.current = null;
+      isFetchingMoreRef.current = false;
+
+      const page = await fetchStockPricePage(stockId, period);
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      setData({ prices: page.prices });
+      setIsLoading(false);
+      setError(null);
+      hasMoreRef.current = page.hasMore;
+      nextCursorRef.current = page.nextCursor;
+    } catch {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+        setError("stream_error");
+      }
+    }
+  }, [period, stockId]);
 
   useEffect(() => {
     if (!enabled || !stockId) {
+      requestIdRef.current += 1;
       setData(initialPayload);
       setIsLoading(false);
       setIsFetchingMore(false);
@@ -57,46 +93,12 @@ export function useStockPriceStream(
       return;
     }
 
-    let disposed = false;
-
-    const applyPage = (prices: StockPricePoint[], hasMore: boolean, nextCursor: string | null) => {
-      if (disposed) {
-        return;
-      }
-
-      setData({ prices });
-      setIsLoading(false);
-      setError(null);
-      hasMoreRef.current = hasMore;
-      nextCursorRef.current = nextCursor;
-    };
-
-    const loadInitial = async () => {
-      try {
-        setData(initialPayload);
-        setIsLoading(true);
-        setIsFetchingMore(false);
-        setError(null);
-        hasMoreRef.current = false;
-        nextCursorRef.current = null;
-        isFetchingMoreRef.current = false;
-
-        const page = await fetchStockPricePage(stockId, period);
-        applyPage(page.prices, page.hasMore, page.nextCursor);
-      } catch {
-        if (!disposed) {
-          setIsLoading(false);
-          setError("stream_error");
-        }
-      }
-    };
-
-    void loadInitial();
+    void loadInitial(true);
 
     return () => {
-      disposed = true;
+      requestIdRef.current += 1;
     };
-  }, [enabled, period, stockId]);
+  }, [enabled, loadInitial, stockId]);
 
   const loadMore = useCallback(() => {
     if (!enabled || period === "1MIN" || isFetchingMoreRef.current || !hasMoreRef.current || !nextCursorRef.current) {
@@ -125,6 +127,14 @@ export function useStockPriceStream(
     })();
   }, [enabled, period, stockId]);
 
+  const refetch = useCallback(() => {
+    if (!enabled || !stockId || isFetchingMoreRef.current) {
+      return;
+    }
+
+    void loadInitial(false);
+  }, [enabled, loadInitial, stockId]);
+
   return useMemo(
     () => ({
       data,
@@ -133,7 +143,8 @@ export function useStockPriceStream(
       error,
       hasMore: hasMoreRef.current,
       loadMore,
+      refetch,
     }),
-    [data, error, isFetchingMore, isLoading, loadMore],
+    [data, error, isFetchingMore, isLoading, loadMore, refetch],
   );
 }

@@ -25,6 +25,8 @@ type UseSearchModalOptions = {
   isLoggedIn: boolean;
 };
 
+type SearchModalOpenTrigger = "focus" | "click";
+
 const EMPTY_RESULTS: SearchAutocompleteResponse = {
   stocks: [],
   news: [],
@@ -207,12 +209,13 @@ export function useSearchModal({ isLoggedIn }: UseSearchModalOptions) {
     setSearchKeywordState(value);
   }, []);
 
-  const openSearchModal = useCallback(() => {
-    if (shouldIgnoreSearchTriggerFocusRef.current) {
+  const openSearchModal = useCallback((trigger: SearchModalOpenTrigger = "click") => {
+    if (trigger === "focus" && shouldIgnoreSearchTriggerFocusRef.current) {
       shouldIgnoreSearchTriggerFocusRef.current = false;
       return;
     }
 
+    shouldIgnoreSearchTriggerFocusRef.current = false;
     setHasTrendingStocksError(false);
     setIsSearchModalOpen(true);
   }, []);

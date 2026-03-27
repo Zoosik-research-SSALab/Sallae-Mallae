@@ -112,7 +112,7 @@ export function getSignalActionClassName(action: PortfolioSignalAction) {
     case "SELL":
       return "bg-[color:var(--color-bg-info-subtle)] text-[color:var(--color-text-info)]";
     case "HOLD":
-      return "bg-[color:var(--color-bg-success-subtle)] text-[color:var(--color-text-success)]";
+      return "bg-[color:var(--color-bg-success-sublte)] text-[color:var(--color-text-success)]";
     case "WATCH":
       return "bg-[color:var(--color-bg-tertiary)] text-[color:var(--color-text-secondary)]";
   }
@@ -137,7 +137,7 @@ export function getHallOfFameToneClassName(tone: PortfolioHallOfFameTone) {
       };
     case "success":
       return {
-        marker: "bg-[color:var(--color-bg-success-subtle)] text-[color:var(--color-text-success)]",
+        marker: "bg-[color:var(--color-bg-success-sublte)] text-[color:var(--color-text-success)]",
         rank: "text-[color:var(--color-text-success)]",
       };
   }

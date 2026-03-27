@@ -23,7 +23,7 @@ function getHallOfFameHeaderMarkerClassName(sectionId: string, defaultClassName:
   }
 
   if (sectionId === "average-return") {
-    return "bg-[color:var(--color-bg-success-subtle)]";
+    return "bg-[color:var(--color-bg-success-sublte)]";
   }
 
   return defaultClassName;

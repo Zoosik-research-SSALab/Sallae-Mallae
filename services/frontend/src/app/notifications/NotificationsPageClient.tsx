@@ -25,6 +25,7 @@ import type {
   NotificationSettingsPatch,
   NotificationTab,
 } from "./types/notifications";
+import { getNotificationTabForType } from "./utils/notificationFormatters";
 
 const PAGE_SIZE = 6;
 const EMPTY_NOTIFICATIONS: NotificationItem[] = [];
@@ -132,8 +133,8 @@ export default function NotificationsPageClient() {
   });
 
   const markAllReadMutation = useMutation({
-    mutationFn: markAllNotificationsAsRead,
-    onMutate: async (): Promise<NotificationMutationContext> => {
+    mutationFn: (tab: NotificationTab) => markAllNotificationsAsRead(tab),
+    onMutate: async (tab: NotificationTab): Promise<NotificationMutationContext> => {
       setActionError(null);
 
       await queryClient.cancelQueries({ queryKey: notificationsQueryKeys.lists() });
@@ -144,8 +145,15 @@ export default function NotificationsPageClient() {
       });
       const unreadCountSnapshot = queryClient.getQueryData<number>(notificationsQueryKeys.unreadCount());
 
-      updateNotificationListCaches(queryClient, (item) => ({ ...item, isRead: true }));
-      queryClient.setQueryData(notificationsQueryKeys.unreadCount(), 0);
+      updateNotificationListCaches(queryClient, (item) =>
+        tab === "ALL" || getNotificationTabForType(item.notiType) === tab
+          ? { ...item, isRead: true }
+          : item,
+      );
+
+      if (tab === "ALL") {
+        queryClient.setQueryData(notificationsQueryKeys.unreadCount(), 0);
+      }
 
       return { listSnapshots, unreadCountSnapshot };
     },
@@ -160,6 +168,10 @@ export default function NotificationsPageClient() {
       }
 
       setActionError(getActionErrorMessage(error, "모두 읽음 처리에 실패했습니다."));
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: notificationsQueryKeys.lists() });
+      await queryClient.invalidateQueries({ queryKey: notificationsQueryKeys.unreadCount() });
     },
   });
 
@@ -290,8 +302,8 @@ export default function NotificationsPageClient() {
   );
 
   const handleMarkAllRead = useCallback(() => {
-    markAllReadMutation.mutate();
-  }, [markAllReadMutation]);
+    markAllReadMutation.mutate(activeTab);
+  }, [activeTab, markAllReadMutation]);
 
   const handleTabChange = useCallback((tab: NotificationTab) => {
     setActionError(null);

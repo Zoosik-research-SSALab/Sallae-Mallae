@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -226,9 +226,9 @@ export default function AppNav() {
     setIsProfileMenuOpen(false);
   };
 
-  const handleOpenSearchModal = () => {
+  const handleOpenSearchModal = (trigger: "focus" | "click" = "click") => {
     setIsDrawerOpen(false);
-    openSearchModal();
+    openSearchModal(trigger);
   };
 
   const handleOpenLoginModal = () => {
@@ -359,8 +359,8 @@ export default function AppNav() {
               <input
                 type="text"
                 value={searchKeyword}
-                onFocus={handleOpenSearchModal}
-                onClick={handleOpenSearchModal}
+                onFocus={() => handleOpenSearchModal("focus")}
+                onClick={() => handleOpenSearchModal("click")}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -373,7 +373,7 @@ export default function AppNav() {
               />
               <button
                 type="button"
-                onClick={handleOpenSearchModal}
+                onClick={() => handleOpenSearchModal("click")}
                 className={`absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-[color:var(--color-text-tertiary)] transition-colors ${headerHoverTextClassName}`}
                 aria-label="검색"
               >
@@ -473,7 +473,7 @@ export default function AppNav() {
                   <div className="h-5 w-px bg-[color:var(--color-border-primary)]" />
                   <button
                     type="button"
-                    onClick={handleOpenSearchModal}
+                    onClick={() => handleOpenSearchModal("click")}
                     className={`typo-body-md flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 font-bold text-[color:var(--color-text-secondary)] transition-colors ${headerHoverTextClassName}`}
                   >
                     <GoSearch className="h-4 w-4 text-[color:var(--color-border-interactive-secondary)]" style={{ strokeWidth: 2 }} />
