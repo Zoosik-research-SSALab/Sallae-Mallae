@@ -11,6 +11,7 @@ export type AboutAgent = {
   name: string;
   title: string;
   description: string;
+  mobileDescriptionLines: string[];
   image: string;
   accentClassName: string;
   reverse: boolean;
