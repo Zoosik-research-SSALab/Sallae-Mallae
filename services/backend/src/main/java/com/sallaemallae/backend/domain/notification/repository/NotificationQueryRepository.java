@@ -198,6 +198,10 @@ public class NotificationQueryRepository {
     if (value instanceof java.time.LocalDateTime ldt) {
       return ldt.atZone(ZONE_ID).toOffsetDateTime();
     }
-    return OffsetDateTime.parse(value.toString());
+    try {
+      return OffsetDateTime.parse(value.toString());
+    } catch (java.time.format.DateTimeParseException e) {
+      return null;
+    }
   }
 }
