@@ -40,6 +40,15 @@ export interface DebateAgentOpinion {
   summary: string;
 }
 
+export interface AgentStatement {
+  opinion: string;
+  details: {
+    basis: string[];
+    risk: string[];
+    action: string[];
+  };
+}
+
 export type DebateRole = "chart" | "news" | "fund" | "judge";
 export type DebateSignal = "STRONG_BUY" | "BUY" | "HOLD" | "SELL";
 export type DebatePhase = "idle" | "loading" | "video" | "debate" | "judgement" | "ended";

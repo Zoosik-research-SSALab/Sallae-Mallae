@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FaQuoteLeft } from "react-icons/fa6";
 import { cn } from "@/shared/utils/cn";
 import { getTtsAudio } from "../api/getTtsAudio";
-import type { DebateReport } from "../types/debate";
+import type { AgentStatement, DebateReport } from "../types/debate";
 import { getPersistedTtsBlob, setPersistedTtsBlob } from "../utils/ttsCache";
 
 export interface DebateSectionProps {
@@ -96,7 +96,9 @@ const judgeFallbackImageSrc = "/images/reports/debate/judge_result.png";
 
 const speakerIdByAgentName: Record<string, SpeakerId> = {
   "차트 분석가": "chart",
+  "차트 위원": "chart",
   "뉴스 전문가": "news",
+  "뉴스 위원": "news",
   "펀더멘탈 위원": "fund",
 };
 
@@ -104,52 +106,44 @@ function formatRoundLabel(roundNo: number) {
   return `Round ${roundNo}: 위원 의견 발표`;
 }
 
-const speechSegmentLabels = ["의견", "근거", "리스크", "실행"] as const;
+const detailLabels = ["근거", "리스크", "실행"] as const;
+const detailLabelToKey: Record<string, keyof AgentStatement["details"]> = {
+  "근거": "basis",
+  "리스크": "risk",
+  "실행": "action",
+};
 
-function parseSpeechSegments(content: string) {
+export function parseAgentStatement(content: string): AgentStatement {
   const normalized = content.trim();
   if (!normalized) {
-    return [];
+    return { opinion: "", details: { basis: [], risk: [], action: [] } };
   }
 
-  const escapedLabels = speechSegmentLabels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const escapedLabels = detailLabels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const segmentRegex = new RegExp(`(${escapedLabels.join("|")})\\s*:`, "g");
   const matches = Array.from(normalized.matchAll(segmentRegex));
 
-  if (matches.length === 0) {
-    return [{ segmentLabel: "의견", message: normalized }];
-  }
+  const firstDetailStart = matches.length > 0 ? (matches[0].index ?? normalized.length) : normalized.length;
+  const opinion = normalized.slice(0, firstDetailStart).replace(/^\s*의견\s*:\s*/, "").trim();
 
-  return matches
-    .map((match, index) => {
-      const segmentLabel = match[1];
-      const start = match.index ?? 0;
-      const contentStart = start + match[0].length;
-      const nextStart = index < matches.length - 1 ? (matches[index + 1].index ?? normalized.length) : normalized.length;
-      const message = normalized.slice(contentStart, nextStart).trim();
+  const details: AgentStatement["details"] = { basis: [], risk: [], action: [] };
 
-      if (!message) {
-        return null;
-      }
+  matches.forEach((match, index) => {
+    const label = match[1];
+    const key = detailLabelToKey[label];
+    if (!key) return;
 
-      return {
-        segmentLabel,
-        message,
-      };
-    })
-    .filter((segment): segment is { segmentLabel: string; message: string } => segment !== null)
-    .flatMap((segment) => splitSegmentMessage(segment));
-}
+    const contentStart = (match.index ?? 0) + match[0].length;
+    const nextStart = index < matches.length - 1 ? (matches[index + 1].index ?? normalized.length) : normalized.length;
+    const rawText = normalized.slice(contentStart, nextStart).trim();
 
-function splitSegmentMessage(segment: { segmentLabel: string; message: string }) {
-  return segment.message
-    .split("/")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((message) => ({
-      segmentLabel: segment.segmentLabel,
-      message,
-    }));
+    if (rawText) {
+      const items = rawText.split("/").map((part) => part.trim()).filter(Boolean);
+      details[key].push(...items);
+    }
+  });
+
+  return { opinion, details };
 }
 
 export function getDebateSpeeches(report?: DebateReport | null): DebateSpeech[] {
@@ -158,15 +152,34 @@ export function getDebateSpeeches(report?: DebateReport | null): DebateSpeech[] 
   }
 
   return report.debate.rounds.flatMap((round) =>
-    round.agents.flatMap((agent) =>
-      parseSpeechSegments(agent.opinion).map((segment) => ({
-        speakerId: speakerIdByAgentName[agent.name] ?? "chart",
-        roundLabel: formatRoundLabel(round.roundNo),
-        segmentLabel: segment.segmentLabel,
-        message: segment.message,
-      })),
-    ),
+    round.agents
+      .map((agent) => {
+        const statement = parseAgentStatement(agent.opinion);
+        if (!statement.opinion) return null;
+        return {
+          speakerId: speakerIdByAgentName[agent.name] ?? ("chart" as SpeakerId),
+          roundLabel: formatRoundLabel(round.roundNo),
+          segmentLabel: "의견",
+          message: statement.opinion,
+        };
+      })
+      .filter((speech): speech is DebateSpeech => speech !== null),
   );
+}
+
+export function getDebateStatements(report?: DebateReport | null): Map<string, AgentStatement> {
+  const map = new Map<string, AgentStatement>();
+  if (!report) return map;
+
+  for (const round of report.debate.rounds) {
+    for (const agent of round.agents) {
+      const speakerId = speakerIdByAgentName[agent.name] ?? "chart";
+      const key = `${round.roundNo}-${speakerId}`;
+      map.set(key, parseAgentStatement(agent.opinion));
+    }
+  }
+
+  return map;
 }
 
 function getJudgmentLeadText(speakerId: SpeakerId) {

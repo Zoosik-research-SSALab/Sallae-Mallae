@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import DebateSection, { getDebateSpeeches, type DebateSpeech, type SpeakerId, type StagePhase } from "./DebateSection";
-import type { DebateReport } from "../types/debate";
+import DebateSection, { getDebateSpeeches, getDebateStatements, type DebateSpeech, type SpeakerId, type StagePhase } from "./DebateSection";
+import type { AgentStatement, DebateReport } from "../types/debate";
 import { cn } from "@/shared/utils/cn";
 
 interface ReportDebateSectionProps {
@@ -26,6 +26,7 @@ type TimelineItem =
       id: string;
       type: "speech";
       speech: DebateSpeech;
+      details?: AgentStatement["details"];
     };
 
 const speakerMeta: Record<
@@ -98,9 +99,11 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
   const [phase, setPhase] = useState<StagePhase>("ready");
   const [activeSpeechIndex, setActiveSpeechIndex] = useState(-1);
   const [roundIntroLabel, setRoundIntroLabel] = useState<string | null>(null);
+  const [showTranscriptOnly, setShowTranscriptOnly] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const speeches = useMemo(() => getDebateSpeeches(report), [report]);
-  const showTranscript = phase !== "ready" && phase !== "video";
+  const statements = useMemo(() => getDebateStatements(report), [report]);
+  const showTranscript = showTranscriptOnly || (phase !== "ready" && phase !== "video");
   const hasEnteredCommittee = showTranscript && speeches.length > 0;
 
   const timelineItems = useMemo(() => {
@@ -118,8 +121,9 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
       });
     }
 
-    const visibleSpeechCount =
-      phase === "debate" || phase === "outro" || phase === "loading" || phase === "judge" || phase === "ended"
+    const visibleSpeechCount = showTranscriptOnly
+      ? speeches.length
+      : phase === "debate" || phase === "outro" || phase === "loading" || phase === "judge" || phase === "ended"
         ? Math.min(Math.max(activeSpeechIndex + 1, 0), speeches.length)
         : 0;
 
@@ -135,15 +139,20 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
         previousRoundLabel = speech.roundLabel;
       }
 
+      const roundNo = speech.roundLabel.match(/\d+/)?.[0] ?? "0";
+      const statementKey = `${roundNo}-${speech.speakerId}`;
+      const statement = statements.get(statementKey);
+
       items.push({
         id: `speech-${index}`,
         type: "speech",
         speech,
+        details: statement?.details,
       });
     });
 
     return items;
-  }, [activeSpeechIndex, hasEnteredCommittee, phase, showTranscript, speeches]);
+  }, [activeSpeechIndex, hasEnteredCommittee, phase, showTranscript, showTranscriptOnly, speeches, statements]);
 
   useEffect(() => {
     if (!scrollRef.current) {
@@ -158,23 +167,34 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
 
   return (
     <section className="flex flex-col gap-6 [font-family:var(--font-family-base)]">
-      <div className="flex flex-col gap-2">
-        <h2 className="heading-reset typo-heading-lg text-[color:var(--color-text-primary)]">위원회 심층 토론</h2>
-        <p className="typo-body-md text-[color:var(--color-text-secondary)]">
-          위원 소집 → 데이터 분석(영상) → 실시간 발언 → 의장 판결
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="heading-reset typo-heading-lg text-[color:var(--color-text-primary)]">위원회 심층 토론</h2>
+          <p className="typo-body-md text-[color:var(--color-text-secondary)]">
+            위원 소집 → 데이터 분석(영상) → 실시간 발언 → 의장 판결
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowTranscriptOnly((prev) => !prev)}
+          className="shrink-0 rounded-lg border border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-3 py-2 typo-body-md font-semibold text-[color:var(--color-text-primary)] transition-opacity hover:opacity-80"
+        >
+          {showTranscriptOnly ? "토론 영상 보기" : "회의록 보기"}
+        </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl">
-        <DebateSection
-          stockId={stockId}
-          companyName={companyName}
-          report={report}
-          onPhaseChange={setPhase}
-          onSpeechIndexChange={setActiveSpeechIndex}
-          onRoundIntroChange={setRoundIntroLabel}
-        />
-      </div>
+      {!showTranscriptOnly ? (
+        <div className="overflow-hidden rounded-2xl">
+          <DebateSection
+            stockId={stockId}
+            companyName={companyName}
+            report={report}
+            onPhaseChange={setPhase}
+            onSpeechIndexChange={setActiveSpeechIndex}
+            onRoundIntroChange={setRoundIntroLabel}
+          />
+        </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-2xl bg-[color:var(--color-bg-primary)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-secondary)]">
         <div className="border-b border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-6 py-4">
@@ -186,13 +206,13 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
               </span>
             </div>
             <div className="typo-body-sm text-[color:var(--color-text-tertiary)]">
-              {phase === "ready" || phase === "video" ? "대기 중" : "재생 중"}
+              {showTranscriptOnly ? "전체 보기" : phase === "ready" || phase === "video" ? "대기 중" : "재생 중"}
             </div>
           </div>
         </div>
         <div
           ref={scrollRef}
-          className="flex h-[420px] flex-col gap-6 overflow-y-auto bg-[color:var(--color-bg-primary)] px-6 py-6"
+          className={cn("flex flex-col gap-6 overflow-y-auto bg-[color:var(--color-bg-primary)] px-6 py-6", showTranscriptOnly ? "max-h-[720px]" : "h-[420px]")}
         >
           {!showTranscript ? (
               <div className="flex min-h-full items-center justify-center rounded-2xl border border-dashed border-[color:var(--color-border-primary)] bg-[color:var(--color-bg-primary)] px-6 text-center">
@@ -227,6 +247,7 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
 
                 const speechIndex = timelineItems.slice(0, index + 1).filter((candidate) => candidate.type === "speech").length - 1;
                 const meta = speakerMeta[item.speech.speakerId];
+                const hasDetails = item.details && (item.details.basis.length > 0 || item.details.risk.length > 0 || item.details.action.length > 0);
 
                 return (
                   <div key={item.id} className="flex items-start gap-4">
@@ -235,27 +256,25 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
                     >
                       <img src={meta.imageSrc} alt={meta.name} className="h-full w-full object-cover" />
                     </div>
-                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="typo-body-lg pl-1 text-[color:var(--color-text-primary)]">
-                          {meta.name}
-                        </span>
-                        <span className={cn("typo-body-sm", meta.timeClassName)}>
-                          {formatSpeechTime(speechIndex)}
-                        </span>
-                      </div>
-                      <div
-                        className={`max-w-[min(740px,100%)] rounded-bl-3xl rounded-br-3xl rounded-tl-sm rounded-tr-3xl px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] ${meta.bubbleClassName}`}
-                      >
-                        <div className="flex flex-col gap-2">
-                          <p className={cn("typo-body-sm font-semibold", meta.opinionClassName)}>
-                            {item.speech.segmentLabel}
-                          </p>
+                    <div className="flex min-w-0 flex-1 flex-col gap-3">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="typo-body-lg pl-1 text-[color:var(--color-text-primary)]">
+                            {meta.name}
+                          </span>
+                          <span className={cn("typo-body-sm", meta.timeClassName)}>
+                            {formatSpeechTime(speechIndex)}
+                          </span>
+                        </div>
+                        <div
+                          className={`max-w-[min(740px,100%)] rounded-bl-3xl rounded-br-3xl rounded-tl-sm rounded-tr-3xl px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] ${meta.bubbleClassName}`}
+                        >
                           <p className="typo-body-lg whitespace-pre-line text-[color:var(--color-text-primary)]">
                             {item.speech.message}
                           </p>
                         </div>
                       </div>
+                      {hasDetails ? <StatementDetailCard details={item.details!} /> : null}
                     </div>
                   </div>
                 );
@@ -275,5 +294,54 @@ export default function ReportDebateSection({ stockId, companyName, report }: Re
         </div>
       </div>
     </section>
+  );
+}
+
+const detailTagStyles = {
+  basis: {
+    label: "근거",
+    badge: "bg-[#eff6ff] border-[#dbeafe] text-[#2563eb]",
+  },
+  risk: {
+    label: "리스크",
+    badge: "bg-[#fef2f2] border-[#fee2e2] text-[#dc2626]",
+  },
+  action: {
+    label: "실행",
+    badge: "bg-[#f0fdf4] border-[#dcfce7] text-[#16a34a]",
+  },
+} as const;
+
+function StatementDetailCard({ details }: { details: AgentStatement["details"] }) {
+  const sections = (["basis", "risk", "action"] as const).filter((key) => details[key].length > 0);
+
+  if (sections.length === 0) return null;
+
+  return (
+    <div className="max-w-[500px] rounded-2xl border border-[color:var(--color-border-primary)] p-5">
+      <div className="border-b border-[color:var(--color-border-primary)] pb-3">
+        <span className="typo-body-sm font-extrabold text-[color:var(--color-text-primary)]">
+          의견 제출서 요약
+        </span>
+      </div>
+      <div className="flex flex-col gap-4 pt-4">
+        {sections.map((key) => (
+          <div key={key} className="flex gap-4">
+            <div className="w-12 shrink-0">
+              <span className={cn("inline-flex items-center justify-center rounded px-2.5 py-1 typo-body-sm font-bold border", detailTagStyles[key].badge)}>
+                {detailTagStyles[key].label}
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {details[key].map((text, i) => (
+                <p key={`${key}-${i}`} className="typo-body-sm text-[#374151]">
+                  {text}
+                </p>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
