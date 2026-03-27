@@ -70,7 +70,7 @@ public class TradeSignalAlertScheduler {
           stock.getId(),
           notiType,
           stock.getName() + " " + signalText + " 신호",
-          stock.getName() + " AI 매매신호가 " + signalText + "으로 변경되었습니다.",
+          stock.getName() + " AI 매매신호가 " + signalText + "로 변경되었습니다.",
           null
       );
       alertCount++;
