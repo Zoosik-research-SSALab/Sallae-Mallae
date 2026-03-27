@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import StockDetailHeader from "./components/StockDetailHeader";
 import StockInfoSection from "./components/StockInfoSection";
 import InvestmentCalculator from "./components/InvestmentCalculator";
@@ -312,12 +313,12 @@ export default function PortfolioStockDetailClient({ stockId }: Props) {
               )}
 
               <div className="flex items-center justify-center mb-4">
-                <button
-                  type="button"
+                <Link
+                  href={`/stocks/${stockId}`}
                   className="py-4 px-8 rounded-xl typo-body-lg font-semibold text-center bg-bg-tertiary text-text-secondary hover:opacity-80 transition-opacity"
                 >
                   이 종목 일반 상세정보 보기 (호가/공시 등)
-                </button>
+                </Link>
               </div>
             </div>
           </div>
