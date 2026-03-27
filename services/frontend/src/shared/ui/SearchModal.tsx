@@ -94,6 +94,40 @@ function formatSearchedAt(value: string | null) {
   }).format(date);
 }
 
+function formatNewsPublishedAt(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  const publishedAt = new Date(value);
+
+  if (Number.isNaN(publishedAt.getTime())) {
+    return "-";
+  }
+
+  const diffMs = Math.max(0, Date.now() - publishedAt.getTime());
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays >= 5) {
+    return new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "Asia/Seoul",
+    })
+      .format(publishedAt)
+      .replace(/\s/g, "")
+      .replace(/\.?$/, "");
+  }
+
+  if (diffDays >= 1) {
+    return `${diffDays}일전`;
+  }
+
+  return `${diffHours}시간전`;
+}
+
 function formatTrendingUpdatedAt(value: string | null | undefined) {
   if (!value) {
     return "";
@@ -242,7 +276,7 @@ const NewsResultRow = memo(function NewsResultRow({
             <HighlightedText text={news.title} keyword={keyword} />
           </div>
           <div className="typo-body-sm mt-1 text-[color:var(--color-text-secondary)]">
-            {news.publisher} · {formatSearchedAt(news.publishedAt)}
+            {news.publisher} · {formatNewsPublishedAt(news.publishedAt)}
           </div>
         </div>
         <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-[color:var(--color-text-secondary)]">
@@ -265,7 +299,7 @@ const NewsResultRow = memo(function NewsResultRow({
         <HighlightedText text={news.title} keyword={keyword} />
       </div>
       <div className="typo-body-sm text-[color:var(--color-text-secondary)]">
-        {news.publisher} · {formatSearchedAt(news.publishedAt)}
+        {news.publisher} · {formatNewsPublishedAt(news.publishedAt)}
       </div>
     </button>
   );

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureMockUserAuthorized, proxyUsersApiRequest, shouldUseMockUsersApi } from "@/app/api/users/utils";
 import { NOTIFICATION_TABS, type NotificationTab } from "@/app/notifications/types/notifications";
-import { markAllMockNotificationsAsRead } from "@/app/notifications/utils/mockNotificationsData";
+import { deleteAllMockNotifications } from "@/app/notifications/utils/mockNotificationsData";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ async function readNotificationTabFromBody(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   if (shouldUseMockUsersApi()) {
     const unauthorizedResponse = ensureMockUserAuthorized(request);
     if (unauthorizedResponse) {
@@ -31,17 +31,17 @@ export async function PATCH(request: NextRequest) {
     }
 
     const tab = await readNotificationTabFromBody(request);
-    const { updatedCount } = markAllMockNotificationsAsRead(tab);
+    const { deletedCount } = deleteAllMockNotifications(tab);
 
     return NextResponse.json({
-      message: "전체 읽음 처리 완료",
-      count: updatedCount,
+      message: "전체 삭제 처리 완료",
+      count: deletedCount,
     });
   }
 
   return proxyUsersApiRequest({
     request,
-    path: "/api/notifications/read-all",
-    method: "PATCH",
+    path: "/api/notifications",
+    method: "DELETE",
   });
 }

@@ -194,14 +194,39 @@ export function markMockNotificationAsRead(notificationId: number) {
   return updated;
 }
 
-export function markAllMockNotificationsAsRead() {
-  notificationStore = notificationStore.map((item) => ({
-    ...item,
-    isRead: true,
-  }));
+export function markAllMockNotificationsAsRead(tab: NotificationTab) {
+  let updatedCount = 0;
+
+  notificationStore = notificationStore.map((item) => {
+    const isTargetItem = tab === "ALL" || getNotificationTabForType(item.notiType) === tab;
+
+    if (!isTargetItem || item.isRead) {
+      return item;
+    }
+
+    updatedCount += 1;
+
+    return {
+      ...item,
+      isRead: true,
+    };
+  });
 
   return {
-    updatedCount: notificationStore.length,
+    updatedCount,
+  };
+}
+
+export function deleteAllMockNotifications(tab: NotificationTab) {
+  const beforeLength = notificationStore.length;
+
+  notificationStore =
+    tab === "ALL"
+      ? []
+      : notificationStore.filter((item) => getNotificationTabForType(item.notiType) !== tab);
+
+  return {
+    deletedCount: beforeLength - notificationStore.length,
   };
 }
 

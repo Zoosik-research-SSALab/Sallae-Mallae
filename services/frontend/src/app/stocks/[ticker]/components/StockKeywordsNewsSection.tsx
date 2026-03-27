@@ -8,10 +8,16 @@ import StockSectionLoadingOverlay from "./common/StockSectionLoadingOverlay";
 type Props = {
   keywords: StockKeyword[];
   isLoading: boolean;
+  onHeaderClick?: () => void;
   onNewsSelect?: (newsId: number) => void;
 };
 
-export default function StockKeywordsNewsSection({ keywords, isLoading, onNewsSelect }: Props) {
+export default function StockKeywordsNewsSection({
+  keywords,
+  isLoading,
+  onHeaderClick,
+  onNewsSelect,
+}: Props) {
   const [selectedKeywordKey, setSelectedKeywordKey] = useState<string | null>(null);
 
   const visibleKeywords = useMemo(() => keywords.slice(0, 3), [keywords]);
@@ -22,10 +28,7 @@ export default function StockKeywordsNewsSection({ keywords, isLoading, onNewsSe
     });
 
     if (matchedKeyword) {
-      return String(
-        matchedKeyword.id ??
-          `${matchedKeyword.name}-${visibleKeywords.indexOf(matchedKeyword)}`,
-      );
+      return String(matchedKeyword.id ?? `${matchedKeyword.name}-${visibleKeywords.indexOf(matchedKeyword)}`);
     }
 
     if (visibleKeywords[0]) {
@@ -34,6 +37,7 @@ export default function StockKeywordsNewsSection({ keywords, isLoading, onNewsSe
 
     return null;
   }, [selectedKeywordKey, visibleKeywords]);
+
   const activeKeyword =
     visibleKeywords.find((keyword, index) => {
       const keywordKey = String(keyword.id ?? `${keyword.name}-${index}`);
@@ -41,15 +45,23 @@ export default function StockKeywordsNewsSection({ keywords, isLoading, onNewsSe
     }) ??
     visibleKeywords[0] ??
     null;
+
   const activeKeywordNews = activeKeyword?.news ?? [];
 
   return (
     <section className="border-b border-[color:var(--color-border-primary)] pb-10">
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="typo-body-lg text-[color:var(--color-text-primary)]">종목 키워드</h2>
-          <span className="text-xs font-medium leading-4 text-[color:var(--color-text-tertiary)] md:text-sm md:leading-5">
+          <button
+            type="button"
+            onClick={onHeaderClick}
+            disabled={!onHeaderClick}
+            className="typo-body-lg cursor-pointer text-[color:var(--color-text-primary)] transition-colors hover:text-[color:var(--color-text-interactive-primary)] disabled:cursor-default disabled:hover:text-[color:var(--color-text-primary)]"
+          >
             관련 뉴스
+          </button>
+          <span className="text-xs font-medium leading-4 text-[color:var(--color-text-tertiary)] md:text-sm md:leading-5">
+            키워드 기반
           </span>
         </div>
 
@@ -96,6 +108,7 @@ export default function StockKeywordsNewsSection({ keywords, isLoading, onNewsSe
                 ))
               ) : activeKeywordNews.length > 0 ? (
                 activeKeywordNews.map((item, index) => {
+                  const newsId = item.id;
                   const content = (
                     <>
                       <div className="typo-body-md font-semibold text-[color:var(--color-text-primary)]">
@@ -110,12 +123,12 @@ export default function StockKeywordsNewsSection({ keywords, isLoading, onNewsSe
 
                   const newsKey = String(item.id ?? `${activeKeyword.name}-news-${index}`);
 
-                  if (typeof item.id === "number" && onNewsSelect) {
+                  if (typeof newsId === "number" && onNewsSelect) {
                     return (
                       <button
                         key={newsKey}
                         type="button"
-                        onClick={() => onNewsSelect(item.id as number)}
+                        onClick={() => onNewsSelect(newsId)}
                         className="block w-full text-left transition-colors hover:text-[color:var(--color-text-interactive-primary)]"
                       >
                         {content}

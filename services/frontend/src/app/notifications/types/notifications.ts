@@ -12,6 +12,7 @@ export type NotificationItem = {
   isRead: boolean;
   createdAt: string | null;
   stockId: number;
+  iconUrl?: string | null;
 };
 
 export type NotificationListPayload = {
@@ -37,6 +38,7 @@ export type NotificationListItemApi = Partial<NotificationItem> & {
   is_read?: boolean | null;
   created_at?: string | null;
   stock_id?: number | null;
+  icon_url?: string | null;
 };
 
 export type NotificationSettingsApi = Partial<NotificationSettings> & {

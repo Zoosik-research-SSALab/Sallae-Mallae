@@ -1,4 +1,4 @@
-import { authApiFetch } from "@/shared/lib/authApiClient";
+﻿import { authApiFetch } from "@/shared/lib/authApiClient";
 import type {
   NotificationItem,
   NotificationListItemApi,
@@ -10,7 +10,7 @@ import type {
 } from "../types/notifications";
 import { normalizeNotificationType } from "../utils/notificationFormatters";
 
-const NOTIFICATION_COUNT_FETCH_LIMIT = 1000;
+const NOTIFICATION_COUNT_FETCH_LIMIT = 100;
 
 type NotificationListApiPayload = {
   notifications?: NotificationListItemApi[] | null;
@@ -40,6 +40,12 @@ function normalizeNotificationItem(item: NotificationListItemApi): NotificationI
           ? item.created_at
           : null,
     stockId: Number(item.stockId ?? item.stock_id ?? 0),
+    iconUrl:
+      typeof item.iconUrl === "string"
+        ? item.iconUrl
+        : typeof item.icon_url === "string"
+          ? item.icon_url
+          : null,
   };
 }
 
@@ -67,7 +73,6 @@ export async function getNotifications(params: {
     `/api/notifications/list?${search.toString()}`,
     {
       cache: "no-store",
-      useBaseUrl: false,
     },
   );
 
@@ -99,7 +104,6 @@ export async function getNotificationSettings() {
     "/api/notifications/settings",
     {
       cache: "no-store",
-      useBaseUrl: false,
     },
   );
 
@@ -115,7 +119,6 @@ export async function updateNotificationSettings(patch: NotificationSettingsPatc
     {
       method: "PATCH",
       body: patch,
-      useBaseUrl: false,
     },
   );
 
@@ -128,20 +131,25 @@ export async function updateNotificationSettings(patch: NotificationSettingsPatc
 export async function markNotificationAsRead(notificationId: number) {
   await authApiFetch<void>(`/api/notifications/${notificationId}/read`, {
     method: "PATCH",
-    useBaseUrl: false,
   });
 }
 
-export async function markAllNotificationsAsRead() {
-  await authApiFetch<void>("/api/notifications/read-all", {
+export async function markAllNotificationsAsRead(tab: NotificationTab) {
+  await authApiFetch<void, { tab: NotificationTab }>("/api/notifications/read-all", {
     method: "PATCH",
-    useBaseUrl: false,
+    body: { tab },
+  });
+}
+
+export async function deleteAllNotifications(tab: NotificationTab) {
+  await authApiFetch<void, { tab: NotificationTab }>("/api/notifications", {
+    method: "DELETE",
+    body: { tab },
   });
 }
 
 export async function deleteNotification(notificationId: number) {
   await authApiFetch<void>(`/api/notifications/${notificationId}`, {
     method: "DELETE",
-    useBaseUrl: false,
   });
 }

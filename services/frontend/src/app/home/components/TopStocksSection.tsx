@@ -6,7 +6,7 @@ import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import type { TopStockItem } from "../types/main";
-import { formatPrice, formatSignalLabel, formatSignedRate, getRateTone, getSignalTone } from "../utils/formatters";
+import { formatPrice, formatSignalLabel, formatSignedRate, getRateTone } from "../utils/formatters";
 
 const mutedBackgroundRanks = new Set([1, 4, 5, 8, 9]);
 
@@ -25,14 +25,14 @@ function getRateClassName(value: number) {
 }
 
 function getSignalBadgeClassName(signal: string) {
-  const tone = getSignalTone(signal);
+  const normalized = signal.trim().toLowerCase();
 
-  if (tone === "buy") {
-    return "bg-[color:var(--color-bg-brand)] text-[color:var(--color-text-base)]";
+  if (normalized === "buy" || normalized === "strong_buy" || normalized === "매수") {
+    return "bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger)]";
   }
 
-  if (tone === "sell") {
-    return "bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger)]";
+  if (normalized === "sell" || normalized === "매도") {
+    return "bg-[color:var(--color-bg-info-subtle)] text-[color:var(--color-text-info)]";
   }
 
   return "bg-[color:var(--color-bg-tertiary)] text-[color:var(--color-text-secondary)]";

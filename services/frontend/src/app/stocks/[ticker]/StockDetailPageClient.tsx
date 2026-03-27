@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import NewsDetailModal from "@/app/news/components/NewsDetailModal";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { StockChartPeriod, StockFinancialType } from "@/app/stocks/types/stockDetail";
 import type { StockQuoteSnapshot } from "./api/connectStockPriceStream";
 import { useStockAnnouncementsQuery } from "./hooks/useStockAnnouncementsQuery";
@@ -12,6 +12,7 @@ import { useStockOverviewQuery } from "./hooks/useStockOverviewQuery";
 import { useStockPriceStream } from "./hooks/useStockPriceStream";
 import { useStockQuoteStream } from "./hooks/useStockQuoteStream";
 import StockAnnouncementsSection from "./components/StockAnnouncementsSection";
+import NewsDetailModal from "../../news/components/NewsDetailModal";
 import StockDetailTopBar from "./components/StockDetailTopBar";
 import StockFinancialSection from "./components/StockFinancialSection";
 import StockIndicatorsSection from "./components/StockIndicatorsSection";
@@ -71,6 +72,17 @@ function toSeoulMinuteTimestamp(value: string | Date) {
   }
 
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:00+09:00`;
+}
+
+function getSeoulMinuteTimestampMs(value: string | Date) {
+  const timestamp = toSeoulMinuteTimestamp(value);
+
+  if (!timestamp) {
+    return null;
+  }
+
+  const time = new Date(timestamp).getTime();
+  return Number.isNaN(time) ? null : time;
 }
 
 function mergeMinutePricesWithQuoteTick(
@@ -148,9 +160,11 @@ function mergeMinutePricesWithQuoteTick(
 }
 
 export default function StockDetailPageClient({ stockId }: Props) {
+  const router = useRouter();
   const [chartPeriod, setChartPeriod] = useState<StockChartPeriod>("1MIN");
   const [financialType, setFinancialType] = useState<StockFinancialType>("QUARTERLY");
   const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null);
+  const lastMinuteBackfillKeyRef = useRef<string | null>(null);
 
   const overviewQuery = useStockOverviewQuery(stockId);
   const indicatorsQuery = useStockIndicatorsQuery(stockId);
@@ -190,6 +204,48 @@ export default function StockDetailPageClient({ stockId }: Props) {
 
     return mergeMinutePricesWithQuoteTick(chartPriceStream.data.prices, quoteStream.data);
   }, [chartPeriod, chartPriceStream.data.prices, quoteStream.data]);
+
+  useEffect(() => {
+    if (chartPeriod !== "1MIN" || chartPriceStream.isLoading || !chartPriceStream.data.prices.length) {
+      return;
+    }
+
+    const lastPriceTimestamp = chartPriceStream.data.prices.at(-1)?.timestamp;
+    const tickTimestamp = quoteStream.data.tickTimestamp;
+
+    if (typeof lastPriceTimestamp !== "string" || typeof tickTimestamp !== "string") {
+      return;
+    }
+
+    const lastPriceMinuteMs = getSeoulMinuteTimestampMs(lastPriceTimestamp);
+    const tickMinuteMs = getSeoulMinuteTimestampMs(tickTimestamp);
+
+    if (lastPriceMinuteMs === null || tickMinuteMs === null || tickMinuteMs <= lastPriceMinuteMs) {
+      return;
+    }
+
+    const gapMinutes = Math.floor((tickMinuteMs - lastPriceMinuteMs) / 60_000);
+
+    if (gapMinutes < 2) {
+      return;
+    }
+
+    const backfillKey = `${lastPriceMinuteMs}-${tickMinuteMs}`;
+
+    if (lastMinuteBackfillKeyRef.current === backfillKey) {
+      return;
+    }
+
+    lastMinuteBackfillKeyRef.current = backfillKey;
+    chartPriceStream.refetch();
+  }, [
+    chartPeriod,
+    chartPriceStream,
+    chartPriceStream.data.prices,
+    chartPriceStream.isLoading,
+    chartPriceStream.refetch,
+    quoteStream.data.tickTimestamp,
+  ]);
 
   const displayBaseTime = quoteStream.data.tickTimestamp ?? overviewQuery.data?.baseTime ?? "";
 
@@ -250,6 +306,10 @@ export default function StockDetailPageClient({ stockId }: Props) {
                 <StockKeywordsNewsSection
                   keywords={keywordsQuery.data?.keywords ?? []}
                   isLoading={isKeywordsPending}
+                  onHeaderClick={() => {
+                    const stockName = overviewQuery.data?.name?.trim();
+                    router.push(`/news${stockName ? `?keyword=${encodeURIComponent(stockName)}` : ""}`);
+                  }}
                   onNewsSelect={setSelectedNewsId}
                 />
                 <StockAnnouncementsSection
@@ -262,10 +322,7 @@ export default function StockDetailPageClient({ stockId }: Props) {
           )}
         </div>
       </div>
-
-      {selectedNewsId !== null ? (
-        <NewsDetailModal newsId={selectedNewsId} onClose={() => setSelectedNewsId(null)} />
-      ) : null}
+      {selectedNewsId !== null ? <NewsDetailModal newsId={selectedNewsId} onClose={() => setSelectedNewsId(null)} /> : null}
     </main>
   );
 }

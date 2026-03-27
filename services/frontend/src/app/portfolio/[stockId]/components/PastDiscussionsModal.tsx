@@ -181,15 +181,23 @@ export default function PastDiscussionsModal({ open, reports, onClose }: Props) 
 
   // Reset when modal opens
   useEffect(() => {
-    if (open && years.length > 0) {
-      const latestYear = years[0];
+    if (!open || years.length === 0) {
+      return;
+    }
+
+    const latestYear = years[0];
+    const now = new Date();
+    const timer = window.setTimeout(() => {
       setSelectedYear(latestYear);
       setSelectedReport(null);
       setCalendarOpen(false);
       setCalendarYear(Number(latestYear));
-      const now = new Date();
       setCalendarMonth(now.getMonth() + 1);
-    }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [open, years]);
 
   // ESC to close or go back

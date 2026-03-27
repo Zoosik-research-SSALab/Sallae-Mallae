@@ -45,8 +45,14 @@ export default function InvestmentPerformanceSection({
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
 
   useEffect(() => {
-    setHoveredSignalId(null);
-    setSelectedSignalId(null);
+    const timer = window.setTimeout(() => {
+      setHoveredSignalId(null);
+      setSelectedSignalId(null);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [performance, trades]);
 
   useEffect(() => {

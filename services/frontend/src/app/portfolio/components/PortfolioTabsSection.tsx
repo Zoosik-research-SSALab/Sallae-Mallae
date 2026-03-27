@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import type {
   PortfolioBoardTab,
@@ -354,7 +355,7 @@ function MonthlyReturnBoard({ items }: { items: PortfolioMonthlyReturn[] }) {
 export default function PortfolioTabsSection({ holdings, todayTrades, monthlyReturns }: Props) {
   const [activeTab, setActiveTab] = useState<PortfolioBoardTab>("holdings");
   const [currentPage, setCurrentPage] = useState(1);
-  const [holdingsSort, setHoldingsSort] = useState<HoldingsSortType>("holdingQuantityDesc");
+  const [holdingsSort, setHoldingsSort] = useState<HoldingsSortType>("returnRateDesc");
 
   const sortedHoldings = useMemo(() => sortHoldings(holdings, holdingsSort), [holdings, holdingsSort]);
   const totalPages = Math.max(1, Math.ceil(sortedHoldings.length / holdingsPageSize));
@@ -376,41 +377,41 @@ export default function PortfolioTabsSection({ holdings, todayTrades, monthlyRet
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 border-b border-[color:var(--color-border-primary)] pb-3 md:flex-row md:items-end md:justify-between">
-        <div className="flex min-w-0 items-center gap-6 overflow-x-auto">
-          {tabs.map((tab) => {
-            const extraLabel = tab.id === "todayTrades" ? ` (${todayTrades.length})` : "";
+      <div className="flex flex-col gap-3 border-b border-[color:var(--color-border-primary)] md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 overflow-x-auto">
+          <div className="relative flex items-start gap-6">
+            {tabs.map((tab) => {
+              const extraLabel = tab.id === "todayTrades" ? ` (${todayTrades.length})` : "";
 
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleTabChange(tab.id)}
-                className={cn(
-                  "whitespace-nowrap pb-0 text-sm font-semibold leading-5 transition-colors md:text-base md:leading-6",
-                  activeTab === tab.id
-                    ? "text-[color:var(--color-text-primary)]"
-                    : "text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-secondary)]",
-                )}
-              >
-                <span
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
-                    "inline-flex border-b pb-3",
+                    "relative whitespace-nowrap pb-3 text-sm font-semibold leading-5 transition-colors md:text-base md:leading-6",
                     activeTab === tab.id
-                      ? "border-[color:var(--color-border-base)]"
-                      : "border-transparent",
+                      ? "text-[color:var(--color-text-primary)]"
+                      : "text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-secondary)]",
                   )}
                 >
                   {tab.label}
                   {extraLabel}
-                </span>
-              </button>
-            );
-          })}
+                  {activeTab === tab.id ? (
+                    <motion.span
+                      layoutId="portfolio-tabs-underline"
+                      transition={{ type: "spring", stiffness: 520, damping: 42 }}
+                      className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-[color:var(--color-border-base)]"
+                    />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {activeTab === "holdings" ? (
-          <label className="flex shrink-0 items-center gap-2 self-end md:self-auto">
+          <label className="flex shrink-0 items-center gap-2 self-end pb-3 md:self-auto">
             <span className="sr-only">현재 보유 종목 정렬</span>
             <select
               value={holdingsSort}
