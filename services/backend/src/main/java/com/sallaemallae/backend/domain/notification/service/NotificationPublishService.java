@@ -1,5 +1,6 @@
 package com.sallaemallae.backend.domain.notification.service;
 
+import com.sallaemallae.backend.domain.notification.dto.NotiTargetDto;
 import com.sallaemallae.backend.domain.notification.entity.StockNotification;
 import com.sallaemallae.backend.domain.notification.entity.UserNotification;
 import com.sallaemallae.backend.domain.notification.enumtype.NotifyType;
@@ -27,6 +28,7 @@ public class NotificationPublishService {
   private final WatchlistRepository watchlistRepository;
   private final NotificationQueryRepository notificationQueryRepository;
   private final NotificationSseService notificationSseService;
+  private final NotificationEmailService notificationEmailService;
 
   /**
    * 알림을 생성하고 해당 종목의 관심종목 유저에게 배포한다.
@@ -37,10 +39,12 @@ public class NotificationPublishService {
   public int publish(Long stockId, NotifyType notiType,
       String title, String message, String relatedLink) {
 
-    List<Long> userIds = watchlistRepository.findNotiEnabledUserIdsByStockId(stockId);
-    if (userIds.isEmpty()) {
+    List<NotiTargetDto> targets = watchlistRepository.findNotiTargetsByStockId(stockId);
+    if (targets.isEmpty()) {
       return 0;
     }
+
+    List<Long> userIds = targets.stream().map(NotiTargetDto::userId).toList();
 
     StockNotification stockNoti = StockNotification.create(
         stockId, notiType, title, message, relatedLink
@@ -59,6 +63,15 @@ public class NotificationPublishService {
       long unread = notificationQueryRepository.countUnreadNotifications(userId, cutoff);
       String unreadCount = unread > MAX_UNREAD_BADGE_COUNT ? "99+" : String.valueOf(unread);
       notificationSseService.pushToUser(userId, notiType.getResponseValue(), title, message, unreadCount, createdAt);
+    }
+
+    // 이메일 알림 (비동기 — 발송 실패가 알림 생성에 영향 없음)
+    List<String> emailTargets = targets.stream()
+        .filter(NotiTargetDto::emailOptIn)
+        .map(NotiTargetDto::email)
+        .toList();
+    if (!emailTargets.isEmpty()) {
+      notificationEmailService.sendNotificationEmails(emailTargets, notiType, title, message, relatedLink);
     }
 
     log.info("알림 발행: type={}, stockId={}, users={}", notiType, stockId, userIds.size());

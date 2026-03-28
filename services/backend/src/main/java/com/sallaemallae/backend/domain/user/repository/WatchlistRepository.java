@@ -1,6 +1,7 @@
 package com.sallaemallae.backend.domain.user.repository;
 
 import com.sallaemallae.backend.domain.news.entity.StockNews;
+import com.sallaemallae.backend.domain.notification.dto.NotiTargetDto;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlist;
 import com.sallaemallae.backend.domain.user.entity.UserWatchlistId;
 import java.util.List;
@@ -102,6 +103,19 @@ public interface WatchlistRepository extends JpaRepository<UserWatchlist, UserWa
         AND u.status = com.sallaemallae.backend.domain.auth.enumtype.UserStatus.ACTIVE
       """)
   List<Long> findNotiEnabledUserIdsByStockId(@Param("stockId") Long stockId);
+
+  // 특정 종목의 알림 수신 대상 유저 조회 (userId + email + emailOptIn 한번에)
+  @Query("""
+      SELECT new com.sallaemallae.backend.domain.notification.dto.NotiTargetDto(
+          w.id.userId, u.email, u.isEmailOptIn)
+      FROM UserWatchlist w
+      JOIN User u ON u.id = w.id.userId
+      WHERE w.id.stockId = :stockId
+        AND w.isNotiEnabled = true
+        AND u.isNotiEnabled = true
+        AND u.status = com.sallaemallae.backend.domain.auth.enumtype.UserStatus.ACTIVE
+      """)
+  List<NotiTargetDto> findNotiTargetsByStockId(@Param("stockId") Long stockId);
 
   // 여러 뉴스 ID에 대한 관련 종목명 일괄 조회 (N+1 방지)
   @Query("""
