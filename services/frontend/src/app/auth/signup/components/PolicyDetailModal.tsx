@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePolicyDetailQuery } from "@/shared/hooks/usePolicyDetailQuery";
 import type { PolicyKind } from "@/shared/types/policy";
 import Button from "@/shared/ui/Button";
+import CloseIcon from "@/shared/ui/CloseIcon";
 
 type Props = {
   policyKind: PolicyKind | null;
@@ -11,15 +12,6 @@ type Props = {
   onClose: () => void;
   onAgree: () => void;
 };
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden>
-      <path d="M7 7 17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M17 7 7 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function formatEnforcedAt(value: string) {
   const date = new Date(value);
@@ -36,6 +28,11 @@ function formatEnforcedAt(value: string) {
 
 export default function PolicyDetailModal({ policyKind, open, onClose, onAgree }: Props) {
   const { data, isLoading, isError, error, refetch } = usePolicyDetailQuery(policyKind, open);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) {
@@ -47,7 +44,7 @@ export default function PolicyDetailModal({ policyKind, open, onClose, onAgree }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
       }
     };
 
@@ -57,7 +54,7 @@ export default function PolicyDetailModal({ policyKind, open, onClose, onAgree }
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open || !policyKind) {
     return null;
@@ -83,7 +80,7 @@ export default function PolicyDetailModal({ policyKind, open, onClose, onAgree }
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl leading-7 font-extrabold text-[color:var(--color-text-primary)]">{data.title}</h2>
         <div className="typo-body-xs text-[color:var(--color-text-tertiary)]">
-          시행일 {formatEnforcedAt(data.enforcedAt)} · 버전 {data.version}
+          시행일 {formatEnforcedAt(data.enforcedAt)} / 버전 {data.version}
         </div>
       </div>
       <div className="min-h-0 max-h-[50vh] overflow-y-auto rounded-2xl bg-[color:var(--color-bg-secondary)] px-4 py-4">

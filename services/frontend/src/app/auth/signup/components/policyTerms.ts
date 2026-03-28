@@ -7,12 +7,28 @@ export const REQUIRED_SIGNUP_TERMS: TermsAgreementItem[] = [
   { termsId: 3, title: "투자 면책 고지", required: true },
 ];
 
-const policyKindByTermsId: Record<number, PolicyKind> = {
-  1: "terms",
-  2: "privacy",
-  3: "disclaimer",
-};
+function normalizeTermTitle(value: string) {
+  return value.replace(/\s+/g, "").toLowerCase();
+}
 
-export function getPolicyKindByTermsId(termsId: number): PolicyKind | null {
-  return policyKindByTermsId[termsId] ?? null;
+export function getPolicyKindForTermsItem(term: Pick<TermsAgreementItem, "title"> | null | undefined): PolicyKind | null {
+  if (!term) {
+    return null;
+  }
+
+  const normalizedTitle = normalizeTermTitle(term.title);
+
+  if (normalizedTitle.includes("서비스이용약관")) {
+    return "terms";
+  }
+
+  if (normalizedTitle.includes("개인정보처리방침")) {
+    return "privacy";
+  }
+
+  if (normalizedTitle.includes("투자면책고지")) {
+    return "disclaimer";
+  }
+
+  return null;
 }

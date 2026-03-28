@@ -6,7 +6,7 @@ import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
 import { formatPrice } from "@/shared/lib/stockFormatters";
 import type { StockItem, StockRankingMetric } from "../types/stocks";
-import { formatMetricValue, getRateClassName } from "../utils/stockMetrics";
+import { formatMetricValue, getMetricColumnLabel, getRateClassName } from "../utils/stockMetrics";
 import { rowLayoutTransition } from "../utils/rowLayoutTransition";
 import StockLogo from "./StockLogo";
 import StocksSortTabs from "./StocksSortTabs";
@@ -30,6 +30,22 @@ function MobileSkeletonRow() {
   );
 }
 
+function getMetricLabel(metric: StockRankingMetric) {
+  if (metric === "TURNOVER") {
+    return "거래대금";
+  }
+
+  if (metric === "VOLUME") {
+    return "거래량";
+  }
+
+  if (metric === "RETURN") {
+    return "등락률";
+  }
+
+  return getMetricColumnLabel(metric);
+}
+
 export default function StocksMobileList({
   items,
   activeMetric,
@@ -40,6 +56,9 @@ export default function StocksMobileList({
   isFetchingNextPage,
   pageSize,
 }: Props) {
+  const metricColumnLabel = getMetricLabel(activeMetric);
+  const shouldShowMetricColumn = activeMetric === "TURNOVER" || activeMetric === "VOLUME" || activeMetric === "DIVIDEND";
+
   return (
     <div className="flex flex-col gap-6 lg:hidden">
       <div className="overflow-hidden rounded-xl bg-[color:var(--color-bg-primary)] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
@@ -61,29 +80,44 @@ export default function StocksMobileList({
                   <div className="flex items-center justify-between gap-4 px-2 py-1">
                     <Link
                       href={`/stocks/${item.id}`}
-                      className="flex min-w-0 flex-1 items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
+                      className="flex min-w-0 flex-1 items-center justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-interactive-primary)]"
                     >
-                      <div className="typo-body-md min-w-4 text-center font-black text-[color:var(--color-text-tertiary)]">{item.rank}</div>
-
                       <div className="flex min-w-0 flex-1 items-center gap-4">
-                        <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
+                        <div className="typo-body-md min-w-4 text-center font-black text-[color:var(--color-text-tertiary)]">
+                          {item.rank}
+                        </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="typo-body-sm truncate font-semibold text-[color:var(--color-text-primary)]">{item.name}</div>
-                          <div className="mt-1 flex items-center gap-1">
-                            <div className="typo-body-sm font-extrabold text-[color:var(--color-text-primary)]">
-                              {formatPrice(item.price)}
+                        <div className="flex min-w-0 flex-1 items-center gap-4">
+                          <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="typo-body-sm truncate font-semibold text-[color:var(--color-text-primary)]">
+                              {item.name}
                             </div>
-                            <ValueChangeRateText
-                              value={item.fluctuationRate}
-                              padding="x-none"
-                              className={`typo-body-xs font-semibold ${getRateClassName(item.fluctuationRate)}`}
-                            >
-                              {formatMetricValue(item, "RETURN")}
-                            </ValueChangeRateText>
+                            <div className="mt-1 flex items-center gap-1">
+                              <div className="typo-body-sm font-extrabold text-[color:var(--color-text-primary)]">
+                                {formatPrice(item.price)}
+                              </div>
+                              <ValueChangeRateText
+                                value={item.fluctuationRate}
+                                padding="x-none"
+                                className={`typo-body-xs font-semibold ${getRateClassName(item.fluctuationRate)}`}
+                              >
+                                {formatMetricValue(item, "RETURN")}
+                              </ValueChangeRateText>
+                            </div>
                           </div>
                         </div>
                       </div>
+
+                      {shouldShowMetricColumn ? (
+                        <div className="flex min-w-[76px] shrink-0 flex-col items-end">
+                          <div className="typo-body-xs text-[color:var(--color-text-tertiary)]">{metricColumnLabel}</div>
+                          <div className="typo-body-sm whitespace-nowrap font-extrabold text-[color:var(--color-text-primary)]">
+                            {formatMetricValue(item, activeMetric)}
+                          </div>
+                        </div>
+                      ) : null}
                     </Link>
 
                     <div className="flex items-center">

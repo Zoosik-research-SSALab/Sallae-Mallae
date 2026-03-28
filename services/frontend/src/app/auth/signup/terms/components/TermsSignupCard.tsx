@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import PolicyDetailModal from "@/app/auth/signup/components/PolicyDetailModal";
-import { getPolicyKindByTermsId } from "@/app/auth/signup/components/policyTerms";
+import { getPolicyKindForTermsItem } from "@/app/auth/signup/components/policyTerms";
 import RequiredTermsSection from "@/app/auth/signup/components/RequiredTermsSection";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { completeSocialSignup } from "@/shared/lib/authApi";
@@ -96,10 +96,10 @@ export default function TermsSignupCard({
   const allTerms = [...requiredTerms, ...optionalTerms];
   const allRequiredChecked = requiredTerms.every((item) => agreements[item.termsId]);
 
-  const optionalTermsWithNoPolicy = optionalTerms.filter((item) => !getPolicyKindByTermsId(item.termsId));
+  const optionalTermsWithNoPolicy = optionalTerms.filter((item) => !getPolicyKindForTermsItem(item));
 
   const handleOpenRequiredTerm = (term: TermsAgreementItem) => {
-    const policyKind = getPolicyKindByTermsId(term.termsId);
+    const policyKind = getPolicyKindForTermsItem(term);
 
     if (!policyKind) {
       setAgreements((current) => ({
@@ -113,7 +113,7 @@ export default function TermsSignupCard({
     setActivePolicyKind(policyKind);
   };
 
-  const handleAgreePolicy = () => {
+  const handleAgreePolicy = useCallback(() => {
     if (activeTermsId === null) {
       return;
     }
@@ -124,12 +124,12 @@ export default function TermsSignupCard({
     }));
     setActivePolicyKind(null);
     setActiveTermsId(null);
-  };
+  }, [activeTermsId]);
 
-  const handleClosePolicyModal = () => {
+  const handleClosePolicyModal = useCallback(() => {
     setActivePolicyKind(null);
     setActiveTermsId(null);
-  };
+  }, []);
 
   const handleCancel = () => {
     if (onClose) {

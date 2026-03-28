@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import PolicyDetailModal from "@/app/auth/signup/components/PolicyDetailModal";
-import { getPolicyKindByTermsId, REQUIRED_SIGNUP_TERMS } from "@/app/auth/signup/components/policyTerms";
+import { getPolicyKindForTermsItem, REQUIRED_SIGNUP_TERMS } from "@/app/auth/signup/components/policyTerms";
 import RequiredTermsSection from "@/app/auth/signup/components/RequiredTermsSection";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { checkEmailAvailability, sendEmailCode, signupWithEmail, verifyEmailCode } from "@/shared/lib/authApi";
@@ -134,17 +134,17 @@ export default function SignupCard({ showCloseButton = false, onClose, onAuthent
     }
   };
 
-  const handleOpenRequiredTerm = (termsId: number) => {
-    const policyKind = getPolicyKindByTermsId(termsId);
+  const handleOpenRequiredTerm = (term: (typeof REQUIRED_SIGNUP_TERMS)[number]) => {
+    const policyKind = getPolicyKindForTermsItem(term);
     if (!policyKind) {
       return;
     }
 
-    setActiveTermsId(termsId);
+    setActiveTermsId(term.termsId);
     setActivePolicyKind(policyKind);
   };
 
-  const handleAgreePolicy = () => {
+  const handleAgreePolicy = useCallback(() => {
     if (activeTermsId === null) {
       return;
     }
@@ -155,12 +155,12 @@ export default function SignupCard({ showCloseButton = false, onClose, onAuthent
     }));
     setActiveTermsId(null);
     setActivePolicyKind(null);
-  };
+  }, [activeTermsId]);
 
-  const handleClosePolicyModal = () => {
+  const handleClosePolicyModal = useCallback(() => {
     setActiveTermsId(null);
     setActivePolicyKind(null);
-  };
+  }, []);
 
   const handleRequestCode = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -511,7 +511,7 @@ export default function SignupCard({ showCloseButton = false, onClose, onAuthent
               <RequiredTermsSection
                 items={REQUIRED_SIGNUP_TERMS}
                 agreements={agreements}
-                onOpenTerm={(term) => handleOpenRequiredTerm(term.termsId)}
+                onOpenTerm={handleOpenRequiredTerm}
               />
 
               <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--color-border-primary)] px-4 py-3">

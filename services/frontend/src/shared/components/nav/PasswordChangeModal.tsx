@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { validatePasswordConfirmation, validatePasswordPolicy } from "@/shared/lib/passwordValidation";
 import Input from "@/shared/ui/Input";
+import CloseIcon from "@/shared/ui/CloseIcon";
 import PasswordValidationStatusIcon from "@/shared/ui/PasswordValidationStatusIcon";
 
 type PasswordChangePayload = {
@@ -20,15 +21,9 @@ type Props = {
 
 const formInputClassName =
   "typo-body-md !rounded-lg !border-[color:var(--color-border-secondary)] !bg-[color:var(--color-bg-secondary)] !px-4 !py-4 text-[color:var(--color-text-primary)] placeholder:text-[color:var(--color-text-tertiary)] focus-visible:!border-[color:var(--color-border-interactive-primary)] focus-visible:!ring-[color:var(--color-bg-interactive-primary)]/10";
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden>
-      <path d="M7 7 17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M17 7 7 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
+const requiredNewPasswordMessage = "새 비밀번호를 입력해 주세요.";
+const requiredNewPasswordConfirmMessage = "새 비밀번호 확인을 입력해 주세요.";
+const newPasswordMismatchMessage = "새 비밀번호와 확인 비밀번호가 일치하지 않습니다.";
 
 export default function PasswordChangeModal({ open, email, onClose, onSave }: Props) {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -37,6 +32,11 @@ export default function PasswordChangeModal({ open, email, onClose, onSave }: Pr
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) {
@@ -61,7 +61,7 @@ export default function PasswordChangeModal({ open, email, onClose, onSave }: Pr
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
       }
     };
 
@@ -71,23 +71,24 @@ export default function PasswordChangeModal({ open, email, onClose, onSave }: Pr
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
+  }, [open]);
 
   const newPasswordError = useMemo(
     () =>
       submitAttempted || newPassword.length > 0
         ? validatePasswordPolicy(newPassword, email, {
-            requiredMessage: "새 비밀번호를 입력해 주세요.",
+            requiredMessage: requiredNewPasswordMessage,
           })
         : null,
     [email, newPassword, submitAttempted],
   );
+
   const newPasswordConfirmError = useMemo(
     () =>
       submitAttempted || newPasswordConfirm.length > 0
         ? validatePasswordConfirmation(newPassword, newPasswordConfirm, {
-            requiredMessage: "새 비밀번호 확인을 입력해 주세요.",
-            mismatchMessage: "새 비밀번호와 확인 비밀번호가 일치하지 않습니다.",
+            requiredMessage: requiredNewPasswordConfirmMessage,
+            mismatchMessage: newPasswordMismatchMessage,
           })
         : null,
     [newPassword, newPasswordConfirm, submitAttempted],
@@ -97,39 +98,17 @@ export default function PasswordChangeModal({ open, email, onClose, onSave }: Pr
     return null;
   }
 
-  const canSubmit =
-    !isSaving &&
-    currentPassword.length > 0 &&
-    !validatePasswordPolicy(newPassword, email, {
-      requiredMessage: "새 비밀번호를 입력해 주세요.",
-    }) &&
-    !validatePasswordConfirmation(newPassword, newPasswordConfirm, {
-      requiredMessage: "새 비밀번호 확인을 입력해 주세요.",
-      mismatchMessage: "새 비밀번호와 확인 비밀번호가 일치하지 않습니다.",
-    });
-
+  const canSubmit = !isSaving && currentPassword.length > 0 && !newPasswordError && !newPasswordConfirmError;
   const helperTextClassName = "mt-2 text-xs leading-4 font-medium";
   const showNewPasswordStatus = submitAttempted || newPassword.length > 0;
   const showNewPasswordConfirmStatus = submitAttempted || newPasswordConfirm.length > 0;
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitAttempted(true);
     setSubmissionError(null);
 
-    const hasError =
-      currentPassword.length === 0 ||
-      Boolean(
-        validatePasswordPolicy(newPassword, email, {
-          requiredMessage: "새 비밀번호를 입력해 주세요.",
-        }),
-      ) ||
-      Boolean(
-        validatePasswordConfirmation(newPassword, newPasswordConfirm, {
-          requiredMessage: "새 비밀번호 확인을 입력해 주세요.",
-          mismatchMessage: "새 비밀번호와 확인 비밀번호가 일치하지 않습니다.",
-        }),
-      );
+    const hasError = currentPassword.length === 0 || Boolean(newPasswordError) || Boolean(newPasswordConfirmError);
 
     if (hasError || isSaving) {
       return;
@@ -170,7 +149,9 @@ export default function PasswordChangeModal({ open, email, onClose, onSave }: Pr
 
         <form className="flex flex-col gap-8" onSubmit={handleSubmit}>
           <div className="flex justify-center">
-            <h2 className="text-center text-2xl leading-7 font-extrabold text-[color:var(--color-text-primary)]">비밀번호 변경</h2>
+            <h2 className="text-center text-2xl leading-7 font-extrabold text-[color:var(--color-text-primary)]">
+              비밀번호 변경
+            </h2>
           </div>
 
           <div className="flex flex-col gap-5">
@@ -184,7 +165,7 @@ export default function PasswordChangeModal({ open, email, onClose, onSave }: Pr
                   type="password"
                   value={currentPassword}
                   onChange={(event) => setCurrentPassword(event.target.value)}
-                  placeholder="현재 비밀번호를 입력해 주세요"
+                  placeholder="현재 비밀번호를 입력해 주세요."
                   autoComplete="current-password"
                   className={formInputClassName}
                 />
@@ -201,7 +182,7 @@ export default function PasswordChangeModal({ open, email, onClose, onSave }: Pr
                   type="password"
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
-                  placeholder="새 비밀번호를 입력해 주세요"
+                  placeholder="새 비밀번호를 입력해 주세요."
                   autoComplete="new-password"
                   className={`${formInputClassName} pr-12`}
                 />
@@ -230,7 +211,7 @@ export default function PasswordChangeModal({ open, email, onClose, onSave }: Pr
                   type="password"
                   value={newPasswordConfirm}
                   onChange={(event) => setNewPasswordConfirm(event.target.value)}
-                  placeholder="새 비밀번호를 다시 입력해 주세요"
+                  placeholder="새 비밀번호를 다시 입력해 주세요."
                   autoComplete="new-password"
                   className={`${formInputClassName} pr-12`}
                 />

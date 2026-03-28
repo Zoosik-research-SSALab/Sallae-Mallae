@@ -21,6 +21,11 @@ export type ChangeUserPasswordRequest = {
   newPassword: string;
 };
 
+type ProfileUpdateSuccessPayload = AuthUser | { message: string };
+type PasswordChangeSuccessPayload = {
+  message?: string;
+};
+
 function isUserProfileApiEnvelope<T>(value: unknown): value is UserProfileApiEnvelope<T> {
   return typeof value === "object" && value !== null && "success" in value && "data" in value;
 }
@@ -30,7 +35,7 @@ function isSuccessfulProfileMessage(value: unknown): value is { message: string 
 }
 
 export async function updateUserProfile(body: UpdateUserProfileRequest) {
-  const payload = await authApiFetch<AuthUser | UserProfileApiEnvelope<AuthUser>, UpdateUserProfileRequest>(
+  const payload = await authApiFetch<ProfileUpdateSuccessPayload | UserProfileApiEnvelope<ProfileUpdateSuccessPayload>, UpdateUserProfileRequest>(
     "/api/users/profile",
     {
       method: "PATCH",
@@ -56,7 +61,10 @@ export async function updateUserProfile(body: UpdateUserProfileRequest) {
 }
 
 export async function changeUserPassword(body: ChangeUserPasswordRequest) {
-  const payload = await authApiFetch<unknown | UserProfileApiEnvelope<unknown>, ChangeUserPasswordRequest>(
+  const payload = await authApiFetch<
+    PasswordChangeSuccessPayload | UserProfileApiEnvelope<PasswordChangeSuccessPayload>,
+    ChangeUserPasswordRequest
+  >(
     "/api/users/profile/password",
     {
       method: "PUT",

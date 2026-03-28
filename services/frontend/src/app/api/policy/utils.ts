@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { PolicyDetail, PolicyKind } from "@/shared/types/policy";
+import { getConfiguredApiBaseUrl } from "@/shared/lib/apiBaseUrl";
 
 function isEnabled(rawValue: string | undefined) {
   const value = rawValue?.trim().toLowerCase();
@@ -40,8 +41,7 @@ function joinApiUrl(baseUrl: string, path: string) {
 }
 
 function getApiBaseUrl() {
-  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "https://j14d208.p.ssafy.io";
-  return normalizeBaseUrl(configured);
+  return normalizeBaseUrl(getConfiguredApiBaseUrl());
 }
 
 export function shouldUseMockPolicyApi() {
