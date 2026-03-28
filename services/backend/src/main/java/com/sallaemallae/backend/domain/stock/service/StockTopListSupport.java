@@ -99,7 +99,7 @@ final class StockTopListSupport {
     }
 
     return Comparator
-        .comparing(StockTopListCandidate::fluctuationMagnitude, Comparator.reverseOrder())
+        .comparing(StockTopListCandidate::fluctuationRate, Comparator.nullsLast(Comparator.reverseOrder()))
         .thenComparingInt(StockTopListCandidate::sourceRank);
   }
 
