@@ -8,6 +8,7 @@ import {
   PROFILE_IMAGE_ACCEPT,
   validateProfileImageFile,
 } from "@/shared/lib/userProfileApi";
+import { resolveProfileImageUrl } from "@/shared/lib/profileImage";
 
 type ProfileEditSavePayload = {
   nickname: string;
@@ -106,7 +107,7 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
   }
 
   const trimmedNickname = draftNickname.trim();
-  const displayProfileSrc = selectedProfileImagePreviewUrl ?? profileImageUrl ?? "/images/profile-placeholder.svg";
+  const displayProfileSrc = selectedProfileImagePreviewUrl ?? resolveProfileImageUrl(profileImageUrl);
   const isLocalProfileImage = displayProfileSrc.startsWith("/");
 
   const handleProfileImageSelect = (event: ChangeEvent<HTMLInputElement>) => {
@@ -131,7 +132,7 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
   };
 
   const handleSave = async () => {
-    if (!trimmedNickname || isSaving || profileImageError) {
+    if (!trimmedNickname || isSaving || (selectedProfileImageFile && profileImageError)) {
       return;
     }
 
@@ -262,7 +263,7 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
             <button
               type="button"
               onClick={() => void handleSave()}
-              disabled={!trimmedNickname || isSaving || Boolean(profileImageError)}
+              disabled={!trimmedNickname || isSaving || Boolean(selectedProfileImageFile && profileImageError)}
               className="inline-flex min-h-14 flex-1 items-center justify-center rounded-lg bg-[color:var(--color-bg-inverse-bolder)] px-4 py-4 text-base leading-6 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? "저장 중..." : "저장하기"}

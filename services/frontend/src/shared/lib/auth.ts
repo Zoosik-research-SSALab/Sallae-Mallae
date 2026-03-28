@@ -1,4 +1,5 @@
 import { ApiError } from "@/shared/lib/apiClient";
+import { resolveProfileImageUrl } from "@/shared/lib/profileImage";
 import type {
   AuthProvider,
   AuthSessionUser,
@@ -93,7 +94,7 @@ export function extractAuthUser(value: unknown): AuthUser | null {
     userId,
     email,
     nickname,
-    profileImageUrl,
+    profileImageUrl: resolveProfileImageUrl(profileImageUrl),
     provider,
     role,
     lastLoginAt,

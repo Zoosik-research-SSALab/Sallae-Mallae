@@ -1,4 +1,5 @@
-﻿import Image from "next/image";
+import Image from "next/image";
+import { DEFAULT_PROFILE_IMAGE_URL } from "@/shared/lib/profileImage";
 
 type ProfileAvatarProps = {
   src?: string;
@@ -6,7 +7,7 @@ type ProfileAvatarProps = {
 };
 
 export default function ProfileAvatar({
-  src = "/images/profile-placeholder.svg",
+  src = DEFAULT_PROFILE_IMAGE_URL,
   alt = "Profile image",
 }: ProfileAvatarProps) {
   return (

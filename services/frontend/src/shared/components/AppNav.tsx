@@ -23,6 +23,7 @@ import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
 import { useAuthModalStore } from "@/shared/lib/authModalStore";
 import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
+import { resolveProfileImageUrl } from "@/shared/lib/profileImage";
 import { clearSessionUser } from "@/shared/lib/authSession";
 import { useAuthStore } from "@/shared/lib/authStore";
 import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
@@ -91,7 +92,7 @@ export default function AppNav() {
   const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
   const isAuthReady = authStatus !== "restoring";
   const isLoggedIn = Boolean(currentUser);
-  const profileImageUrl = currentUser?.profileImageUrl ?? "/images/profile-placeholder.svg";
+  const profileImageUrl = resolveProfileImageUrl(currentUser?.profileImageUrl);
   const isLocalProfileImage = profileImageUrl.startsWith("/");
   const displayNickname = currentUser?.nickname ?? "성공하는투자자";
 
