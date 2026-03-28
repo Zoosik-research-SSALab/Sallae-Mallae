@@ -14,17 +14,28 @@ export default function ChairmanAnalysisSection({ report }: ChairmanAnalysisSect
 
   return (
     <section className="flex w-full flex-col items-center">
-      <div className="flex w-full items-center justify-center bg-[color:var(--color-bg-inverse-bolder)] px-4 py-8 md:py-10">
-        <div className="flex w-full max-w-[1024px] flex-col items-center gap-6 md:flex-row md:items-center md:gap-12">
-          <div className="flex shrink-0 items-end justify-center md:h-[320px] md:w-[260px]">
+      <div className="relative flex min-h-[280px] w-full items-center justify-center overflow-hidden bg-[color:var(--color-bg-inverse-bolder)] px-6 py-8 md:px-4 md:py-10">
+        {/* Mobile only: 배경 이미지 (반투명, 우측 하단) */}
+        <div className="absolute inset-0 overflow-hidden md:invisible md:pointer-events-none">
+          <img
+            src="/images/reports/debate/judge_result.png"
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-6 bottom-0 h-[260px] w-auto object-contain opacity-50"
+          />
+        </div>
+
+        <div className="relative z-10 flex w-full max-w-[1024px] flex-col gap-7 md:flex-row md:items-center md:gap-12">
+          {/* Desktop: 이미지 */}
+          <div className="hidden shrink-0 items-end justify-center md:flex md:h-[320px] md:w-[260px]">
             <img
               src="/images/reports/debate/judge_result.png"
               alt="의장 AI"
-              className="h-[160px] w-auto object-contain md:h-[296px] md:w-[259px]"
+              className="h-[296px] w-[259px] object-contain"
             />
           </div>
 
-          <div className="flex flex-1 flex-col gap-4">
+          <div className="flex flex-1 flex-col gap-7">
             <div className="flex flex-col gap-0.5">
               <h2 className="heading-reset typo-heading-md text-[color:var(--color-text-base)]">
                 의장 AI 최종 분석
