@@ -1,13 +1,13 @@
 package com.sallaemallae.backend.domain.notification.service;
 
 import com.sallaemallae.backend.domain.notification.enumtype.NotifyType;
-import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import com.sallaemallae.backend.global.email.EmailService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 @Slf4j
 @Service
@@ -15,8 +15,10 @@ import org.springframework.stereotype.Service;
 public class NotificationEmailService {
 
   private static final String SUBJECT_PREFIX = "[살래말래] ";
+  private static final int BATCH_SIZE = 50;
+  private static final long BATCH_DELAY_MS = 100;
+  private static final int WARN_THRESHOLD = 500;
 
-  private final WatchlistRepository watchlistRepository;
   private final EmailService emailService;
 
   /**
@@ -26,22 +28,41 @@ public class NotificationEmailService {
    * 이메일 발송 실패는 알림 생성에 영향을 주지 않는다.</p>
    */
   @Async
-  public void sendNotificationEmails(Long stockId, NotifyType notiType,
+  public void sendNotificationEmails(List<String> emails, NotifyType notiType,
       String title, String message, String relatedLink) {
 
-    List<String> emails = watchlistRepository.findEmailOptInUserEmailsByStockId(stockId);
     if (emails.isEmpty()) {
       return;
+    }
+
+    if (emails.size() > WARN_THRESHOLD) {
+      log.warn("대량 이메일 발송 감지: recipients={}, type={}", emails.size(), notiType);
     }
 
     String subject = SUBJECT_PREFIX + title;
     String htmlContent = buildHtmlContent(notiType, title, message, relatedLink);
 
-    for (String email : emails) {
-      emailService.sendHtmlEmail(email, subject, htmlContent);
+    int totalSent = 0;
+    for (int i = 0; i < emails.size(); i += BATCH_SIZE) {
+      List<String> batch = emails.subList(i, Math.min(i + BATCH_SIZE, emails.size()));
+
+      for (String email : batch) {
+        emailService.sendHtmlEmail(email, subject, htmlContent);
+        totalSent++;
+      }
+
+      if (i + BATCH_SIZE < emails.size()) {
+        try {
+          Thread.sleep(BATCH_DELAY_MS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          log.warn("이메일 배치 발송 중단: sent={}/{}", totalSent, emails.size());
+          return;
+        }
+      }
     }
 
-    log.info("알림 이메일 발송: type={}, stockId={}, recipients={}", notiType, stockId, emails.size());
+    log.info("알림 이메일 발송 완료: type={}, recipients={}", notiType, totalSent);
   }
 
   /**
@@ -56,6 +77,8 @@ public class NotificationEmailService {
 
     String accentColor = getAccentColor(notiType);
     String typeLabel = getTypeLabel(notiType);
+    String safeTitle = HtmlUtils.htmlEscape(title);
+    String safeMessage = HtmlUtils.htmlEscape(message);
 
     StringBuilder html = new StringBuilder();
     html.append("""
@@ -71,12 +94,13 @@ public class NotificationEmailService {
           <tr><td style="padding:32px;">
             <h2 style="margin:0 0 16px;color:#333;font-size:20px;">%s</h2>
             <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">%s</p>
-        """.formatted(accentColor, typeLabel, title, message));
+        """.formatted(accentColor, typeLabel, safeTitle, safeMessage));
 
     if (relatedLink != null && !relatedLink.isBlank()) {
+      String safeLink = HtmlUtils.htmlEscape(relatedLink);
       html.append("""
               <a href="%s" style="display:inline-block;padding:12px 24px;background:%s;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">공시 바로가기</a>
-          """.formatted(relatedLink, accentColor));
+          """.formatted(safeLink, accentColor));
     }
 
     html.append("""

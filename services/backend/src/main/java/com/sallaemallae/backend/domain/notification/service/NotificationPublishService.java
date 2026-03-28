@@ -1,5 +1,6 @@
 package com.sallaemallae.backend.domain.notification.service;
 
+import com.sallaemallae.backend.domain.notification.dto.NotiTargetDto;
 import com.sallaemallae.backend.domain.notification.entity.StockNotification;
 import com.sallaemallae.backend.domain.notification.entity.UserNotification;
 import com.sallaemallae.backend.domain.notification.enumtype.NotifyType;
@@ -38,10 +39,12 @@ public class NotificationPublishService {
   public int publish(Long stockId, NotifyType notiType,
       String title, String message, String relatedLink) {
 
-    List<Long> userIds = watchlistRepository.findNotiEnabledUserIdsByStockId(stockId);
-    if (userIds.isEmpty()) {
+    List<NotiTargetDto> targets = watchlistRepository.findNotiTargetsByStockId(stockId);
+    if (targets.isEmpty()) {
       return 0;
     }
+
+    List<Long> userIds = targets.stream().map(NotiTargetDto::userId).toList();
 
     StockNotification stockNoti = StockNotification.create(
         stockId, notiType, title, message, relatedLink
@@ -63,7 +66,13 @@ public class NotificationPublishService {
     }
 
     // 이메일 알림 (비동기 — 발송 실패가 알림 생성에 영향 없음)
-    notificationEmailService.sendNotificationEmails(stockId, notiType, title, message, relatedLink);
+    List<String> emailTargets = targets.stream()
+        .filter(NotiTargetDto::emailOptIn)
+        .map(NotiTargetDto::email)
+        .toList();
+    if (!emailTargets.isEmpty()) {
+      notificationEmailService.sendNotificationEmails(emailTargets, notiType, title, message, relatedLink);
+    }
 
     log.info("알림 발행: type={}, stockId={}, users={}", notiType, stockId, userIds.size());
     return userIds.size();

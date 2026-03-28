@@ -2,6 +2,7 @@ package com.sallaemallae.backend.domain.user.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sallaemallae.backend.domain.notification.dto.NotiTargetDto;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,15 +47,22 @@ class WatchlistRepositoryEmailTest {
   }
 
   @Test
-  @DisplayName("이메일 수신 동의 + 알림 ON + ACTIVE 유저의 이메일만 반환한다")
-  void findEmailOptInUserEmailsByStockId_returnsOnlyEligible() {
-    List<String> emails = watchlistRepository.findEmailOptInUserEmailsByStockId(801L);
+  @DisplayName("findNotiTargetsByStockId는 알림 ON + ACTIVE 유저 전체를 반환하고 emailOptIn을 구분한다")
+  void findNotiTargetsByStockId_returnsAllNotiEnabledWithEmailOptInFlag() {
+    List<NotiTargetDto> targets = watchlistRepository.findNotiTargetsByStockId(801L);
 
-    assertThat(emails).containsExactly("opted-in@test.com");
+    assertThat(targets).hasSize(2); // user1(notiOn+emailOptIn), user2(notiOn+emailOptOut) — user3 notiOff 제외
+    assertThat(targets).extracting(NotiTargetDto::userId).containsExactlyInAnyOrder(901L, 902L);
+
+    List<String> emailOptInEmails = targets.stream()
+        .filter(NotiTargetDto::emailOptIn)
+        .map(NotiTargetDto::email)
+        .toList();
+    assertThat(emailOptInEmails).containsExactly("opted-in@test.com");
   }
 
   private void seedData() {
-    // 유저 3명: emailOptIn=true/notiEnabled=true, emailOptIn=false, emailOptIn=true/notiEnabled=false
+    // 유저 3명: emailOptIn=true/notiEnabled=true, emailOptIn=false/notiEnabled=true, emailOptIn=true/notiEnabled=false
     jdbcTemplate.update("""
         INSERT INTO users (id, email, nickname, is_email_opt_in, is_noti_enabled, status, admin, token_version, created_at, updated_at)
         VALUES (901, 'opted-in@test.com', 'user1', true, true, 'ACTIVE', false, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)

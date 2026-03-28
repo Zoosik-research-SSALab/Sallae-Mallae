@@ -1,11 +1,12 @@
 package com.sallaemallae.backend.domain.notification.service;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.sallaemallae.backend.domain.notification.dto.NotiTargetDto;
 import com.sallaemallae.backend.domain.notification.entity.StockNotification;
 import com.sallaemallae.backend.domain.notification.enumtype.NotifyType;
 import com.sallaemallae.backend.domain.notification.repository.NotificationQueryRepository;
@@ -40,10 +41,39 @@ class NotificationPublishServiceTest {
   private NotificationPublishService notificationPublishService;
 
   @Test
-  @DisplayName("publish 시 이메일 발송 서비스가 호출된다")
-  void publish_triggersEmailNotification() {
-    given(watchlistRepository.findNotiEnabledUserIdsByStockId(1L))
-        .willReturn(List.of(100L));
+  @DisplayName("publish 시 이메일 수신 동의 유저에게만 이메일 발송 서비스가 호출된다")
+  void publish_triggersEmailNotificationForOptedInUsers() {
+    given(watchlistRepository.findNotiTargetsByStockId(1L))
+        .willReturn(List.of(
+            new NotiTargetDto(100L, "opted-in@test.com", true),
+            new NotiTargetDto(200L, "opted-out@test.com", false)
+        ));
+    given(stockNotificationRepository.save(any(StockNotification.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+    given(notificationQueryRepository.countUnreadNotifications(eq(100L), any()))
+        .willReturn(5L);
+    given(notificationQueryRepository.countUnreadNotifications(eq(200L), any()))
+        .willReturn(3L);
+
+    notificationPublishService.publish(
+        1L, NotifyType.SURGE, "삼성전자 급등 알림",
+        "삼성전자이(가) +5.2% 변동했습니다.", null
+    );
+
+    verify(notificationEmailService).sendNotificationEmails(
+        List.of("opted-in@test.com"),
+        NotifyType.SURGE, "삼성전자 급등 알림",
+        "삼성전자이(가) +5.2% 변동했습니다.", null
+    );
+  }
+
+  @Test
+  @DisplayName("이메일 수신 동의 유저가 없으면 이메일 발송이 호출되지 않는다")
+  void publish_skipsEmailWhenNoOptedInUsers() {
+    given(watchlistRepository.findNotiTargetsByStockId(1L))
+        .willReturn(List.of(
+            new NotiTargetDto(100L, "user@test.com", false)
+        ));
     given(stockNotificationRepository.save(any(StockNotification.class)))
         .willAnswer(invocation -> invocation.getArgument(0));
     given(notificationQueryRepository.countUnreadNotifications(eq(100L), any()))
@@ -54,9 +84,8 @@ class NotificationPublishServiceTest {
         "삼성전자이(가) +5.2% 변동했습니다.", null
     );
 
-    verify(notificationEmailService).sendNotificationEmails(
-        1L, NotifyType.SURGE, "삼성전자 급등 알림",
-        "삼성전자이(가) +5.2% 변동했습니다.", null
+    verify(notificationEmailService, never()).sendNotificationEmails(
+        any(), any(), any(), any(), any()
     );
   }
 }
