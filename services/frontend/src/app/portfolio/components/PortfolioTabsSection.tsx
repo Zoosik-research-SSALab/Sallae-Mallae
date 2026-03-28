@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
+import HoldingsSortDropdown, { type HoldingsSortType } from "./HoldingsSortDropdown";
 import type {
   PortfolioBoardTab,
   PortfolioHolding,
@@ -18,16 +19,14 @@ import {
   getTradeActionLabel,
 } from "../utils/portfolioFormatters";
 import StockLogo from "@/app/stocks/components/StockLogo";
-import { cn } from "@/shared/utils/cn";
 import Pagination from "@/shared/ui/Pagination";
+import { cn } from "@/shared/utils/cn";
 
 type Props = {
   holdings: PortfolioHolding[];
   todayTrades: PortfolioTodayTrade[];
   monthlyReturns: PortfolioMonthlyReturn[];
 };
-
-type HoldingsSortType = "holdingQuantityDesc" | "returnRateDesc";
 
 const tabs: Array<{ id: PortfolioBoardTab; label: string }> = [
   { id: "holdings", label: "현재 보유 종목" },
@@ -36,8 +35,8 @@ const tabs: Array<{ id: PortfolioBoardTab; label: string }> = [
 ];
 
 const holdingsSortOptions: Array<{ id: HoldingsSortType; label: string }> = [
-  { id: "holdingQuantityDesc", label: "보유 수량 내림차순" },
   { id: "returnRateDesc", label: "수익률 내림차순" },
+  { id: "holdingQuantityDesc", label: "보유 수량 내림차순" },
 ];
 
 const holdingsPageSize = 6;
@@ -162,13 +161,12 @@ function TradeRows({ items }: { items: PortfolioTodayTrade[] }) {
                 {getTradeActionLabel(item.action)}
               </span>
             </div>
-            <p className="typo-body-xs mt-1 text-[color:var(--color-text-tertiary)]">{item.ticker}</p>
           </div>
           <div className="text-right">
-            <span className="block text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">
+            <span className="mr-2 inline-flex items-center text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">
               {item.action === "SELL" ? "매도가" : "매수가"}
             </span>
-            <span className="block text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">
+            <span className="inline text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">
               {formatCurrency(item.executedPrice)}
             </span>
             {item.action === "SELL" ? (
@@ -271,6 +269,12 @@ function MobileTradeCards({ items }: { items: PortfolioTodayTrade[] }) {
                   ? "매매 수량 정보 없음"
                   : `매매 수량 ${formatInteger(getDisplayedTradeQuantity(item))}개`}
               </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">현재가</span>
+                <span className="text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
+                  {formatCurrency(item.currentPrice)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -292,12 +296,6 @@ function MobileTradeCards({ items }: { items: PortfolioTodayTrade[] }) {
               </span>
             </div>
           ) : null}
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">현재가</span>
-            <span className="text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
-              {formatCurrency(item.currentPrice)}
-            </span>
-          </div>
           <div className="flex items-center justify-end gap-2">
             <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">성과</span>
             <span className={cn("text-sm font-semibold leading-5", getDeltaTextClassName(item.returnRate))}>
@@ -326,8 +324,11 @@ function MonthlyReturnBoard({ items }: { items: PortfolioMonthlyReturn[] }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {items.map((item) => {
-        const portfolioReturnRate = item.portfolioReturnRate ?? 0;
-        const barWidth = Math.min(100, Math.max(12, (Math.abs(portfolioReturnRate) / maxRateMagnitude) * 100));
+        const portfolioReturnRate = item.portfolioReturnRate;
+        const hasVisibleRate = typeof portfolioReturnRate === "number" && Math.abs(portfolioReturnRate) > 0;
+        const barWidth = hasVisibleRate
+          ? Math.min(100, Math.max(12, (Math.abs(portfolioReturnRate) / maxRateMagnitude) * 100))
+          : 0;
 
         return (
           <article
@@ -443,20 +444,10 @@ export default function PortfolioTabsSection({ holdings, todayTrades, monthlyRet
         </div>
 
         {activeTab === "holdings" ? (
-          <label className="flex shrink-0 items-center gap-2 self-end pb-3 md:self-auto">
+          <div className="flex shrink-0 items-center gap-2 self-end pb-3 md:self-auto">
             <span className="sr-only">현재 보유 종목 정렬</span>
-            <select
-              value={holdingsSort}
-              onChange={(event) => handleHoldingsSortChange(event.target.value as HoldingsSortType)}
-              className="min-w-[180px] rounded-lg border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-3 py-2 text-xs font-semibold text-[color:var(--color-text-primary)] outline-none transition-colors hover:border-[color:var(--color-border-base)] focus:border-[color:var(--color-border-base)] md:text-sm"
-            >
-              {holdingsSortOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <HoldingsSortDropdown value={holdingsSort} options={holdingsSortOptions} onChange={handleHoldingsSortChange} />
+          </div>
         ) : null}
       </div>
 

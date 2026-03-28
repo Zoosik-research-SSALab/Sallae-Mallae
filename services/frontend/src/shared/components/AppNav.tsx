@@ -23,10 +23,11 @@ import { getAuthErrorMessage } from "@/shared/lib/auth";
 import { logoutFromApp } from "@/shared/lib/authApi";
 import { useAuthModalStore } from "@/shared/lib/authModalStore";
 import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
+import { resolveProfileImageUrl } from "@/shared/lib/profileImage";
 import { clearSessionUser } from "@/shared/lib/authSession";
 import { useAuthStore } from "@/shared/lib/authStore";
 import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
-import { changeUserPassword, updateUserProfile } from "@/shared/lib/userProfileApi";
+import { changeUserPassword, updateUserProfile, uploadProfileImage } from "@/shared/lib/userProfileApi";
 import SearchModal from "@/shared/ui/SearchModal";
 
 type NavItem = {
@@ -91,7 +92,7 @@ export default function AppNav() {
   const logoSrc = isHydrated && resolvedTheme === "dark" ? "/images/logoDark.png" : "/images/logoLight.png";
   const isAuthReady = authStatus !== "restoring";
   const isLoggedIn = Boolean(currentUser);
-  const profileImageUrl = currentUser?.profileImageUrl ?? "/images/profile-placeholder.svg";
+  const profileImageUrl = resolveProfileImageUrl(currentUser?.profileImageUrl);
   const isLocalProfileImage = profileImageUrl.startsWith("/");
   const displayNickname = currentUser?.nickname ?? "성공하는투자자";
 
@@ -255,10 +256,12 @@ export default function AppNav() {
     setIsProfileEditModalOpen(true);
   };
 
-  const handleSaveProfile = async (nickname: string) => {
+  const handleSaveProfile = async (payload: { nickname: string; profileImageFile: File | null }) => {
     try {
+      const profileImageUrl = payload.profileImageFile ? await uploadProfileImage(payload.profileImageFile) : undefined;
       const user = await updateUserProfile({
-        nickname,
+        nickname: payload.nickname,
+        ...(profileImageUrl ? { profileImageUrl } : {}),
       });
 
       setUser(user);
@@ -411,7 +414,7 @@ export default function AppNav() {
                   >
                     <HiOutlineBell className="h-6 w-6" />
                     {unreadCount > 0 ? (
-                      <span className="absolute right-0 top-0 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--color-bg-danger-bold)] px-1 text-[10px] leading-none text-[color:var(--color-text-interactive-inverse)]">
+                      <span className="absolute right-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--color-bg-danger-bold)] px-1 text-[10px] leading-none text-[color:var(--color-text-interactive-inverse)]">
                         {displayCount}
                       </span>
                     ) : null}

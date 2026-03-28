@@ -81,7 +81,7 @@ export default function PortfolioHero({ hero }: Props) {
                 <p
                   className={cn(
                     "text-[24px] leading-7 font-extrabold md:text-[32px] md:leading-9",
-                    metric.id === "yesterday_return"
+                    metric.id === "yesterday_return" || metric.id === "hit-rate"
                       ? getDeltaTextClassName(metric.value)
                       : metric.tone === "danger"
                         ? "text-[color:var(--color-text-danger)]"

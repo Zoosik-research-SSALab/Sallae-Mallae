@@ -17,5 +17,6 @@ export function useNewsWatchlistQuery(params: Params, options: Options = {}) {
     enabled: options.enabled,
     staleTime: 60_000,
     refetchInterval: 60_000,
+    placeholderData: (previousData) => previousData,
   });
 }

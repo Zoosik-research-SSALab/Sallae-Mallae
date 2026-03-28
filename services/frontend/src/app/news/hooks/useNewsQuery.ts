@@ -14,5 +14,6 @@ export function useNewsQuery(params: NewsQueryParams, options: Options = {}) {
     queryFn: () => getNews(params),
     enabled: options.enabled,
     staleTime: 60_000,
+    placeholderData: (previousData) => previousData,
   });
 }

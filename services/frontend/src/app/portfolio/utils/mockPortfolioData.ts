@@ -65,6 +65,13 @@ const monthlyReturnsSeed = [
   { month: "2026-03", monthlyReturn: 4.1, realizedProfitAmount: 410000, buyCount: 2, sellCount: 1 },
 ];
 
+const averageMonthlyReturnSeed = Number(
+  (
+    monthlyReturnsSeed.reduce((sum, item) => sum + item.monthlyReturn, 0) /
+    monthlyReturnsSeed.length
+  ).toFixed(1),
+);
+
 function calculateHoldingReturnRate(buyPrice: number, currentPrice: number) {
   return Number((((currentPrice - buyPrice) / buyPrice) * 100).toFixed(2));
 }
@@ -79,7 +86,7 @@ export function getMockPortfolioPage(): PortfolioPageData {
       updatedAtLabel: "오늘 09:00 업데이트 완료",
       metrics: [
         { id: "cumulative-return", label: "누적 수익률", value: 42.5, unit: "%", decimals: 1, tone: "danger" },
-        { id: "hit-rate", label: "평균 월간 수익률", value: 85.2, unit: "%", decimals: 1, tone: "default" },
+        { id: "hit-rate", label: "평균 월간 수익률", value: averageMonthlyReturnSeed, unit: "%", decimals: 1, tone: "default" },
         { id: "yesterday_return", label: "전날 대비 수익률", value: 0.2, unit: "%", decimals: 1, tone: "danger" },
         { id: "holding-count", label: "현재 보유 종목", value: holdingsSeed.length, unit: "개", decimals: 0, tone: "default" },
       ],

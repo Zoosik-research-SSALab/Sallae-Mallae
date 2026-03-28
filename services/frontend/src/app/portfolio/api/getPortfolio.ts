@@ -256,17 +256,32 @@ function normalizeHeroMetricsFromLegacy(value: unknown): PortfolioHeroMetric[] {
   });
 }
 
+function calculateAverageMonthlyReturn(monthlyReturns: PortfolioMonthlyReturn[]) {
+  const validRates = monthlyReturns
+    .map((item) => item.portfolioReturnRate)
+    .filter((value): value is number => value !== null);
+
+  if (validRates.length === 0) {
+    return null;
+  }
+
+  const total = validRates.reduce((sum, value) => sum + value, 0);
+  return Number((total / validRates.length).toFixed(1));
+}
+
 function normalizeHeroMetrics(
   summary: PortfolioSummaryPayload | null | undefined,
   legacyMetrics: unknown,
+  monthlyReturns: PortfolioMonthlyReturn[],
 ): PortfolioHeroMetric[] {
   if (!summary) {
     return normalizeHeroMetricsFromLegacy(legacyMetrics);
   }
 
+  const averageMonthlyReturn = calculateAverageMonthlyReturn(monthlyReturns);
   const metricValueById = new Map<string, number | null>([
     ["cumulative-return", readNumberOrNull(summary.cumulativeReturn)],
-    ["hit-rate", readNumberOrNull(summary.hitRate)],
+    ["hit-rate", averageMonthlyReturn],
     ["yesterday_return", readNumberOrNull(summary.yesterdayReturn)],
     ["holding-count", readNumberOrNull(summary.holdingCount)],
   ]);
@@ -489,6 +504,9 @@ function normalizePortfolioPageData(
       : null;
 
   const holdings = normalizeHoldings(holdingsItems as PortfolioPayload["holdings"]);
+  const monthlyReturns = normalizeMonthlyReturns(
+    monthlyReturnItems as PortfolioPayload["monthlyReturns"],
+  );
   const popularSignals = normalizePopularSignals(candidate.popularSignals);
   const currentPriceByStockId = createCurrentPriceLookup(holdings, popularSignals);
 
@@ -497,16 +515,14 @@ function normalizePortfolioPageData(
       updatedAtLabel:
         formatUpdatedAtLabel(candidate.updatedAt) ||
         readString(hero?.updatedAtLabel, defaultPortfolioPageData.hero.updatedAtLabel),
-      metrics: normalizeHeroMetrics(summary, hero?.metrics),
+      metrics: normalizeHeroMetrics(summary, hero?.metrics, monthlyReturns),
     },
     holdings,
     todayTrades: normalizeTodayTrades(
       todayTradeItems as PortfolioPayload["todayTrades"],
       currentPriceByStockId,
     ),
-    monthlyReturns: normalizeMonthlyReturns(
-      monthlyReturnItems as PortfolioPayload["monthlyReturns"],
-    ),
+    monthlyReturns,
     signalSummary: {
       baseUniverseLabel: defaultPortfolioPageData.signalSummary.baseUniverseLabel,
       buyCount: readNumber(

@@ -16,8 +16,17 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const body = (await request.json().catch(() => null)) as { nickname?: unknown } | null;
+    const body = (await request.json().catch(() => null)) as
+      | {
+          nickname?: unknown;
+          profileImageUrl?: unknown;
+        }
+      | null;
     const nickname = typeof body?.nickname === "string" ? body.nickname.trim() : "";
+    const profileImageUrl =
+      typeof body?.profileImageUrl === "string" && body.profileImageUrl.trim().length > 0
+        ? body.profileImageUrl.trim()
+        : null;
 
     if (!nickname) {
       return NextResponse.json(
@@ -32,6 +41,7 @@ export async function PATCH(request: NextRequest) {
     const updatedUser = {
       ...currentUser,
       nickname,
+      profileImageUrl: profileImageUrl ?? currentUser.profileImageUrl,
     };
 
     const response = NextResponse.json(updatedUser);
