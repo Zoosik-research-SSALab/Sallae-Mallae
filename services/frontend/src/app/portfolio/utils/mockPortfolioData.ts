@@ -79,7 +79,7 @@ export function getMockPortfolioPage(): PortfolioPageData {
       updatedAtLabel: "오늘 09:00 업데이트 완료",
       metrics: [
         { id: "cumulative-return", label: "누적 수익률", value: 42.5, unit: "%", decimals: 1, tone: "danger" },
-        { id: "hit-rate", label: "예측 적중률", value: 85.2, unit: "%", decimals: 1, tone: "default" },
+        { id: "hit-rate", label: "평균 월간 수익률", value: 85.2, unit: "%", decimals: 1, tone: "default" },
         { id: "yesterday_return", label: "전날 대비 수익률", value: 0.2, unit: "%", decimals: 1, tone: "danger" },
         { id: "holding-count", label: "현재 보유 종목", value: holdingsSeed.length, unit: "개", decimals: 0, tone: "default" },
       ],
