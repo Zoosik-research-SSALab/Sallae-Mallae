@@ -1,14 +1,20 @@
 package com.sallaemallae.backend.domain.notification.scheduler;
 
+import com.sallaemallae.backend.domain.notification.dto.EmailSignalTargetDto;
+import com.sallaemallae.backend.domain.notification.dto.SignalChangeInfo;
 import com.sallaemallae.backend.domain.notification.enumtype.NotifyType;
+import com.sallaemallae.backend.domain.notification.service.NotificationEmailService;
 import com.sallaemallae.backend.domain.notification.service.NotificationPublishService;
 import com.sallaemallae.backend.domain.report.entity.AiDebateReport;
 import com.sallaemallae.backend.domain.report.enumtype.AiSignal;
 import com.sallaemallae.backend.domain.report.repository.AiDebateReportRepository;
 import com.sallaemallae.backend.domain.stock.entity.Stock;
 import com.sallaemallae.backend.domain.stock.repository.StockRepository;
+import com.sallaemallae.backend.domain.user.repository.WatchlistRepository;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,10 +33,9 @@ public class TradeSignalAlertScheduler {
   private final AiDebateReportRepository debateReportRepository;
   private final StockRepository stockRepository;
   private final NotificationPublishService notificationPublishService;
+  private final NotificationEmailService notificationEmailService;
+  private final WatchlistRepository watchlistRepository;
 
-  /**
-   * 매일 20:00 KST 실행 — AI 리포트 생성 완료 후 신호 변경 감지.
-   */
   @Scheduled(cron = "0 0 20 * * MON-FRI", zone = "Asia/Seoul")
   public void checkSignalChanges() {
     LocalDate today = LocalDate.now(KST);
@@ -46,7 +51,9 @@ public class TradeSignalAlertScheduler {
         .stream()
         .collect(Collectors.toMap(AiDebateReport::getStockId, AiDebateReport::getChairmanSignal));
 
+    List<SignalChangeInfo> changes = new ArrayList<>();
     int alertCount = 0;
+
     for (AiDebateReport todayReport : todayReports) {
       AiSignal previousSignal = previousSignals.get(todayReport.getStockId());
       AiSignal currentSignal = todayReport.getChairmanSignal();
@@ -73,10 +80,37 @@ public class TradeSignalAlertScheduler {
           stock.getName() + " AI 매매신호가 " + signalText + "로 변경되었습니다.",
           null
       );
+      changes.add(new SignalChangeInfo(stock.getId(), stock.getName(), notiType));
       alertCount++;
     }
 
+    // AI 매매신호 일괄 이메일 발송
+    if (!changes.isEmpty()) {
+      sendDigestEmails(changes);
+    }
+
     log.info("매매신호 변경 알림 완료. date={}, alerts={}", today, alertCount);
+  }
+
+  private void sendDigestEmails(List<SignalChangeInfo> changes) {
+    List<Long> stockIds = changes.stream().map(SignalChangeInfo::stockId).toList();
+    Map<Long, SignalChangeInfo> changeMap = changes.stream()
+        .collect(Collectors.toMap(SignalChangeInfo::stockId, c -> c));
+
+    List<EmailSignalTargetDto> targets = watchlistRepository.findEmailOptInTargetsByStockIds(stockIds);
+    if (targets.isEmpty()) {
+      return;
+    }
+
+    Map<String, List<SignalChangeInfo>> emailToChanges = new HashMap<>();
+    for (EmailSignalTargetDto target : targets) {
+      SignalChangeInfo change = changeMap.get(target.stockId());
+      if (change != null) {
+        emailToChanges.computeIfAbsent(target.email(), k -> new ArrayList<>()).add(change);
+      }
+    }
+
+    notificationEmailService.sendSignalDigestEmails(emailToChanges);
   }
 
   private NotifyType toNotifyType(AiSignal signal) {

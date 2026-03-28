@@ -1,8 +1,10 @@
 package com.sallaemallae.backend.domain.notification.service;
 
+import com.sallaemallae.backend.domain.notification.dto.SignalChangeInfo;
 import com.sallaemallae.backend.domain.notification.enumtype.NotifyType;
 import com.sallaemallae.backend.global.email.EmailService;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -15,18 +17,13 @@ import org.springframework.web.util.HtmlUtils;
 public class NotificationEmailService {
 
   private static final String SUBJECT_PREFIX = "[살래말래] ";
+  private static final String SITE_URL = "https://j14d208.p.ssafy.io";
   private static final int BATCH_SIZE = 50;
   private static final long BATCH_DELAY_MS = 100;
   private static final int WARN_THRESHOLD = 500;
 
   private final EmailService emailService;
 
-  /**
-   * 이메일 수신 동의 유저에게 알림 이메일을 비동기 발송한다.
-   *
-   * <p>NotificationPublishService.publish()에서 호출된다.
-   * 이메일 발송 실패는 알림 생성에 영향을 주지 않는다.</p>
-   */
   @Async
   public void sendNotificationEmails(List<String> emails, NotifyType notiType,
       String title, String message, String relatedLink) {
@@ -42,6 +39,30 @@ public class NotificationEmailService {
     String subject = SUBJECT_PREFIX + title;
     String htmlContent = buildHtmlContent(notiType, title, message, relatedLink);
 
+    sendInBatches(emails, subject, htmlContent, notiType.name());
+  }
+
+  @Async
+  public void sendSignalDigestEmails(Map<String, List<SignalChangeInfo>> emailToChanges) {
+    if (emailToChanges.isEmpty()) {
+      return;
+    }
+
+    String subject = SUBJECT_PREFIX + "오늘의 AI 매매신호 변동 알림";
+    int totalSent = 0;
+
+    for (var entry : emailToChanges.entrySet()) {
+      String email = entry.getKey();
+      List<SignalChangeInfo> changes = entry.getValue();
+      String htmlContent = buildSignalDigestHtml(changes);
+      emailService.sendHtmlEmail(email, subject, htmlContent);
+      totalSent++;
+    }
+
+    log.info("AI 매매신호 일괄 이메일 발송 완료: recipients={}", totalSent);
+  }
+
+  private void sendInBatches(List<String> emails, String subject, String htmlContent, String typeLabel) {
     int totalSent = 0;
     for (int i = 0; i < emails.size(); i += BATCH_SIZE) {
       List<String> batch = emails.subList(i, Math.min(i + BATCH_SIZE, emails.size()));
@@ -62,16 +83,9 @@ public class NotificationEmailService {
       }
     }
 
-    log.info("알림 이메일 발송 완료: type={}, recipients={}", notiType, totalSent);
+    log.info("알림 이메일 발송 완료: type={}, recipients={}", typeLabel, totalSent);
   }
 
-  /**
-   * 알림 유형에 따라 HTML 이메일 본문을 생성한다.
-   *
-   * <p>급등/급락: 빨강/파랑 강조색으로 시각적 구분
-   * <br>매매신호: 매수(빨강)/매도(파랑) 구분
-   * <br>공시: 공시 바로가기 링크 버튼 포함</p>
-   */
   private String buildHtmlContent(NotifyType notiType, String title,
       String message, String relatedLink) {
 
@@ -103,6 +117,62 @@ public class NotificationEmailService {
           """.formatted(safeLink, accentColor));
     }
 
+    appendSiteLink(html);
+    appendFooter(html);
+
+    return html.toString();
+  }
+
+  private String buildSignalDigestHtml(List<SignalChangeInfo> changes) {
+    StringBuilder html = new StringBuilder();
+    html.append("""
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"></head>
+        <body style="margin:0;padding:0;background:#f4f4f4;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+        <table width="100%%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+        <tr><td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;">
+          <tr><td style="background:#7B1FA2;padding:24px 32px;">
+            <span style="color:#fff;font-size:14px;font-weight:600;">AI 매매신호 알림</span>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <h2 style="margin:0 0 24px;color:#333;font-size:20px;">오늘의 AI 매매신호 변동 종목</h2>
+            <table width="100%%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+              <tr style="border-bottom:2px solid #eee;">
+                <td style="padding:12px 8px;font-weight:600;color:#333;font-size:14px;">종목명</td>
+                <td style="padding:12px 8px;font-weight:600;color:#333;font-size:14px;text-align:right;">신호</td>
+              </tr>
+        """);
+
+    for (SignalChangeInfo change : changes) {
+      String safeName = HtmlUtils.htmlEscape(change.stockName());
+      html.append("""
+              <tr style="border-bottom:1px solid #f0f0f0;">
+                <td style="padding:12px 8px;color:#333;font-size:15px;">%s</td>
+                <td style="padding:12px 8px;text-align:right;">
+                  <span style="color:%s;font-weight:600;font-size:15px;">%s</span>
+                </td>
+              </tr>
+          """.formatted(safeName, change.signalColor(), change.signalLabel()));
+    }
+
+    html.append("</table>");
+
+    appendSiteLink(html);
+    appendFooter(html);
+
+    return html.toString();
+  }
+
+  private void appendSiteLink(StringBuilder html) {
+    html.append("""
+            <div style="margin-top:24px;text-align:center;">
+              <a href="%s" style="display:inline-block;padding:12px 32px;background:#333;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">살래말래에서 자세히 보기</a>
+            </div>
+        """.formatted(SITE_URL));
+  }
+
+  private void appendFooter(StringBuilder html) {
     html.append("""
           </td></tr>
           <tr><td style="padding:20px 32px;background:#f9f9f9;text-align:center;">
@@ -115,8 +185,6 @@ public class NotificationEmailService {
         </td></tr></table>
         </body></html>
         """);
-
-    return html.toString();
   }
 
   private String getAccentColor(NotifyType notiType) {
