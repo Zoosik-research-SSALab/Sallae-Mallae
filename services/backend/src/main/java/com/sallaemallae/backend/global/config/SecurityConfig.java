@@ -92,6 +92,7 @@ public class SecurityConfig {
             .requestMatchers("/api/stream/main/**").permitAll()
             .requestMatchers("/api/internal/kis/**").hasRole("ADMIN")
             .requestMatchers("/admin/backfill/**").permitAll()
+            .requestMatchers("/admin/test/**").permitAll()
 
             // Swagger / API docs (개발용)
             .requestMatchers(
