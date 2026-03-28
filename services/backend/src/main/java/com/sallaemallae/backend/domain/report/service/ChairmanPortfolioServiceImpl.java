@@ -57,10 +57,14 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
 
     int holdingCount = chairmanPortfolioQueryRepository.countHoldings(portfolio.getId());
     List<MonthlyReturnItem> allMonthlyReturns = buildMonthlyReturns(portfolio.getId());
-    Float yesterdayReturn = aiDailyPerformanceRepository
-        .findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(portfolio.getId(), LocalDate.now())
-        .map(AiDailyPerformance::getDailyReturn)
-        .orElse(null);
+    LocalDate latestTradeDate = chairmanPortfolioQueryRepository.findLatestTradeDate(portfolio.getId());
+    Float yesterdayReturn = latestTradeDate == null
+        ? aiDailyPerformanceRepository.findTopByPortfolioIdOrderByRecordDateDesc(portfolio.getId())
+            .map(AiDailyPerformance::getDailyReturn)
+            .orElse(null)
+        : aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDate(portfolio.getId(), latestTradeDate)
+            .map(AiDailyPerformance::getDailyReturn)
+            .orElse(null);
     Summary summary = new Summary(
         portfolio.getCumulativeReturn(),
         calculateAverageMonthlyReturn(allMonthlyReturns),
@@ -202,8 +206,10 @@ public class ChairmanPortfolioServiceImpl implements ChairmanPortfolioService {
         row.name(),
         row.tradeType(),
         row.tradeTime(),
+        row.buyPrice(),
         row.tradePrice(),
         row.currentPrice(),
+        row.tradeQuantity(),
         row.holdingQuantity(),
         row.returnRate(),
         stockIconUrlResolver.resolve(row.iconUrl())

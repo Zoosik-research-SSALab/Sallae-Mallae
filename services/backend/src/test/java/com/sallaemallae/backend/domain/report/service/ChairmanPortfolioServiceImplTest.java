@@ -50,7 +50,8 @@ class ChairmanPortfolioServiceImplTest {
     AiPortfolio portfolio = portfolio(1L, 42.5f);
     AiDailyPerformance latestPerformance = latestDailyPerformance(1.34f);
     given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
-    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
+    given(chairmanPortfolioQueryRepository.findLatestTradeDate(1L)).willReturn(LocalDate.of(2026, 3, 17));
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDate(1L, LocalDate.of(2026, 3, 17)))
         .willReturn(Optional.of(latestPerformance));
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(2);
     given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
@@ -93,7 +94,8 @@ class ChairmanPortfolioServiceImplTest {
     AiPortfolio portfolio = portfolio(1L, 42.5f);
     AiDailyPerformance latestPerformance = latestDailyPerformance(2.0f);
     given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
-    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
+    given(chairmanPortfolioQueryRepository.findLatestTradeDate(1L)).willReturn(LocalDate.of(2026, 3, 17));
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDate(1L, LocalDate.of(2026, 3, 17)))
         .willReturn(Optional.of(latestPerformance));
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(1);
     given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
@@ -129,13 +131,14 @@ class ChairmanPortfolioServiceImplTest {
   }
 
   @Test
-  @DisplayName("오늘 성과 row가 있어도 yesterdayReturn은 오늘 이전 최신 일별 수익률을 사용한다")
-  void getChairmanPortfolio_usesPreviousDayReturnForYesterdayReturn() {
+  @DisplayName("전날 대비 수익률은 마지막 매매일의 일별 수익률을 사용한다")
+  void getChairmanPortfolio_usesLastTradeDayReturnForYesterdayReturn() {
     AiPortfolio portfolio = portfolio(1L, 42.5f);
-    AiDailyPerformance yesterdayPerformance = latestDailyPerformance(-0.75f);
+    AiDailyPerformance latestPerformance = latestDailyPerformance(-0.75f);
     given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
-    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
-        .willReturn(Optional.of(yesterdayPerformance));
+    given(chairmanPortfolioQueryRepository.findLatestTradeDate(1L)).willReturn(LocalDate.of(2026, 3, 27));
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDate(1L, LocalDate.of(2026, 3, 27)))
+        .willReturn(Optional.of(latestPerformance));
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(0);
     given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
         .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
@@ -154,7 +157,8 @@ class ChairmanPortfolioServiceImplTest {
     AiPortfolio portfolio = portfolio(1L, 42.5f);
     AiDailyPerformance latestPerformance = latestDailyPerformance(1.25f);
     given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
-    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDateLessThanOrderByRecordDateDesc(1L, LocalDate.now()))
+    given(chairmanPortfolioQueryRepository.findLatestTradeDate(1L)).willReturn(LocalDate.of(2026, 3, 17));
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDate(1L, LocalDate.of(2026, 3, 17)))
         .willReturn(Optional.of(latestPerformance));
     given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L)).willReturn(List.of());
     given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(1);
@@ -169,8 +173,10 @@ class ChairmanPortfolioServiceImplTest {
             "삼성전자",
             "BUY",
             OffsetDateTime.now().minusHours(2),
+            null,
             65000f,
             74300,
+            9L,
             9L,
             3.21f,
             null
@@ -180,7 +186,69 @@ class ChairmanPortfolioServiceImplTest {
 
     assertThat(response.todayTrades()).hasSize(1);
     assertThat(response.todayTrades().get(0).currentPrice()).isEqualTo(74300);
+    assertThat(response.todayTrades().get(0).tradeQuantity()).isEqualTo(9L);
     assertThat(response.todayTrades().get(0).holdingQuantity()).isEqualTo(9L);
+  }
+
+  @Test
+  @DisplayName("오늘 매매 탭의 매도 내역은 매수 단가와 체결 수량을 함께 반환한다")
+  void getChairmanPortfolio_returnsSellTradeWithBuyPriceAndTradeQuantity() {
+    AiPortfolio portfolio = portfolio(1L, 42.5f);
+    AiDailyPerformance latestPerformance = latestDailyPerformance(1.25f);
+    given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
+    given(chairmanPortfolioQueryRepository.findLatestTradeDate(1L)).willReturn(LocalDate.of(2026, 3, 17));
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdAndRecordDate(1L, LocalDate.of(2026, 3, 17)))
+        .willReturn(Optional.of(latestPerformance));
+    given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L)).willReturn(List.of());
+    given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(1);
+    given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
+        .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
+    given(chairmanPortfolioQueryRepository.findPopularSignalRows(5)).willReturn(List.of());
+    given(chairmanPortfolioQueryRepository.countTodayTradeRows(1L)).willReturn(1);
+    given(chairmanPortfolioQueryRepository.findTodayTradeRows(1L, 0, 6))
+        .willReturn(List.of(new ChairmanPortfolioQueryRepository.TodayTradeRow(
+            1L,
+            "028670",
+            "팬오션",
+            "SELL",
+            OffsetDateTime.now().minusHours(2),
+            4114f,
+            5070f,
+            4980,
+            100L,
+            0L,
+            23.25f
+        )));
+
+    ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("TODAY_TRADES", 0, 6);
+
+    assertThat(response.todayTrades()).hasSize(1);
+    assertThat(response.todayTrades().get(0).buyPrice()).isEqualTo(4114f);
+    assertThat(response.todayTrades().get(0).tradePrice()).isEqualTo(5070f);
+    assertThat(response.todayTrades().get(0).tradeQuantity()).isEqualTo(100L);
+    assertThat(response.todayTrades().get(0).holdingQuantity()).isEqualTo(0L);
+    assertThat(response.todayTrades().get(0).returnRate()).isEqualTo(23.25f);
+  }
+
+  @Test
+  @DisplayName("매매 이력이 없으면 최신 일별 수익률로 전날 대비 수익률을 대체한다")
+  void getChairmanPortfolio_fallsBackToLatestDailyReturnWhenNoTradeExists() {
+    AiPortfolio portfolio = portfolio(1L, 42.5f);
+    AiDailyPerformance latestPerformance = latestDailyPerformance(0.84f);
+    given(aiPortfolioRepository.findTopByOrderByUpdatedAtDescIdDesc()).willReturn(Optional.of(portfolio));
+    given(chairmanPortfolioQueryRepository.findLatestTradeDate(1L)).willReturn(null);
+    given(aiDailyPerformanceRepository.findTopByPortfolioIdOrderByRecordDateDesc(1L))
+        .willReturn(Optional.of(latestPerformance));
+    given(chairmanPortfolioQueryRepository.countHoldings(1L)).willReturn(0);
+    given(chairmanPortfolioQueryRepository.findSignalSummary(1L))
+        .willReturn(new ChairmanPortfolioQueryRepository.SignalSummaryRow(15, 8, 124, 53));
+    given(chairmanPortfolioQueryRepository.findPopularSignalRows(5)).willReturn(List.of());
+    given(chairmanPortfolioQueryRepository.findMonthlyTradeMetricRows(1L)).willReturn(List.of());
+    given(chairmanPortfolioQueryRepository.findHoldingRows(1L, 0, 6)).willReturn(List.of());
+
+    ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("HOLDINGS", 0, 6);
+
+    assertThat(response.summary().yesterdayReturn()).isEqualTo(0.84f);
   }
 
   private AiPortfolio portfolio(Long id, float cumulativeReturn) {
