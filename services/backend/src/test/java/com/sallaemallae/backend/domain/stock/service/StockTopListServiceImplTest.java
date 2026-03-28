@@ -85,8 +85,8 @@ class StockTopListServiceImplTest {
     assertThat(response.stocks().get(0).ticker()).isEqualTo("005930");
     assertThat(response.stocks().get(0).signal()).isEqualTo("BUY");
     assertThat(response.stocks().get(0).isWatchlisted()).isTrue();
-    assertThat(response.stocks().get(1).ticker()).isEqualTo("000660");
-    assertThat(response.stocks().get(1).signal()).isEqualTo("SELL");
+    assertThat(response.stocks().get(1).ticker()).isEqualTo("035420");
+    assertThat(response.stocks().get(1).signal()).isEqualTo("HOLD");
     assertThat(response.totalCount()).isEqualTo(3);
   }
 
@@ -142,6 +142,26 @@ class StockTopListServiceImplTest {
     assertThat(response.filterCounts().sell()).isEqualTo(1);
     assertThat(response.stocks()).extracting(item -> item.ticker()).containsExactly("005930", "000660");
     assertThat(response.stocks().get(0).isWatchlisted()).isTrue();
+  }
+
+  @Test
+  void getTopStocks_sortsBySignedFluctuationRateDescending() {
+    StockTopListServiceImpl service = createService();
+
+    Stock samsung = stock(1L, "005930", "Samsung Electronics", "Information Technology", "\uBC18\uB3C4\uCCB4", 5_919_637_922L);
+    Stock naver = stock(2L, "035420", "NAVER", "Information Technology", "IT\uD50C\uB7AB\uD3FC / \uC18C\uD504\uD2B8\uC6E8\uC5B4", 164_263_395L);
+    Stock hynix = stock(3L, "000660", "SK hynix", "Information Technology", "\uBC18\uB3C4\uCCB4", 728_002_365L);
+
+    given(stockRepository.findAllByIsActiveTrueOrderByNameAsc()).willReturn(List.of(naver, samsung, hynix));
+    given(stockQuoteCacheService.getAll(any(), any())).willReturn(Map.of(
+        "005930", quoteData("005930", 70000, 2.2f, 100000L),
+        "035420", quoteData("035420", 200000, 0.3f, 50000L),
+        "000660", quoteData("000660", 180000, -5.0f, 70000L)
+    ));
+
+    StockListResponse response = service.getTopStocks(null, null, null, null, "CHANGE", null, 0, 3);
+
+    assertThat(response.stocks()).extracting(item -> item.ticker()).containsExactly("005930", "035420", "000660");
   }
 
   @Test
