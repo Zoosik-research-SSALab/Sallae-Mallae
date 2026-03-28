@@ -217,7 +217,8 @@ class ChairmanPortfolioServiceImplTest {
             4980,
             100L,
             0L,
-            23.25f
+            23.25f,
+            null
         )));
 
     ChairmanPortfolioResponse response = chairmanPortfolioService.getChairmanPortfolio("TODAY_TRADES", 0, 6);
