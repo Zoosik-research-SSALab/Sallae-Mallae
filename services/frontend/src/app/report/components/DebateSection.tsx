@@ -1167,21 +1167,21 @@ export default function DebateSection({
           <button
             type="button"
             onClick={() => handleJump("r1")}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
           >
             R1
           </button>
           <button
             type="button"
             onClick={() => handleJump("r2")}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
           >
             R2
           </button>
           <button
             type="button"
             onClick={() => handleJump("r3")}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
           >
             R3
           </button>
@@ -1239,7 +1239,7 @@ export default function DebateSection({
             <p className="typo-heading-sm uppercase tracking-[0.28em] text-[color:rgba(255,255,255,0.6)]">
               Debate Finished
             </p>
-            <h3 className="mt-4 typo-heading-xl text-[color:var(--color-text-base)] md:typo-heading-2xl">
+            <h3 className="mt-4 typo-heading-lg text-[color:var(--color-text-base)] sm:typo-heading-xl md:typo-heading-2xl">
               의장 최종 결론은 {finalVerdict}입니다.
             </h3>
             <p className="mt-4 typo-body-md text-[color:rgba(255,255,255,0.78)] md:typo-body-lg">
@@ -1276,9 +1276,9 @@ export default function DebateSection({
       ) : null}
 
       {roundIntroTitle ? (
-        <div className="absolute inset-0 z-[60] flex flex-col justify-between bg-[color:rgba(0,0,0,0.8)] px-10 py-6">
+        <div className="absolute inset-0 z-[60] flex flex-col justify-between bg-[color:rgba(0,0,0,0.8)] px-6 sm:px-10 py-6">
           <div />
-          <div className="typo-heading-3xl mx-auto w-full max-w-[540px] text-center text-[color:var(--color-text-base)] sm:typo-heading-4xl">
+          <div className="typo-heading-2xl mx-auto w-full max-w-[540px] text-center text-[color:var(--color-text-base)] sm:typo-heading-3xl md:typo-heading-4xl">
             {roundIntroTitle}
           </div>
           <div />
@@ -1315,7 +1315,7 @@ export default function DebateSection({
                 >
                   {speakers.map((speaker) => {
                     const isActive =
-                      phase === "debate" && !isRoundIntroVisible && isSpeakerTalking && activeSpeaker.id === speaker.id;
+                      phase === "debate" && !isRoundIntroVisible && isSpeakerTalking && !isPaused && activeSpeaker.id === speaker.id;
                     return (
                       <div
                         key={speaker.id}
@@ -1337,7 +1337,7 @@ export default function DebateSection({
                           />
                           <div
                             className={cn(
-                              "typo-body-md mt-3 whitespace-nowrap rounded-full border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-4 py-1.5 text-[color:var(--color-black)]",
+                              "typo-body-sm mt-3 whitespace-nowrap rounded-full border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-2 py-1 sm:px-4 sm:py-1.5 text-[color:var(--color-black)] sm:typo-body-md",
                               isActive ? "mb-8" : "mb-6",
                             )}
                           >
@@ -1357,12 +1357,12 @@ export default function DebateSection({
                     )}
                   >
                     <div className="rounded-t-2xl bg-[color:var(--color-bg-danger-bold)] px-4 py-3">
-                      <p className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-interactive-inverse)]">
+                      <p className="typo-body-md whitespace-nowrap text-[color:var(--color-text-interactive-inverse)] sm:typo-heading-sm">
                         {`${activeSpeechTitle} | ${activeSpeech?.segmentLabel ?? "발언"}`}
                       </p>
                     </div>
                     <div className="w-full rounded-b-2xl rounded-tr-2xl border border-[color:var(--color-border-base)] bg-[color:var(--color-bg-primary)] px-5 py-4 sm:px-6 sm:py-5">
-                      <p className="typo-heading-md whitespace-pre-line [word-break:keep-all] text-center text-[color:var(--color-text-primary)] sm:typo-heading-lg">
+                      <p className="typo-body-lg whitespace-pre-line [word-break:keep-all] text-center text-[color:var(--color-text-primary)] sm:typo-heading-md md:typo-heading-lg">
                         {`"${activeSpeech?.message?.trim() ?? "위원회 데이터를 불러오는 중입니다."}"`}
                       </p>
                     </div>
@@ -1390,7 +1390,7 @@ export default function DebateSection({
             <div className="flex h-full min-h-0 flex-col gap-6 md:gap-8 lg:flex-row lg:items-stretch lg:gap-10">
               <div className="flex min-h-0 flex-[1.05] flex-col justify-between gap-5 pb-6 pl-4 sm:pb-8 sm:pl-6 lg:items-end lg:pb-10 lg:pl-12 lg:pt-6">
                 {judgeMode === "summary" ? (
-                  <div className="flex w-full flex-1 flex-col justify-center gap-4 py-8 lg:items-end lg:py-16">
+                  <div className="flex w-full flex-1 flex-col justify-center gap-4 py-4 sm:py-8 lg:items-end lg:py-16">
                     {judgmentSummaryItems.map((item, index) => {
                       const isVisible = judgementStep > index;
 
@@ -1398,23 +1398,23 @@ export default function DebateSection({
                         <div
                           key={item.id}
                           className={cn(
-                            "flex w-full max-w-[720px] items-stretch gap-3 p-2.5 transition-all duration-700",
+                            "flex w-full max-w-[720px] items-stretch gap-2 p-1.5 transition-all duration-700 sm:gap-3 sm:p-2.5",
                             isVisible ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0",
                           )}
                         >
-                          <div className="flex h-24 w-24 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)]">
-                            <p className="typo-heading-xl text-center text-[color:var(--color-text-interactive-inverse)] md:typo-heading-2xl">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)] sm:h-24 sm:w-24">
+                            <p className="typo-heading-md text-center text-[color:var(--color-text-interactive-inverse)] sm:typo-heading-xl md:typo-heading-2xl">
                               {String(index + 1).padStart(2, "0")}
                             </p>
                           </div>
-                          <div className="flex h-24 flex-1 flex-col justify-between bg-[color:var(--color-bg-primary)] px-4 py-3 text-right">
-                            <div className="flex items-center justify-end">
-                              <p className="typo-body-lg text-[color:var(--color-text-primary)]">
+                          <div className="flex min-h-[56px] flex-1 flex-col justify-between bg-[color:var(--color-bg-primary)] px-3 py-2 sm:min-h-[96px] sm:px-4 sm:py-3 lg:text-right">
+                            <div className="flex items-center lg:justify-end">
+                              <p className="typo-body-md text-[color:var(--color-text-primary)] sm:typo-body-lg">
                                 {item.leadText}
                               </p>
                             </div>
-                            <div className="flex flex-1 items-end justify-end">
-                              <p className={cn("typo-heading-lg text-right", item.highlightClassName)}>
+                            <div className="flex flex-1 items-end lg:justify-end">
+                              <p className={cn("typo-heading-sm sm:typo-heading-lg", item.highlightClassName)}>
                                 {item.highlightText}
                               </p>
                             </div>
@@ -1424,14 +1424,14 @@ export default function DebateSection({
                     })}
 
                     {!judgmentSummaryItems.length ? (
-                      <div className="flex w-full max-w-[720px] items-stretch gap-3 p-2.5">
-                        <div className="flex h-24 w-24 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)]">
-                          <p className="typo-heading-xl text-center text-[color:var(--color-text-interactive-inverse)] md:typo-heading-2xl">
+                      <div className="flex w-full max-w-[720px] items-stretch gap-2 p-1.5 sm:gap-3 sm:p-2.5">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)] sm:h-24 sm:w-24">
+                          <p className="typo-heading-md text-center text-[color:var(--color-text-interactive-inverse)] sm:typo-heading-xl md:typo-heading-2xl">
                             00
                           </p>
                         </div>
-                        <div className="flex h-24 flex-1 items-center justify-end bg-[color:var(--color-bg-primary)] px-4 py-3 text-right">
-                          <p className="typo-body-lg text-[color:var(--color-text-primary)]">
+                        <div className="flex min-h-[56px] flex-1 items-center bg-[color:var(--color-bg-primary)] px-3 py-2 sm:min-h-[96px] sm:px-4 sm:py-3 lg:text-right lg:justify-end">
+                          <p className="typo-body-md text-[color:var(--color-text-primary)] sm:typo-body-lg">
                             의장 AI가 위원회 의견을 종합 중입니다
                           </p>
                         </div>
@@ -1489,13 +1489,13 @@ export default function DebateSection({
                 )}
               </div>
 
-              <div className="flex min-h-[260px] flex-[0.95] items-end justify-end overflow-hidden self-stretch sm:min-h-[320px] lg:min-h-0">
+              <div className="flex min-h-[160px] flex-[0.6] items-end justify-end overflow-hidden self-stretch sm:min-h-[260px] sm:flex-[0.95] lg:min-h-0">
                 <div className="relative flex h-full w-full items-end justify-center lg:justify-end">
-                  <div className="absolute bottom-0 right-1/2 h-[220px] w-[220px] translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,223,32,0.18)_0%,rgba(255,223,32,0.02)_62%,transparent_78%)] blur-2xl sm:h-[280px] sm:w-[280px] lg:right-0 lg:h-[320px] lg:w-[320px] lg:translate-x-0" />
+                  <div className="absolute bottom-0 right-1/2 h-[140px] w-[140px] translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,223,32,0.18)_0%,rgba(255,223,32,0.02)_62%,transparent_78%)] blur-2xl sm:h-[220px] sm:w-[220px] lg:right-0 lg:h-[320px] lg:w-[320px] lg:translate-x-0" />
                   <img
                     src={judgeImageSrc}
                     alt="의장 AI"
-                    className="relative z-10 h-auto w-[78%] min-w-[220px] max-w-[340px] object-contain object-right-bottom drop-shadow-[0_30px_40px_rgba(0,0,0,0.35)] sm:w-[72%] sm:max-w-[380px] md:w-[64%] md:max-w-[420px] lg:w-auto lg:min-w-0 lg:max-h-full lg:max-w-[clamp(320px,34vw,520px)]"
+                    className="relative z-10 h-auto w-[60%] min-w-[140px] max-w-[200px] object-contain object-right-bottom drop-shadow-[0_30px_40px_rgba(0,0,0,0.35)] sm:w-[72%] sm:min-w-[220px] sm:max-w-[340px] md:max-w-[420px] lg:w-auto lg:min-w-0 lg:max-h-full lg:max-w-[clamp(320px,34vw,520px)]"
                     onError={() => setJudgeImageSrc(judgeFallbackImageSrc)}
                   />
                 </div>
