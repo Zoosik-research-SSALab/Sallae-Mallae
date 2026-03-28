@@ -164,10 +164,10 @@ function TopBarSkeleton({ stockId }: { stockId: string }) {
           <div className="flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)]">
             <span className="text-2xl leading-none">←</span>
           </div>
-          <div className="flex items-center gap-2 text-base font-bold text-[color:var(--color-text-primary)]">
+          <div className="hidden items-center gap-2 text-base font-bold text-[color:var(--color-text-primary)] md:flex">
             <div className="h-6 w-32 animate-pulse rounded bg-[color:var(--color-bg-secondary)]" />
             <span className="text-[color:var(--color-text-tertiary)]">|</span>
-            <span>종목 상세 정보</span>
+            <span>종목 상세 리포트</span>
             <span className="sr-only">{stockId}</span>
           </div>
         </div>

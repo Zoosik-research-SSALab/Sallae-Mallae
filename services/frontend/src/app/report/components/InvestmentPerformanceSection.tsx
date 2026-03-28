@@ -74,8 +74,8 @@ export default function InvestmentPerformanceSection({
   return (
     <>
       <section className="flex flex-col gap-6">
-        <div className="flex items-end justify-between gap-6">
-          <div className="flex flex-col gap-2">
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col gap-2 self-stretch">
             <h2 className="heading-reset typo-heading-lg text-[color:var(--color-text-primary)]">
               AI 모의투자 성과
             </h2>
@@ -86,7 +86,7 @@ export default function InvestmentPerformanceSection({
           <button
             type="button"
             onClick={() => setIsModalOpen(true)}
-            className="typo-body-md rounded-lg bg-[color:var(--color-bg-tertiary)] px-4 py-2.5 font-semibold text-[color:var(--color-text-secondary)] transition-colors hover:bg-[color:var(--color-bg-interactive-secondary-hovered)] active:bg-[color:var(--color-bg-interactive-secondary-pressed)]"
+            className="typo-body-md rounded-lg bg-[color:var(--color-bg-tertiary)] px-3 py-2 font-semibold text-[color:var(--color-text-secondary)] transition-colors hover:bg-[color:var(--color-bg-interactive-secondary-hovered)] active:bg-[color:var(--color-bg-interactive-secondary-pressed)]"
           >
             내역 전체보기
           </button>
