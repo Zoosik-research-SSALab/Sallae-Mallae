@@ -48,7 +48,12 @@ function NotificationListItem({ item, onClick, onDelete }: Props) {
       <StockLogo
         label={getNotificationAvatarLabel(item.stockName)}
         iconUrl={item.iconUrl}
-        className={cn("h-10 w-10", item.isRead && "opacity-70")}
+        className={cn(
+          "h-10 w-10",
+          item.isRead &&
+            "bg-[color:var(--color-bg-interactive-secondary-pressed)] opacity-70 grayscale saturate-0 brightness-95",
+        )}
+        labelClassName={cn(item.isRead && "text-[color:var(--color-text-tertiary)]")}
         sizes="40px"
       />
 
@@ -59,7 +64,7 @@ function NotificationListItem({ item, onClick, onDelete }: Props) {
               className={cn(
                 "truncate text-sm font-extrabold leading-5 lg:text-base lg:leading-6",
                 item.isRead
-                  ? "text-[color:var(--color-text-disabled)]"
+                  ? "text-[color:var(--color-text-tertiary)]"
                   : "text-[color:var(--color-text-primary)]",
               )}
             >

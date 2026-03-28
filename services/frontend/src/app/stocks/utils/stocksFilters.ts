@@ -100,8 +100,12 @@ function normalizeStockSectorKey(value: string) {
   return normalized;
 }
 
+function formatStockSectorOptionLabel(value: string) {
+  return value.replace(/\s*\/\s*/g, " · ");
+}
+
 export function getStockSectorOptionLabel(value: string) {
-  return value;
+  return formatStockSectorOptionLabel(value);
 }
 
 export function isSupportedStockSectorOption(value: string) {

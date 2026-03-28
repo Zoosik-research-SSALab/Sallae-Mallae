@@ -20,10 +20,14 @@ function hasHangul(value: string) {
   return /[가-힣]/.test(value);
 }
 
+function formatSectorSeparator(value: string) {
+  return value.replace(/\s*\/\s*/g, " · ");
+}
+
 export function formatStockSectorLabel(value: string) {
   if (!value || hasHangul(value)) {
-    return value;
+    return formatSectorSeparator(value);
   }
 
-  return GICS_SECTOR_LABELS[normalizeGicsSector(value)] ?? value;
+  return formatSectorSeparator(GICS_SECTOR_LABELS[normalizeGicsSector(value)] ?? value);
 }

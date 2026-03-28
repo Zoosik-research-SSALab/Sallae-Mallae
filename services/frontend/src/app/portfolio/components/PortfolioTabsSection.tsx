@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "motion/react";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
+import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import type {
   PortfolioBoardTab,
@@ -18,8 +19,8 @@ import {
   getTradeActionLabel,
 } from "../utils/portfolioFormatters";
 import StockLogo from "@/app/stocks/components/StockLogo";
-import { cn } from "@/shared/utils/cn";
 import Pagination from "@/shared/ui/Pagination";
+import { cn } from "@/shared/utils/cn";
 
 type Props = {
   holdings: PortfolioHolding[];
@@ -36,11 +37,100 @@ const tabs: Array<{ id: PortfolioBoardTab; label: string }> = [
 ];
 
 const holdingsSortOptions: Array<{ id: HoldingsSortType; label: string }> = [
-  { id: "holdingQuantityDesc", label: "보유 수량 내림차순" },
   { id: "returnRateDesc", label: "수익률 내림차순" },
+  { id: "holdingQuantityDesc", label: "보유 수량 내림차순" },
 ];
 
 const holdingsPageSize = 6;
+
+function HoldingsSortDropdown({
+  value,
+  options,
+  onChange,
+}: {
+  value: HoldingsSortType;
+  options: Array<{ id: HoldingsSortType; label: string }>;
+  onChange: (value: HoldingsSortType) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.id === value) ?? options[0];
+
+  return (
+    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+      <PopoverPrimitive.Trigger asChild>
+        <button
+          type="button"
+          aria-label="현재 보유 종목 정렬"
+          className={cn(
+            "flex min-w-[200px] items-center justify-between gap-3 rounded-xl border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-primary)] px-4 py-3 text-left text-sm font-semibold text-[color:var(--color-text-primary)] transition-colors",
+            "hover:border-[color:var(--color-border-base)] hover:bg-[color:var(--color-bg-secondary)]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg-primary)]",
+          )}
+        >
+          <span className="truncate">{selectedOption.label}</span>
+          <span className="flex h-4 w-4 items-center justify-center text-[color:var(--color-text-tertiary)]">
+            <span
+              className={cn(
+                "relative block h-3 w-3 transition-transform duration-200 ease-out",
+                open ? "rotate-180" : "rotate-0",
+              )}
+            >
+              <span className="absolute left-0 top-[5px] h-[1.5px] w-[7px] origin-right rotate-45 rounded-full bg-current transition-transform duration-200 ease-out" />
+              <span className="absolute right-0 top-[5px] h-[1.5px] w-[7px] origin-left -rotate-45 rounded-full bg-current transition-transform duration-200 ease-out" />
+            </span>
+          </span>
+        </button>
+      </PopoverPrimitive.Trigger>
+
+      <AnimatePresence>
+        {open ? (
+          <PopoverPrimitive.Portal forceMount>
+            <PopoverPrimitive.Content asChild align="end" sideOffset={6}>
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                className="z-50 min-w-[200px] overflow-hidden rounded-2xl border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-primary)] p-1"
+              >
+                {options.map((option) => {
+                  const selected = option.id === value;
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => {
+                        onChange(option.id);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors",
+                        selected
+                          ? "bg-[color:var(--color-bg-secondary)] text-[color:var(--color-text-primary)]"
+                          : "text-[color:var(--color-text-secondary)] hover:bg-[color:var(--color-bg-secondary)] hover:text-[color:var(--color-text-primary)]",
+                      )}
+                    >
+                      <span className="truncate">{option.label}</span>
+                      <span
+                        className={cn(
+                          "text-[color:var(--color-text-primary)] transition-opacity",
+                          selected ? "opacity-100" : "opacity-0",
+                        )}
+                      >
+                        ✓
+                      </span>
+                    </button>
+                  );
+                })}
+              </motion.div>
+            </PopoverPrimitive.Content>
+          </PopoverPrimitive.Portal>
+        ) : null}
+      </AnimatePresence>
+    </PopoverPrimitive.Root>
+  );
+}
 
 function compareNullableNumberDesc(left: number | null, right: number | null) {
   const leftValue = left ?? Number.NEGATIVE_INFINITY;
@@ -162,13 +252,12 @@ function TradeRows({ items }: { items: PortfolioTodayTrade[] }) {
                 {getTradeActionLabel(item.action)}
               </span>
             </div>
-            <p className="typo-body-xs mt-1 text-[color:var(--color-text-tertiary)]">{item.ticker}</p>
           </div>
           <div className="text-right">
-            <span className="block text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">
+            <span className="mr-2 inline-flex items-center text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">
               {item.action === "SELL" ? "매도가" : "매수가"}
             </span>
-            <span className="block text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">
+            <span className="inline text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">
               {formatCurrency(item.executedPrice)}
             </span>
             {item.action === "SELL" ? (
@@ -271,6 +360,12 @@ function MobileTradeCards({ items }: { items: PortfolioTodayTrade[] }) {
                   ? "매매 수량 정보 없음"
                   : `매매 수량 ${formatInteger(getDisplayedTradeQuantity(item))}개`}
               </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">현재가</span>
+                <span className="text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
+                  {formatCurrency(item.currentPrice)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -292,12 +387,6 @@ function MobileTradeCards({ items }: { items: PortfolioTodayTrade[] }) {
               </span>
             </div>
           ) : null}
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">현재가</span>
-            <span className="text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
-              {formatCurrency(item.currentPrice)}
-            </span>
-          </div>
           <div className="flex items-center justify-end gap-2">
             <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">성과</span>
             <span className={cn("text-sm font-semibold leading-5", getDeltaTextClassName(item.returnRate))}>
@@ -443,20 +532,10 @@ export default function PortfolioTabsSection({ holdings, todayTrades, monthlyRet
         </div>
 
         {activeTab === "holdings" ? (
-          <label className="flex shrink-0 items-center gap-2 self-end pb-3 md:self-auto">
+          <div className="flex shrink-0 items-center gap-2 self-end pb-3 md:self-auto">
             <span className="sr-only">현재 보유 종목 정렬</span>
-            <select
-              value={holdingsSort}
-              onChange={(event) => handleHoldingsSortChange(event.target.value as HoldingsSortType)}
-              className="min-w-[180px] rounded-lg border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-3 py-2 text-xs font-semibold text-[color:var(--color-text-primary)] outline-none transition-colors hover:border-[color:var(--color-border-base)] focus:border-[color:var(--color-border-base)] md:text-sm"
-            >
-              {holdingsSortOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <HoldingsSortDropdown value={holdingsSort} options={holdingsSortOptions} onChange={handleHoldingsSortChange} />
+          </div>
         ) : null}
       </div>
 
