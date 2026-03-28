@@ -1,12 +1,32 @@
 "use client";
 
+import { useTheme } from "@/shared/hooks/useTheme";
 import type { DebateReport } from "../types/debate";
 
 interface ChairmanAnalysisSectionProps {
   report: DebateReport | null;
 }
 
+const themeStyles = {
+  light: {
+    bg: "#171717",
+    border: undefined,
+    title: "#ffffff",
+    subtitle: "#a1a1a1",
+    quote: "#ffffff",
+  },
+  dark: {
+    bg: "#1a1a1a",
+    border: "#333",
+    title: "#ffffff",
+    subtitle: "#a1a1a1",
+    quote: "#ffffff",
+  },
+} as const;
+
 export default function ChairmanAnalysisSection({ report }: ChairmanAnalysisSectionProps) {
+  const { resolvedTheme } = useTheme();
+  const colors = themeStyles[resolvedTheme];
   const verdict = formatSignalLabel(report?.chairman.signal);
   const confidence = formatConfidence(report?.chairman.confidence);
   const verdictQuote = report ? `"${report.chairman.summary}"` : "실제 리포트 데이터가 없습니다.";
@@ -14,7 +34,14 @@ export default function ChairmanAnalysisSection({ report }: ChairmanAnalysisSect
 
   return (
     <section className="flex w-full flex-col items-center">
-      <div className="relative flex min-h-[280px] w-full items-center justify-center overflow-hidden bg-[color:var(--color-bg-inverse-bolder)] px-6 py-8 md:px-4 md:py-10">
+      <div
+        className="relative flex min-h-[280px] w-full items-center justify-center overflow-hidden px-6 py-8 md:px-4 md:py-10"
+        style={{
+          backgroundColor: colors.bg,
+          borderTop: colors.border ? `1px solid ${colors.border}` : undefined,
+          borderBottom: colors.border ? `1px solid ${colors.border}` : undefined,
+        }}
+      >
         {/* Mobile only: 배경 이미지 (반투명, 우측 하단) */}
         <div className="absolute inset-0 overflow-hidden md:invisible md:pointer-events-none">
           <img
@@ -37,10 +64,13 @@ export default function ChairmanAnalysisSection({ report }: ChairmanAnalysisSect
 
           <div className="flex flex-1 flex-col gap-7">
             <div className="flex flex-col gap-0.5">
-              <h2 className="heading-reset typo-heading-md text-[color:var(--color-text-base)]">
+              <h2
+                className="heading-reset typo-heading-md"
+                style={{ color: colors.title }}
+              >
                 의장 AI 최종 분석
               </h2>
-              <p className="typo-body-lg text-[color:var(--color-text-tertiary)]">{subtitle}</p>
+              <p className="typo-body-lg" style={{ color: colors.subtitle }}>{subtitle}</p>
             </div>
 
             <div className="flex items-end gap-4">
@@ -49,7 +79,7 @@ export default function ChairmanAnalysisSection({ report }: ChairmanAnalysisSect
                 신뢰도 {confidence}
               </div>
             </div>
-            <p className="typo-body-lg max-w-[660px] text-[color:var(--color-text-base)]">{verdictQuote}</p>
+            <p className="typo-body-lg max-w-[660px]" style={{ color: colors.quote }}>{verdictQuote}</p>
           </div>
         </div>
       </div>
