@@ -59,6 +59,10 @@ function getApiMockingMode(): ApiMockingMode {
   return "enabled";
 }
 
+export function shouldUseMockApiRouting() {
+  return getApiMockingMode() === "enabled";
+}
+
 function getResolvedBaseUrl() {
   if (getApiMockingMode() === "disabled") {
     return process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ?? "";

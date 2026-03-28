@@ -1,6 +1,7 @@
 import { authApiFetch } from "@/shared/lib/authApiClient";
 import { extractAuthUser } from "@/shared/lib/auth";
 import { getMe } from "@/shared/lib/authApi";
+import { shouldUseMockApiRouting } from "@/shared/lib/apiClient";
 import type { AuthUser } from "@/shared/types/auth";
 
 type UserProfileApiEnvelope<T> = {
@@ -123,12 +124,13 @@ export async function changeUserPassword(body: ChangeUserPasswordRequest) {
 }
 
 async function createProfileImagePresignedUrl(file: File) {
+  const shouldUseMock = shouldUseMockApiRouting();
   const payload = await authApiFetch<
     ProfileImagePresignedUrlPayload | UserProfileApiEnvelope<ProfileImagePresignedUrlPayload>,
     string
   >("/api/storage/presigned-url", {
     method: "POST",
-    useBaseUrl: false,
+    useBaseUrl: !shouldUseMock,
     credentials: "include",
     body: JSON.stringify({
       fileName: file.name,
