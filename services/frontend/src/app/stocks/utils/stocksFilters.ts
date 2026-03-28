@@ -1,4 +1,5 @@
 import type { StockRankingMetric, StocksApiSort } from "../types/stocks";
+import { formatSectorSeparator } from "./stockSectorLabels";
 
 export const STOCK_PAGE_SIZE = 30;
 export const STOCK_TOTAL_COUNT = 200;
@@ -100,12 +101,8 @@ function normalizeStockSectorKey(value: string) {
   return normalized;
 }
 
-function formatStockSectorOptionLabel(value: string) {
-  return value.replace(/\s*\/\s*/g, " · ");
-}
-
 export function getStockSectorOptionLabel(value: string) {
-  return formatStockSectorOptionLabel(value);
+  return formatSectorSeparator(value);
 }
 
 export function isSupportedStockSectorOption(value: string) {

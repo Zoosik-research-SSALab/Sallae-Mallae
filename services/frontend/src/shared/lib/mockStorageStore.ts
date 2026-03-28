@@ -3,6 +3,7 @@ type MockStoredObject = {
   contentType: string;
 };
 
+// Mock uploads live only in memory, so local dev server restarts/HMR can clear them.
 const mockStorageStore = new Map<string, MockStoredObject>();
 
 function normalizeMockStorageKey(key: string) {

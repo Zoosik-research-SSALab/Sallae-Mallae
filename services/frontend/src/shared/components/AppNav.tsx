@@ -414,7 +414,7 @@ export default function AppNav() {
                   >
                     <HiOutlineBell className="h-6 w-6" />
                     {unreadCount > 0 ? (
-                      <span className="absolute right-0 top-0 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--color-bg-danger-bold)] px-1 text-[10px] leading-none text-[color:var(--color-text-interactive-inverse)]">
+                      <span className="absolute right-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--color-bg-danger-bold)] px-1 text-[10px] leading-none text-[color:var(--color-text-interactive-inverse)]">
                         {displayCount}
                       </span>
                     ) : null}

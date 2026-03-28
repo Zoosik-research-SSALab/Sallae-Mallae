@@ -20,7 +20,7 @@ function hasHangul(value: string) {
   return /[가-힣]/.test(value);
 }
 
-function formatSectorSeparator(value: string) {
+export function formatSectorSeparator(value: string) {
   return value.replace(/\s*\/\s*/g, " · ");
 }
 

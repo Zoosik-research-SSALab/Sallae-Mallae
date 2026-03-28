@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
   const objectKey = `profiles/${currentUser.userId}/${crypto.randomUUID()}${getMockFileExtension(fileName, contentType)}`;
   const uploadUrl = new URL(`/api/storage/mock-upload?key=${encodeURIComponent(objectKey)}`, request.nextUrl.origin).toString();
-  const fileUrl = new URL(`/api/storage/mock-upload?key=${encodeURIComponent(objectKey)}`, request.nextUrl.origin).toString();
+  const fileUrl = new URL(`/api/storage/mock-file?key=${encodeURIComponent(objectKey)}`, request.nextUrl.origin).toString();
 
   return NextResponse.json({
     success: true,

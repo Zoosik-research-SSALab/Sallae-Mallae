@@ -125,16 +125,16 @@ export async function changeUserPassword(body: ChangeUserPasswordRequest) {
 async function createProfileImagePresignedUrl(file: File) {
   const payload = await authApiFetch<
     ProfileImagePresignedUrlPayload | UserProfileApiEnvelope<ProfileImagePresignedUrlPayload>,
-    CreateProfileImagePresignedUrlRequest
+    string
   >("/api/storage/presigned-url", {
     method: "POST",
     useBaseUrl: false,
     credentials: "include",
-    body: {
+    body: JSON.stringify({
       fileName: file.name,
       contentType: file.type,
       fileSize: file.size,
-    },
+    } satisfies CreateProfileImagePresignedUrlRequest),
   });
 
   const candidate = isUserProfileApiEnvelope(payload) ? payload.data : payload;

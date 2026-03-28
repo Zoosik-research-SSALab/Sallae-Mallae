@@ -54,6 +54,19 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
   const [profileImageError, setProfileImageError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedProfileImagePreviewUrlRef = useRef<string | null>(null);
+
+  const replaceSelectedProfileImagePreviewUrl = (nextUrl: string | null) => {
+    if (
+      selectedProfileImagePreviewUrlRef.current &&
+      selectedProfileImagePreviewUrlRef.current !== nextUrl
+    ) {
+      URL.revokeObjectURL(selectedProfileImagePreviewUrlRef.current);
+    }
+
+    selectedProfileImagePreviewUrlRef.current = nextUrl;
+    setSelectedProfileImagePreviewUrl(nextUrl);
+  };
 
   useEffect(() => {
     if (!open) {
@@ -62,7 +75,7 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
 
     setDraftNickname(nickname);
     setSelectedProfileImageFile(null);
-    setSelectedProfileImagePreviewUrl(null);
+    replaceSelectedProfileImagePreviewUrl(null);
     setProfileImageError(null);
 
     if (fileInputRef.current) {
@@ -71,14 +84,13 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
   }, [nickname, open]);
 
   useEffect(() => {
-    if (!selectedProfileImagePreviewUrl) {
-      return;
-    }
-
     return () => {
-      URL.revokeObjectURL(selectedProfileImagePreviewUrl);
+      if (selectedProfileImagePreviewUrlRef.current) {
+        URL.revokeObjectURL(selectedProfileImagePreviewUrlRef.current);
+        selectedProfileImagePreviewUrlRef.current = null;
+      }
     };
-  }, [selectedProfileImagePreviewUrl]);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -120,14 +132,14 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
     const validationError = validateProfileImageFile(file);
     if (validationError) {
       setSelectedProfileImageFile(null);
-      setSelectedProfileImagePreviewUrl(null);
+      replaceSelectedProfileImagePreviewUrl(null);
       setProfileImageError(validationError);
       event.target.value = "";
       return;
     }
 
     setSelectedProfileImageFile(file);
-    setSelectedProfileImagePreviewUrl(URL.createObjectURL(file));
+    replaceSelectedProfileImagePreviewUrl(URL.createObjectURL(file));
     setProfileImageError(null);
   };
 
