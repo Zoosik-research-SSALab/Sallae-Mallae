@@ -65,13 +65,15 @@ public class NotificationPublishService {
       notificationSseService.pushToUser(userId, notiType.getResponseValue(), title, message, unreadCount, createdAt);
     }
 
-    // 이메일 알림 (비동기 — 발송 실패가 알림 생성에 영향 없음)
-    List<String> emailTargets = targets.stream()
-        .filter(NotiTargetDto::emailOptIn)
-        .map(NotiTargetDto::email)
-        .toList();
-    if (!emailTargets.isEmpty()) {
-      notificationEmailService.sendNotificationEmails(emailTargets, notiType, title, message, relatedLink);
+    // 이메일 알림 (AI 매매신호는 스케줄러에서 일괄 발송하므로 제외)
+    if (notiType != NotifyType.SIGNAL_BUY && notiType != NotifyType.SIGNAL_SELL) {
+      List<String> emailTargets = targets.stream()
+          .filter(NotiTargetDto::emailOptIn)
+          .map(NotiTargetDto::email)
+          .toList();
+      if (!emailTargets.isEmpty()) {
+        notificationEmailService.sendNotificationEmails(emailTargets, notiType, title, message, relatedLink);
+      }
     }
 
     log.info("알림 발행: type={}, stockId={}, users={}", notiType, stockId, userIds.size());

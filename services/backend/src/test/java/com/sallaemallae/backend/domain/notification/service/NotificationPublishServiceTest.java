@@ -88,4 +88,26 @@ class NotificationPublishServiceTest {
         any(), any(), any(), any(), any()
     );
   }
+
+  @Test
+  @DisplayName("AI 매매신호 유형은 이메일 발송을 스킵한다")
+  void publish_skipsEmailForSignalTypes() {
+    given(watchlistRepository.findNotiTargetsByStockId(1L))
+        .willReturn(List.of(
+            new NotiTargetDto(100L, "user@test.com", true)
+        ));
+    given(stockNotificationRepository.save(any(StockNotification.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+    given(notificationQueryRepository.countUnreadNotifications(eq(100L), any()))
+        .willReturn(5L);
+
+    notificationPublishService.publish(
+        1L, NotifyType.SIGNAL_BUY, "삼성전자 매수 신호",
+        "삼성전자 AI 매매신호가 매수로 변경되었습니다.", null
+    );
+
+    verify(notificationEmailService, never()).sendNotificationEmails(
+        any(), any(), any(), any(), any()
+    );
+  }
 }
