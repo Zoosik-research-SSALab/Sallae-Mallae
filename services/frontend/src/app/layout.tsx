@@ -16,10 +16,10 @@ const pretendard = localFont({
 
 export const metadata: Metadata = {
   icons: {
-    icon: "/icons/SSAL_LAB_ICON.jpg",
-    shortcut: "/icons/SSAL_LAB_ICON.jpg",
+    icon: "/icons/SSAL_LAB_ICON.png",
+    shortcut: "/icons/SSAL_LAB_ICON.png",
   },
-  title: "sallaemallae",
+  title: "살래말래 위원회",
   description: "살래말래 위원회 프론트엔드 보일러플레이트",
 };
 
