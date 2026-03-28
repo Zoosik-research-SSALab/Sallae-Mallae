@@ -1,15 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import Input from "@/shared/ui/Input";
+import {
+  PROFILE_IMAGE_ACCEPT,
+  validateProfileImageFile,
+} from "@/shared/lib/userProfileApi";
+
+type ProfileEditSavePayload = {
+  nickname: string;
+  profileImageFile: File | null;
+};
 
 type Props = {
   open: boolean;
   nickname: string;
   profileImageUrl: string | null;
   onClose: () => void;
-  onSave: (nickname: string) => void | Promise<void>;
+  onSave: (payload: ProfileEditSavePayload) => void | Promise<void>;
 };
 
 function CameraIcon() {
@@ -38,7 +48,11 @@ function CloseIcon() {
 
 export default function ProfileEditModal({ open, nickname, profileImageUrl, onClose, onSave }: Props) {
   const [draftNickname, setDraftNickname] = useState(nickname);
+  const [selectedProfileImageFile, setSelectedProfileImageFile] = useState<File | null>(null);
+  const [selectedProfileImagePreviewUrl, setSelectedProfileImagePreviewUrl] = useState<string | null>(null);
+  const [profileImageError, setProfileImageError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -46,7 +60,24 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
     }
 
     setDraftNickname(nickname);
+    setSelectedProfileImageFile(null);
+    setSelectedProfileImagePreviewUrl(null);
+    setProfileImageError(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }, [nickname, open]);
+
+  useEffect(() => {
+    if (!selectedProfileImagePreviewUrl) {
+      return;
+    }
+
+    return () => {
+      URL.revokeObjectURL(selectedProfileImagePreviewUrl);
+    };
+  }, [selectedProfileImagePreviewUrl]);
 
   useEffect(() => {
     if (!open) {
@@ -74,19 +105,43 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
     return null;
   }
 
-  const profileSrc = profileImageUrl ?? "/images/profile-placeholder.svg";
-  const isLocalProfileImage = profileSrc.startsWith("/");
   const trimmedNickname = draftNickname.trim();
+  const displayProfileSrc = selectedProfileImagePreviewUrl ?? profileImageUrl ?? "/images/profile-placeholder.svg";
+  const isLocalProfileImage = displayProfileSrc.startsWith("/");
+
+  const handleProfileImageSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+
+    if (!file) {
+      return;
+    }
+
+    const validationError = validateProfileImageFile(file);
+    if (validationError) {
+      setSelectedProfileImageFile(null);
+      setSelectedProfileImagePreviewUrl(null);
+      setProfileImageError(validationError);
+      event.target.value = "";
+      return;
+    }
+
+    setSelectedProfileImageFile(file);
+    setSelectedProfileImagePreviewUrl(URL.createObjectURL(file));
+    setProfileImageError(null);
+  };
 
   const handleSave = async () => {
-    if (!trimmedNickname || isSaving) {
+    if (!trimmedNickname || isSaving || profileImageError) {
       return;
     }
 
     setIsSaving(true);
 
     try {
-      await onSave(trimmedNickname);
+      await onSave({
+        nickname: trimmedNickname,
+        profileImageFile: selectedProfileImageFile,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -113,16 +168,18 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
 
         <div className="flex flex-col gap-8">
           <div className="flex justify-center">
-            <h2 className="text-center text-2xl leading-7 font-extrabold text-[color:var(--color-text-primary)]">내 정보 수정</h2>
+            <h2 className="text-center text-2xl leading-7 font-extrabold text-[color:var(--color-text-primary)]">
+              내 정보 수정
+            </h2>
           </div>
 
           <div className="flex flex-col gap-8">
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-3">
               <div className="relative h-24 w-24">
                 <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[color:var(--color-bg-tertiary)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-bg-tertiary)]">
                   {isLocalProfileImage ? (
                     <Image
-                      src={profileSrc}
+                      src={displayProfileSrc}
                       alt={`${nickname} 프로필 이미지`}
                       width={96}
                       height={96}
@@ -130,30 +187,65 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
                     />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={profileSrc} alt={`${nickname} 프로필 이미지`} className="h-full w-full object-cover" />
+                    <img src={displayProfileSrc} alt={`${nickname} 프로필 이미지`} className="h-full w-full object-cover" />
                   )}
                 </div>
 
                 <button
                   type="button"
+                  onClick={() => fileInputRef.current?.click()}
                   className="absolute bottom-0 right-0 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--color-text-base)] text-[color:var(--color-border-interactive-secondary)] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-[color:var(--color-border-interactive-secondary)]"
-                  aria-label="프로필 이미지 변경 준비 중"
-                  title="프로필 이미지 변경은 준비 중입니다."
+                  aria-label="프로필 이미지 변경"
+                  title="프로필 이미지 변경"
                 >
                   <CameraIcon />
                 </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={PROFILE_IMAGE_ACCEPT}
+                  className="hidden"
+                  onChange={handleProfileImageSelect}
+                />
+              </div>
+
+              <div className="flex flex-col items-center gap-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-sm leading-5 font-semibold text-[color:var(--color-text-secondary)] transition-colors hover:text-[color:var(--color-text-primary)]"
+                >
+                  프로필 사진 변경
+                </button>
+                <p className="text-xs leading-4 font-medium text-[color:var(--color-text-tertiary)]">
+                  JPG, PNG, GIF, WEBP · 최대 5MB
+                </p>
+                {selectedProfileImageFile ? (
+                  <p className="max-w-[16rem] truncate text-xs leading-4 font-medium text-[color:var(--color-text-secondary)]">
+                    {selectedProfileImageFile.name}
+                  </p>
+                ) : null}
+                {profileImageError ? (
+                  <p className="max-w-[16rem] text-xs leading-4 font-medium text-[color:var(--color-text-danger)]">
+                    {profileImageError}
+                  </p>
+                ) : null}
               </div>
             </div>
 
             <div className="flex flex-col items-end gap-1">
-              <label htmlFor="profile-nickname" className="w-full text-sm leading-5 font-semibold text-[color:var(--color-text-secondary)]">
+              <label
+                htmlFor="profile-nickname"
+                className="w-full text-sm leading-5 font-semibold text-[color:var(--color-text-secondary)]"
+              >
                 닉네임
               </label>
               <Input
                 id="profile-nickname"
                 value={draftNickname}
                 onChange={(event) => setDraftNickname(event.target.value)}
-                placeholder="서비스에서 사용할 닉네임을 입력해주세요"
+                placeholder="서비스에 사용할 닉네임을 입력해주세요"
                 className="!rounded-lg !border-[color:var(--color-bg-tertiary)] !bg-[color:var(--color-bg-tertiary)] !px-4 !py-3 text-base !font-extrabold !leading-6 text-[color:var(--color-text-primary)] placeholder:!font-semibold placeholder:text-[color:var(--color-text-tertiary)] focus-visible:!border-[color:var(--color-border-interactive-primary)] focus-visible:!ring-[color:var(--color-bg-interactive-primary)]/10"
               />
             </div>
@@ -170,7 +262,7 @@ export default function ProfileEditModal({ open, nickname, profileImageUrl, onCl
             <button
               type="button"
               onClick={() => void handleSave()}
-              disabled={!trimmedNickname || isSaving}
+              disabled={!trimmedNickname || isSaving || Boolean(profileImageError)}
               className="inline-flex min-h-14 flex-1 items-center justify-center rounded-lg bg-[color:var(--color-bg-inverse-bolder)] px-4 py-4 text-base leading-6 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? "저장 중..." : "저장하기"}

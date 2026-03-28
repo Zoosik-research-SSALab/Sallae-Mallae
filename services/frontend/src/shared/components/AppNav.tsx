@@ -26,7 +26,7 @@ import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { clearSessionUser } from "@/shared/lib/authSession";
 import { useAuthStore } from "@/shared/lib/authStore";
 import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
-import { changeUserPassword, updateUserProfile } from "@/shared/lib/userProfileApi";
+import { changeUserPassword, updateUserProfile, uploadProfileImage } from "@/shared/lib/userProfileApi";
 import SearchModal from "@/shared/ui/SearchModal";
 
 type NavItem = {
@@ -255,10 +255,12 @@ export default function AppNav() {
     setIsProfileEditModalOpen(true);
   };
 
-  const handleSaveProfile = async (nickname: string) => {
+  const handleSaveProfile = async (payload: { nickname: string; profileImageFile: File | null }) => {
     try {
+      const profileImageUrl = payload.profileImageFile ? await uploadProfileImage(payload.profileImageFile) : undefined;
       const user = await updateUserProfile({
-        nickname,
+        nickname: payload.nickname,
+        ...(profileImageUrl ? { profileImageUrl } : {}),
       });
 
       setUser(user);
