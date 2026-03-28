@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useStockQuoteStream } from "@/app/stocks/[ticker]/hooks/useStockQuoteStream";
 import { useStockAnnouncementsQuery } from "@/app/stocks/[ticker]/hooks/useStockAnnouncementsQuery";
-import { useStockOverviewQuery } from "@/app/stocks/[ticker]/hooks/useStockOverviewQuery";
+import { useStockBasicInfoQuery } from "../hooks/useStockBasicInfoQuery";
 import { useStockPriceStream } from "@/app/stocks/[ticker]/hooks/useStockPriceStream";
 import ChairmanAnalysisSection from "../components/ChairmanAnalysisSection";
 import InvestmentPerformanceSection from "../components/InvestmentPerformanceSection";
@@ -22,16 +22,16 @@ interface ReportsDetailPageClientProps {
 
 export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageClientProps) {
   const { data: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReportsQuery(stockId);
-  const overviewQuery = useStockOverviewQuery(stockId);
+  const basicInfoQuery = useStockBasicInfoQuery(stockId);
   const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
   const priceStream = useStockPriceStream(stockId, "1Y");
   const investmentPerformanceQuery = useInvestmentPerformance(stockId);
   const tradeHistoryQuery = useTradeHistory(stockId, 0, 100);
 
   const debateReport = debateReports?.[0] ?? null;
-  const companyName = overviewQuery.data?.name ?? "";
-  const ticker = overviewQuery.data?.ticker ?? stockId;
-  const quoteTicker = overviewQuery.data?.ticker ?? "";
+  const companyName = basicInfoQuery.data?.name ?? "";
+  const ticker = basicInfoQuery.data?.ticker ?? stockId;
+  const quoteTicker = basicInfoQuery.data?.ticker ?? "";
   const quoteStream = useStockQuoteStream(quoteTicker, {
     enabled: Boolean(quoteTicker),
   });
@@ -44,20 +44,20 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
   );
   const latestPrice = typeof quoteStream.data.currentPrice === "number" ? quoteStream.data.currentPrice : undefined;
   const changeRate = typeof quoteStream.data.changeRate === "number" ? quoteStream.data.changeRate : 0;
-  const benchmarkTime = formatBenchmarkTime(quoteStream.data.tickTimestamp ?? overviewQuery.data?.baseTime ?? "");
-  const market = overviewQuery.data?.marketType ?? "";
+  const benchmarkTime = formatBenchmarkTime(quoteStream.data.tickTimestamp ?? basicInfoQuery.data?.baseTime ?? "");
+  const market = basicInfoQuery.data?.marketType ?? "";
   const priceText = typeof latestPrice === "number" ? `${Math.round(latestPrice).toLocaleString("ko-KR")}원` : "";
   const changeText = `${changeRate > 0 ? "+" : ""}${changeRate.toFixed(1)}%`;
-  const isMetaLoading = overviewQuery.isLoading || quoteStream.isLoading;
+  const isMetaLoading = basicInfoQuery.isLoading || quoteStream.isLoading;
   const metaError =
-    overviewQuery.error instanceof Error
-      ? overviewQuery.error.message
+    basicInfoQuery.error instanceof Error
+      ? basicInfoQuery.error.message
       : quoteStream.error ?? priceStream.error;
   const debateErrorMessage = debateError instanceof Error ? debateError.message : null;
   const eventsError = announcementsQuery.error instanceof Error ? announcementsQuery.error.message : null;
   const tradeHistoryError = tradeHistoryQuery.error instanceof Error ? tradeHistoryQuery.error.message : null;
   const performanceError = investmentPerformanceQuery.error instanceof Error ? investmentPerformanceQuery.error.message : null;
-  const isHeroReady = Boolean(overviewQuery.data && typeof latestPrice === "number");
+  const isHeroReady = Boolean(basicInfoQuery.data && typeof latestPrice === "number");
   const isPerformanceReady = Boolean((performance?.chart?.length ?? 0) > 1) && !investmentPerformanceQuery.isLoading;
   const isDebateReady = !isDebateLoading;
   const isChairmanReady = !isDebateLoading;
@@ -65,7 +65,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
 
   return (
     <main className="flex flex-col items-center bg-[color:var(--color-bg-primary)]">
-      {overviewQuery.data ? (
+      {basicInfoQuery.data ? (
         <ReportTopBarSection stockId={stockId} companyName={companyName} />
       ) : (
         <TopBarSkeleton stockId={stockId} />
