@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ValueChangeRateText from "@/shared/components/ValueChangeRateText";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
-import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import type { TopStockItem } from "../types/main";
 import { formatPrice, formatSignalLabel, formatSignedRate, getRateTone } from "../utils/formatters";
 
@@ -46,17 +45,14 @@ type Props = {
 export default function TopStocksSection({ stocks, isLoading }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
-  const requireAuthAction = useRequireAuthAction();
   const featured = stocks[0];
   const visibleItems = isExpanded ? stocks.slice(1) : stocks.slice(1, 5);
   const visibleRows = Array.from({ length: Math.ceil(visibleItems.length / 2) }, (_, rowIndex) =>
     visibleItems.slice(rowIndex * 2, rowIndex * 2 + 2),
   );
 
-  const handleNavigateToReport = (stockId: number) => {
-    requireAuthAction(() => {
-      router.push(`/report/${stockId}`);
-    });
+  const handleNavigateToStock = (stockId: number) => {
+    router.push(`/stocks/${stockId}`);
   };
 
   const handleCardKeyDown = (
@@ -68,7 +64,7 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
     }
 
     event.preventDefault();
-    handleNavigateToReport(stockId);
+    handleNavigateToStock(stockId);
   };
 
   return (
@@ -94,7 +90,7 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
           <div
             role="link"
             tabIndex={0}
-            onClick={() => handleNavigateToReport(featured.stockId)}
+            onClick={() => handleNavigateToStock(featured.stockId)}
             onKeyDown={(event) => handleCardKeyDown(event, featured.stockId)}
             className="cursor-pointer rounded-2xl bg-[color:var(--color-bg-tertiary)] px-6 py-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg-primary)]"
           >
@@ -165,7 +161,7 @@ export default function TopStocksSection({ stocks, isLoading }: Props) {
                       key={item.stockId}
                       role="link"
                       tabIndex={0}
-                      onClick={() => handleNavigateToReport(item.stockId)}
+                      onClick={() => handleNavigateToStock(item.stockId)}
                       onKeyDown={(event) => handleCardKeyDown(event, item.stockId)}
                       className={`cursor-pointer rounded-xl px-4 py-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border-base)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg-primary)] hover:bg-[color:var(--color-bg-secondary)] ${
                         isOddRank ? "bg-[color:var(--color-bg-tertiary)]" : "bg-[color:var(--color-bg-primary)]"

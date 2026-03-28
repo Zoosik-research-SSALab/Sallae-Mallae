@@ -474,8 +474,6 @@ export default function StockPriceChart({
     const candlePrices = visiblePrices.map((item) => [item.open, item.close, item.low, item.high]);
     const volumes = visiblePrices.map((item) => item.volume);
     const priceRange = getChartPriceRange(visiblePrices, mode);
-    const latestClose = visiblePrices.at(-1)?.close ?? 0;
-
     const previousMeta = previousMetaRef.current;
     const firstTimestamp = visiblePrices[0]?.timestamp ?? null;
     const lastTimestamp = visiblePrices.at(-1)?.timestamp ?? null;
@@ -729,28 +727,39 @@ export default function StockPriceChart({
                       borderColor0: interactivePrimary,
                     },
                   },
-                  markLine: {
-                    symbol: ["none", "none"],
-                    silent: true,
-                    animation: false,
-                    lineStyle: {
-                      opacity: 0,
-                    },
-                    label: {
-                      show: true,
-                      position: "end",
-                      formatter: () => new Intl.NumberFormat("ko-KR").format(latestClose),
-                      color: "#ffffff",
-                      backgroundColor: danger,
-                      borderRadius: 8,
-                      padding: [5, 8],
-                      distance: 12,
-                    },
-                    data: [
-                      {
-                        yAxis: latestClose,
-                      },
-                    ],
+                },
+                {
+                  type: "line",
+                  data: closePrices,
+                  silent: true,
+                  showSymbol: false,
+                  tooltip: {
+                    show: false,
+                  },
+                  lineStyle: {
+                    opacity: 0,
+                    width: 0,
+                  },
+                  itemStyle: {
+                    opacity: 0,
+                  },
+                  emphasis: {
+                    disabled: true,
+                  },
+                  endLabel: {
+                    show: true,
+                    formatter: ({ value }: { value: number | number[] }) =>
+                      new Intl.NumberFormat("ko-KR").format(
+                        typeof value === "number" ? value : Number(value.at(-1) ?? 0),
+                      ),
+                    color: "#ffffff",
+                    backgroundColor: danger,
+                    borderRadius: 8,
+                    padding: [5, 8],
+                    distance: 12,
+                  },
+                  labelLayout: {
+                    moveOverlap: "shiftY",
                   },
                 },
               ]

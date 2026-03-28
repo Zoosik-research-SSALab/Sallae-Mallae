@@ -12,6 +12,7 @@ import { LuNewspaper } from "react-icons/lu";
 import { MdOutlineFavorite } from "react-icons/md";
 import type { IconType } from "react-icons";
 import ProtectedLink from "@/shared/components/ProtectedLink";
+import PasswordChangeModal from "@/shared/components/nav/PasswordChangeModal";
 import ProfileEditModal from "@/shared/components/nav/ProfileEditModal";
 import ProfileMenu from "@/shared/components/nav/ProfileMenu";
 import { useNotificationCountQuery } from "@/shared/hooks/useNotificationCountQuery";
@@ -25,7 +26,7 @@ import { clearAuthPersistenceMode } from "@/shared/lib/authPersistence";
 import { clearSessionUser } from "@/shared/lib/authSession";
 import { useAuthStore } from "@/shared/lib/authStore";
 import { clearPendingSocialSignup } from "@/shared/lib/socialAuth";
-import { updateUserProfile } from "@/shared/lib/userProfileApi";
+import { changeUserPassword, updateUserProfile } from "@/shared/lib/userProfileApi";
 import SearchModal from "@/shared/ui/SearchModal";
 
 type NavItem = {
@@ -46,7 +47,7 @@ const navItems: NavItem[] = [
 ];
 
 const loginButtonClassName =
-  "typo-body-md inline-flex cursor-pointer items-start justify-center overflow-hidden rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
+  "typo-body-md inline-flex shrink-0 cursor-pointer items-center justify-center overflow-hidden whitespace-nowrap rounded bg-[color:var(--color-bg-inverse-bolder)] px-3 py-2 font-semibold text-[color:var(--color-text-base)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 const headerHoverTextClassName = "hover:text-[color:var(--color-text-secondary)]";
 const headerHoverTextStrongClassName = "hover:!text-[color:var(--color-text-secondary)]";
 const mobileMyPageButtonClassName =
@@ -81,6 +82,7 @@ export default function AppNav() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
+  const [isPasswordChangeModalOpen, setIsPasswordChangeModalOpen] = useState(false);
   const [profileMenuAnchorRect, setProfileMenuAnchorRect] = useState<DOMRect | null>(null);
 
   const profileButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -261,6 +263,7 @@ export default function AppNav() {
 
       setUser(user);
       setIsProfileEditModalOpen(false);
+      window.alert("프로필 수정이 완료되었습니다.");
     } catch (error) {
       window.alert(getAuthErrorMessage(error, "내 정보 수정에 실패했습니다."));
     }
@@ -273,7 +276,23 @@ export default function AppNav() {
   const handleChangePassword = () => {
     setIsDrawerOpen(false);
     setIsProfileMenuOpen(false);
-    window.alert("비밀번호 변경 기능은 준비 중입니다.");
+    setIsPasswordChangeModalOpen(true);
+  };
+
+  const handleSavePassword = async (payload: { currentPassword: string; newPassword: string }) => {
+    await changeUserPassword(payload);
+
+    clearAuth();
+    clearAuthPersistenceMode();
+    clearSessionUser();
+    clearPendingSocialSignup();
+    setIsDrawerOpen(false);
+    setIsProfileMenuOpen(false);
+    setIsProfileEditModalOpen(false);
+    setIsPasswordChangeModalOpen(false);
+    router.push("/");
+    window.alert("비밀번호가 변경되었습니다. 다시 로그인해 주세요.");
+    showLoginModal();
   };
 
   const handleLogout = async () => {
@@ -291,6 +310,7 @@ export default function AppNav() {
     setIsDrawerOpen(false);
     setIsProfileMenuOpen(false);
     setIsProfileEditModalOpen(false);
+    setIsPasswordChangeModalOpen(false);
     router.push("/");
   };
 
@@ -354,8 +374,8 @@ export default function AppNav() {
             </nav>
           </div>
 
-          <div className="hidden flex-1 items-center justify-end gap-3 lg:flex xl:gap-4">
-            <div className="relative w-full max-w-64">
+          <div className="hidden min-w-0 flex-1 items-center justify-end gap-3 lg:flex xl:gap-4">
+            <div className="relative w-full max-w-[10.5rem] xl:max-w-56 2xl:max-w-64">
               <input
                 type="text"
                 value={searchKeyword}
@@ -608,6 +628,15 @@ export default function AppNav() {
           profileImageUrl={currentUser?.profileImageUrl ?? null}
           onClose={() => setIsProfileEditModalOpen(false)}
           onSave={handleSaveProfile}
+        />
+      ) : null}
+
+      {isLoggedIn ? (
+        <PasswordChangeModal
+          open={isPasswordChangeModalOpen}
+          email={currentUser?.email ?? null}
+          onClose={() => setIsPasswordChangeModalOpen(false)}
+          onSave={handleSavePassword}
         />
       ) : null}
     </>

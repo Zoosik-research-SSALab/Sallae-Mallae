@@ -8,10 +8,14 @@ type Props = {
   compact?: boolean;
 };
 
+const rankingTabsWithReturn = STOCK_RANKING_TABS.some((tab) => tab.value === "RETURN")
+  ? STOCK_RANKING_TABS
+  : [...STOCK_RANKING_TABS, { value: "RETURN" as const, label: "등락률" }];
+
 export default function StocksSortTabs({ value, onChange, compact = false }: Props) {
   return (
     <div className="inline-flex w-full items-center overflow-x-auto border-b border-[color:var(--color-border-secondary)]">
-      {STOCK_RANKING_TABS.map((tab) => {
+      {rankingTabsWithReturn.map((tab) => {
         const isActive = tab.value === value;
 
         return (
