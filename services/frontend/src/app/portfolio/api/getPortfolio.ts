@@ -74,12 +74,14 @@ type PortfolioPayload = {
     iconUrl?: string | null;
     action?: string | null;
     tradeType?: string | null;
+    buyPrice?: number | null;
     executedAt?: string | null;
     tradeTime?: string | null;
     executedPrice?: number | null;
     tradePrice?: number | null;
     currentPrice?: number | null;
     holdingQuantity?: number | null;
+    tradeQuantity?: number | null;
     returnRate?: number | null;
   }> | null;
   monthlyReturns?: Array<{
@@ -362,9 +364,11 @@ function normalizeTodayTrades(
         iconUrl: readStringOrNull(item.iconUrl),
         action: action === "SELL" ? "SELL" : "BUY",
         executedAt: formatTradeTimeLabel(item.executedAt ?? item.tradeTime),
+        buyPrice: readNumberOrNull(item.buyPrice),
         executedPrice: readNumberOrNull(item.executedPrice ?? item.tradePrice),
         currentPrice,
         holdingQuantity: readNumberOrNull(item.holdingQuantity),
+        tradeQuantity: readNumberOrNull(item.tradeQuantity),
         returnRate: readNumberOrNull(item.returnRate),
       };
     });

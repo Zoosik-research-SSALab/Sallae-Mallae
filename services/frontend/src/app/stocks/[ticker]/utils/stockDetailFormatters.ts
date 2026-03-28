@@ -502,8 +502,52 @@ function compareFinancialItems(a: StockFinancialItem, b: StockFinancialItem) {
   return (a.quarter ?? 0) - (b.quarter ?? 0);
 }
 
+function normalizeQuarterlyFinancials(financials: StockFinancialItem[]) {
+  const runningSumsByYear = new Map<
+    number,
+    {
+      revenue: number;
+      operatingProfit: number;
+    }
+  >();
+
+  return [...financials]
+    .sort(compareFinancialItems)
+    .map((item) => {
+      if (item.quarter !== 4) {
+        if (typeof item.quarter === "number" && item.quarter >= 1 && item.quarter <= 3) {
+          const previousSums = runningSumsByYear.get(item.year) ?? {
+            revenue: 0,
+            operatingProfit: 0,
+          };
+
+          runningSumsByYear.set(item.year, {
+            revenue: previousSums.revenue + item.revenue,
+            operatingProfit: previousSums.operatingProfit + item.operatingProfit,
+          });
+        }
+
+        return item;
+      }
+
+      const previousSums = runningSumsByYear.get(item.year) ?? {
+        revenue: 0,
+        operatingProfit: 0,
+      };
+
+      return {
+        ...item,
+        revenue: item.revenue - previousSums.revenue,
+        operatingProfit: item.operatingProfit - previousSums.operatingProfit,
+      };
+    });
+}
+
 export function getVisibleFinancials(financials: StockFinancialItem[], type: StockFinancialType) {
-  const sortedFinancials = [...financials].sort(compareFinancialItems);
+  const sortedFinancials =
+    type === "QUARTERLY"
+      ? normalizeQuarterlyFinancials(financials)
+      : [...financials].sort(compareFinancialItems);
   return type === "QUARTERLY" ? sortedFinancials.slice(-4) : sortedFinancials;
 }
 

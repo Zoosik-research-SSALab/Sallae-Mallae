@@ -73,10 +73,14 @@ function sortHoldings(items: PortfolioHolding[], sortType: HoldingsSortType) {
   return sorted;
 }
 
+function getDisplayedTradeQuantity(item: PortfolioTodayTrade) {
+  return item.tradeQuantity ?? item.holdingQuantity;
+}
+
 function HoldingRows({ items }: { items: PortfolioHolding[] }) {
   return (
     <>
-      <div className="grid items-center grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] gap-4 border-b border-[color:var(--color-border-secondary)] px-2 py-4">
+      <div className="grid grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] items-center gap-4 border-b border-[color:var(--color-border-secondary)] px-2 py-4">
         <span className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">종목명 / 정보</span>
         <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">매입가</span>
         <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">현재가</span>
@@ -127,7 +131,7 @@ function TradeRows({ items }: { items: PortfolioTodayTrade[] }) {
     <>
       <div className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_1fr] gap-4 border-b border-[color:var(--color-border-secondary)] px-2 py-4">
         <span className="typo-body-sm font-semibold text-[color:var(--color-text-secondary)]">종목명 / 액션</span>
-        <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">체결가</span>
+        <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">가격 정보</span>
         <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">현재가</span>
         <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">매매 수량</span>
         <span className="typo-body-sm text-right font-semibold text-[color:var(--color-text-secondary)]">성과</span>
@@ -140,6 +144,7 @@ function TradeRows({ items }: { items: PortfolioTodayTrade[] }) {
         >
           <div className="min-w-0">
             <div className="flex items-center gap-3">
+              <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
               <Link
                 href={`/stocks/${item.stockId}`}
                 className="truncate text-base font-semibold leading-6 text-[color:var(--color-text-primary)] hover:text-[color:var(--color-text-secondary)]"
@@ -159,14 +164,24 @@ function TradeRows({ items }: { items: PortfolioTodayTrade[] }) {
             </div>
             <p className="typo-body-xs mt-1 text-[color:var(--color-text-tertiary)]">{item.ticker}</p>
           </div>
-          <span className="text-right text-base font-semibold leading-6 text-[color:var(--color-text-secondary)]">
-            {formatCurrency(item.executedPrice)}
-          </span>
+          <div className="text-right">
+            <span className="block text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">
+              {item.action === "SELL" ? "매도가" : "매수가"}
+            </span>
+            <span className="block text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">
+              {formatCurrency(item.executedPrice)}
+            </span>
+            {item.action === "SELL" ? (
+              <span className="block text-xs font-medium leading-4 text-[color:var(--color-text-tertiary)]">
+                매입가 {formatCurrency(item.buyPrice)}
+              </span>
+            ) : null}
+          </div>
           <span className="text-right text-base font-extrabold leading-6 text-[color:var(--color-text-primary)]">
             {formatCurrency(item.currentPrice)}
           </span>
           <span className="text-right text-base font-medium leading-6 text-[color:var(--color-text-secondary)]">
-            {item.holdingQuantity == null ? "-" : `${formatInteger(item.holdingQuantity)}개`}
+            {getDisplayedTradeQuantity(item) == null ? "-" : `${formatInteger(getDisplayedTradeQuantity(item))}개`}
           </span>
           <span className={cn("text-right text-base font-semibold leading-6", getDeltaTextClassName(item.returnRate))}>
             {formatSignedValue(item.returnRate, 2, "%")}
@@ -230,36 +245,53 @@ function MobileTradeCards({ items }: { items: PortfolioTodayTrade[] }) {
     <div key={`${item.id}-${item.ticker}`} className="border-b border-[color:var(--color-border-secondary)] px-2 py-6 last:border-b-0">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/stocks/${item.stockId}`}
-              className="truncate text-sm font-semibold leading-5 text-[color:var(--color-text-primary)] hover:text-[color:var(--color-text-secondary)]"
-            >
-              {item.name}
-            </Link>
-            <span
-              className={cn(
-                "shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold leading-4",
-                item.action === "BUY"
-                  ? "bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger-bold)]"
-                  : "bg-[color:var(--color-bg-info-subtle)] text-[color:var(--color-text-info)]",
-              )}
-            >
-              {getTradeActionLabel(item.action)}
-            </span>
+          <div className="flex items-center gap-3">
+            <StockLogo label={item.name.slice(0, 2)} iconUrl={item.iconUrl} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/stocks/${item.stockId}`}
+                  className="truncate text-sm font-semibold leading-5 text-[color:var(--color-text-primary)] hover:text-[color:var(--color-text-secondary)]"
+                >
+                  {item.name}
+                </Link>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold leading-4",
+                    item.action === "BUY"
+                      ? "bg-[color:var(--color-bg-danger-subtle)] text-[color:var(--color-text-danger-bold)]"
+                      : "bg-[color:var(--color-bg-info-subtle)] text-[color:var(--color-text-info)]",
+                  )}
+                >
+                  {getTradeActionLabel(item.action)}
+                </span>
+              </div>
+              <p className="mt-1 text-[10px] font-medium leading-4 text-[color:var(--color-text-secondary)]">
+                {getDisplayedTradeQuantity(item) == null
+                  ? "매매 수량 정보 없음"
+                  : `매매 수량 ${formatInteger(getDisplayedTradeQuantity(item))}개`}
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-[10px] font-medium leading-4 text-[color:var(--color-text-secondary)]">
-            {item.holdingQuantity == null ? "매매 수량 정보 없음" : `매매 수량 ${formatInteger(item.holdingQuantity)}개`}
-          </p>
         </div>
 
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-end gap-2">
-            <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">체결가</span>
-            <span className="text-sm font-semibold leading-5 text-[color:var(--color-text-secondary)]">
+            <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">
+              {item.action === "SELL" ? "매도가" : "매수가"}
+            </span>
+            <span className="text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">
               {formatCurrency(item.executedPrice)}
             </span>
           </div>
+          {item.action === "SELL" ? (
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">매입가</span>
+              <span className="text-sm font-semibold leading-5 text-[color:var(--color-text-secondary)]">
+                {formatCurrency(item.buyPrice)}
+              </span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-end gap-2">
             <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-secondary)]">현재가</span>
             <span className="text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">

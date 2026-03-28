@@ -1,5 +1,9 @@
-﻿import { FaArrowTrendDown, FaArrowTrendUp } from "react-icons/fa6";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { FaArrowTrendDown, FaArrowTrendUp } from "react-icons/fa6";
 import WatchlistHeartButton from "@/shared/components/WatchlistHeartButton";
+import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import type { NewSignalsPayload, SignalPointItem } from "../types/main";
 import { formatPrice, formatSignedRate, getRateTone } from "../utils/formatters";
 
@@ -22,9 +26,10 @@ type SignalListCardProps = {
   description: string;
   items?: SignalPointItem[];
   tone: "buy" | "sell";
+  onSelect: (stockId: number) => void;
 };
 
-function SignalListCard({ title, description, items, tone }: SignalListCardProps) {
+function SignalListCard({ title, description, items, tone, onSelect }: SignalListCardProps) {
   const safeItems = Array.isArray(items) ? items : [];
   const iconToneClassName =
     tone === "buy"
@@ -49,7 +54,20 @@ function SignalListCard({ title, description, items, tone }: SignalListCardProps
         {safeItems.map((item, index) => (
           <div
             key={`${tone}-${item.stockId}`}
-            className={`flex items-center justify-between gap-3 rounded-2xl px-1 py-3 ${index === 1 ? "bg-[color:var(--color-bg-tertiary)]" : "bg-[color:var(--color-bg-primary)]"}`}
+            role="link"
+            tabIndex={0}
+            onClick={() => onSelect(item.stockId)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") {
+                return;
+              }
+
+              event.preventDefault();
+              onSelect(item.stockId);
+            }}
+            className={`flex cursor-pointer items-center justify-between gap-3 rounded-2xl px-1 py-3 transition-colors hover:bg-[color:var(--color-bg-secondary)] focus-visible:bg-[color:var(--color-bg-secondary)] focus-visible:outline-none ${
+              index === 1 ? "bg-[color:var(--color-bg-tertiary)]" : "bg-[color:var(--color-bg-primary)]"
+            }`}
           >
             <div className="flex flex-1 items-center gap-3">
               <span className="typo-heading-sm w-6 text-center text-[color:var(--color-text-tertiary)]">{index + 1}</span>
@@ -61,13 +79,15 @@ function SignalListCard({ title, description, items, tone }: SignalListCardProps
                 </div>
               </div>
             </div>
-            <WatchlistHeartButton
-              stockId={item.stockId}
-              stockName={item.name}
-              initialWatched={item.isWatchlisted}
-              size="sm"
-              surface={index === 1 ? "muted" : "default"}
-            />
+            <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+              <WatchlistHeartButton
+                stockId={item.stockId}
+                stockName={item.name}
+                initialWatched={item.isWatchlisted}
+                size="sm"
+                surface={index === 1 ? "muted" : "default"}
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -81,8 +101,16 @@ type Props = {
 };
 
 export default function SignalPointsSection({ data, isLoading }: Props) {
+  const router = useRouter();
+  const requireAuthAction = useRequireAuthAction();
   const buyItems = Array.isArray(data?.buy) ? data.buy : [];
   const sellItems = Array.isArray(data?.sell) ? data.sell : [];
+
+  const handleSelectSignalStock = (stockId: number) => {
+    requireAuthAction(() => {
+      router.push(`/report/${stockId}`);
+    });
+  };
 
   return (
     <section className="border-t border-[color:var(--color-border-secondary)] py-10">
@@ -102,8 +130,20 @@ export default function SignalPointsSection({ data, isLoading }: Props) {
 
       {data ? (
         <div className="mt-8 grid gap-6 xl:grid-cols-2">
-          <SignalListCard title="매수 신호 포착" description="지금 주목할 종목" items={buyItems} tone="buy" />
-          <SignalListCard title="매도 신호 포착" description="조정 가능성 높은 종목" items={sellItems} tone="sell" />
+          <SignalListCard
+            title="매수 신호 포착"
+            description="지금 주목할 종목"
+            items={buyItems}
+            tone="buy"
+            onSelect={handleSelectSignalStock}
+          />
+          <SignalListCard
+            title="매도 신호 포착"
+            description="조정 가능성 높은 종목"
+            items={sellItems}
+            tone="sell"
+            onSelect={handleSelectSignalStock}
+          />
         </div>
       ) : null}
     </section>

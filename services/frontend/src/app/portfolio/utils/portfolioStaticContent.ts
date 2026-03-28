@@ -7,7 +7,7 @@ export const PORTFOLIO_HERO_DESCRIPTION =
 
 export const PORTFOLIO_HERO_METRICS: PortfolioHeroMetric[] = [
   { id: "cumulative-return", label: "누적 수익률", value: null, unit: "%", decimals: 1, tone: "danger" },
-  { id: "hit-rate", label: "예측 적중률", value: null, unit: "%", decimals: 1, tone: "default" },
+  { id: "hit-rate", label: "평균 월간 수익률", value: null, unit: "%", decimals: 1, tone: "default" },
   { id: "yesterday_return", label: "전날 대비 수익률", value: null, unit: "%", decimals: 1, tone: "danger" },
   { id: "holding-count", label: "현재 보유 종목", value: null, unit: "개", decimals: 0, tone: "default" },
 ];

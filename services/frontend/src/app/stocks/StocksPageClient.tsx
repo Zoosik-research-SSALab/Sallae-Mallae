@@ -52,7 +52,7 @@ export default function StocksPageClient() {
 
           <section className="flex min-w-0 flex-1 flex-col gap-6 lg:max-w-[756px]">
             <div className="flex flex-col gap-1 lg:hidden">
-              <h1 className="typo-heading-md text-[color:var(--color-text-primary)]">실시간 발견</h1>
+              <h1 className="typo-heading-lg text-[color:var(--color-text-primary)]">실시간 발견</h1>
               <p className="typo-body-xs font-medium text-[color:var(--color-text-secondary)]">코스피 200 전 종목</p>
             </div>
 

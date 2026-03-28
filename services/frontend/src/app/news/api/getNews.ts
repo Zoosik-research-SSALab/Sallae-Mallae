@@ -192,7 +192,13 @@ export async function getTrendingNews() {
 }
 
 export async function getWatchlistNewsPage(params: Pick<NewsQueryParams, "offset" | "limit" | "keyword" | "startDate" | "endDate">) {
-  const payload = await getWatchlistNews(params);
+  let payload;
+
+  try {
+    payload = await getWatchlistNews(params);
+  } catch {
+    throw new Error("서버 연결이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
+  }
 
   return {
     totalCount: payload.totalCount,

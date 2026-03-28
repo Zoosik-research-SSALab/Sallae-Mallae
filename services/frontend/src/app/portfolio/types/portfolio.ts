@@ -38,9 +38,11 @@ export type PortfolioTodayTrade = {
   iconUrl?: string | null;
   action: PortfolioTradeAction;
   executedAt: string;
+  buyPrice: number | null;
   executedPrice: number | null;
   currentPrice: number | null;
   holdingQuantity: number | null;
+  tradeQuantity: number | null;
   returnRate: number | null;
 };
 
