@@ -392,7 +392,7 @@ export default function SignupCard({ showCloseButton = false, onClose, onAuthent
 
             <div className="flex w-full max-w-80 flex-col items-center gap-2">
               <p className="typo-body-md text-center text-[color:var(--color-text-tertiary)]">
-                AI 위원회가 알려주는 투자 정보를 빠르게 받아보세요.
+                AI 위원회와 함께 투자의 궁금증을 해결해보세요.
               </p>
             </div>
 
