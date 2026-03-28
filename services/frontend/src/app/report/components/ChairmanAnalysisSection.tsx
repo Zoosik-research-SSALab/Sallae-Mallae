@@ -45,7 +45,7 @@ export default function ChairmanAnalysisSection({ report }: ChairmanAnalysisSect
 
             <div className="flex items-end gap-4">
               <div className="typo-heading-3xl text-[color:var(--color-text-warning)]">{verdict}</div>
-              <div className="typo-body-md rounded-md bg-[color:var(--color-bg-warning-subtle)] px-2.5 py-1 text-[color:var(--color-text-warning)]">
+              <div className="mb-1.5 typo-body-md rounded-md bg-[color:var(--color-bg-warning-subtle)] px-2.5 py-1 text-[color:var(--color-text-warning)]">
                 신뢰도 {confidence}
               </div>
             </div>
