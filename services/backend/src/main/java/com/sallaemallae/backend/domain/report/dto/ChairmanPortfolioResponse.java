@@ -110,10 +110,14 @@ public record ChairmanPortfolioResponse(
       String tradeType,
       @Schema(description = "매매 시각")
       OffsetDateTime tradeTime,
+      @Schema(description = "매수 당시 단가", example = "4114", nullable = true)
+      Float buyPrice,
       @Schema(description = "매매 단가", example = "65000", nullable = true)
       Float tradePrice,
       @Schema(description = "현재가", example = "74300", nullable = true)
       Integer currentPrice,
+      @Schema(description = "체결 수량", example = "12", nullable = true)
+      Long tradeQuantity,
       @Schema(description = "보유 수량", example = "12", nullable = true)
       Long holdingQuantity,
       @Schema(description = "수익률", example = "3.21", nullable = true)

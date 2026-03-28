@@ -98,6 +98,29 @@ public class ChairmanPortfolioQueryRepository {
     return count.intValue();
   }
 
+  public LocalDate findLatestTradeDate(Long portfolioId) {
+    String sql = """
+        SELECT MAX(DATE(trade_time))
+        FROM ai_trading_history
+        WHERE portfolio_id = :portfolioId
+        """;
+
+    Object result = entityManager.createNativeQuery(sql)
+        .setParameter("portfolioId", portfolioId)
+        .getSingleResult();
+
+    if (result == null) {
+      return null;
+    }
+    if (result instanceof java.sql.Date sqlDate) {
+      return sqlDate.toLocalDate();
+    }
+    if (result instanceof LocalDate localDate) {
+      return localDate;
+    }
+    return LocalDate.parse(result.toString());
+  }
+
   public List<TodayTradeRow> findTodayTradeRows(Long portfolioId, int offset, int limit) {
     String sql = """
         WITH latest_trade_day AS (
@@ -111,8 +134,17 @@ public class ChairmanPortfolioQueryRepository {
                s.icon_url,
                h.trade_type,
                h.trade_time,
-               h.trade_price_rate,
+               CASE
+                   WHEN h.trade_type = 'SELL'
+                        AND h.trade_quantity IS NOT NULL
+                        AND h.trade_quantity > 0
+                        AND h.trade_amount IS NOT NULL
+                     THEN ((h.trade_amount - h.realized_profit)::numeric / h.trade_quantity)
+                   ELSE NULL
+               END AS buy_price,
+               COALESCE(h.trade_price::numeric, h.trade_price_rate) AS trade_price,
                price.close_price AS current_price,
+               h.trade_quantity,
                COALESCE(holding.holding_quantity, h.holding_quantity_after) AS holding_quantity,
                h.return_rate
         FROM ai_trading_history h
@@ -148,8 +180,10 @@ public class ChairmanPortfolioQueryRepository {
           row.get("name", String.class),
           row.get("trade_type", String.class),
           toOffsetDateTime(row.get("trade_time")),
-          toFloat(row.get("trade_price_rate")),
+          toFloat(row.get("buy_price")),
+          toFloat(row.get("trade_price")),
           toInteger(row.get("current_price")),
+          toLong(row.get("trade_quantity")),
           toLong(row.get("holding_quantity")),
           toFloat(row.get("return_rate")),
           row.get("icon_url", String.class)
@@ -429,8 +463,10 @@ public class ChairmanPortfolioQueryRepository {
       String name,
       String tradeType,
       OffsetDateTime tradeTime,
+      Float buyPrice,
       Float tradePrice,
       Integer currentPrice,
+      Long tradeQuantity,
       Long holdingQuantity,
       Float returnRate,
       String iconUrl
