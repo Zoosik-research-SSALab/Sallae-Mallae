@@ -82,7 +82,7 @@ public class FileStorageService {
       // 내부 MinIO 주소를 외부 접근 가능한 주소로 치환
       String uploadUrl = internalUrl.replace(internalEndpoint, presignedEndpoint);
 
-      String fileUrl = publicUrl + "/" + bucket + "/" + objectKey;
+      String fileUrl = publicUrl + "/" + objectKey;
 
       return new PresignedUrlResponse(uploadUrl, fileUrl);
     } catch (Exception e) {
@@ -127,11 +127,11 @@ public class FileStorageService {
   }
 
   public boolean isMinioUrl(String url) {
-    return url != null && url.startsWith(publicUrl + "/" + bucket + "/");
+    return url != null && url.startsWith(publicUrl + "/");
   }
 
   private String extractObjectKey(String fileUrl) {
-    String prefix = publicUrl + "/" + bucket + "/";
+    String prefix = publicUrl + "/";
     if (fileUrl == null || !fileUrl.startsWith(prefix)) {
       return null;
     }
