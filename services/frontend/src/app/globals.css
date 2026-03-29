@@ -1,0 +1,642 @@
+@import "tailwindcss";
+@import "react-datepicker/dist/react-datepicker.css";
+
+@theme inline {
+  /* color: text */
+  --color-text-base: var(--color-text-base);
+  --color-text-base-reversed: var(--color-text-base-reversed);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-tertiary: var(--color-text-tertiary);
+  --color-text-danger: var(--color-text-danger);
+  --color-text-danger-bold: var(--color-text-danger-bold);
+  --color-text-info: var(--color-text-info);
+  --color-text-interactive-primary: var(--color-text-interactive-primary);
+  --color-text-interactive-secondary: var(--color-text-interactive-secondary);
+  --color-text-interactive-inverse: var(--color-text-interactive-inverse);
+
+  /* color: bg */
+  --color-bg-primary: var(--color-bg-primary);
+  --color-bg-secondary: var(--color-bg-secondary);
+  --color-bg-tertiary: var(--color-bg-tertiary);
+  --color-bg-brand: var(--color-bg-brand);
+  --color-bg-danger-bold: var(--color-bg-danger-bold);
+  --color-bg-danger-subtle: var(--color-bg-danger-subtle);
+  --color-bg-info-subtle: var(--color-bg-info-subtle);
+  --color-bg-disabled: var(--color-bg-disabled);
+  --color-bg-interactive-primary: var(--color-bg-interactive-primary);
+  --color-bg-interactive-secondary-hovered: var(--color-bg-interactive-secondary-hovered);
+  --color-bg-interactive-secondary-pressed: var(--color-bg-interactive-secondary-pressed);
+  --color-bg-inverse-bolder: var(--color-bg-inverse-bolder);
+  --color-bg-flash-positive: var(--color-bg-flash-positive);
+  --color-bg-flash-negative: var(--color-bg-flash-negative);
+
+  /* color: border */
+  --color-border-primary: var(--color-border-primary);
+  --color-border-secondary: var(--color-border-secondary);
+  --color-border-base: var(--color-border-base);
+  --color-border-disabled: var(--color-border-disabled);
+  --color-border-interactive-primary: var(--color-border-interactive-primary);
+  --color-border-interactive-primary-pressed: var(--color-border-interactive-primary-pressed);
+  --color-border-interactive-secondary: var(--color-border-interactive-secondary);
+
+  /* color: icon */
+  --color-icon-primary: var(--color-icon-primary);
+  --color-icon-secondary: var(--color-icon-secondary);
+  --color-icon-disabled: var(--color-icon-disabled);
+  --color-icon-interactive-primary: var(--color-icon-interactive-primary);
+  --color-icon-interactive-inverse: var(--color-icon-interactive-inverse);
+
+  /* color: signal */
+  --color-signal-confidence-buy: var(--color-signal-confidence-buy);
+  --color-signal-confidence-sell: var(--color-signal-confidence-sell);
+
+  /* letter-spacing */
+  --letter-spacing-tight: var(--letter-spacing-tight);
+  --letter-spacing-tighter: var(--letter-spacing-tighter);
+}
+
+/* ------------------------ */
+/* CSS Reset */
+/* ------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-family-base);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-family-base);
+}
+
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+[role="button"],
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-family-base);
+}
+
+.heading-reset {
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+fieldset {
+  border: none;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ------------------------ */
+/* Typography Tokens */
+/* ------------------------ */
+
+@utility typo-heading-sm {
+  font-family: var(--typo-heading-sm-font-family);
+  font-weight: var(--typo-heading-sm-font-weight);
+  font-size: var(--typo-heading-sm-font-size);
+  line-height: var(--typo-heading-sm-line-height);
+}
+
+@utility typo-heading-md {
+  font-family: var(--typo-heading-md-font-family);
+  font-weight: var(--typo-heading-md-font-weight);
+  font-size: var(--typo-heading-md-font-size);
+  line-height: var(--typo-heading-md-line-height);
+}
+
+@utility typo-heading-lg {
+  font-family: var(--typo-heading-lg-font-family);
+  font-weight: var(--typo-heading-lg-font-weight);
+  font-size: var(--typo-heading-lg-font-size);
+  line-height: var(--typo-heading-lg-line-height);
+}
+
+@utility typo-heading-xl {
+  font-family: var(--typo-heading-xl-font-family);
+  font-weight: var(--typo-heading-xl-font-weight);
+  font-size: var(--typo-heading-xl-font-size);
+  line-height: var(--typo-heading-xl-line-height);
+}
+
+@utility typo-heading-2xl {
+  font-family: var(--typo-heading-2xl-font-family);
+  font-weight: var(--typo-heading-2xl-font-weight);
+  font-size: var(--typo-heading-2xl-font-size);
+  line-height: var(--typo-heading-2xl-line-height);
+}
+
+@utility typo-heading-3xl {
+  font-family: var(--typo-heading-3xl-font-family);
+  font-weight: var(--typo-heading-3xl-font-weight);
+  font-size: var(--typo-heading-3xl-font-size);
+  line-height: var(--typo-heading-3xl-line-height);
+}
+
+@utility typo-heading-4xl {
+  font-family: var(--typo-heading-4xl-font-family);
+  font-weight: var(--typo-heading-4xl-font-weight);
+  font-size: var(--typo-heading-4xl-font-size);
+  line-height: var(--typo-heading-4xl-line-height);
+}
+
+@utility typo-body-sm {
+  font-family: var(--typo-body-sm-font-family);
+  font-size: var(--typo-body-sm-font-size);
+  line-height: var(--typo-body-sm-line-height);
+}
+
+@utility typo-body-xs {
+  font-family: var(--typo-body-xs-font-family);
+  font-size: var(--typo-body-xs-font-size);
+  line-height: var(--typo-body-xs-line-height);
+}
+
+@utility typo-body-md {
+  font-family: var(--typo-body-md-font-family);
+  font-size: var(--typo-body-md-font-size);
+  line-height: var(--typo-body-md-line-height);
+}
+
+@utility typo-body-lg {
+  font-family: var(--typo-body-lg-font-family);
+  font-weight: var(--typo-body-lg-font-weight);
+  font-size: var(--typo-body-lg-font-size);
+  line-height: var(--typo-body-lg-line-height);
+  letter-spacing: var(--typo-body-lg-letter-spacing);
+}
+
+@utility typo-news-tag {
+  font-family: var(--typo-news-tag-font-family);
+  font-weight: var(--typo-news-tag-font-weight);
+  font-size: var(--typo-news-tag-compact-font-size);
+  line-height: var(--typo-news-tag-compact-line-height);
+  letter-spacing: var(--typo-news-tag-compact-letter-spacing);
+}
+
+@media (min-width: 768px) {
+  .typo-news-tag {
+    font-size: var(--typo-news-tag-font-size);
+    line-height: var(--typo-news-tag-line-height);
+    letter-spacing: var(--typo-news-tag-letter-spacing);
+  }
+}
+
+@utility typo-label {
+  font-family: var(--typo-label-font-family);
+  font-size: var(--typo-label-font-size);
+  line-height: var(--typo-label-line-height);
+}
+
+.ai-report-link-text {
+  color: var(--color-white) !important;
+}
+
+:root[data-theme="dark"] .ai-report-link-text {
+  color: var(--color-neutral-900) !important;
+}
+
+@keyframes chart-skeleton-draw {
+  0% {
+    stroke-dashoffset: 1400;
+    opacity: 0.35;
+  }
+
+  40% {
+    opacity: 0.95;
+  }
+
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.9;
+  }
+}
+
+@keyframes chart-skeleton-glow {
+  0% {
+    transform: translateX(-220px);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 0.65;
+  }
+
+  100% {
+    transform: translateX(1220px);
+    opacity: 0;
+  }
+}
+
+.chart-skeleton-path {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: chart-skeleton-draw 1.8s ease-out infinite;
+}
+
+.chart-skeleton-glow {
+  animation: chart-skeleton-glow 2.1s ease-in-out infinite;
+}
+
+.chart-skeleton-fade {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .ai-report-link-text {
+    color: var(--color-neutral-900) !important;
+  }
+}
+
+/* ------------------------ */
+/* App Primitives */
+/* ------------------------ */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.card,
+.panel,
+.kpi {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.card {
+  background: var(--color-surface);
+  padding: 1.15rem;
+}
+
+.panel {
+  background: var(--color-surface-elevated);
+  padding: 0.95rem;
+}
+
+.kpi {
+  background: var(--color-surface);
+  padding: 0.9rem;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.kpi__label {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  margin-bottom: 0.3rem;
+}
+
+.kpi__value {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-header-bg);
+  backdrop-filter: blur(10px);
+}
+
+.site-header__inner {
+  width: min(1080px, calc(100% - 2rem));
+  margin: 0 auto;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.brand {
+  color: var(--color-foreground);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.site-nav__link {
+  color: var(--color-muted);
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.88rem;
+}
+
+.site-nav__link:hover {
+  color: var(--color-foreground);
+  background: var(--color-surface-elevated);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.list-item {
+  display: flex;
+  gap: 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  background: var(--color-surface);
+}
+
+.link {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.value-change-flash {
+  animation: value-change-flash 1.2s ease-out;
+  will-change: background-color;
+}
+
+.signals-filter-modal-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-primary) transparent;
+}
+
+.signals-filter-modal-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.signals-filter-modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.signals-filter-modal-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: var(--color-border-primary);
+  background-clip: padding-box;
+}
+
+.signals-filter-modal-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.news-datepicker-popper {
+  z-index: 90 !important;
+}
+
+.news-datepicker {
+  overflow: hidden;
+  border: 1px solid var(--color-border-secondary) !important;
+  border-radius: 20px !important;
+  background: var(--color-bg-primary) !important;
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.34) !important;
+  font-family: var(--font-family-base) !important;
+}
+
+.news-datepicker .react-datepicker__triangle {
+  display: none;
+}
+
+.news-datepicker .react-datepicker__header {
+  padding-top: 0 !important;
+  border-bottom: 1px solid var(--color-border-secondary) !important;
+  background: linear-gradient(180deg, var(--color-bg-secondary) 0%, var(--color-bg-primary) 100%) !important;
+}
+
+.news-datepicker .react-datepicker__current-month,
+.news-datepicker .react-datepicker-time__header,
+.news-datepicker .react-datepicker-year-header {
+  color: var(--color-text-primary) !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+}
+
+.news-datepicker .react-datepicker__navigation-icon::before {
+  border-color: var(--color-text-secondary) !important;
+}
+
+.news-datepicker .react-datepicker__month-container {
+  padding: 0 0.75rem 0.9rem !important;
+}
+
+.news-datepicker .react-datepicker__day-names {
+  display: flex !important;
+  justify-content: space-between !important;
+  margin-top: 0.25rem !important;
+}
+
+.news-datepicker .react-datepicker__week {
+  display: flex !important;
+  justify-content: space-between !important;
+}
+
+.news-datepicker .react-datepicker__day-name,
+.news-datepicker .react-datepicker__day,
+.news-datepicker .react-datepicker__time-name {
+  color: var(--color-text-secondary) !important;
+  width: 2.4rem !important;
+  line-height: 2.4rem !important;
+  margin: 0.08rem !important;
+}
+
+.news-datepicker .react-datepicker__day:hover,
+.news-datepicker .react-datepicker__month-text:hover,
+.news-datepicker .react-datepicker__quarter-text:hover,
+.news-datepicker .react-datepicker__year-text:hover {
+  border-radius: 9999px !important;
+  background: var(--color-bg-tertiary) !important;
+}
+
+.news-datepicker .react-datepicker__day--keyboard-selected,
+.news-datepicker .react-datepicker__month-text--keyboard-selected,
+.news-datepicker .react-datepicker__quarter-text--keyboard-selected,
+.news-datepicker .react-datepicker__year-text--keyboard-selected {
+  border-radius: 9999px !important;
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.news-datepicker .react-datepicker__day--selected,
+.news-datepicker .react-datepicker__month-text--selected,
+.news-datepicker .react-datepicker__quarter-text--selected,
+.news-datepicker .react-datepicker__year-text--selected {
+  border-radius: 9999px !important;
+  background: var(--color-bg-inverse-bolder) !important;
+  color: var(--color-text-base) !important;
+}
+
+.news-datepicker .react-datepicker__day--today {
+  font-weight: 700 !important;
+  color: var(--color-text-primary) !important;
+}
+
+.news-datepicker .react-datepicker__day-name {
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  color: var(--color-text-tertiary) !important;
+}
+
+@keyframes value-change-flash {
+  0% {
+    background-color: var(--flash-bg-color, transparent);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes stock-detail-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes stock-detail-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .value-change-flash {
+    animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .site-header__inner {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.65rem 0;
+  }
+
+  .row-between {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

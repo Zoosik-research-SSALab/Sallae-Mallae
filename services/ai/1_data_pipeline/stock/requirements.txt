@@ -1,0 +1,20 @@
+# 코스피 200 데이터 인프라 의존성
+# Python 3.14: 반드시 --only-binary :all: 플래그 사용 (소스 컴파일 불필요)
+# 재현 가능한 정확한 버전은 requirements.lock 파일 참조
+
+pykrx==1.0.51
+yfinance==1.2.0
+fredapi==0.5.2
+dart-fss==0.4.15
+pandas==2.3.3
+numpy==2.4.2
+pyarrow==23.0.1
+ta==0.11.0
+setuptools==80.10.2
+psycopg2-binary==2.9.11
+python-dotenv==1.2.2
+schedule==1.2.2
+requests==2.32.5
+tqdm==4.67.3
+streamlit==1.55.0
+plotly==6.6.0

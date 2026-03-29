@@ -1,0 +1,101 @@
+stages:
+  - deploy
+
+default:
+  tags:
+    - ec2
+
+variables:
+  DEPLOY_INFRA_REF: "infra-common"
+  INFRA_TMP_DIR: "$CI_PROJECT_DIR/.deploy-infra"
+
+.notify_deploy_after_script: &notify_deploy_after_script
+  - |
+    if [ -f "$INFRA_TMP_DIR/infra/scripts/send-mattermost-deploy-notification.sh" ]; then
+      bash "$INFRA_TMP_DIR/infra/scripts/send-mattermost-deploy-notification.sh" || true
+    else
+      echo "Mattermost notification script not found; skipping."
+    fi
+
+deploy_base_manual:
+  stage: deploy
+  when: manual
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "infra-common"'
+  script:
+    - rm -rf "$INFRA_TMP_DIR"
+    - mkdir -p "$INFRA_TMP_DIR"
+    - git fetch origin "$DEPLOY_INFRA_REF"
+    - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
+    - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" base
+    - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-base.sh"
+  after_script: *notify_deploy_after_script
+
+deploy_dev_frontend:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev-frontend"'
+  script:
+    - rm -rf "$INFRA_TMP_DIR"
+    - mkdir -p "$INFRA_TMP_DIR"
+    - git fetch origin "$DEPLOY_INFRA_REF"
+    - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
+    - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" dev-frontend
+    - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-dev-frontend.sh"
+  after_script: *notify_deploy_after_script
+
+deploy_dev_backend:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev-backend"'
+  script:
+    - rm -rf "$INFRA_TMP_DIR"
+    - mkdir -p "$INFRA_TMP_DIR"
+    - git fetch origin "$DEPLOY_INFRA_REF"
+    - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
+    - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" dev-backend
+    - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-dev-backend.sh"
+  after_script: *notify_deploy_after_script
+
+deploy_dev_ai:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev-ai"'
+  script:
+    - rm -rf "$INFRA_TMP_DIR"
+    - mkdir -p "$INFRA_TMP_DIR"
+    - git fetch origin "$DEPLOY_INFRA_REF"
+    - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
+    - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" dev-ai
+    - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-dev-ai.sh"
+  after_script: *notify_deploy_after_script
+
+deploy_develop:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+  script:
+    - rm -rf "$INFRA_TMP_DIR"
+    - mkdir -p "$INFRA_TMP_DIR"
+    - git fetch origin "$DEPLOY_INFRA_REF"
+    - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
+    - bash "$INFRA_TMP_DIR/infra/scripts/write-env-files.sh" develop
+    - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-develop.sh"
+  after_script: *notify_deploy_after_script
+
+deploy_monitoring_manual:
+  stage: deploy
+  when: manual
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "infra-common"'
+  script:
+    - rm -rf "$INFRA_TMP_DIR"
+    - mkdir -p "$INFRA_TMP_DIR"
+    - git fetch origin "$DEPLOY_INFRA_REF"
+    - git archive "origin/$DEPLOY_INFRA_REF" infra | tar -x -C "$INFRA_TMP_DIR"
+    - mkdir -p /srv/sallaemallae/env
+    - if [ ! -f /srv/sallaemallae/env/monitoring.env ]; then cp "$INFRA_TMP_DIR/infra/env/monitoring.env.example" /srv/sallaemallae/env/monitoring.env; fi
+    - CHECKOUT_DIR="$CI_PROJECT_DIR" INFRA_TEMPLATE_DIR="$INFRA_TMP_DIR/infra" bash "$INFRA_TMP_DIR/infra/scripts/deploy-monitoring.sh"
+  after_script: *notify_deploy_after_script

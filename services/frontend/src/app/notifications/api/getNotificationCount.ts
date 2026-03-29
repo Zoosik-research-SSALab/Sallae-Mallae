@@ -1,0 +1,1 @@
+export { getNotificationCount } from "./getNotifications";

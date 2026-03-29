@@ -1,0 +1,101 @@
+package com.sallaemallae.backend.domain.stock.service;
+
+import com.sallaemallae.backend.domain.stock.entity.Stock;
+import com.sallaemallae.backend.domain.stock.repository.StockRepository;
+import com.sallaemallae.backend.domain.stock.support.StockMarketConstants;
+import com.sallaemallae.backend.infra.kis.KisProperties;
+import com.sallaemallae.backend.infra.kis.stock.KisDomesticStockClient;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class StockQuoteRefreshScheduler {
+
+  private static final long THROTTLE_MILLIS = 67L; // ~15 requests/sec
+  private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+  // 프리마켓 (동시호가)
+  private static final LocalTime PRE_MARKET_START = LocalTime.of(8, 30);
+
+  // 정규장
+  private static final LocalTime REGULAR_OPEN = LocalTime.of(9, 0);
+  private static final LocalTime REGULAR_CLOSE = LocalTime.of(15, 30);
+
+  // 장 마감 후 캐시 유지 (정규장 종가 기준)
+  private static final LocalTime CACHE_REFRESH_END = LocalTime.of(18, 0);
+
+  private final StockRepository stockRepository;
+  private final KisDomesticStockClient kisDomesticStockClient;
+  private final KisProperties kisProperties;
+  private final StockQuoteCacheService stockQuoteCacheService;
+
+  @Scheduled(fixedRate = 30_000, initialDelay = 25_000)
+  public void refreshAllQuotes() {
+    if (!kisProperties.isConfigured()) {
+      log.debug("KIS API not configured. Skipping bulk quote refresh.");
+      return;
+    }
+    if (!isTradingTime()) {
+      return;
+    }
+
+    List<Stock> activeStocks = stockRepository.findAllByIsActiveTrueOrderByNameAsc();
+    if (activeStocks.isEmpty()) {
+      log.debug("No active stocks found. Skipping bulk quote refresh.");
+      return;
+    }
+
+    String marketCode = StockMarketConstants.DOMESTIC_MARKET_CODE;
+    int success = 0;
+    int fail = 0;
+
+    for (Stock stock : activeStocks) {
+      try {
+        var quote = kisDomesticStockClient.getQuote(marketCode, stock.getTicker());
+        stockQuoteCacheService.put(marketCode, stock.getTicker(), quote);
+        success++;
+      } catch (Exception e) {
+        log.warn("Failed to fetch quote for ticker={}. error={}", stock.getTicker(), e.getMessage());
+        fail++;
+      }
+      throttle();
+    }
+
+    log.info("Bulk quote refresh completed. total={}, success={}, fail={}", activeStocks.size(), success, fail);
+  }
+
+  /**
+   * 시세 갱신이 의미 있는 시간대인지 확인.
+   * - 프리마켓 (동시호가): 08:30 ~ 09:00
+   * - 정규장: 09:00 ~ 15:30
+   * - 장 마감 후 캐시 유지: 15:30 ~ 18:00 (정규장 종가 기준 getQuote 사용)
+   * - 주말 제외
+   */
+  private boolean isTradingTime() {
+    ZonedDateTime now = ZonedDateTime.now(KST);
+    DayOfWeek day = now.getDayOfWeek();
+    if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
+      return false;
+    }
+
+    LocalTime time = now.toLocalTime();
+    return !time.isBefore(PRE_MARKET_START) && time.isBefore(CACHE_REFRESH_END);
+  }
+
+  private void throttle() {
+    try {
+      Thread.sleep(THROTTLE_MILLIS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+  }
+}

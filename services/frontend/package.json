@@ -1,0 +1,38 @@
+{
+  "name": "sallaemallae-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@radix-ui/react-popover": "^1.1.15",
+    "@tanstack/react-query": "^5.90.16",
+    "@tanstack/react-query-devtools": "^5.91.3",
+    "echarts": "^6.0.0",
+    "motion": "^12.35.2",
+    "next": "16.1.4",
+    "react": "19.2.4",
+    "react-datepicker": "^9.1.0",
+    "react-dom": "19.2.4",
+    "react-icons": "^5.6.0",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.1.4",
+    "msw": "^2.12.7",
+    "prettier": "latest",
+    "shadcn": "latest",
+    "storybook": "^10.1.11",
+    "tailwindcss": "^4",
+    "typescript": "~5.9.3"
+  }
+}

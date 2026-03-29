@@ -1,0 +1,17 @@
+# Python 3.14 — 반드시 --only-binary :all: 로 설치
+pandas>=3.0.1
+numpy>=2.4.2
+scikit-learn>=1.7.2
+joblib>=1.5.2
+sqlalchemy>=2.0.43
+psycopg2-binary>=2.9.10
+lightgbm>=4.6.0
+pyarrow>=23.0.1
+ta>=0.11.0
+python-dotenv>=1.0.0
+pykrx>=1.0.51
+tqdm>=4.67.0
+setuptools<81
+torch>=2.6.0
+torchvision>=0.21.0
+arch>=7.0.0
