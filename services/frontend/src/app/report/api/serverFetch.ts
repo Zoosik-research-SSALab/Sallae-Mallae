@@ -38,7 +38,7 @@ export async function serverGetDebateReports(
   accessToken?: string,
 ): Promise<unknown> {
   return serverApiFetch<unknown>(
-    `/api/report/${stockId}?offset=0&limit=1`,
+    `/api/report/${encodeURIComponent(stockId)}?offset=0&limit=1`,
     accessToken,
   );
 }
@@ -48,7 +48,7 @@ export async function serverGetInvestmentPerformance(
   accessToken?: string,
 ): Promise<unknown> {
   return serverApiFetch<unknown>(
-    `/api/report/${stockId}/performance`,
+    `/api/report/${encodeURIComponent(stockId)}/performance`,
     accessToken,
   );
 }
@@ -58,7 +58,7 @@ export async function serverGetTradeHistory(
   accessToken?: string,
 ): Promise<unknown> {
   return serverApiFetch<unknown>(
-    `/api/report/${stockId}/performance/trades`,
+    `/api/report/${encodeURIComponent(stockId)}/performance/trades`,
     accessToken,
   );
 }
@@ -68,7 +68,7 @@ export async function serverGetStockBasicInfo(
   accessToken?: string,
 ): Promise<StockBasicInfo> {
   return serverApiFetch<StockBasicInfo>(
-    `/api/stocks/${stockId}`,
+    `/api/stocks/${encodeURIComponent(stockId)}`,
     accessToken,
   );
 }
