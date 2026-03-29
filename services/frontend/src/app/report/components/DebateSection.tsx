@@ -309,6 +309,7 @@ function getRoundIntroTitle(roundLabel: string) {
 const SPEECH_GAP_MS = 1000;
 const SPEECH_START_SYNC_DELAY_MS = 100;
 const ROUND_INTRO_DURATION_MS = 2000;
+const FALLBACK_MS_PER_CHAR = 80;
 type DebateJumpTarget = "r1" | "r2" | "r3" | "judge";
 
 export default function DebateSection({
@@ -480,6 +481,8 @@ export default function DebateSection({
     setIsTtsReady(allTtsItems.length > 0 && readyCount === allTtsItems.length);
 
     preloadPromiseRef.current = (async () => {
+      let allSucceeded = true;
+
       for (const item of allTtsItems) {
         if (cancelled || preloadRunIdRef.current !== runId) {
           return false;
@@ -488,13 +491,14 @@ export default function DebateSection({
         try {
           await primeTtsCache(item.text, item.speakerId);
         } catch {
-          return false;
+          allSucceeded = false;
+          // 개별 항목 실패 시 다음 항목으로 계속 진행
         }
       }
 
       if (!cancelled && preloadRunIdRef.current === runId) {
         setIsTtsReady(true);
-        return true;
+        return allSucceeded;
       }
 
       return false;
@@ -720,8 +724,8 @@ export default function DebateSection({
       setIsPreparingStart(false);
 
       if (!prepared) {
-        setTtsError("TTS 음성 준비가 아직 완료되지 않았습니다.");
-        return;
+        // TTS 준비 실패해도 텍스트 기반 타이밍으로 진행
+        console.warn("TTS preload failed — proceeding with text-based timing fallback.");
       }
     }
 
@@ -737,19 +741,20 @@ export default function DebateSection({
   };
 
   const handleReplay = async () => {
-    if (!allTtsItems.length || !isTtsReady) {
-      setTtsError("재생 가능한 음성이 아직 준비되지 않았습니다.");
-      return;
-    }
-
     await handleStart();
   };
 
   const jumpToDebateIndex = (startIndex: number) => {
     interruptPlayback();
+    // 같은 startIndex로 재점프해도 useEffect가 재트리거되도록
+    // phase를 한번 리셋 후 다시 debate으로 전환
+    setPhase("ready");
     setDebateStartIndex(startIndex);
     setActiveSpeechIndex(Math.max(startIndex - 1, -1));
-    setPhase("debate");
+    // requestAnimationFrame으로 다음 렌더 사이클에서 debate 진입
+    requestAnimationFrame(() => {
+      setPhase("debate");
+    });
   };
 
   const jumpToFinalVerdict = () => {
@@ -942,45 +947,52 @@ export default function DebateSection({
   }
 
   async function playTtsAudio(text: string, speakerId: TtsSpeakerId, signal: AbortSignal) {
-    if (!audioRef.current || !text.trim()) {
+    const trimmedText = text.trim();
+    if (!trimmedText) {
       return false;
     }
 
-    try {
-      setBgmDucked(true);
-      clearActiveAudioUrl();
+    // TTS 오디오 재생 시도
+    if (audioRef.current) {
+      try {
+        setBgmDucked(true);
+        clearActiveAudioUrl();
 
-      const blob = await primeTtsCache(text, speakerId);
-      if (signal.aborted) {
-        return false;
+        const blob = await primeTtsCache(trimmedText, speakerId);
+        if (signal.aborted) {
+          return false;
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        audioUrlRef.current = objectUrl;
+        audioRef.current.src = objectUrl;
+        audioRef.current.load();
+        audioRef.current.playbackRate = getTtsPlaybackRate(speakerId);
+
+        await waitForResume(signal);
+        await audioRef.current.play();
+        await waitForAudioEnd(audioRef.current, signal);
+        return true;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return false;
+        }
+
+        // TTS 실패 — 텍스트 길이 기반 대기로 fallback
+        console.warn("TTS unavailable, falling back to text-based timing:", error instanceof Error ? error.message : error);
+      } finally {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        setBgmDucked(false);
+        clearActiveAudioUrl();
       }
-
-      const objectUrl = URL.createObjectURL(blob);
-      audioUrlRef.current = objectUrl;
-      audioRef.current.src = objectUrl;
-      audioRef.current.load();
-      audioRef.current.playbackRate = getTtsPlaybackRate(speakerId);
-
-      await waitForResume(signal);
-      await audioRef.current.play();
-      await waitForAudioEnd(audioRef.current, signal);
-      return true;
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return false;
-      }
-
-      const message = error instanceof Error ? error.message : "TTS playback failed.";
-      console.error("TTS playback failed:", message);
-      setTtsError(message);
-      return false;
-    } finally {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      setBgmDucked(false);
-      clearActiveAudioUrl();
     }
+
+    // Fallback: 텍스트 길이 기반 대기 (한국어 기준 ~80ms/글자)
+    const fallbackMs = Math.max(1500, trimmedText.length * FALLBACK_MS_PER_CHAR);
+    await waitForMs(fallbackMs, signal);
+    return false;
   }
 
   function setBgmDucked(isDucked: boolean) {
@@ -1165,27 +1177,33 @@ export default function DebateSection({
               <span className="hidden sm:inline">동영상 건너뛰기</span>
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={() => handleJump("r1")}
-            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
-          >
-            R1
-          </button>
-          <button
-            type="button"
-            onClick={() => handleJump("r2")}
-            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
-          >
+          {roundStartIndexes.has(1) ? (
+            <button
+              type="button"
+              onClick={() => handleJump("r1")}
+              className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
+            >
+              R1
+            </button>
+          ) : null}
+          {roundStartIndexes.has(2) ? (
+            <button
+              type="button"
+              onClick={() => handleJump("r2")}
+              className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
+            >
             R2
           </button>
-          <button
-            type="button"
-            onClick={() => handleJump("r3")}
-            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
-          >
-            R3
-          </button>
+          ) : null}
+          {roundStartIndexes.has(3) ? (
+            <button
+              type="button"
+              onClick={() => handleJump("r3")}
+              className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
+            >
+              R3
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => handleJump("judge")}
