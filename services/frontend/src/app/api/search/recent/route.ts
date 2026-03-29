@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   if (!isAuthorizedSearchRequest(request)) {
     return NextResponse.json(
       {
-        message: "?몄쬆???꾩슂?⑸땲??",
+        message: "로그인이 필요합니다.",
       },
       { status: 401 },
     );
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   if (!isAuthorizedSearchRequest(request)) {
     return NextResponse.json(
       {
-        message: "?몄쬆???꾩슂?⑸땲??",
+        message: "로그인이 필요합니다.",
       },
       { status: 401 },
     );
@@ -100,7 +100,7 @@ export async function DELETE(request: NextRequest) {
   if (!isAuthorizedSearchRequest(request)) {
     return NextResponse.json(
       {
-        message: "?몄쬆???꾩슂?⑸땲??",
+        message: "로그인이 필요합니다.",
       },
       { status: 401 },
     );
