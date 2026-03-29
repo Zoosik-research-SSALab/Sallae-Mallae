@@ -1,0 +1,225 @@
+name: app
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+    depends_on:
+      spring:
+        condition: service_healthy
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - app-net
+
+  spring:
+    build:
+      context: ../services/backend
+      dockerfile: Dockerfile
+    container_name: spring
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Seoul
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-dev}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${APP_DB_NAME:-app}
+      DB_USER: ${APP_DB_USER:-app_user}
+      DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_app}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms256m -Xmx1024m}
+      JWT_SECRET: ${JWT_SECRET:-}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-}
+      OAUTH_NAVER_CLIENT_ID: ${OAUTH_NAVER_CLIENT_ID:-}
+      OAUTH_NAVER_CLIENT_SECRET: ${OAUTH_NAVER_CLIENT_SECRET:-}
+      OAUTH_NAVER_REDIRECT_URI: ${OAUTH_NAVER_REDIRECT_URI:-}
+      OAUTH_KAKAO_CLIENT_ID: ${OAUTH_KAKAO_CLIENT_ID:-}
+      OAUTH_KAKAO_CLIENT_SECRET: ${OAUTH_KAKAO_CLIENT_SECRET:-}
+      OAUTH_KAKAO_REDIRECT_URI: ${OAUTH_KAKAO_REDIRECT_URI:-}
+      AI_SERVER_BASE_URL: ${AI_SERVER_BASE_URL:-http://ml-server:8000}
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - app-net
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+  frontend:
+    profiles:
+      - fullstack
+    build:
+      context: ../services/frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_MOCKING: ${NEXT_PUBLIC_API_MOCKING:-false}
+    container_name: frontend
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      NEXT_PUBLIC_API_MOCKING: ${NEXT_PUBLIC_API_MOCKING:-false}
+      AUTH_API_MOCKING: ${AUTH_API_MOCKING:-false}
+      AUTH_API_BASE_URL: ${AUTH_API_BASE_URL:-}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-}
+      OAUTH_NAVER_CLIENT_ID: ${OAUTH_NAVER_CLIENT_ID:-}
+      OAUTH_NAVER_REDIRECT_URI: ${OAUTH_NAVER_REDIRECT_URI:-}
+      OAUTH_KAKAO_CLIENT_ID: ${OAUTH_KAKAO_CLIENT_ID:-}
+      OAUTH_KAKAO_REDIRECT_URI: ${OAUTH_KAKAO_REDIRECT_URI:-}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - app-net
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+  ml-server:
+    profiles:
+      - fullstack
+    build:
+      context: ../services/ai/3_ai_server
+      dockerfile: Dockerfile
+    container_name: ml-server
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      AI_DB_URL: postgresql+psycopg2://${APP_DB_USER:-app_user}:${APP_DB_PASSWORD:-change_me_app}@postgres:5432/${APP_DB_NAME:-app}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change_me_ai_internal_key}
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://spring:8080}
+    expose:
+      - "8000"
+    networks:
+      - app-net
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+  ml-worker:
+    profiles:
+      - fullstack
+    build:
+      context: ../services/ai/1_data_pipeline/stock
+      dockerfile: Dockerfile
+    container_name: ml-worker
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Seoul
+      APP_ENV: ${SPRING_PROFILE:-dev}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${APP_DB_NAME:-app}
+      DB_USER: ${APP_DB_USER:-app_user}
+      DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_app}
+      RCLONE_AUTO_SYNC: ${RCLONE_AUTO_SYNC:-false}
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
+      DART_API_KEY: ${DART_API_KEY:-}
+      ECOS_API_KEY: ${ECOS_API_KEY:-}
+      FRED_API_KEY: ${FRED_API_KEY:-}
+      KIS_API_KEY: ${KIS_API_KEY:-}
+      KIS_SECRET_KEY: ${KIS_SECRET_KEY:-}
+      KRX_API_KEY: ${KRX_API_KEY:-}
+      KRX_USER_ID: ${KRX_USER_ID:-}
+      KRX_PASSWORD: ${KRX_PASSWORD:-}
+    networks:
+      - app-net
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+  postgres:
+    build:
+      context: ./postgres
+    image: sallae/postgres-timescale-pgvector:pg16
+    container_name: postgres
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERPASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      APP_DB_NAME: ${APP_DB_NAME:-app}
+      APP_DB_USER: ${APP_DB_USER:-app_user}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_app}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - app-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    environment:
+      TZ: Asia/Seoul
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - redis-data:/data
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    name: app-net
+
+volumes:
+  postgres-data:
+    name: postgres-data
+  redis-data:
+    name: redis-data
