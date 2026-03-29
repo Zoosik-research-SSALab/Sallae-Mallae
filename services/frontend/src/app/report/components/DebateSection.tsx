@@ -332,6 +332,7 @@ export default function DebateSection({
   const ttsAbortControllerRef = useRef<AbortController | null>(null);
   const pauseListenersRef = useRef(new Set<(paused: boolean) => void>());
   const isPausedRef = useRef(false);
+  const jumpRafRef = useRef(0);
   const [phase, setPhase] = useState<StagePhase>("ready");
   const [activeSpeechIndex, setActiveSpeechIndex] = useState(-1);
   const [judgementStep, setJudgementStep] = useState(0);
@@ -422,6 +423,7 @@ export default function DebateSection({
       timersRef.current.forEach((timer) => window.clearTimeout(timer));
       timersRef.current = [];
       ttsAbortControllerRef.current?.abort();
+      cancelAnimationFrame(jumpRafRef.current);
 
       if (audioRef.current) {
         audioRef.current.pause();
@@ -741,18 +743,20 @@ export default function DebateSection({
   };
 
   const handleReplay = async () => {
+    if (!allTtsItems.length) return;
     await handleStart();
   };
 
   const jumpToDebateIndex = (startIndex: number) => {
     interruptPlayback();
-    // 같은 startIndex로 재점프해도 useEffect가 재트리거되도록
-    // phase를 한번 리셋 후 다시 debate으로 전환
-    setPhase("ready");
+    cancelAnimationFrame(jumpRafRef.current);
     setDebateStartIndex(startIndex);
     setActiveSpeechIndex(Math.max(startIndex - 1, -1));
-    // requestAnimationFrame으로 다음 렌더 사이클에서 debate 진입
-    requestAnimationFrame(() => {
+    // 같은 startIndex로 재점프해도 useEffect가 재트리거되도록
+    // speechRunIdRef를 증가시켜 이전 루프를 종료하고 phase를 리셋 후 재진입
+    speechRunIdRef.current += 1;
+    setPhase("ready");
+    jumpRafRef.current = requestAnimationFrame(() => {
       setPhase("debate");
     });
   };
@@ -990,6 +994,7 @@ export default function DebateSection({
     }
 
     // Fallback: 텍스트 길이 기반 대기 (한국어 기준 ~80ms/글자)
+    if (signal.aborted) return false;
     const fallbackMs = Math.max(1500, trimmedText.length * FALLBACK_MS_PER_CHAR);
     await waitForMs(fallbackMs, signal);
     return false;
