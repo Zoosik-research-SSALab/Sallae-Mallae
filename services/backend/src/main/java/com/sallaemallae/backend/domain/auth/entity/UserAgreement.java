@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -32,4 +33,20 @@ public class UserAgreement {
 
   @Column(name = "agreed_at")
   private OffsetDateTime agreedAt;
+
+  @Builder
+  public UserAgreement(Long userId, Long termsId, boolean isAgreed) {
+    this.userId = userId;
+    this.termsId = termsId;
+    this.isAgreed = isAgreed;
+    this.agreedAt = isAgreed ? OffsetDateTime.now() : null;
+  }
+
+  public static UserAgreement create(Long userId, Long termsId, boolean agreed) {
+    return UserAgreement.builder()
+        .userId(userId)
+        .termsId(termsId)
+        .isAgreed(agreed)
+        .build();
+  }
 }

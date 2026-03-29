@@ -34,12 +34,24 @@ public class StockNotification {
   @Column(nullable = false, length = 100)
   private String title;
 
-  @Column(nullable = false, length = 512)
+  @Column(length = 512)
   private String message;
 
   @Column(name = "related_link", length = 255)
   private String relatedLink;
 
-  @Column(name = "created_at", nullable = false)
+  @Column(name = "created_at")
   private OffsetDateTime createdAt;
+
+  public static StockNotification create(Long stockId, NotifyType notiType,
+      String title, String message, String relatedLink) {
+    StockNotification n = new StockNotification();
+    n.stockId = stockId;
+    n.notiType = notiType;
+    n.title = title;
+    n.message = message;
+    n.relatedLink = relatedLink;
+    n.createdAt = OffsetDateTime.now();
+    return n;
+  }
 }

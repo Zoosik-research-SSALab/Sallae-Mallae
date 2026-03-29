@@ -1,4 +1,4 @@
-﻿export type TopStockItem = {
+export type TopStockItem = {
   rank: number;
   stockId: number;
   name: string;
@@ -6,6 +6,7 @@
   fluctuationRate: number;
   signal: string;
   confidence: number;
+  isWatchlisted: boolean;
 };
 
 export type TopStocksPayload = {
@@ -19,6 +20,7 @@ export type SignalPointItem = {
   confidence: number;
   price: number;
   fluctuationRate: number;
+  isWatchlisted: boolean;
 };
 
 export type NewSignalsPayload = {

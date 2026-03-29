@@ -1,0 +1,437 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { IoChevronBack, IoChevronForward, IoCalendarOutline } from "react-icons/io5";
+import type { ReportItem } from "../types/api";
+import type { CommitteeMember } from "../types/portfolioStockDetail";
+import { ChatBubble } from "./CommitteeChat";
+
+type Props = {
+  open: boolean;
+  reports: ReportItem[];
+  onClose: () => void;
+};
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${String(d.getMonth() + 1).padStart(2, "0")}월 ${String(d.getDate()).padStart(2, "0")}일`;
+}
+
+function formatConfidence(confidence: number): string {
+  return `${Math.round(confidence <= 1 ? confidence * 100 : confidence)}%`;
+}
+
+function buildMembers(report: ReportItem): CommitteeMember[] {
+  const members: CommitteeMember[] = report.debate.rounds.flatMap((round, ri) =>
+    round.agents.map((agent, ai) => ({
+      role: agent.name,
+      opinion: agent.summary || agent.opinion,
+      alignment: ((ri + ai) % 2 === 0 ? "left" : "right") as "left" | "right",
+      isDark: false,
+    })),
+  );
+  members.push({
+    role: "의장 최종 판결",
+    opinion: report.chairman.summary,
+    alignment: "right",
+    isDark: true,
+  });
+  return members;
+}
+
+// ── Calendar ──
+
+const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+
+type ReportMap = Map<string, ReportItem>;
+
+function buildReportMap(reports: ReportItem[]): ReportMap {
+  const map = new Map<string, ReportItem>();
+  for (const r of reports) {
+    const d = new Date(r.date);
+    if (!isNaN(d.getTime())) {
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      map.set(key, r);
+    }
+  }
+  return map;
+}
+
+function CalendarPanel({
+  year,
+  month,
+  reportMap,
+  onSelectReport,
+  onPrevMonth,
+  onNextMonth,
+}: {
+  year: number;
+  month: number;
+  reportMap: ReportMap;
+  onSelectReport: (report: ReportItem) => void;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+}) {
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  return (
+    <div className="flex flex-col gap-3 px-5 py-4 border-b border-border-primary">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onPrevMonth}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-bg-secondary transition-colors text-text-secondary"
+          aria-label="이전 달"
+        >
+          <IoChevronBack size={16} />
+        </button>
+        <span className="typo-body-md font-bold text-text-primary">
+          {year}년 {month}월
+        </span>
+        <button
+          type="button"
+          onClick={onNextMonth}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-bg-secondary transition-colors text-text-secondary"
+          aria-label="다음 달"
+        >
+          <IoChevronForward size={16} />
+        </button>
+      </div>
+
+      {/* Day labels */}
+      <div className="grid grid-cols-7 gap-1">
+        {DAY_LABELS.map((label) => (
+          <div key={label} className="text-center typo-body-sm font-semibold text-text-tertiary py-1">
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((day, idx) => {
+          if (day === null) {
+            return <div key={`empty-${idx}`} />;
+          }
+
+          const key = `${year}-${month}-${day}`;
+          const report = reportMap.get(key);
+
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={!report}
+              onClick={() => report && onSelectReport(report)}
+              className={`flex flex-col items-center justify-center rounded-lg py-1.5 min-h-[52px] transition-colors ${
+                report
+                  ? "hover:bg-bg-info-subtle cursor-pointer"
+                  : "opacity-40 cursor-default"
+              }`}
+            >
+              <span className={`typo-body-sm font-medium ${report ? "text-text-primary" : "text-text-tertiary"}`}>
+                {day}
+              </span>
+              {report && (
+                <div className="flex flex-col items-center gap-0.5 mt-0.5">
+                  <span className="typo-body-sm font-bold text-text-danger" style={{ fontSize: 9, lineHeight: "12px" }}>
+                    {report.chairman.signal}
+                  </span>
+                  <span className="typo-body-sm text-text-tertiary" style={{ fontSize: 8, lineHeight: "10px" }}>
+                    {formatConfidence(report.chairman.confidence)}
+                  </span>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Modal ──
+
+function getYears(reports: ReportItem[]): string[] {
+  const years = new Set(
+    reports.map((r) => {
+      const d = new Date(r.date);
+      return isNaN(d.getTime()) ? r.date.slice(0, 4) : String(d.getFullYear());
+    }),
+  );
+  return Array.from(years).sort((a, b) => b.localeCompare(a));
+}
+
+export default function PastDiscussionsModal({ open, reports, onClose }: Props) {
+  const [selectedYear, setSelectedYear] = useState<string>("");
+  const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(1);
+
+  const years = useMemo(() => getYears(reports), [reports]);
+  const reportMap = useMemo(() => buildReportMap(reports), [reports]);
+
+  // Reset when modal opens
+  useEffect(() => {
+    if (!open || years.length === 0) {
+      return;
+    }
+
+    const latestYear = years[0];
+    const now = new Date();
+    const timer = window.setTimeout(() => {
+      setSelectedYear(latestYear);
+      setSelectedReport(null);
+      setCalendarOpen(false);
+      setCalendarYear(Number(latestYear));
+      setCalendarMonth(now.getMonth() + 1);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [open, years]);
+
+  // ESC to close or go back
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (selectedReport) {
+          setSelectedReport(null);
+        } else if (calendarOpen) {
+          setCalendarOpen(false);
+        } else {
+          onClose();
+        }
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose, selectedReport, calendarOpen]);
+
+  // Body scroll lock
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  if (!open || reports.length === 0) return null;
+
+  const filteredReports = reports.filter((r) => {
+    const d = new Date(r.date);
+    const year = isNaN(d.getTime()) ? r.date.slice(0, 4) : String(d.getFullYear());
+    return year === selectedYear;
+  });
+
+  const handlePrevMonth = () => {
+    if (calendarMonth === 1) {
+      setCalendarYear((y) => {
+        setSelectedYear(String(y - 1));
+        return y - 1;
+      });
+      setCalendarMonth(12);
+    } else {
+      setCalendarMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (calendarMonth === 12) {
+      setCalendarYear((y) => {
+        setSelectedYear(String(y + 1));
+        return y + 1;
+      });
+      setCalendarMonth(1);
+    } else {
+      setCalendarMonth((m) => m + 1);
+    }
+  };
+
+  const handleCalendarSelect = (report: ReportItem) => {
+    setSelectedReport(report);
+    setCalendarOpen(false);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[90] flex items-end md:items-center justify-center bg-black/56 backdrop-blur-[2px]"
+      onClick={() => {
+        if (selectedReport) {
+          setSelectedReport(null);
+        } else {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="w-full md:max-w-lg h-[85vh] flex flex-col rounded-t-2xl md:rounded-2xl bg-[color:var(--color-bg-primary)] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-primary shrink-0">
+          <div className="flex items-center gap-3">
+            {selectedReport && (
+              <button
+                type="button"
+                onClick={() => setSelectedReport(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-bg-secondary transition-colors text-text-secondary"
+                aria-label="목록으로"
+              >
+                <IoChevronBack size={20} />
+              </button>
+            )}
+            <h2 className="typo-heading-sm font-extrabold text-text-primary tracking-tight">
+              {selectedReport ? formatDate(selectedReport.date) + " 토론" : "과거 토론 기록"}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {!selectedReport && (
+              <button
+                type="button"
+                onClick={() => setCalendarOpen((v) => !v)}
+                className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+                  calendarOpen
+                    ? "bg-bg-info-subtle text-text-info"
+                    : "hover:bg-bg-secondary text-text-secondary"
+                }`}
+                aria-label="달력"
+              >
+                <IoCalendarOutline size={18} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-bg-secondary transition-colors text-text-secondary"
+              aria-label="닫기"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {selectedReport ? (
+          /* ── Detail view ── */
+          <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
+            <div className="flex items-center justify-between">
+              <span className="typo-body-md font-semibold text-text-secondary">당시 최종 의결</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[15px] font-black text-text-danger tracking-tight">
+                  {selectedReport.chairman.signal}
+                </span>
+                <span className="typo-body-sm inline-flex items-center px-3 py-1 rounded bg-bg-danger-subtle font-semibold text-text-danger-bold">
+                  신뢰도 {formatConfidence(selectedReport.chairman.confidence)}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-6">
+              {buildMembers(selectedReport).map((member, index) => (
+                <ChatBubble key={`${member.role}-${index}`} member={member} avatarSize="sm" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* ── List view ── */
+          <>
+            {/* Year heading */}
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-border-primary shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = years.indexOf(selectedYear);
+                  if (idx < years.length - 1) {
+                    setSelectedYear(years[idx + 1]);
+                    setCalendarYear(Number(years[idx + 1]));
+                  }
+                }}
+                disabled={years.indexOf(selectedYear) >= years.length - 1}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-secondary transition-colors text-text-secondary disabled:opacity-30"
+                aria-label="이전 연도"
+              >
+                <IoChevronBack size={14} />
+              </button>
+              <span className="typo-heading-sm font-extrabold text-text-primary">{selectedYear}년</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = years.indexOf(selectedYear);
+                  if (idx > 0) {
+                    setSelectedYear(years[idx - 1]);
+                    setCalendarYear(Number(years[idx - 1]));
+                  }
+                }}
+                disabled={years.indexOf(selectedYear) <= 0}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-secondary transition-colors text-text-secondary disabled:opacity-30"
+                aria-label="다음 연도"
+              >
+                <IoChevronForward size={14} />
+              </button>
+            </div>
+
+            {/* Calendar panel (collapsible) */}
+            {calendarOpen && (
+              <CalendarPanel
+                year={calendarYear}
+                month={calendarMonth}
+                reportMap={reportMap}
+                onSelectReport={handleCalendarSelect}
+                onPrevMonth={handlePrevMonth}
+                onNextMonth={handleNextMonth}
+              />
+            )}
+
+            {/* Report list */}
+            <div className="flex-1 overflow-y-auto">
+              {filteredReports.length === 0 ? (
+                <div className="flex items-center justify-center py-16">
+                  <p className="typo-body-md text-text-tertiary">해당 연도의 토론 기록이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  {filteredReports.map((report) => (
+                    <button
+                      key={report.date}
+                      type="button"
+                      onClick={() => setSelectedReport(report)}
+                      className="flex items-center justify-between px-5 py-3 border-b border-border-primary hover:bg-bg-secondary transition-colors text-left"
+                    >
+                      <span className="typo-body-md font-semibold text-text-primary tracking-tight">
+                        {formatDate(report.date)}
+                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="typo-body-sm font-medium text-text-info">위원회 토론 다시보기</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="typo-body-sm font-bold text-text-danger">{report.chairman.signal}</span>
+                          <span className="typo-body-sm text-text-tertiary">
+                            신뢰도 {formatConfidence(report.chairman.confidence)}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

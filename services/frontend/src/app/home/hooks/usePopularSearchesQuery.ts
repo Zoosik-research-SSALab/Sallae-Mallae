@@ -1,12 +1,13 @@
-﻿"use client";
+"use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getPopularSearches } from "../api/main";
+import { subscribePopularSearches } from "../api/main";
+import type { PopularSearchesPayload } from "../types/main";
+import { useSseState } from "@/shared/hooks/useSseState";
+
+const initialData: PopularSearchesPayload = {
+  keywords: [],
+};
 
 export function usePopularSearchesQuery() {
-  return useQuery({
-    queryKey: ["main", "popular-searches"],
-    queryFn: getPopularSearches,
-    staleTime: 60_000,
-  });
+  return useSseState(subscribePopularSearches, initialData);
 }

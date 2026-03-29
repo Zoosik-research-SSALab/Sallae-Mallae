@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AppliedTheme, isThemeMode, THEME_STORAGE_KEY, ThemeMode } from "@/shared/lib/theme";
 
 const THEME_CHANGE_EVENT = "sallaemallae:theme-change";
+
+function subscribeToHydration() {
+  return () => {};
+}
 
 function getStoredThemeMode(): ThemeMode {
   if (typeof window === "undefined") {
@@ -46,6 +50,7 @@ function applyTheme(mode: ThemeMode) {
 export function useTheme() {
   const [mode, setModeState] = useState<ThemeMode>(() => getStoredThemeMode());
   const [systemTheme, setSystemTheme] = useState<AppliedTheme>(() => getSystemTheme());
+  const isHydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   useEffect(() => {
     applyTheme(mode);
@@ -102,5 +107,6 @@ export function useTheme() {
     resolvedTheme,
     setMode,
     toggleTheme,
+    isHydrated,
   };
 }

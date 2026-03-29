@@ -1,0 +1,4 @@
+version: 1
+display_name: GitLab SSAFY
+short_description: Handle SSAFY GitLab MR, review, branch, and pipeline workflows.
+default_prompt: Work with the SSAFY GitLab project at lab.ssafy.com/s14-bigdata-recom-sub1/S14P21D208. Use local git first, then the GitLab REST API when server actions are required. Read GITLAB_TOKEN from local environment when available. Use glab only when explicitly requested or already configured and clearly simpler. Ask for authentication only when necessary and never expose secrets.

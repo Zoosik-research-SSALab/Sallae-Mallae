@@ -1,15 +1,19 @@
 ﻿"use client";
 
-import { IoHeart } from "react-icons/io5";
+import { IoHeart, IoHeartOutline } from "react-icons/io5";
 import { useWatchlist } from "@/shared/hooks/useWatchlist";
+import { useRequireAuthAction } from "@/shared/hooks/useRequireAuthAction";
 import { cn } from "@/shared/utils/cn";
 
 type Props = {
   stockId: number;
   stockName: string;
-  size?: "sm" | "md";
+  initialWatched?: boolean;
+  size?: "sm" | "md" | "lg";
   surface?: "default" | "muted";
+  inactiveIconStyle?: "filled" | "outline";
   className?: string;
+  onToggleSuccess?: (nextIsWatched: boolean) => void;
 };
 
 const sizeClassNames = {
@@ -21,15 +25,34 @@ const sizeClassNames = {
     button: "h-11 w-11",
     icon: "h-5 w-6",
   },
+  lg: {
+    button: "h-12 w-12",
+    icon: "h-6 w-7",
+  },
 } as const;
 
-export default function WatchlistHeartButton({ stockId, stockName, size = "sm", surface = "default", className }: Props) {
-  const { isWatched, isPending, toggle } = useWatchlist(stockId);
-  const Icon = IoHeart;
+export default function WatchlistHeartButton({
+  stockId,
+  stockName,
+  initialWatched,
+  size = "sm",
+  surface = "default",
+  inactiveIconStyle = "filled",
+  className,
+  onToggleSuccess,
+}: Props) {
+  const { isWatched, isPending, toggle } = useWatchlist(stockId, initialWatched);
+  const requireAuthAction = useRequireAuthAction();
+  const Icon = isWatched ? IoHeart : inactiveIconStyle === "outline" ? IoHeartOutline : IoHeart;
 
   const handleClick = async () => {
+    if (!requireAuthAction()) {
+      return;
+    }
+
     try {
-      await toggle();
+      const nextIsWatched = await toggle();
+      onToggleSuccess?.(nextIsWatched);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Watchlist request failed.";
       window.alert(message);
@@ -47,9 +70,7 @@ export default function WatchlistHeartButton({ stockId, stockName, size = "sm", 
         "inline-flex cursor-pointer items-center justify-center rounded-2xl bg-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-60",
         sizeClassNames[size].button,
         surface === "muted" ? "hover:bg-[color:var(--color-border-primary)]" : "hover:bg-[color:var(--color-bg-tertiary)]",
-        isWatched
-          ? "text-[color:var(--color-text-danger)]"
-          : "text-[color:var(--color-icon-disabled)]",
+        isWatched ? "text-[color:var(--color-text-danger)]" : "text-[color:var(--color-icon-disabled)]",
         className,
       )}
     >

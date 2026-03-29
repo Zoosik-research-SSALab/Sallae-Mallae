@@ -32,4 +32,17 @@ public class UserNotification {
 
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;
+
+  public void markAsRead() {
+    isRead = true;
+  }
+
+  public static UserNotification create(Long userId, Long notificationId) {
+    UserNotification un = new UserNotification();
+    un.userId = userId;
+    un.notificationId = notificationId;
+    un.isRead = false;
+    un.createdAt = OffsetDateTime.now();
+    return un;
+  }
 }

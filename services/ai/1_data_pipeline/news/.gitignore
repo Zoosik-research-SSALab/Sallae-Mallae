@@ -1,0 +1,6 @@
+# 크롤링 결과물
+output/
+
+# 가상환경
+.venv/
+.venv-wsl/

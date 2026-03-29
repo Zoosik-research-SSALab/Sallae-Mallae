@@ -10,7 +10,7 @@ export function useNotificationCountQuery(enabled = true) {
     queryKey: notificationCountQueryKey,
     queryFn: getNotificationCount,
     enabled,
-    staleTime: 15 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: enabled ? 60 * 1000 : false,
   });
 }

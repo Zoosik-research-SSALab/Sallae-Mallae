@@ -1,4 +1,6 @@
-﻿import { apiFetch, connectSse } from "@/shared/lib/apiClient";
+import { connectSse } from "@/shared/lib/apiClient";
+import { authApiFetch } from "@/shared/lib/authApiClient";
+import { subscribeTrendingSearchStocks } from "@/shared/lib/searchApi";
 import type {
   CategoriesPayload,
   MarketIndexPayload,
@@ -7,22 +9,80 @@ import type {
   TopStocksPayload,
 } from "../types/main";
 
-export function subscribeTopStocks(handlers: { onMessage: (payload: TopStocksPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<TopStocksPayload>("/api/main/top-stocks", handlers);
+type ApiResponse<T> = {
+  success: boolean;
+  data: T;
+  error: unknown | null;
+};
+
+export function subscribeMarketIndex(handlers: {
+  onMessage: (payload: MarketIndexPayload) => void;
+  onError?: (error: Event) => void;
+}) {
+  return connectSse<MarketIndexPayload>("/api/stream/main/market-index", handlers);
 }
 
-export function subscribeMarketIndex(handlers: { onMessage: (payload: MarketIndexPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<MarketIndexPayload>("/api/main/market-index", handlers);
-}
-
-export function subscribeCategories(handlers: { onMessage: (payload: CategoriesPayload) => void; onError?: (error: Event) => void }) {
-  return connectSse<CategoriesPayload>("/api/main/categories", handlers);
+export function subscribeCategories(handlers: {
+  onMessage: (payload: CategoriesPayload) => void;
+  onError?: (error: Event) => void;
+}) {
+  return connectSse<CategoriesPayload>("/api/stream/main/categories", handlers);
 }
 
 export async function getMainNewSignals() {
-  return apiFetch<NewSignalsPayload>("/api/main/new-signals", { cache: "no-store" });
+  const payload = await authApiFetch<ApiResponse<NewSignalsPayload> | NewSignalsPayload>(
+    "/api/main/new-signals",
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (typeof payload === "object" && payload !== null && "data" in payload) {
+    return payload.data;
+  }
+
+  return payload;
+}
+
+export async function getTopStocks() {
+  const payload = await authApiFetch<ApiResponse<TopStocksPayload> | TopStocksPayload>(
+    "/api/main/top-stocks",
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (typeof payload === "object" && payload !== null && "data" in payload) {
+    return payload.data;
+  }
+
+  return payload;
 }
 
 export async function getPopularSearches() {
-  return apiFetch<PopularSearchesPayload>("/api/main/popular-searches", { cache: "no-store" });
+  const payload = await getTopStocks();
+
+  return {
+    keywords: payload.stocks.slice(0, 5).map((item) => ({
+      rank: item.rank,
+      keyword: item.name,
+    })),
+  } satisfies PopularSearchesPayload;
+}
+
+export function subscribePopularSearches(handlers: {
+  onMessage: (payload: PopularSearchesPayload) => void;
+  onError?: (error: Event) => void;
+}) {
+  return subscribeTrendingSearchStocks({
+    onMessage: (payload) => {
+      handlers.onMessage({
+        keywords: payload.stocks.slice(0, 5).map((item) => ({
+          rank: item.rank,
+          keyword: item.name,
+        })),
+      });
+    },
+    onError: handlers.onError,
+  });
 }

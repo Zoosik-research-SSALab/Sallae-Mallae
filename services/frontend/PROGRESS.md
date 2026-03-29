@@ -1,6 +1,12 @@
 # Progress Log
 
 ## Current Focus
+- [x] (2026-03-12) Portfolio page rebuild: responsive `/portfolio` page, local mock `/api/portfolio`, portfolio API handoff doc, and header nav update
+- [x] (2026-03-12) Stock detail page rebuild: responsive `/stocks/[ticker]` with ECharts price chart, mock detail APIs, and watchlist notification toggle
+- [x] (2026-03-10) Stocks page rebuild: responsive all-stocks board with token-based ranking UI, mock `/api/stocks`, and layout reordering animation
+- [x] (2026-03-11) Watchlist page rebuild: responsive `/scraps` dashboard with SSE feed, news panel, and shared watchlist reuse
+- [x] (2026-03-10) API base routing: centralize mock/real base URL switching in `apiClient` and align local env files
+- [x] (2026-03-09) Signals page rebuild: responsive market-signal board with shared category filters, infinite pagination, and mock `/api/signals`
 - [x] (2026-03-09) Design token sync: align theme semantics with Figma token export for header and main page
 - [x] (2026-03-09) Watchlist interaction polish: optimistic mock toggle + muted-surface hover contrast
 - [x] (2026-03-09) Main UX refinement: watchlist common logic + rate flash feedback + category expansion
@@ -18,6 +24,137 @@
 - [x] (2026-03-04) Full folder alignment: create missing route/shared/style structure
 
 ## Changes
+### (2026-03-12) Portfolio page rebuild
+- Scope:
+  - Replaced the placeholder `portfolio` route with a responsive portfolio dashboard based on the provided desktop/mobile direction
+  - Added local mock routes for `/api/portfolio` and typo-compatible `/api/portfoilo`
+  - Updated the shared header navigation to expose the new portfolio page and fixed broken header text encoding while touching the file
+  - Added a backend handoff document for the portfolio API payload
+- Files:
+  - ~ PROGRESS.md
+  - + PORTFOLIO_API.md
+  - ~ src/styles/theme.css
+  - ~ src/shared/components/AppNav.tsx
+  - ~ src/app/portfolio/page.tsx
+  - + src/app/portfolio/PortfolioPageClient.tsx
+  - + src/app/portfolio/api/getPortfolio.ts
+  - + src/app/portfolio/hooks/usePortfolioQuery.ts
+  - + src/app/portfolio/types/portfolio.ts
+  - + src/app/portfolio/utils/{mockPortfolioData,portfolioFormatters}.ts
+  - + src/app/portfolio/components/{PortfolioHero,PortfolioTabsSection,PortfolioSidebar,PortfolioHallOfFame}.tsx
+  - + src/app/api/{portfolio,portfoilo}/route.ts
+  - - src/app/portfolio/api/getChairmanPortfolio.ts
+  - - src/app/portfolio/hooks/useChairmanPortfolio.ts
+  - - src/app/portfolio/components/{HoldingsList,PerformanceList,PortfolioSummaryCard}.tsx
+- Decisions:
+  - Used one composite portfolio payload so the page can render immediately without coordinating multiple new backend endpoints.
+  - Forced the page client to call the local route with `useBaseUrl: false` because the backend endpoint does not exist yet and env-based base URL switching would otherwise bypass the frontend mock.
+  - Kept desktop as a two-column content/sidebar layout, while tablet/mobile stack the sidebar cards under the main board and switch holdings to a “더보기” interaction.
+- Notes / Issues:
+  - `public/images/horse.png` was used as the hero visual asset.
+  - `/api/portfoilo` exists only as a temporary alias for request compatibility; `/api/portfolio` is the intended contract path.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] Replace the local mock route with the real backend portfolio API once the service is available.
+  - [ ] If the backend prefers separate endpoints for holdings/trades/sidebar, split the current composite contract after the first integration pass.
+
+### (2026-03-12) Stock detail page rebuild
+- Scope:
+  - Replaced the placeholder `stocks/[ticker]` screen with a responsive stock detail page using shared layout/header rules and route-local query hooks
+  - Added mock stock detail APIs for overview, SSE price stream, indicators, financials, keywords/news, and announcements
+  - Extended shared watchlist status handling with notification toggle support so detail actions can reuse the same cache contract
+- Files:
+  - ~ PROGRESS.md
+  - ~ package.json
+  - ~ pnpm-lock.yaml
+  - ~ src/app/stocks/[ticker]/page.tsx
+  - + src/app/stocks/[ticker]/StockDetailPageClient.tsx
+  - + src/app/stocks/[ticker]/api/{connectStockPriceStream,getStockAnnouncements,getStockFinancials,getStockIndicators,getStockKeywords,getStockOverview}.ts
+  - + src/app/stocks/[ticker]/hooks/{useStockAnnouncementsQuery,useStockFinancialsQuery,useStockIndicatorsQuery,useStockKeywordsQuery,useStockOverviewQuery,useStockPriceStream}.ts
+  - + src/app/stocks/[ticker]/components/{StockActionButtons,StockAnnouncementsSection,StockDetailTopBar,StockFinancialChart,StockFinancialSection,StockIndicatorsSection,StockKeywordsNewsSection,StockOverviewSection,StockPriceChart}.tsx
+  - + src/app/stocks/[ticker]/utils/stockDetailFormatters.ts
+  - + src/app/stocks/types/stockDetail.ts
+  - + src/app/stocks/utils/mockStockDetailData.ts
+  - + src/app/api/stocks/[stockId]/{route,prices/route,indicators/route,financials/route,keywords/route,announcements/route,announcements/[announcementId]/route}.ts
+  - + src/shared/hooks/{useSseState,useWatchlistNotification}.ts
+  - ~ src/shared/lib/{mockWatchlistStore,watchlistApi}.ts
+  - ~ src/shared/types/watchlist.ts
+  - ~ src/app/api/users/watchlist/[stockId]/route.ts
+  - ~ src/app/home/hooks/{useCategories,useMarketIndex,useTopStocks}.ts
+  - ~ src/app/scraps/hooks/useWatchlistStream.ts
+  - - src/app/home/hooks/useSseState.ts
+  - - src/app/stocks/[ticker]/api/getStockDetail.ts
+  - - src/app/stocks/[ticker]/hooks/useStockDetail.ts
+  - - src/app/stocks/[ticker]/components/{AlertSettingCard,StockDetailCard}.tsx
+- Decisions:
+  - Used `echarts` directly rather than adding a React wrapper so the price/financial charts stay lightweight and close to the desired securities-style layout.
+  - Kept the detail route as `/stocks/[ticker]` while letting mock API routes resolve either ticker-like or id-like path values through one stock seed source.
+  - Started the two-column sidebar layout only at `xl` so tablet follows the stacked mobile information architecture instead of a cramped desktop split.
+  - Reused the shared watchlist status query key for both heart and notification actions so GET status and optimistic cache updates stay aligned.
+- Notes / Issues:
+  - Price data is streamed through local SSE mocks at `/api/stocks/[stockId]/prices?period=...`; the period tabs are plain React UI controls and not chart-library internals.
+  - Financial charts use `매출` and `영업이익` series because the provided backend contract does not include separate forecast/actual values.
+  - Announcement detail mock route is added for the later modal step, but the modal UI itself is intentionally not implemented yet.
+  - `pnpm lint` and `pnpm build` passed.
+- Next:
+  - [ ] Link stock list rows into `/stocks/[ticker]` once the navigation behavior for the list screens is finalized.
+  - [ ] Replace mock detail routes with the real backend contracts and wire announcement detail modal when that UI is requested.
+
+### (2026-03-10) API base routing
+- Scope:
+  - Added central mock/real base URL resolution to the shared API client so browser-side HTTP/SSE calls can switch through env without editing each feature module
+  - Preserved the existing frontend login proxy/mock route by opting the header login request out of public base URL rewriting
+  - Added local env examples for the current deployment host `http://j14d208.p.ssafy.io`
+- Files:
+  - ~ PROGRESS.md
+  - ~ .env.example
+  - ~ src/shared/lib/apiClient.ts
+  - ~ src/shared/components/AppNav.tsx
+  - + .env.local
+- Decisions:
+  - Used `NEXT_PUBLIC_API_MOCKING`, `NEXT_PUBLIC_API_BASE_URL`, and `NEXT_PUBLIC_MOCK_BASE_URL` for browser-side route selection.
+  - Kept `AUTH_API_BASE_URL` as the server-side auth proxy target because `/api/auth/login` already has its own frontend route handler.
+  - Implemented `/api` prefix de-duplication in the API client so both host-only and `/api`-suffixed base URLs can be tolerated.
+- Notes / Issues:
+  - `NEXT_PUBLIC_*` values are injected at build time, so deployment changes require rebuild/redeploy.
+  - `NEXT_PUBLIC_API_MOCKING` now accepts `true/false` as the primary format, and still tolerates legacy `enabled/disabled` values for compatibility.
+  - When `NEXT_PUBLIC_API_MOCKING=false`, data APIs resolve against `NEXT_PUBLIC_API_BASE_URL`; when `true`, they resolve against `NEXT_PUBLIC_MOCK_BASE_URL`.
+  - `AppNav` login intentionally uses `useBaseUrl: false` so it continues to hit the frontend route handler at `/api/auth/login`.
+- Next:
+  - [ ] If deployment still bypasses frontend mocks, verify nginx routes for `/api/*` and SSE buffering separately from env configuration.
+
+### (2026-03-09) Signals page rebuild
+- Scope:
+  - Replaced the placeholder `signals` route with a responsive market-signal page based on the provided desktop/mobile layouts
+  - Added a mock `/api/signals` endpoint with query-based filtering, sorting, and 6-item pagination for frontend verification
+  - Extracted shared market-category definitions so both `home` and `signals` consume the same category source
+- Files:
+  - ~ PROGRESS.md
+  - ~ src/styles/theme.css
+  - ~ src/app/signals/page.tsx
+  - + src/app/signals/SignalsPageClient.tsx
+  - + src/app/signals/api/signals.ts
+  - + src/app/signals/hooks/useSignalsInfiniteQuery.ts
+  - + src/app/signals/types/signals.ts
+  - + src/app/signals/components/{SignalsDesktopTable,SignalsFilterPanel,SignalsMobileList,SignalsSortToggle}.tsx
+  - + src/app/api/signals/route.ts
+  - + src/shared/lib/{marketCategories,stockFormatters}.ts
+  - + src/app/signals/utils/mockSignalsData.ts
+  - ~ src/app/home/components/CategoryStocksSection.tsx
+  - ~ src/app/home/utils/formatters.ts
+  - - src/app/signals/api/getSignals.ts
+  - - src/app/signals/components/SignalList.tsx
+  - - src/app/signals/hooks/useSignals.ts
+- Decisions:
+  - Used `useInfiniteQuery` instead of route-local `useState` pagination so sort/filter combinations are cached and “더보기” appends quickly without custom store code.
+  - Added optional query params `categories`, `market_cap`, `keyword` and response fields `category`, `market_cap_size` because the provided API contract alone was not sufficient to render or filter the requested UI.
+  - Kept the global shared header from `AppNav` and implemented only the page body; mobile/tablet use a filter modal instead of duplicating the desktop sidebar.
+- Notes / Issues:
+  - Desktop sort labels were aligned to the actual backend sort contract (`LATEST`, `UP`, `DOWN`) rather than the earlier Figma labels that implied unsupported sort semantics.
+  - `signals` and `home` now share the same category source in `src/shared/lib/marketCategories.ts`.
+- Next:
+  - [ ] Replace the mock `/api/signals` route with the real backend endpoint once the final query/response contract is confirmed.
+
 ### (2026-03-09) Design token sync
 - Scope:
   - Synced `theme.css` semantic color and heading token values to the provided design-token export where those values are actually consumed by the current UI

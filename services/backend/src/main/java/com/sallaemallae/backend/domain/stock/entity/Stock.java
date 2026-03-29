@@ -36,6 +36,12 @@ public class Stock extends BaseTimeEntity {
   @Column(length = 50)
   private String category;
 
+  @Column(name = "krx_sector", length = 15)
+  private String krxSector;
+
+  @Column(name = "gics_cluster", length = 20)
+  private String gicsCluster;
+
   @Column(name = "outstanding_shares")
   private Long outstandingShares;
 
@@ -45,4 +51,7 @@ public class Stock extends BaseTimeEntity {
 
   @Column(name = "is_active", nullable = false)
   private boolean isActive;
+
+  @Column(name = "icon_url", length = 500)
+  private String iconUrl;
 }

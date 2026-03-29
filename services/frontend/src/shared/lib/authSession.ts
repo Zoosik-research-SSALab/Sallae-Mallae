@@ -1,3 +1,5 @@
+import { resolveProfileImageUrl } from "@/shared/lib/profileImage";
+
 export const AUTH_SESSION_KEY = "sallaemallae-user";
 
 export type SessionUser = {
@@ -29,7 +31,7 @@ export function toSessionUser(value: unknown): SessionUser | null {
     id,
     email,
     nickname,
-    profile_image_url: typeof profileImage === "string" ? profileImage : null,
+    profile_image_url: resolveProfileImageUrl(typeof profileImage === "string" ? profileImage : null),
   };
 }
 
