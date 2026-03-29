@@ -81,7 +81,7 @@ export interface TradeHistoryResponse {
 }
 
 export interface TradeHistoryItem {
-  status: "HOLDING" | "CLOSED";
+  status: string;
   buyDate: string;
   sellDate?: string;
   buyPrice: number;

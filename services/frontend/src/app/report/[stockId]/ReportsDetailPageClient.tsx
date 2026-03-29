@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useStockQuoteStream } from "@/app/stocks/[ticker]/hooks/useStockQuoteStream";
 import { useStockAnnouncementsQuery } from "@/app/stocks/[ticker]/hooks/useStockAnnouncementsQuery";
-import { useStockOverviewQuery } from "@/app/stocks/[ticker]/hooks/useStockOverviewQuery";
+import { useStockBasicInfoQuery } from "../hooks/useStockBasicInfoQuery";
 import { useStockPriceStream } from "@/app/stocks/[ticker]/hooks/useStockPriceStream";
 import ChairmanAnalysisSection from "../components/ChairmanAnalysisSection";
 import InvestmentPerformanceSection from "../components/InvestmentPerformanceSection";
@@ -14,6 +14,7 @@ import ReportTopBarSection from "../components/ReportTopBarSection";
 import { useDebateReportsQuery } from "../hooks/useDebateReportsQuery";
 import { useInvestmentPerformance } from "../hooks/useInvestmentPerformance";
 import { useTradeHistory } from "../hooks/useTradeHistory";
+import { formatBenchmarkTime } from "../utils/formatters";
 
 interface ReportsDetailPageClientProps {
   stockId: string;
@@ -21,16 +22,16 @@ interface ReportsDetailPageClientProps {
 
 export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageClientProps) {
   const { data: debateReports, isLoading: isDebateLoading, error: debateError } = useDebateReportsQuery(stockId);
-  const overviewQuery = useStockOverviewQuery(stockId);
+  const basicInfoQuery = useStockBasicInfoQuery(stockId);
   const announcementsQuery = useStockAnnouncementsQuery(stockId, 4, 0);
   const priceStream = useStockPriceStream(stockId, "1Y");
   const investmentPerformanceQuery = useInvestmentPerformance(stockId);
   const tradeHistoryQuery = useTradeHistory(stockId, 0, 100);
 
   const debateReport = debateReports?.[0] ?? null;
-  const companyName = overviewQuery.data?.name ?? "";
-  const ticker = overviewQuery.data?.ticker ?? stockId;
-  const quoteTicker = overviewQuery.data?.ticker ?? "";
+  const companyName = basicInfoQuery.data?.name ?? "";
+  const ticker = basicInfoQuery.data?.ticker ?? stockId;
+  const quoteTicker = basicInfoQuery.data?.ticker ?? "";
   const quoteStream = useStockQuoteStream(quoteTicker, {
     enabled: Boolean(quoteTicker),
   });
@@ -43,22 +44,20 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
   );
   const latestPrice = typeof quoteStream.data.currentPrice === "number" ? quoteStream.data.currentPrice : undefined;
   const changeRate = typeof quoteStream.data.changeRate === "number" ? quoteStream.data.changeRate : 0;
-  const benchmarkTime = formatBenchmarkTime(quoteStream.data.tickTimestamp ?? overviewQuery.data?.baseTime ?? "");
-  const market = overviewQuery.data?.marketType ?? "";
+  const benchmarkTime = formatBenchmarkTime(quoteStream.data.tickTimestamp ?? basicInfoQuery.data?.baseTime ?? "");
+  const market = basicInfoQuery.data?.marketType ?? "";
   const priceText = typeof latestPrice === "number" ? `${Math.round(latestPrice).toLocaleString("ko-KR")}원` : "";
   const changeText = `${changeRate > 0 ? "+" : ""}${changeRate.toFixed(1)}%`;
-  const signalLabel = formatSignalLabel(debateReport?.chairman.signal);
-  const createdAt = formatDateTime(debateReport?.createdAt ?? "");
-  const isMetaLoading = overviewQuery.isLoading || quoteStream.isLoading;
+  const isMetaLoading = basicInfoQuery.isLoading || quoteStream.isLoading;
   const metaError =
-    overviewQuery.error instanceof Error
-      ? overviewQuery.error.message
+    basicInfoQuery.error instanceof Error
+      ? basicInfoQuery.error.message
       : quoteStream.error ?? priceStream.error;
   const debateErrorMessage = debateError instanceof Error ? debateError.message : null;
   const eventsError = announcementsQuery.error instanceof Error ? announcementsQuery.error.message : null;
   const tradeHistoryError = tradeHistoryQuery.error instanceof Error ? tradeHistoryQuery.error.message : null;
   const performanceError = investmentPerformanceQuery.error instanceof Error ? investmentPerformanceQuery.error.message : null;
-  const isHeroReady = Boolean(overviewQuery.data && typeof latestPrice === "number");
+  const isHeroReady = Boolean(basicInfoQuery.data && typeof latestPrice === "number");
   const isPerformanceReady = Boolean((performance?.chart?.length ?? 0) > 1) && !investmentPerformanceQuery.isLoading;
   const isDebateReady = !isDebateLoading;
   const isChairmanReady = !isDebateLoading;
@@ -66,7 +65,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
 
   return (
     <main className="flex flex-col items-center bg-[color:var(--color-bg-primary)]">
-      {overviewQuery.data ? (
+      {basicInfoQuery.data ? (
         <ReportTopBarSection stockId={stockId} companyName={companyName} />
       ) : (
         <TopBarSkeleton stockId={stockId} />
@@ -116,6 +115,7 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
 
         {isEventsReady ? (
           <ReportEventsSection
+            stockId={stockId}
             companyName={companyName}
             prices={prices}
             events={events}
@@ -152,9 +152,6 @@ export default function ReportsDetailPageClient({ stockId }: ReportsDetailPageCl
         </div>
       ) : null}
 
-      <div className="hidden">
-        {signalLabel} {createdAt}
-      </div>
     </main>
   );
 }
@@ -167,10 +164,10 @@ function TopBarSkeleton({ stockId }: { stockId: string }) {
           <div className="flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)]">
             <span className="text-2xl leading-none">←</span>
           </div>
-          <div className="flex items-center gap-2 text-base font-bold text-[color:var(--color-text-primary)]">
+          <div className="hidden items-center gap-2 text-base font-bold text-[color:var(--color-text-primary)] md:flex">
             <div className="h-6 w-32 animate-pulse rounded bg-[color:var(--color-bg-secondary)]" />
             <span className="text-[color:var(--color-text-tertiary)]">|</span>
-            <span>종목 상세 정보</span>
+            <span>종목 상세 리포트</span>
             <span className="sr-only">{stockId}</span>
           </div>
         </div>
@@ -186,45 +183,4 @@ function TopBarSkeleton({ stockId }: { stockId: string }) {
 
 function SectionSkeleton({ className }: { className: string }) {
   return <div className={`w-full animate-pulse rounded-2xl bg-[color:var(--color-bg-secondary)] ${className}`} />;
-}
-
-function formatSignalLabel(signal?: string) {
-  const normalized = signal?.trim().toUpperCase().replace(/\s+/g, "_");
-
-  if (normalized === "STRONG_BUY") {
-    return "강력 매수";
-  }
-  if (normalized === "BUY") {
-    return "매수";
-  }
-  if (normalized === "SELL") {
-    return "매도";
-  }
-  if (normalized === "HOLD" || normalized === "STAY") {
-    return "보류";
-  }
-
-  return signal ?? "판단 대기";
-}
-
-function formatBenchmarkTime(value: string) {
-  if (!value) {
-    return "";
-  }
-
-  const formatted = formatDateTime(value);
-  return formatted ? `${formatted} 기준` : "";
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(
-    2,
-    "0",
-  )} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }

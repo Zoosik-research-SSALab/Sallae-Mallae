@@ -19,10 +19,10 @@ export default function ReportTopBarSection({ stockId, companyName }: ReportTopB
           <Link href={`/stocks/${stockId}`} className="flex h-10 w-10 items-center justify-center text-[color:var(--color-text-tertiary)]">
             <span className="text-2xl leading-none">←</span>
           </Link>
-          <div className="flex items-center gap-2 text-base font-bold text-[color:var(--color-text-primary)]">
+          <div className="hidden items-center gap-2 text-base font-bold text-[color:var(--color-text-primary)] md:flex">
             <span>{companyName}</span>
             <span className="text-[color:var(--color-text-tertiary)]">|</span>
-            <Link href={`/stocks/${stockId}`}>종목 상세 정보</Link>
+            <Link href={`/stocks/${stockId}`}>종목 상세 리포트</Link>
           </div>
         </div>
 
