@@ -14,7 +14,7 @@ public class StockIconUrlResolver {
     private final String publicUrl;
 
     public StockIconUrlResolver(
-        @Value("${minio.public-url}") String publicUrl
+        @Value("${minio.public-url:http://localhost:9000/assets}") String publicUrl
     ) {
         this.publicUrl = publicUrl;
     }

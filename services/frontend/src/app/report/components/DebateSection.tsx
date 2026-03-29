@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FaQuoteLeft } from "react-icons/fa6";
+import { FaQuoteLeft, FaPause, FaPlay, FaForward, FaGavel, FaForwardStep } from "react-icons/fa6";
 import { cn } from "@/shared/utils/cn";
 import { getTtsAudio } from "../api/getTtsAudio";
 import type { AgentStatement, DebateReport } from "../types/debate";
@@ -1159,52 +1159,65 @@ export default function DebateSection({
             <button
               type="button"
               onClick={() => handleJump("r1")}
-              className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+              className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
             >
-              동영상 건너뛰기
+              <FaForwardStep className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+              <span className="hidden sm:inline">동영상 건너뛰기</span>
             </button>
           ) : null}
           <button
             type="button"
             onClick={() => handleJump("r1")}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
             R1
           </button>
           <button
             type="button"
             onClick={() => handleJump("r2")}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
             R2
           </button>
           <button
             type="button"
             onClick={() => handleJump("r3")}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="hidden sm:inline-flex typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
             R3
           </button>
           <button
             type="button"
             onClick={() => handleJump("judge")}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,223,32,0.24)] bg-[color:rgba(255,223,32,0.16)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,223,32,0.24)] bg-[color:rgba(255,223,32,0.16)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
-            최종판결
+            <FaGavel className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+            <span className="hidden sm:inline">최종판결</span>
           </button>
           <button
             type="button"
             onClick={handlePauseToggle}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
-            {isPaused ? "재개" : "일시정지"}
+            {isPaused ? (
+              <>
+                <FaPlay className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+                <span className="hidden sm:inline">재개</span>
+              </>
+            ) : (
+              <>
+                <FaPause className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+                <span className="hidden sm:inline">일시정지</span>
+              </>
+            )}
           </button>
           <button
             type="button"
             onClick={handleSkip}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-text-base)] backdrop-blur-[8px]"
+            className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
-            스킵
+            <FaForward className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+            <span className="hidden sm:inline">스킵</span>
           </button>
         </div>
       ) : null}
@@ -1239,7 +1252,7 @@ export default function DebateSection({
             <p className="typo-heading-sm uppercase tracking-[0.28em] text-[color:rgba(255,255,255,0.6)]">
               Debate Finished
             </p>
-            <h3 className="mt-4 typo-heading-xl text-[color:var(--color-text-base)] md:typo-heading-2xl">
+            <h3 className="mt-4 typo-heading-lg text-[color:var(--color-white)] sm:typo-heading-xl md:typo-heading-2xl">
               의장 최종 결론은 {finalVerdict}입니다.
             </h3>
             <p className="mt-4 typo-body-md text-[color:rgba(255,255,255,0.78)] md:typo-body-lg">
@@ -1248,7 +1261,7 @@ export default function DebateSection({
             <button
               type="button"
               onClick={handleReplay}
-              className="mt-8 typo-heading-sm inline-flex items-center justify-center rounded-full bg-[color:var(--color-yellow-400)] px-6 py-3 text-[color:var(--color-text-primary)] transition-transform hover:scale-[1.02] focus:outline-none"
+              className="mt-8 typo-heading-sm inline-flex items-center justify-center rounded-full bg-[color:var(--color-yellow-400)] px-6 py-3 text-[color:var(--color-neutral-900)] transition-transform hover:scale-[1.02] focus:outline-none"
             >
               다시 재생하기
             </button>
@@ -1257,15 +1270,15 @@ export default function DebateSection({
       ) : null}
 
       {ttsError ? (
-        <div className="typo-body-lg absolute left-4 top-4 z-50 rounded-md bg-[color:rgba(127,29,29,0.92)] px-3 py-2 text-[color:var(--color-text-base)] shadow-lg">
+        <div className="typo-body-lg absolute left-4 top-4 z-50 rounded-md bg-[color:rgba(127,29,29,0.92)] px-3 py-2 text-[color:var(--color-white)] shadow-lg">
           TTS 재생 실패: {ttsError}
         </div>
       ) : null}
 
       {isPreparingStart ? (
         <div className="absolute inset-0 z-[70] flex flex-col items-center justify-center gap-4 bg-[color:rgba(0,0,0,0.92)] px-6 text-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[color:var(--color-text-base)] border-t-transparent" />
-          <p className="typo-heading-sm text-[color:var(--color-text-base)] md:typo-heading-md">의견 생성 중</p>
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[color:var(--color-white)] border-t-transparent" />
+          <p className="typo-heading-sm text-[color:var(--color-white)] md:typo-heading-md">의견 생성 중</p>
           <p className="typo-body-md text-[color:rgba(255,255,255,0.72)]">
             위원회 의견을 준비하고 있습니다. 준비가 끝나면 바로 시작합니다.
           </p>
@@ -1276,9 +1289,9 @@ export default function DebateSection({
       ) : null}
 
       {roundIntroTitle ? (
-        <div className="absolute inset-0 z-[60] flex flex-col justify-between bg-[color:rgba(0,0,0,0.8)] px-10 py-6">
+        <div className="absolute inset-0 z-[60] flex flex-col justify-between bg-[color:rgba(0,0,0,0.8)] px-6 sm:px-10 py-6">
           <div />
-          <div className="typo-heading-3xl mx-auto w-full max-w-[540px] text-center text-[color:var(--color-text-base)] sm:typo-heading-4xl">
+          <div className="typo-heading-2xl mx-auto w-full max-w-[540px] text-center text-[color:var(--color-white)] sm:typo-heading-3xl md:typo-heading-4xl">
             {roundIntroTitle}
           </div>
           <div />
@@ -1300,8 +1313,8 @@ export default function DebateSection({
             <div className="absolute inset-0 z-30 px-4 py-6 sm:px-8 sm:py-8">
               <div className="flex h-full flex-col items-center gap-6">
                 <div className="flex w-full justify-center">
-                  <div className="relative z-[90] rounded-lg bg-[color:var(--color-bg-info-subtle)] px-4 py-2">
-                    <span className="typo-body-lg whitespace-nowrap text-[color:var(--color-text-primary)]">
+                  <div className="relative z-[90] rounded-lg bg-[#eff6ff] px-4 py-2">
+                    <span className="typo-body-lg whitespace-nowrap text-[color:var(--color-neutral-900)]">
                       {activeSpeech?.roundLabel ?? "토론 준비 중"}
                     </span>
                   </div>
@@ -1315,7 +1328,7 @@ export default function DebateSection({
                 >
                   {speakers.map((speaker) => {
                     const isActive =
-                      phase === "debate" && !isRoundIntroVisible && isSpeakerTalking && activeSpeaker.id === speaker.id;
+                      phase === "debate" && !isRoundIntroVisible && isSpeakerTalking && !isPaused && activeSpeaker.id === speaker.id;
                     return (
                       <div
                         key={speaker.id}
@@ -1337,7 +1350,7 @@ export default function DebateSection({
                           />
                           <div
                             className={cn(
-                              "typo-body-md mt-3 whitespace-nowrap rounded-full border border-[color:var(--color-border-secondary)] bg-[color:var(--color-bg-secondary)] px-4 py-1.5 text-[color:var(--color-black)]",
+                              "typo-body-sm mt-3 whitespace-nowrap rounded-full border border-[color:rgba(0,0,0,0.08)] bg-[color:var(--color-white)] px-2 py-1 sm:px-4 sm:py-1.5 text-[color:var(--color-neutral-900)] sm:typo-body-md",
                               isActive ? "mb-8" : "mb-6",
                             )}
                           >
@@ -1357,12 +1370,12 @@ export default function DebateSection({
                     )}
                   >
                     <div className="rounded-t-2xl bg-[color:var(--color-bg-danger-bold)] px-4 py-3">
-                      <p className="typo-heading-sm whitespace-nowrap text-[color:var(--color-text-interactive-inverse)]">
+                      <p className="typo-body-md whitespace-nowrap text-[color:var(--color-white)] sm:typo-heading-sm">
                         {`${activeSpeechTitle} | ${activeSpeech?.segmentLabel ?? "발언"}`}
                       </p>
                     </div>
-                    <div className="w-full rounded-b-2xl rounded-tr-2xl border border-[color:var(--color-border-base)] bg-[color:var(--color-bg-primary)] px-5 py-4 sm:px-6 sm:py-5">
-                      <p className="typo-heading-md whitespace-pre-line [word-break:keep-all] text-center text-[color:var(--color-text-primary)] sm:typo-heading-lg">
+                    <div className="w-full rounded-b-2xl rounded-tr-2xl border border-[color:rgba(255,255,255,0.2)] bg-[color:var(--color-white)] px-5 py-4 sm:px-6 sm:py-5">
+                      <p className="typo-body-lg whitespace-pre-line [word-break:keep-all] text-center text-[color:var(--color-neutral-900)] sm:typo-heading-md md:typo-heading-lg">
                         {`"${activeSpeech?.message?.trim() ?? "위원회 데이터를 불러오는 중입니다."}"`}
                       </p>
                     </div>
@@ -1376,8 +1389,8 @@ export default function DebateSection({
         {showLoadingStage ? (
           <div className="absolute inset-0 z-40 flex items-center justify-center px-6">
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-[color:rgba(255,255,255,0.12)] bg-[color:rgba(255,255,255,0.08)] px-8 py-7 backdrop-blur-[6px]">
-              <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[color:var(--color-text-base)] border-t-transparent" />
-              <p className="typo-heading-sm text-[color:var(--color-text-base)]">의장 판결 정리 중</p>
+              <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[color:var(--color-white)] border-t-transparent" />
+              <p className="typo-heading-sm text-[color:var(--color-white)]">의장 판결 정리 중</p>
               <p className="typo-body-md text-[color:rgba(255,255,255,0.72)]">
                 위원회 발언을 종합해 최종 결론을 도출하고 있습니다.
               </p>
@@ -1390,7 +1403,7 @@ export default function DebateSection({
             <div className="flex h-full min-h-0 flex-col gap-6 md:gap-8 lg:flex-row lg:items-stretch lg:gap-10">
               <div className="flex min-h-0 flex-[1.05] flex-col justify-between gap-5 pb-6 pl-4 sm:pb-8 sm:pl-6 lg:items-end lg:pb-10 lg:pl-12 lg:pt-6">
                 {judgeMode === "summary" ? (
-                  <div className="flex w-full flex-1 flex-col justify-center gap-4 py-8 lg:items-end lg:py-16">
+                  <div className="flex w-full flex-1 flex-col justify-center gap-4 py-4 sm:py-8 lg:items-end lg:py-16">
                     {judgmentSummaryItems.map((item, index) => {
                       const isVisible = judgementStep > index;
 
@@ -1398,23 +1411,23 @@ export default function DebateSection({
                         <div
                           key={item.id}
                           className={cn(
-                            "flex w-full max-w-[720px] items-stretch gap-3 p-2.5 transition-all duration-700",
+                            "flex w-full max-w-[720px] items-stretch gap-2 p-1.5 transition-all duration-700 sm:gap-3 sm:p-2.5",
                             isVisible ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0",
                           )}
                         >
-                          <div className="flex h-24 w-24 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)]">
-                            <p className="typo-heading-xl text-center text-[color:var(--color-text-interactive-inverse)] md:typo-heading-2xl">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)] sm:h-24 sm:w-24">
+                            <p className="typo-heading-md text-center text-[color:var(--color-white)] sm:typo-heading-xl md:typo-heading-2xl">
                               {String(index + 1).padStart(2, "0")}
                             </p>
                           </div>
-                          <div className="flex h-24 flex-1 flex-col justify-between bg-[color:var(--color-bg-primary)] px-4 py-3 text-right">
-                            <div className="flex items-center justify-end">
-                              <p className="typo-body-lg text-[color:var(--color-text-primary)]">
+                          <div className="flex min-h-[56px] flex-1 flex-col justify-between bg-[color:var(--color-white)] px-3 py-2 sm:min-h-[96px] sm:px-4 sm:py-3 lg:text-right">
+                            <div className="flex items-center lg:justify-end">
+                              <p className="typo-body-md text-[color:var(--color-neutral-900)] sm:typo-body-lg">
                                 {item.leadText}
                               </p>
                             </div>
-                            <div className="flex flex-1 items-end justify-end">
-                              <p className={cn("typo-heading-lg text-right", item.highlightClassName)}>
+                            <div className="flex flex-1 items-end lg:justify-end">
+                              <p className={cn("typo-heading-sm sm:typo-heading-lg", item.highlightClassName)}>
                                 {item.highlightText}
                               </p>
                             </div>
@@ -1424,14 +1437,14 @@ export default function DebateSection({
                     })}
 
                     {!judgmentSummaryItems.length ? (
-                      <div className="flex w-full max-w-[720px] items-stretch gap-3 p-2.5">
-                        <div className="flex h-24 w-24 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)]">
-                          <p className="typo-heading-xl text-center text-[color:var(--color-text-interactive-inverse)] md:typo-heading-2xl">
+                      <div className="flex w-full max-w-[720px] items-stretch gap-2 p-1.5 sm:gap-3 sm:p-2.5">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-[linear-gradient(180deg,var(--color-bg-interactive-secondary-pressed)_0%,var(--color-bg-interactive-primary)_100%)] sm:h-24 sm:w-24">
+                          <p className="typo-heading-md text-center text-[color:var(--color-white)] sm:typo-heading-xl md:typo-heading-2xl">
                             00
                           </p>
                         </div>
-                        <div className="flex h-24 flex-1 items-center justify-end bg-[color:var(--color-bg-primary)] px-4 py-3 text-right">
-                          <p className="typo-body-lg text-[color:var(--color-text-primary)]">
+                        <div className="flex min-h-[56px] flex-1 items-center bg-[color:var(--color-white)] px-3 py-2 sm:min-h-[96px] sm:px-4 sm:py-3 lg:text-right lg:justify-end">
+                          <p className="typo-body-md text-[color:var(--color-neutral-900)] sm:typo-body-lg">
                             의장 AI가 위원회 의견을 종합 중입니다
                           </p>
                         </div>
@@ -1443,24 +1456,24 @@ export default function DebateSection({
                     <div className="flex w-full scale-100 flex-col opacity-100 transition-all duration-700">
                       <div className="flex w-full flex-col items-start">
                         <div className="inline-flex justify-start items-start">
-                          <div className="inline-flex flex-col items-center gap-6 bg-[linear-gradient(180deg,var(--color-bg-primary)_0%,var(--color-yellow-400)_100%)] px-6 py-3">
+                          <div className="inline-flex flex-col items-center gap-6 bg-[linear-gradient(180deg,var(--color-white)_0%,var(--color-yellow-400)_100%)] px-6 py-3">
                             <div className="flex items-end justify-center gap-3">
-                              <p className="typo-heading-md whitespace-nowrap text-center text-[color:var(--color-text-primary)]">
+                              <p className="typo-heading-md whitespace-nowrap text-center text-[color:var(--color-neutral-900)]">
                                 의장 최종 결론
                               </p>
                             </div>
                           </div>
                         </div>
-                        <div className="flex w-full items-start justify-center gap-6 overflow-hidden bg-[color:var(--color-bg-primary)] px-6 py-8">
+                        <div className="flex w-full items-start justify-center gap-6 overflow-hidden bg-[color:var(--color-white)] px-6 py-8">
                           <div className="flex shrink-0 items-start justify-center pt-1">
                             <FaQuoteLeft
-                              className="h-9 w-9 text-[color:var(--color-text-primary)]"
+                              className="h-9 w-9 text-[color:var(--color-neutral-900)]"
                               aria-hidden="true"
                             />
                           </div>
                           <div className="flex flex-1 flex-col items-start gap-3 py-3">
                             <div className="flex w-full items-end justify-start gap-3">
-                              <p className="typo-heading-xl text-[color:var(--color-text-primary)] md:typo-heading-2xl">
+                              <p className="typo-heading-xl text-[color:var(--color-neutral-900)] md:typo-heading-2xl">
                                 결론은
                               </p>
                               <p className="typo-heading-xl text-[color:var(--color-red-400)] md:typo-heading-2xl">
@@ -1468,7 +1481,7 @@ export default function DebateSection({
                               </p>
                             </div>
                             <div className="flex w-full items-center justify-center">
-                              <p className="typo-body-lg [word-break:keep-all] text-[color:var(--color-text-primary)]">
+                              <p className="typo-body-lg [word-break:keep-all] text-[color:var(--color-neutral-900)]">
                                 {(report?.chairman.summary ?? "위원회 종합 판단 결과를 정리하고 있습니다.")
                                   .split(". ")
                                   .filter(Boolean)
@@ -1489,13 +1502,13 @@ export default function DebateSection({
                 )}
               </div>
 
-              <div className="flex min-h-[260px] flex-[0.95] items-end justify-end overflow-hidden self-stretch sm:min-h-[320px] lg:min-h-0">
+              <div className="flex min-h-[160px] flex-[0.6] items-end justify-end overflow-hidden self-stretch sm:min-h-[260px] sm:flex-[0.95] lg:min-h-0">
                 <div className="relative flex h-full w-full items-end justify-center lg:justify-end">
-                  <div className="absolute bottom-0 right-1/2 h-[220px] w-[220px] translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,223,32,0.18)_0%,rgba(255,223,32,0.02)_62%,transparent_78%)] blur-2xl sm:h-[280px] sm:w-[280px] lg:right-0 lg:h-[320px] lg:w-[320px] lg:translate-x-0" />
+                  <div className="absolute bottom-0 right-1/2 h-[140px] w-[140px] translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,223,32,0.18)_0%,rgba(255,223,32,0.02)_62%,transparent_78%)] blur-2xl sm:h-[220px] sm:w-[220px] lg:right-0 lg:h-[320px] lg:w-[320px] lg:translate-x-0" />
                   <img
                     src={judgeImageSrc}
                     alt="의장 AI"
-                    className="relative z-10 h-auto w-[78%] min-w-[220px] max-w-[340px] object-contain object-right-bottom drop-shadow-[0_30px_40px_rgba(0,0,0,0.35)] sm:w-[72%] sm:max-w-[380px] md:w-[64%] md:max-w-[420px] lg:w-auto lg:min-w-0 lg:max-h-full lg:max-w-[clamp(320px,34vw,520px)]"
+                    className="relative z-10 h-auto w-[60%] min-w-[140px] max-w-[200px] object-contain object-right-bottom drop-shadow-[0_30px_40px_rgba(0,0,0,0.35)] sm:w-[72%] sm:min-w-[220px] sm:max-w-[340px] md:max-w-[420px] lg:w-auto lg:min-w-0 lg:max-h-full lg:max-w-[clamp(320px,34vw,520px)]"
                     onError={() => setJudgeImageSrc(judgeFallbackImageSrc)}
                   />
                 </div>

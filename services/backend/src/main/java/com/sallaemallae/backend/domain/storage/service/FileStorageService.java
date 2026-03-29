@@ -26,16 +26,16 @@ public class FileStorageService {
 
   private final MinioClient minioClient;
 
-  @Value("${minio.bucket}")
+  @Value("${minio.bucket:assets}")
   private String bucket;
 
-  @Value("${minio.public-url}")
+  @Value("${minio.public-url:http://localhost:9000/assets}")
   private String publicUrl;
 
-  @Value("${minio.presigned-endpoint}")
+  @Value("${minio.presigned-endpoint:http://localhost:9000}")
   private String presignedEndpoint;
 
-  @Value("${minio.endpoint}")
+  @Value("${minio.endpoint:http://localhost:9000}")
   private String internalEndpoint;
 
   private static final Set<String> ALLOWED_TYPES = Set.of(

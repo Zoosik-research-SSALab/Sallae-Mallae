@@ -11,6 +11,9 @@ class SallaemallaeBackendApplicationTests {
 	@MockitoBean
 	JavaMailSender javaMailSender;
 
+	@MockitoBean
+	com.sallaemallae.backend.domain.stock.service.StockPriceDailyRecoveryService stockPriceDailyRecoveryService;
+
 	@Test
 	void contextLoads() {
 	}

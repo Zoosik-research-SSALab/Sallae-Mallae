@@ -45,6 +45,9 @@ class NotificationControllerTest {
   @MockitoBean
   private RateLimitService rateLimitService;
 
+  @MockitoBean
+  private com.sallaemallae.backend.domain.stock.service.StockPriceDailyRecoveryService stockPriceDailyRecoveryService;
+
   @BeforeEach
   void setUp() {
     given(rateLimitService.checkIpLimit(anyString(), any()))
@@ -90,7 +93,7 @@ class NotificationControllerTest {
 
   @Test
   void markAsReadUpdatesReadStatus() throws Exception {
-    mockMvc.perform(patch("/api/notifications/{notificationId}", 11L)
+    mockMvc.perform(patch("/api/notifications/{notificationId}/read", 11L)
             .with(authenticatedUser(1L)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.message").value("읽음 처리 완료"));

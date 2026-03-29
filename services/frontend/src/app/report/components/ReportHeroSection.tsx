@@ -32,19 +32,25 @@ export default function ReportHeroSection({
         : "text-[color:var(--color-text-tertiary)]";
 
   return (
-    <div className="flex items-start justify-between gap-8">
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <div className="rounded-md bg-[color:var(--color-bg-tertiary)] px-2.5 py-1">
-            <span className="text-sm font-semibold text-[color:var(--color-text-secondary)]">{market}</span>
-          </div>
-          <span className="text-sm font-semibold text-[color:var(--color-text-tertiary)]">{ticker}</span>
-          <span className="h-5 w-px bg-[color:var(--color-border-primary)]" />
-          <span className="text-sm font-medium text-[color:var(--color-text-tertiary)]">{benchmarkTime}</span>
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="rounded-md bg-[color:var(--color-bg-tertiary)] px-2.5 py-1">
+          <span className="text-sm font-semibold text-[color:var(--color-text-secondary)]">
+            {market}
+          </span>
         </div>
+        <span className="text-sm font-semibold text-[color:var(--color-text-tertiary)]">
+          {ticker}
+        </span>
+        <span className="h-5 w-px bg-[color:var(--color-border-primary)]" />
+        <span className="text-sm font-medium text-[color:var(--color-text-tertiary)]">
+          {benchmarkTime}
+        </span>
+      </div>
 
+      <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="heading-reset text-6xl font-black leading-[68px] text-[color:var(--color-text-primary)]">
+          <h1 className="heading-reset typo-heading-3xl font-extrabold text-[color:var(--color-text-primary)]">
             {companyName}
           </h1>
           {stockId != null ? (
@@ -56,13 +62,17 @@ export default function ReportHeroSection({
             />
           ) : null}
         </div>
-      </div>
 
-      <div className="flex flex-col items-end justify-end gap-1 self-stretch">
-        <div className="text-right text-5xl font-extrabold leading-[56px] text-[color:var(--color-text-primary)]">{priceText}</div>
-        <div className={`flex items-center gap-1 text-xl font-extrabold ${accentClassName}`}>
-          <span aria-hidden={true}>{directionIcon}</span>
-          <span>{changeText}</span>
+        <div className="flex items-center justify-between">
+          <div className="typo-heading-3xl font-extrabold text-[color:var(--color-text-primary)]">
+            {priceText}
+          </div>
+          <div
+            className={`flex items-center gap-1 text-xl font-bold ${accentClassName}`}
+          >
+            <span aria-hidden={true}>{directionIcon}</span>
+            <span>{changeText}</span>
+          </div>
         </div>
       </div>
     </div>

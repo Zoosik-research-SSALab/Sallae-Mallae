@@ -34,6 +34,9 @@ class StockPriceStreamServiceImplTest {
   @MockitoBean
   private RateLimitService rateLimitService;
 
+  @MockitoBean
+  private StockPriceDailyRecoveryService stockPriceDailyRecoveryService;
+
   @BeforeEach
   void setUp() {
     given(rateLimitService.checkIpLimit(anyString(), any()))

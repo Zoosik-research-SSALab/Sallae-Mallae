@@ -94,6 +94,9 @@ class StockApiControllerTest {
   @MockitoBean
   private RateLimitService rateLimitService;
 
+  @MockitoBean
+  private com.sallaemallae.backend.domain.stock.service.StockPriceDailyRecoveryService stockPriceDailyRecoveryService;
+
   @BeforeEach
   void setUp() {
     given(rateLimitService.checkIpLimit(anyString(), any()))
