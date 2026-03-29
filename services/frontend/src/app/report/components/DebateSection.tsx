@@ -472,6 +472,7 @@ export default function DebateSection({
     }
 
     bgmAudio.volume = getCurrentBgmVolume();
+    bgmAudio.muted = useDebateSettingsStore.getState().isMuted;
     void bgmAudio.play().catch(() => {
       // Ignore autoplay/playback failures and continue without BGM.
     });
@@ -984,6 +985,7 @@ export default function DebateSection({
         audioRef.current.src = objectUrl;
         audioRef.current.load();
         audioRef.current.playbackRate = getTtsPlaybackRate(speakerId);
+        audioRef.current.muted = useDebateSettingsStore.getState().isMuted;
 
         await waitForResume(signal);
         await audioRef.current.play();
