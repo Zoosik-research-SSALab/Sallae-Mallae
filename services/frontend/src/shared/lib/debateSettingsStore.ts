@@ -4,7 +4,6 @@ import { persist } from "zustand/middleware";
 type DebateSettingsState = {
   isMuted: boolean;
   toggleMute: () => void;
-  setMuted: (muted: boolean) => void;
 };
 
 export const useDebateSettingsStore = create<DebateSettingsState>()(
@@ -12,7 +11,6 @@ export const useDebateSettingsStore = create<DebateSettingsState>()(
     (set) => ({
       isMuted: false,
       toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
-      setMuted: (muted: boolean) => set({ isMuted: muted }),
     }),
     {
       name: "debate-settings",

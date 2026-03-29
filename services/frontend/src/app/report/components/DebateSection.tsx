@@ -425,11 +425,14 @@ export default function DebateSection({
   }, [isMuted]);
 
   useEffect(() => {
+    const initialMuted = useDebateSettingsStore.getState().isMuted;
     audioRef.current = new Audio();
+    audioRef.current.muted = initialMuted;
     bgmAudioRef.current = new Audio(debateBgmSrc);
     bgmAudioRef.current.loop = true;
     bgmAudioRef.current.preload = "auto";
     bgmAudioRef.current.volume = BGM_BASE_VOLUME;
+    bgmAudioRef.current.muted = initialMuted;
 
     return () => {
       timersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -1252,6 +1255,7 @@ export default function DebateSection({
           <button
             type="button"
             onClick={toggleMute}
+            aria-label={isMuted ? "음소거 해제" : "음소거"}
             className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
             {isMuted ? (
