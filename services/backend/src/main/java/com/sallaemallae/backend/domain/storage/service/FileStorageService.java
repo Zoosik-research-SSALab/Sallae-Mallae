@@ -71,11 +71,13 @@ public class FileStorageService {
       headers.put("Content-Type", request.contentType());
 
       // 외부 호스트 기준으로 서명 — nginx 프록시 경유 시 Host 헤더와 일치
+      // region 명시로 내부 네트워크 조회 생략
       String uploadUrl = presignedMinioClient.getPresignedObjectUrl(
           GetPresignedObjectUrlArgs.builder()
               .method(Method.PUT)
               .bucket(bucket)
               .object(objectKey)
+              .region("us-east-1")
               .expiry(PRESIGNED_EXPIRY_MINUTES, TimeUnit.MINUTES)
               .extraHeaders(headers)
               .build()
