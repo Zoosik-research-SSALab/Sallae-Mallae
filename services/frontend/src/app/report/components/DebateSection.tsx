@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FaQuoteLeft } from "react-icons/fa6";
+import { FaQuoteLeft, FaPause, FaPlay, FaForward, FaGavel, FaForwardStep } from "react-icons/fa6";
 import { cn } from "@/shared/utils/cn";
 import { getTtsAudio } from "../api/getTtsAudio";
 import type { AgentStatement, DebateReport } from "../types/debate";
@@ -1159,9 +1159,10 @@ export default function DebateSection({
             <button
               type="button"
               onClick={() => handleJump("r1")}
-              className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
+              className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(0,0,0,0.56)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
             >
-              동영상 건너뛰기
+              <FaForwardStep className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+              <span className="hidden sm:inline">동영상 건너뛰기</span>
             </button>
           ) : null}
           <button
@@ -1188,23 +1189,35 @@ export default function DebateSection({
           <button
             type="button"
             onClick={() => handleJump("judge")}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,223,32,0.24)] bg-[color:rgba(255,223,32,0.16)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
+            className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,223,32,0.24)] bg-[color:rgba(255,223,32,0.16)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
-            최종판결
+            <FaGavel className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+            <span className="hidden sm:inline">최종판결</span>
           </button>
           <button
             type="button"
             onClick={handlePauseToggle}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
+            className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
-            {isPaused ? "재개" : "일시정지"}
+            {isPaused ? (
+              <>
+                <FaPlay className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+                <span className="hidden sm:inline">재개</span>
+              </>
+            ) : (
+              <>
+                <FaPause className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+                <span className="hidden sm:inline">일시정지</span>
+              </>
+            )}
           </button>
           <button
             type="button"
             onClick={handleSkip}
-            className="typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
+            className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
           >
-            스킵
+            <FaForward className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+            <span className="hidden sm:inline">스킵</span>
           </button>
         </div>
       ) : null}
