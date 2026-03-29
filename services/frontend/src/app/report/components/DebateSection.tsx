@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FaQuoteLeft, FaPause, FaPlay, FaForward, FaGavel, FaForwardStep } from "react-icons/fa6";
+import { FaQuoteLeft, FaPause, FaPlay, FaForward, FaGavel, FaForwardStep, FaVolumeHigh, FaVolumeXmark } from "react-icons/fa6";
 import { cn } from "@/shared/utils/cn";
 import { getTtsAudio } from "../api/getTtsAudio";
+import { useDebateSettingsStore } from "@/shared/lib/debateSettingsStore";
 import type { AgentStatement, DebateReport } from "../types/debate";
 import { getPersistedTtsBlob, setPersistedTtsBlob } from "../utils/ttsCache";
 
@@ -348,6 +349,8 @@ export default function DebateSection({
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [debateStartIndex, setDebateStartIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const isMuted = useDebateSettingsStore((s) => s.isMuted);
+  const toggleMute = useDebateSettingsStore((s) => s.toggleMute);
   const speeches = useMemo(() => getDebateSpeeches(report), [report]);
   const judgmentSummaryItems = useMemo(() => getJudgmentSummaryItems(report), [report]);
   const allTtsItems = useMemo(() => {
@@ -413,11 +416,23 @@ export default function DebateSection({
   }, [isPaused]);
 
   useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.muted = isMuted;
+    }
+    if (bgmAudioRef.current) {
+      bgmAudioRef.current.muted = isMuted;
+    }
+  }, [isMuted]);
+
+  useEffect(() => {
+    const initialMuted = useDebateSettingsStore.getState().isMuted;
     audioRef.current = new Audio();
+    audioRef.current.muted = initialMuted;
     bgmAudioRef.current = new Audio(debateBgmSrc);
     bgmAudioRef.current.loop = true;
     bgmAudioRef.current.preload = "auto";
     bgmAudioRef.current.volume = BGM_BASE_VOLUME;
+    bgmAudioRef.current.muted = initialMuted;
 
     return () => {
       timersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -460,6 +475,7 @@ export default function DebateSection({
     }
 
     bgmAudio.volume = getCurrentBgmVolume();
+    bgmAudio.muted = useDebateSettingsStore.getState().isMuted;
     void bgmAudio.play().catch(() => {
       // Ignore autoplay/playback failures and continue without BGM.
     });
@@ -733,7 +749,7 @@ export default function DebateSection({
 
     setPhase("video");
     video.currentTime = 0;
-    video.muted = false;
+    video.muted = isMuted;
 
     try {
       await video.play();
@@ -972,6 +988,7 @@ export default function DebateSection({
         audioRef.current.src = objectUrl;
         audioRef.current.load();
         audioRef.current.playbackRate = getTtsPlaybackRate(speakerId);
+        audioRef.current.muted = useDebateSettingsStore.getState().isMuted;
 
         await waitForResume(signal);
         await audioRef.current.play();
@@ -1155,6 +1172,7 @@ export default function DebateSection({
         )}
         src={introVideoSrc}
         playsInline
+        muted={isMuted}
         preload="metadata"
         onEnded={() => setPhase("debate")}
         aria-hidden="true"
@@ -1231,6 +1249,24 @@ export default function DebateSection({
               <>
                 <FaPause className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
                 <span className="hidden sm:inline">일시정지</span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-label={isMuted ? "음소거 해제" : "음소거"}
+            className="inline-flex items-center gap-1.5 typo-body-lg rounded-lg border border-[color:rgba(255,255,255,0.14)] bg-[color:rgba(255,255,255,0.12)] px-3 py-2 text-[color:var(--color-white)] backdrop-blur-[8px]"
+          >
+            {isMuted ? (
+              <>
+                <FaVolumeXmark className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+                <span className="hidden sm:inline">음소거 해제</span>
+              </>
+            ) : (
+              <>
+                <FaVolumeHigh className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+                <span className="hidden sm:inline">음소거</span>
               </>
             )}
           </button>
