@@ -362,47 +362,47 @@ uvicorn main:app --host 0.0.0.0 --port 8000
       <br />
       <strong>최규직</strong>
       <br />
-      <!-- 역할 -->
+      🛠 Infra | 🔧 BE
     </td>
     <td align="center">
       <a href=""><img src="" alt="" width="100" height="100" style="object-fit: cover; border-radius: 10px;"></a>
       <br />
       <strong>장호정</strong>
       <br />
-      <!-- 역할 -->
+      💻 FE | 🤖 AI
     </td>
     <td align="center">
       <a href=""><img src="" alt="" width="100" height="100" style="object-fit: cover; border-radius: 10px;"></a>
       <br />
       <strong>정준용</strong>
       <br />
-      <!-- 역할 -->
+      💻 FE
     </td>
     <td align="center">
       <a href=""><img src="" alt="" width="100" height="100" style="object-fit: cover; border-radius: 10px;"></a>
       <br />
       <strong>이혜민</strong>
       <br />
-      <!-- 역할 -->
+      🔧 BE | 🤖 AI
     </td>
     <td align="center">
       <a href=""><img src="" alt="" width="100" height="100" style="object-fit: cover; border-radius: 10px;"></a>
       <br />
       <strong>강지석</strong>
       <br />
-      <!-- 역할 -->
+      🔧 BE
     </td>
     <td align="center">
       <a href=""><img src="" alt="" width="100" height="100" style="object-fit: cover; border-radius: 10px;"></a>
       <br />
       <strong>송민경</strong>
       <br />
-      <!-- 역할 -->
+      💻 FE
     </td>
   </tr>
 </table>
 
-### 회고
+### 작업 내역
 
 최규직
 
@@ -439,7 +439,35 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 강지석
 
 ```
+🔐 인증/보안
 
+- 이메일 회원가입 및 OAuth 소셜 로그인 구현
+- JWT 세션 관리 및 Step-up 인증 구현
+- 디바이스 세션 관리 구현
+- Redis 기반 Rate Limiting 구현
+
+📈 실시간 시세 파이프라인
+
+- TimescaleDB 시세 파이프라인 구축 및 봉 타입 중심 API 리팩터링
+- KOSPI 200 실시간 시세 갱신 스케줄러 구현
+- SSE 기반 실시간 시세 스트리밍 구현
+- 분봉 데이터 DB 기반 저장/조회 스케줄러 구현
+- Redis MGET 일괄 조회 및 쿼리 최적화
+
+⭐ 관심종목
+
+- 관심종목 추가/제거/목록 조회 API 구현
+- 개별 종목 알림 ON/OFF API 구현
+
+🔔 알림 시스템
+
+- 급등락/매매신호/공시 알림 생성 스케줄러 구현
+- SSE 실시간 알림 푸시 구현
+- 유형별 알림 이메일 발송 기능 구현
+
+🗂️ 기타
+
+- MinIO presigned URL 기반 프로필 이미지 업로드 구현
 ```
 
 ---
