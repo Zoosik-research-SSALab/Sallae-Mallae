@@ -36,43 +36,44 @@ KOSPI 200 종목을 대상으로 LightGBM, TFT, GARCH 등 머신러닝 모델의
 
 LightGBM, TFT, GARCH 모델의 앙상블 예측과 LLM 기반 AI 토론(매수/매도 에이전트 + 의장 판정)을 통해 종목별 매매 신호(BUY/SELL/HOLD/STAY)를 생성합니다. 의장 리포트와 토론 로그를 함께 제공하여 신호의 근거를 투명하게 확인할 수 있습니다.
 
-<!-- ![AI 매매 신호](images/ai_signal.gif) -->
+![AI 매매 신호](imgaes/05_signals_full.png)
+![AI 종목 리포트](imgaes/07_1_ai_report_full.png)
 
 ### 종목 상세 분석
 
 종목별 재무 데이터(매출, 영업이익, PER/PBR/ROE), OHLCV 차트(분/일/주/월/년봉), 공시 정보, 뉴스 감성 분석 결과를 통합하여 제공합니다. TimescaleDB 기반의 시계열 데이터로 빠른 차트 로딩을 지원합니다.
 
-<!-- ![종목 상세](images/stock_detail.gif) -->
+![종목 상세](imgaes/06_1_stock_detail_full.png)
 
 ### 뉴스 감성 분석 및 키워드
 
 FinBERT 기반 뉴스 감성 분석과 키워드 클러스터링을 통해 종목별 시장 분위기를 파악할 수 있습니다. pgvector를 활용한 384차원 키워드 임베딩으로 관련 키워드 검색을 지원합니다.
 
-<!-- ![뉴스 분석](images/news_analysis.gif) -->
+![뉴스 분석](imgaes/10_news.png)
 
 ### 관심종목 및 알림
 
 종목을 관심목록에 등록하면 급등(SURGE), 급락(PLUNGE), 매수 신호(SIGNAL_BUY), 매도 신호(SIGNAL_SELL) 발생 시 실시간 SSE 알림을 받을 수 있습니다. 종목별/전체 알림 ON/OFF 설정이 가능합니다.
 
-<!-- ![관심종목](images/watchlist.gif) -->
+![관심종목](imgaes/07_watchlist_full.png)
 
 ### 실시간 시세 스트리밍
 
 한국투자증권 Open API WebSocket을 통해 실시간 주가 및 호가 데이터를 스트리밍합니다. SSE(Server-Sent Events)로 프론트엔드에 실시간 시세를 전달합니다.
 
-<!-- ![실시간 시세](images/realtime_quote.gif) -->
+![실시간 시세](imgaes/06_stocks_full.png)
 
 ### 소셜 로그인 및 인증
 
 Google, Naver, Kakao OAuth 2.0 소셜 로그인과 이메일 회원가입을 지원합니다. JWT 기반 Stateless 인증, 디바이스 세션 관리, 5회 실패 시 계정 잠금 등 보안 기능을 제공합니다.
 
-<!-- ![소셜 로그인](images/social_login.gif) -->
+![소셜 로그인](imgaes/03_login_filled.png)
 
 ### AI 포트폴리오 (의장 포트폴리오)
 
 AI 토론 결과를 기반으로 자동 구성되는 모의 포트폴리오입니다. 초기 자본 1억원 기준으로 매매를 시뮬레이션하며, 일별 수익률, 누적 수익률, MDD 등 성과 지표를 제공합니다.
 
-<!-- ![AI 포트폴리오](images/ai_portfolio.gif) -->
+![AI 포트폴리오](imgaes/08_portfolio_full.png)
 
 ---
 
@@ -220,7 +221,7 @@ services/ai/
 
 ## **🏗️** 아키텍처
 
-<!-- ![아키텍처](images/architecture.png) -->
+![아키텍처](imgaes/아키텍쳐.png)
 
 ```
 [Client Browser]
@@ -249,7 +250,7 @@ services/ai/
 
 ## **📚** ERD
 
-<!-- ![ERD](images/erd.png) -->
+![ERD](imgaes/erd.png)
 
 ### 테이블 관계 요약
 
@@ -397,7 +398,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
       <br />
       <strong>송민경</strong>
       <br />
-      💻 FE
+      💻 FE | 🎨 Design
     </td>
   </tr>
 </table>
@@ -500,11 +501,27 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 송민경
 
 ```
+🎨 디자인 시스템 / UX 설계
+- 서비스 전반의 와이어프레임 설계 및 사용자 흐름(User Flow) 정의
+- 일관된 UI 구축을 위한 디자인 시스템 설계 및 구축
+- 색상(Color), 타이포그래피(Typography), 간격(Spacing) 등 핵심 요소를 디자인 토큰(Design Tokens)으로 추상화하여 재사용성과 확장성 확보
+- 브랜드 아이덴티티 강화를 위한 캐릭터 및 비주얼 요소 정의
+- Figma를 활용한 전체 서비스 화면(UI) 디자인 및 컴포넌트 구조 설계
 
+🧩 프론트엔드 개발
+- 디자인 시스템을 기반으로 한 공용 UI 컴포넌트 개발 (모달, 입력창, 버튼 등)
+- 컴포넌트 단위 설계를 통해 재사용성 및 유지보수성 향상
+- 종목 리포트 페이지 구현 (매매 신호 차트, 주요 공시 차트 등 데이터 시각화 중심 UI 개발)
+- About 페이지 구현 및 정적 콘텐츠 구조 설계
+- 디자인 시스템 기반 컴포넌트 적용으로 UI 일관성 유지 및 개발 효율성 향상
+
+📊 콘텐츠 / 포트폴리오 제작
+- 프로젝트 발표용 PPT 자료 기획 및 제작 (스토리라인 구성 및 시각적 전달력 강화)
+- 서비스 소개 및 기능 시연을 위한 영상 포트폴리오 제작
 ```
 
 ---
 
 ## 기타 정보
 
-<!-- [ <img src="https://img.shields.io/badge/notion-000000?style=for-the-badge&logo=notion&logoColor=white"> ](노션 링크) -->
+[ <img src="https://img.shields.io/badge/notion-000000?style=for-the-badge&logo=notion&logoColor=white"> ](https://www.notion.so/Lab-310791c5879d81a4bac1e2257e1f6b91)
