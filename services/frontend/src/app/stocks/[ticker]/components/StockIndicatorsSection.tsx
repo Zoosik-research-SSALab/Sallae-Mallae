@@ -105,16 +105,7 @@ function IndicatorCard({
   );
 }
 
-function formatAnnualMetric(prefix: string, value: string) {
-  return value === "-" ? "-" : `${prefix} ${value}`;
-}
-
 export default function StockIndicatorsSection({ indicators, isLoading }: Props) {
-  const annualDividendPerShare =
-    indicators ? formatAnnualMetric("연간", formatWon(indicators.dividend.annualDividendPerShare)) : "-";
-  const annualDividendYield = indicators ? formatAnnualMetric("연간", formatPercent(indicators.dividend.dividendYield, 2)) : "-";
-  const paymentCount = indicators ? `${indicators.dividend.paymentCount}회` : "-";
-
   return (
     <section className="border-b border-[color:var(--color-border-primary)] py-10 md:py-12 xl:border-b-0">
       <StockSectionLoadingOverlay active={isLoading}>
@@ -128,7 +119,7 @@ export default function StockIndicatorsSection({ indicators, isLoading }: Props)
           <div className="xl:hidden">
             {isLoading || !indicators ? (
               <div className="grid gap-3">
-                {Array.from({ length: 3 }).map((_, index) => (
+                {Array.from({ length: 2 }).map((_, index) => (
                   <IndicatorCardSkeleton key={index} />
                 ))}
               </div>
@@ -151,31 +142,13 @@ export default function StockIndicatorsSection({ indicators, isLoading }: Props)
                     <CompactMetricBox label="ROE" value={formatPercent(indicators.earnings.roe)} infoKey="ROE" />
                   </div>
                 </article>
-
-                <article className="flex flex-col gap-3 rounded-lg bg-[color:var(--color-bg-secondary)] px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-extrabold leading-5 text-[color:var(--color-text-primary)]">배당</h3>
-                    <span className="text-xs font-semibold leading-4 text-[color:var(--color-text-tertiary)]">
-                      {indicators.dividend.periodLabel}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <CompactMetricBox
-                      label="횟수"
-                      value={paymentCount}
-                      subValue={indicators.dividend.paymentMonths || undefined}
-                    />
-                    <CompactMetricBox label="주당 배당금" value={annualDividendPerShare} />
-                    <CompactMetricBox label="수익률" value={annualDividendYield} infoKey="DIVIDEND_YIELD" />
-                  </div>
-                </article>
               </div>
             )}
           </div>
 
-          <div className="hidden gap-3 xl:grid xl:grid-cols-3">
+          <div className="hidden gap-3 xl:grid xl:grid-cols-2">
             {isLoading || !indicators ? (
-              Array.from({ length: 3 }).map((_, index) => <IndicatorCardSkeleton key={index} />)
+              Array.from({ length: 2 }).map((_, index) => <IndicatorCardSkeleton key={index} />)
             ) : (
               <>
                 <IndicatorCard title="가치평가">
@@ -188,21 +161,6 @@ export default function StockIndicatorsSection({ indicators, isLoading }: Props)
                   <IndicatorRow label="EPS" value={formatWon(indicators.earnings.eps)} infoKey="EPS" />
                   <IndicatorRow label="BPS" value={formatWon(indicators.earnings.bps)} infoKey="BPS" />
                   <IndicatorRow label="ROE" value={formatPercent(indicators.earnings.roe)} infoKey="ROE" hasBorder={false} />
-                </IndicatorCard>
-
-                <IndicatorCard title="배당" rightLabel={indicators.dividend.periodLabel}>
-                  <IndicatorRow
-                    label="횟수"
-                    value={paymentCount}
-                    subValue={indicators.dividend.paymentMonths || undefined}
-                  />
-                  <IndicatorRow label="주당 배당금" value={annualDividendPerShare} />
-                  <IndicatorRow
-                    label="수익률"
-                    value={annualDividendYield}
-                    infoKey="DIVIDEND_YIELD"
-                    hasBorder={false}
-                  />
                 </IndicatorCard>
               </>
             )}

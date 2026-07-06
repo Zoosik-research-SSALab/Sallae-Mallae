@@ -72,21 +72,13 @@ export default function HoldingsSortDropdown({ value, options, onChange }: Props
                         setOpen(false);
                       }}
                       className={cn(
-                        "flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors",
+                        "flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors",
                         selected
                           ? "bg-[color:var(--color-bg-secondary)] text-[color:var(--color-text-primary)]"
                           : "text-[color:var(--color-text-secondary)] hover:bg-[color:var(--color-bg-secondary)] hover:text-[color:var(--color-text-primary)]",
                       )}
                     >
                       <span className="truncate">{option.label}</span>
-                      <span
-                        className={cn(
-                          "text-[color:var(--color-text-primary)] transition-opacity",
-                          selected ? "opacity-100" : "opacity-0",
-                        )}
-                      >
-                        ??
-                      </span>
                     </button>
                   );
                 })}

@@ -1,23 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import StocksDesktopTable from "./components/StocksDesktopTable";
 import StocksMobileList from "./components/StocksMobileList";
 import StocksSidebar from "./components/StocksSidebar";
-import { useStocksInfiniteQuery } from "./hooks/useStocksInfiniteQuery";
+import { getStocksInfiniteQueryOptions, useStocksInfiniteQuery } from "./hooks/useStocksInfiniteQuery";
 import type { StockRankingMetric } from "./types/stocks";
 import { ALL_SECTOR, getApiSortForRankingMetric } from "./utils/stocksFilters";
+import { useAuthStore } from "@/shared/lib/authStore";
 import Badge from "@/shared/ui/Badge";
 
 export default function StocksPageClient() {
   const [selectedSectors, setSelectedSectors] = useState<string[]>([ALL_SECTOR]);
   const [activeMetric, setActiveMetric] = useState<StockRankingMetric>("TURNOVER");
+  const authStatus = useAuthStore((state) => state.status);
+  const authUserId = useAuthStore((state) => state.user?.userId ?? null);
+  const queryClient = useQueryClient();
+  const prefetchedScopeKeysRef = useRef<Set<string>>(new Set());
 
   const { items, isLoading, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, pageSize, errorMessage } =
     useStocksInfiniteQuery({
       sectors: selectedSectors,
       sort: getApiSortForRankingMetric(activeMetric),
     });
+
+  const prefetchIdentityKey = useMemo(
+    () => (authStatus === "authenticated" && authUserId !== null ? `user:${authUserId}` : authStatus),
+    [authStatus, authUserId],
+  );
+  const prefetchScopeKey = useMemo(
+    () => `${prefetchIdentityKey}:${[...selectedSectors].sort().join(",")}`,
+    [prefetchIdentityKey, selectedSectors],
+  );
+
+  useEffect(() => {
+    prefetchedScopeKeysRef.current.clear();
+  }, [prefetchIdentityKey]);
+
+  useEffect(() => {
+    if (authStatus === "restoring" || isLoading || items.length === 0) {
+      return;
+    }
+
+    if (prefetchedScopeKeysRef.current.has(prefetchScopeKey)) {
+      return;
+    }
+
+    prefetchedScopeKeysRef.current.add(prefetchScopeKey);
+
+    const prefetchMetrics = (["TURNOVER", "VOLUME", "RETURN"] as StockRankingMetric[]).filter(
+      (metric) => metric !== activeMetric,
+    );
+
+    void Promise.all(
+      prefetchMetrics.map((metric) => {
+        const sort = getApiSortForRankingMetric(metric);
+
+        return queryClient.prefetchInfiniteQuery(
+          getStocksInfiniteQueryOptions(
+            {
+              sectors: selectedSectors,
+              sort,
+            },
+            authStatus,
+          ),
+        );
+      }),
+    );
+  }, [activeMetric, authStatus, isLoading, items.length, prefetchScopeKey, queryClient, selectedSectors]);
 
   const handleToggleSector = (value: string) => {
     setSelectedSectors((current) => {
