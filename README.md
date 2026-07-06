@@ -420,6 +420,52 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 최규직
 
 ```
+🧱 인프라 / 배포 환경
+
+* 로컬 Docker/Compose 실행 표준 구성 및 PostgreSQL `app_dev`/`app_prod` 환경 분리
+* Backend, Frontend, AI 서비스별 보일러플레이트 및 실행 구조 정렬
+* EC2 기반 브랜치별 자동 배포 파이프라인 구축 및 운영 가이드 작성
+* GitLab Variables 기반 dev/prod 환경 변수 분리와 공통 CI/CD 템플릿 구성
+* Gateway Nginx 단일 도메인 라우팅 구성 (`/`, `/api/`, `/ai/`, `/assets`)
+* HTTPS/certbot 자동화, Swagger 프록시 헤더, SSE 라우팅/버퍼링 문제 해결
+* 배포 전 서버 자원 점검 및 Mattermost 배포 알림 흐름 추가
+
+🗄️ 데이터베이스 / 운영 기반
+
+* Flyway baseline migration 도입 및 구형 init schema 정리
+* pgvector, pg_trgm, TimescaleDB 확장 초기화 책임 분리
+* TimescaleDB 기반 PostgreSQL 이미지 구성 및 preload 설정 보정
+* DB timezone migration 및 KST 기준 Docker Compose 시간대 설정 적용
+* Grafana, Prometheus, cAdvisor 기반 모니터링 스택 및 대시보드 구성
+* MinIO 기반 assets/profile upload 경로와 Gateway 업로드 라우팅 정리
+
+🔎 검색 / 리포트 백엔드
+
+* 통합 Search API 5종 구현
+* 검색 조건, LIKE 와일드카드 escape, 뉴스 fallback, 뉴스 키워드 매핑, `published_at` 날짜 변환 로직 보완
+* Search API 인증 정책 및 응답 구조 정리
+* Report API 통합 조회, 히스토리, 페이지네이션, 빈 목록 응답, Swagger 문서화 구현
+* AI 매매신호 리스트 API, 포트폴리오 메인 API, 종목 overview/detail API 구현
+* 시그널 API 카테고리, 시가총액, 키워드 필터 및 응답 검증 보정
+
+🤖 AI 토론 / 의장 포트폴리오 연동
+
+* AI 서버 보일러플레이트 및 Dockerfile 구성
+* 토론 배치 대상 조회 API, 토론 입력 패킷 조회 API, 내부 인증 처리 구현
+* 로컬 LangGraph 기반 일배치 토론 워커 구현 및 토론 결과 저장 검증 테스트 추가
+* debate worker와 Backend/AI 간 API 계약 정렬
+* 의장 포트폴리오 회계 컬럼, 매매 이력, 수익률, 보유일수, 월별 수익률 계산 로직 보정
+* 의장 포트폴리오 백필/일일 배치 분리, 체크포인트 및 복구 로직 추가
+* daily debate-portfolio pipeline orchestrator 구현
+* 뉴스/ML 완료 신호를 함께 확인하도록 일일 파이프라인 동기화 조건 보완
+
+🛠️ 통합 / 안정화 / 문서화
+
+* `dev-backend`, `dev-frontend`, `dev-ai`, `infra-common` 브랜치 간 공통 인프라 구조 정리
+* 서비스별 중복 infra 제거 및 공통 `infra-common` 기준으로 배포 구조 통합
+* Backend/AI/Frontend 간 환경 변수, DB 계약, API 경로 차이 정리
+* master 통합 브랜치 검증 및 최종 README 정식 문서화
+* 로컬 실행, 검증, 트러블슈팅 문서 작성
 
 ```
 
